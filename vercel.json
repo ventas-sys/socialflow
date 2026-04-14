@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/api/generate", "destination": "/api/generate" },
+    { "source": "/api/image", "destination": "/api/image" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
