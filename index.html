@@ -42,7 +42,7 @@ textarea{resize:vertical;min-height:60px;}
 .plat-name{font-size:12px;font-weight:600;}.plat-mode{font-size:9px;color:#555;}
 .btn-main{width:100%;background:linear-gradient(135deg,#ff8c00,#e55300);border:none;border-radius:10px;padding:14px;color:white;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;transition:all 0.15s;}
 .btn-main:hover{opacity:0.88;}.btn-main:disabled{background:rgba(100,100,100,0.2);color:#555;cursor:not-allowed;}
-.results{margin-top:20px;}
+.results{margin-top:20px;width:100%;clear:both;}
 .plat-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px;margin-bottom:12px;border-left:4px solid #555;animation:fadeIn 0.35s ease;}
 .card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;flex-wrap:wrap;gap:8px;}
 .card-title{font-size:14px;font-weight:700;}.card-chars{font-size:10px;color:#555;margin-left:5px;}
@@ -133,7 +133,7 @@ textarea{resize:vertical;min-height:60px;}
 
   <button class="btn-main" id="gen-btn" onclick="generate()" disabled>✨ Generar copies</button>
   <div class="prog-wrap" id="prog-wrap"><div class="prog-fill" id="prog-fill"></div></div>
-  <div class="results" id="results">
+  <div class="results" id="results" style="display:block;min-height:10px;">
     <div class="empty"><div style="font-size:34px;margin-bottom:10px">✨</div><div style="font-size:14px;color:#666">Completá el producto y generá</div></div>
   </div>
 </div>
@@ -228,7 +228,8 @@ async function generate(){
     sel.forEach((id,i)=>{copies[id]=results[i];});
     setProgress(100);
 
-    res.innerHTML=sel.filter(id=>copies[id]&&copies[id].length>5).map(id=>`
+    console.log('copies result:', JSON.stringify(copies));
+    res.innerHTML=sel.filter(id=>copies[id]&&copies[id].length>0).map(id=>`
       <div class="plat-card" style="border-left-color:${PC[id]}">
         <div class="card-top">
           <div><span class="card-title" style="color:${PC[id]}">${PN[id]}</span><span class="card-chars">${copies[id].length} chars</span></div>
@@ -242,7 +243,7 @@ async function generate(){
         <div class="img-result" id="img-result-${id}"></div>
       </div>`).join('');
 
-    setTimeout(()=>{document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});},300);
+    setTimeout(()=>{res.scrollIntoView({behavior:'smooth',block:'start'});},100);
     notify('✅ Copies listos. Clic en 🎨 para generar imagen con DALL·E 3.');
   }catch(e){
     res.innerHTML='<div style="background:rgba(255,80,80,0.08);border:1px solid rgba(255,80,80,0.25);border-radius:12px;padding:20px;color:#ff8080;font-size:13px;text-align:center">❌ '+e.message+'</div>';
