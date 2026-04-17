@@ -1,86 +1,75 @@
 import https from 'https';
 
 export default async function handler(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    if (req.method === 'OPTIONS') return res.status(200).end();
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      if (req.method === 'OPTIONS') return res.status(200).end();
+      if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { platform, productName, price, badge, photoDesc } = req.body;
-    const GK = (process.env.GEMINI_API_KEY || '').trim();
+      const GK = (process.env.GEMINI_API_KEY || '').trim();
+      if (!GK) return res.status(500).json({ error: 'API key no configurada' });
 
-  if (!GK) return res.status(500).json({ error: 'API key no configurada' });
+  const isSquare = (platform === 'ig' || platform === 'wa');
+      const photoCtx = photoDesc ? 'The product looks like this: ' + photoDesc + '.' : '';
+      const badgeTxt = (badge && badge !== 'NINGUNO') ? 'Include a bold "' + badge + '" promotional badge in a corner.' : '';
+      const priceTxt = price ? 'Display the price "$' + price + '" prominently.' : '';
 
-  const styleMap = {
-        ig: 'square Instagram post format (1:1), vibrant lifestyle aesthetic, eye-catching colors',
-        fb: 'wide Facebook ad banner format (16:9), horizontal layout, clean professional look',
-        li: 'professional LinkedIn product photo (16:9), corporate style, neutral background',
-        tw: 'wide Twitter/X card format (16:9), bold and modern design',
-        wa: 'square WhatsApp sharing format (1:1), clean background, product focused'
-  };
+  const prompt = 'RESOLUCION 8K ULTRA HD EXTREMA ATENCION A LOS DETALLES FINOS Y LAS TEXTURAS REALISTAS COLORES VIBRANTES Y PRECISOS ILUMINACION CINEMATOGRAFICA HIPERREALISMO FOTOGRAFICO EFECTOS DE LENS FLARE Y BOKEH. Ultra-realistic premium product advertisement photograph. ' + photoCtx + ' Product: ' + productName + '. ' + badgeTxt + ' ' + priceTxt + ' Professional commercial photograph ready for social media advertising.';
 
-  const photoContext = photoDesc ? `The product looks like this: ${photoDesc}.` : '';
-    const badgeText = badge && badge !== 'NINGUNO'
-      ? `Include a bold "${badge}" promotional badge/ribbon in a corner of the image, with large visible text.`
-          : '';
-    const priceText = price ? `Display the price "$${price}" prominently in the image.` : '';
-
-  const prompt = `RESOLUCION 8K ULTRA HD, 1200 X 1200 PIXELES EXTREMA ATENCION A LOS DETALLES FINOS Y LAS TEXTURAS REALISTAS COLORES VIBRANTES Y PRECISOS ILUMINACION CINEMATOGRAFICA HIPERREALISMO FOTOGRAFICO EFECTOS VISUALES DE ALTA CALIDAD POSTPROCESAMIENTO PROFESIONAL EFECTOS DE LENS FLARE Y BOKEH. Ultra-realistic premium product advertisement photograph. ${photoContext} Product: ${productName}. Format: ${styleMap[platform]}. ${badgeText} ${priceText} The image must look like a professional commercial photograph ready for social media advertising.`;
-
-  const requestBody = JSON.stringify({
-        instances: [{ prompt }],
-        parameters: {
-                sampleCount: 1,
-                aspectRatio: (platform === 'ig' || platform === 'wa') ? '1:1' : '16:9',
-                safetyFilterLevel: 'block_some',
-                personGeneration: 'allow_adult'
-        }
+  const body = JSON.stringify({
+          instances: [{ prompt: prompt }],
+          parameters: {
+                    sampleCount: 1,
+                    aspectRatio: isSquare ? '1:1' : '16:9',
+                    safetyFilterLevel: 'block_some',
+                    personGeneration: 'allow_adult'
+          }
   });
 
-  return new Promise((resolve) => {
-        const options = {
-                hostname: 'generativelanguage.googleapis.com',
-                path: `/v1beta/models/imagen-3.0-generate-002:predict?key=${GK}`,
-                method: 'POST',
-                headers: {
-                          'Content-Type': 'application/json',
-                          'Content-Length': Buffer.byteLength(requestBody)
-                }
-        };
+  return new Promise(function(resolve) {
+          const opts = {
+                    hostname: 'generativelanguage.googleapis.com',
+                    path: '/v1beta/models/imagen-3.0-generate-002:predict?key=' + GK,
+                    method: 'POST',
+                    headers: {
+                                'Content-Type': 'application/json',
+                                'Content-Length': Buffer.byteLength(body)
+                    }
+          };
 
-                         const request = https.request(options, (response) => {
-                                 let data = '';
-                                 response.on('data', (chunk) => { data += chunk; });
-                                 response.on('end', () => {
-                                           try {
-                                                       const parsed = JSON.parse(data);
-                                                       if (parsed.error) {
-                                                                     res.status(500).json({ error: parsed.error.message || 'Imagen API error' });
-                                                                     return resolve();
-                                                       }
-                                                       const b64 = parsed?.predictions?.[0]?.bytesBase64Encoded || '';
-                                                       if (!b64) {
-                                                                     res.status(500).json({ error: 'No image returned: ' + data.substring(0, 200) });
-                                                                     return resolve();
-                                                       }
-                                                       const url = `data:image/png;base64,${b64}`;
-                                                       res.status(200).json({ url });
-                                                       resolve();
-                                           } catch (e) {
-                                                       res.status(500).json({ error: 'Parse error: ' + e.message });
-                                                       resolve();
-                                           }
-                                 });
+                         const req2 = https.request(opts, function(r) {
+                                   let data = '';
+                                   r.on('data', function(c) { data += c; });
+                                   r.on('end', function() {
+                                               try {
+                                                             const parsed = JSON.parse(data);
+                                                             if (parsed.error) {
+                                                                             res.status(500).json({ error: parsed.error.message || 'Imagen API error' });
+                                                                             return resolve();
+                                                             }
+                                                             const b64 = (parsed.predictions && parsed.predictions[0] && parsed.predictions[0].bytesBase64Encoded) || '';
+                                                             if (!b64) {
+                                                                             res.status(500).json({ error: 'No image: ' + data.substring(0, 200) });
+                                                                             return resolve();
+                                                             }
+                                                             res.status(200).json({ url: 'data:image/png;base64,' + b64 });
+                                                             resolve();
+                                               } catch(e) {
+                                                             res.status(500).json({ error: 'Parse error: ' + e.message });
+                                                             resolve();
+                                               }
+                                   });
                          });
 
-                         request.on('error', (e) => {
-                                 res.status(500).json({ error: 'Request error: ' + e.message });
-                                 resolve();
+                         req2.on('error', function(e) {
+                                   res.status(500).json({ error: 'Request error: ' + e.message });
+                                   resolve();
                          });
 
-                         request.write(requestBody);
-        request.end();
+                         req2.write(body);
+          req2.end();
   });
 }
 }
