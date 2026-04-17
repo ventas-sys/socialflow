@@ -10,7 +10,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .header{background:rgba(255,255,255,0.03);border-bottom:1px solid rgba(255,140,0,0.15);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
 .logo{display:flex;align-items:center;gap:10px;}
 .logo-icon{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#ff8c00,#e55300);display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:11px;flex-shrink:0;}
-.logo-title{font-size:15px;font-weight:700;color:#ff8c00;}
+.logo-title{font-size:15px;font-weight:700;color:#ff8c00;}h
 .logo-sub{font-size:9px;color:#555;letter-spacing:2px;text-transform:uppercase;}
 .ia-badge{font-size:11px;color:#00c864;background:rgba(0,200,100,0.1);border:1px solid rgba(0,200,100,0.2);padding:4px 10px;border-radius:20px;white-space:nowrap;}
 .main{max-width:700px;margin:0 auto;padding:20px 16px 60px;}
@@ -125,7 +125,7 @@ textarea{resize:vertical;min-height:60px;}
     <div class="plat-grid">
       <label class="plat-row"><input type="checkbox" id="chk-ig" checked style="width:auto;accent-color:#E1306C"><div class="plat-dot" style="background:#E1306C"></div><div><div class="plat-name">Instagram</div><div class="plat-mode">📝 + 🎨 Imagen IA</div></div></label>
       <label class="plat-row"><input type="checkbox" id="chk-fb" checked style="width:auto;accent-color:#1877F2"><div class="plat-dot" style="background:#1877F2"></div><div><div class="plat-name">Facebook</div><div class="plat-mode">📝 + 🎨 Imagen IA</div></div></label>
-      <label class="plat-row"><input type="checkbox" id="chk-wa" checked style="width:auto;accent-color:#25D366"><div class="plat-dot" style="background:#25D366"></div><div><div class="plat-name">WhatsApp</div><div class="plat-mode">📝 Abre con texto</div></div></label>
+                  <label class="plat-row"><input type="checkbox" id="chk-wa" checked style="width:auto;accent-color:#25D366"><div class="plat-dot" style="background:#25D366"></div>div><div><div class="plat-name">WhatsApp</div><div class="plat-mode">📝 + 🎨 Imagen IA</div></div></label>
       <label class="plat-row"><input type="checkbox" id="chk-li" checked style="width:auto;accent-color:#0A66C2"><div class="plat-dot" style="background:#0A66C2"></div><div><div class="plat-name">LinkedIn</div><div class="plat-mode">📝 + 🎨 Imagen IA</div></div></label>
       <label class="plat-row"><input type="checkbox" id="chk-tw" checked style="width:auto;accent-color:#888"><div class="plat-dot" style="background:#888"></div><div><div class="plat-name">X / Twitter</div><div class="plat-mode">📝 + 🎨 Imagen IA</div></div></label>
     </div>
@@ -235,7 +235,7 @@ async function generate(){
           <div><span class="card-title" style="color:${PC[id]}">${PN[id]}</span><span class="card-chars">${copies[id].length} chars</span></div>
           <div class="card-btns">
             <button class="btn-sm" id="cp-${id}" onclick="cpTxt('${id}')">📋 Copiar</button>
-            ${id!=='wa'?`<button class="btn-img" id="img-btn-${id}" onclick="genImg('${id}')">🎨 Imagen IA</button>`:''}
+                        `<button class="btn-img" id="img-btn-${id}" onclick="genImg('${id}')">🎨 Imagen IA</button>`
             <button class="btn-pub" style="background:${PC[id]}" onclick="pub('${id}')">🔗 Abrir ${PN[id]}</button>
           </div>
         </div>
