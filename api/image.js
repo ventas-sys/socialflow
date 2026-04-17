@@ -72,4 +72,3 @@ export default async function handler(req, res) {
           req2.end();
   });
 }
-}
