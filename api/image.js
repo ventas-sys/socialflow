@@ -31,9 +31,9 @@ export default async function handler(req, res) {
   return new Promise(function(resolve) {
           const opts = {
                     hostname: 'generativelanguage.googleapis.com',
-                    path: '/v1beta/models/imagen-3.0-generate-002:predict?key=' + GK,
+                    path: '/v1beta/models/imagen-4.0-fast-generate-001:predict?key=' + GK,
                     method: 'POST',
-                    headers: {
+                    headers: {h
                                 'Content-Type': 'application/json',
                                 'Content-Length': Buffer.byteLength(body)
                     }
