@@ -33,7 +33,7 @@ export default async function handler(req, res) {
                     hostname: 'generativelanguage.googleapis.com',
                     path: '/v1beta/models/imagen-4.0-fast-generate-001:predict?key=' + GK,
                     method: 'POST',
-                    headers: {h
+                    headers: {
                                 'Content-Type': 'application/json',
                                 'Content-Length': Buffer.byteLength(body)
                     }
