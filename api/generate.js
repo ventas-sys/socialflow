@@ -20,7 +20,7 @@ export default async function handler(req, res) {
   };
 
   const platNames = { ig: 'Instagram', fb: 'Facebook', wa: 'WhatsApp', li: 'LinkedIn', tw: 'X/Twitter' };
-        const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GK}`;
+        const GEMINI_URL = `https://generativelanguage.googleapis.comh/v1beta/models/gemini-2.5-flash:generateContent?key=${GK}`;
 
   try {
             let photoDesc = '';
@@ -50,7 +50,7 @@ export default async function handler(req, res) {
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
                                     contents: [{ parts: [{ text: prompt }] }],
-                                    generationConfig: { temperature: 0.85, maxOutputTokens: 400 }
+                                    generationConfig: { temperature: 0.85, maxOutputTokens: 2000 }
                       })
           });
 
