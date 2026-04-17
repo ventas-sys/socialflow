@@ -1,7 +1,7 @@
 {
-  "name": "socialflow",
-  "version": "1.0.0",
-  "description": "SocialFlow - Publicador de Redes con IA",
-    "type": "module"
-  "engines": { "node": "24.x" }
+    "name": "socialflow",
+    "version": "1.0.0",
+    "description": "SocialFlow - Publicador de Redes con IA",
+    "type": "module",
+    "engines": { "node": "24.x" }
 }
