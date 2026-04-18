@@ -235,7 +235,7 @@ async function generate(){
           <div><span class="card-title" style="color:${PC[id]}">${PN[id]}</span><span class="card-chars">${copies[id].length} chars</span></div>
           <div class="card-btns">
             <button class="btn-sm" id="cp-${id}" onclick="cpTxt('${id}')">📋 Copiar</button>
-                        `<button class="btn-img" id="img-btn-${id}" onclick="genImg('${id}')">🎨 Imagen IA</button>`
+                        <button class="btn-img" id="img-btn-${id}" onclick="genImg('${id}')">🎨 Imagen IA</button>
             <button class="btn-pub" style="background:${PC[id]}" onclick="pub('${id}')">🔗 Abrir ${PN[id]}</button>
           </div>
         </div>
