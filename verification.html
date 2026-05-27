@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agente Verificación · Uniproveedores</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a16;color:#e0d8cc;min-height:100vh;}
+.header{background:rgba(255,255,255,0.03);border-bottom:1px solid rgba(167,139,250,0.2);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.back{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;}
+.back-ic{width:32px;height:32px;border-radius:8px;background:rgba(167,139,250,0.15);display:flex;align-items:center;justify-content:center;color:#a78bfa;font-size:18px;}
+.b-title{font-size:15px;font-weight:700;color:#a78bfa;}
+.b-sub{font-size:9px;color:#666;letter-spacing:2px;text-transform:uppercase;}
+.ia-badge{font-size:11px;color:#a78bfa;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);padding:4px 10px;border-radius:20px;}
+.main{max-width:820px;margin:0 auto;padding:20px 16px 60px;}
+.tip{background:rgba(167,139,250,0.06);border:1px solid rgba(167,139,250,0.15);border-radius:10px;padding:11px 16px;font-size:12px;color:#c4b5fd;margin-bottom:16px;}
+
+.progress-box{background:rgba(255,255,255,0.04);border:1px solid rgba(167,139,250,0.2);border-radius:12px;padding:16px;margin-bottom:14px;}
+.progress-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.progress-lbl{font-size:11px;color:#a78bfa;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;}
+.progress-pct{font-size:22px;font-weight:800;color:#a78bfa;}
+.progress-bar{height:8px;background:rgba(255,255,255,0.06);border-radius:8px;overflow:hidden;}
+.progress-fill{height:100%;background:linear-gradient(90deg,#a78bfa,#7c3aed);border-radius:8px;transition:width 0.4s;}
+
+.plat-card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px;margin-bottom:10px;border-left:4px solid var(--brand,#888);}
+.plat-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap;}
+.plat-info{display:flex;align-items:center;gap:10px;}
+.plat-icon{width:36px;height:36px;border-radius:8px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.plat-name{font-size:14px;font-weight:700;color:#fff;}
+.plat-type{font-size:10px;color:#888;}
+.status-pick{display:flex;gap:4px;flex-wrap:wrap;}
+.st-btn{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:7px;padding:4px 9px;cursor:pointer;font-size:10px;color:#888;font-family:inherit;}
+.st-btn.on.pending{background:rgba(150,150,150,0.15);border-color:rgba(150,150,150,0.4);color:#aaa;}
+.st-btn.on.process{background:rgba(255,140,0,0.12);border-color:rgba(255,140,0,0.4);color:#ff8c00;}
+.st-btn.on.verif{background:rgba(0,200,100,0.12);border-color:rgba(0,200,100,0.4);color:#00c864;}
+.req{font-size:11px;color:#999;margin:8px 0;line-height:1.5;}
+.req b{color:#ccc;}
+.plat-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.link-btn{background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.25);border-radius:7px;padding:5px 10px;font-size:11px;color:#c4b5fd;text-decoration:none;display:inline-flex;align-items:center;gap:4px;}
+.link-btn:hover{background:rgba(167,139,250,0.18);}
+.ai-btn{background:linear-gradient(135deg,#a78bfa,#7c3aed);border:none;border-radius:7px;padding:5px 10px;font-size:11px;color:#fff;cursor:pointer;font-family:inherit;font-weight:600;}
+.ai-btn:hover{opacity:0.9;}.ai-btn:disabled{opacity:0.4;cursor:not-allowed;}
+
+.plan-box{background:rgba(0,0,0,0.25);border:1px solid rgba(167,139,250,0.2);border-radius:8px;padding:11px;margin-top:8px;font-size:12px;line-height:1.55;color:#d0c8b8;white-space:pre-wrap;display:none;}
+.plan-box.show{display:block;animation:fadeIn 0.3s;}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+
+#notif{position:fixed;top:16px;right:16px;z-index:9999;background:rgba(10,10,22,0.97);border:1px solid rgba(167,139,250,0.45);border-radius:10px;padding:11px 16px;font-size:13px;color:#a78bfa;display:none;}
+.spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,0.15);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:5px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+<div id="notif"></div>
+<div class="header">
+  <a class="back" href="/"><div class="back-ic">←</div><div><div class="b-title">Agente Verificación</div><div class="b-sub">UNIPROVEEDORES · AGENCIA</div></div></a>
+  <div class="ia-badge">✅ Plan IA Gemini</div>
+</div>
+
+<div class="main">
+  <div class="tip">✅ Tu equipo de verificación. Marcá el estado de cada plataforma y pedile a la IA un plan personalizado para conseguir el tilde azul y subir tu reputación.</div>
+
+  <div class="progress-box">
+    <div class="progress-top">
+      <div>
+        <div class="progress-lbl">Progreso global</div>
+        <div style="font-size:11px;color:#888;margin-top:2px;" id="prog-text">—</div>
+      </div>
+      <div class="progress-pct" id="prog-pct">0%</div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+  </div>
+
+  <div id="plats"></div>
+</div>
+
+<script>
+const PLATS = [
+  {id:'ig',name:'Instagram',type:'Red social · Verificación Meta',icon:'📸',color:'#E1306C',
+    req:'<b>Meta Verified</b> ($14,99/mes en Arg). Requisitos: cuenta pública, +1 año, biografía completa, foto perfil clara, +30 publicaciones recientes, vinculación con Facebook, doc oficial AR (DNI/CUIT).',
+    link:'https://about.meta.com/es/technologies/meta-verified/'},
+  {id:'fb',name:'Facebook',type:'Red social · Verificación Meta',icon:'📘',color:'#1877F2',
+    req:'<b>Meta Verified</b> mismo paquete que IG. Si es <b>página de empresa</b>: agregar info legal (CUIT, dirección, teléfono), pixel activo, sección "acerca de" completa.',
+    link:'https://about.meta.com/es/technologies/meta-verified/'},
+  {id:'wa',name:'WhatsApp Business',type:'Mensajería · Cuenta verde verificada',icon:'💬',color:'#25D366',
+    req:'<b>WhatsApp Business Platform (API)</b> a través de un BSP (360dialog, Twilio, Cloud API directo). Requiere FB Business Manager verificado y plantillas aprobadas. Tilde verde para empresa oficial.',
+    link:'https://business.whatsapp.com/products/business-platform'},
+  {id:'li',name:'LinkedIn',type:'Profesional · Página empresa verificada',icon:'💼',color:'#0A66C2',
+    req:'Página de empresa creada + verificación gratuita por <b>CUIT</b> con Microsoft Entra. Perfil personal: completá al 100%, foto, ubicación AR, sección "Acerca de", +500 contactos.',
+    link:'https://www.linkedin.com/help/linkedin/answer/a1359065'},
+  {id:'tw',name:'X / Twitter',type:'Microblog · X Premium Verified',icon:'🐦',color:'#888',
+    req:'<b>X Premium Basic/Premium</b> ($6,99-$16/mes). Cuenta +90 días, perfil completo (nombre, foto, bio), número de teléfono verificado, sin cambios recientes.',
+    link:'https://help.x.com/es/managing-your-account/about-twitter-verified-accounts'},
+  {id:'tk',name:'TikTok',type:'Video · Cuenta verificada / Business',icon:'🎵',color:'#ff0050',
+    req:'Verificación es por <b>invitación / mérito</b>: cuenta auténtica, notable, activa. Acelerás con: TikTok Business (gratis), +500 seguidores nuevos en 30 días, contenido propio constante, prensa.',
+    link:'https://www.tiktok.com/business/es'},
+  {id:'ml',name:'Mercado Libre',type:'E-commerce · MercadoLíder',icon:'🛒',color:'#fff159',
+    req:'Reputación <b>verde / MercadoLíder</b>: >150 ventas en 60 días, <2% reclamos, despacho a tiempo >95%, sin cancelaciones. Tienda Oficial: requiere CUIT y aprobación ML.',
+    link:'https://www.mercadolibre.com.ar/ayuda/Reputaci%C3%B3n_823'},
+  {id:'tn',name:'Tienda Nube',type:'E-commerce · Plan Evolución',icon:'🏪',color:'#00b3e6',
+    req:'Sello <b>"Tienda Verificada"</b>: dominio propio, certificado SSL activo, pasarela de pago aprobada (Mercado Pago/MODO), políticas claras (envío, cambios, privacidad), +1 venta real.',
+    link:'https://www.tiendanube.com/login'},
+  {id:'gb',name:'Google Business Profile',type:'Buscador · Ficha local verificada',icon:'🗺️',color:'#4285F4',
+    req:'Verificación por <b>postal/teléfono/video</b>. Ficha completa con: nombre legal, categoría, horarios, dirección, sitio web, +5 fotos reales, primera reseña.',
+    link:'https://www.google.com/business/'}
+];
+
+let nT;
+function notify(m){const e=document.getElementById('notif');e.textContent=m;e.style.display='block';clearTimeout(nT);nT=setTimeout(()=>e.style.display='none',4000);}
+
+function loadState(){
+  try { return JSON.parse(localStorage.getItem('up_state')||'{}'); }
+  catch(e){ return {}; }
+}
+function saveState(s){ localStorage.setItem('up_state', JSON.stringify(s)); }
+
+function setStatus(id, st){
+  const s = loadState();
+  s.channels = s.channels || {};
+  s.channels[id] = st;
+  s.activity = s.activity || [];
+  const plat = PLATS.find(p=>p.id===id);
+  const stTxt = st==='verif'?'verificada':st==='process'?'en proceso':st==='active'?'activa':'pendiente';
+  s.activity.unshift({icon:'✅',agent:'VERIF',text:plat.name+' marcado como '+stTxt,time:new Date().toLocaleString('es-AR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})});
+  s.activity = s.activity.slice(0,20);
+  saveState(s);
+  render();
+  notify(plat.name+' → '+stTxt);
+}
+
+function render(){
+  const s = loadState();
+  const box = document.getElementById('plats');
+  box.innerHTML = PLATS.map(p=>{
+    const st = s.channels?.[p.id] || 'pending';
+    return `
+      <div class="plat-card" style="--brand:${p.color}">
+        <div class="plat-top">
+          <div class="plat-info">
+            <div class="plat-icon" style="color:${p.color}">${p.icon}</div>
+            <div><div class="plat-name">${p.name}</div><div class="plat-type">${p.type}</div></div>
+          </div>
+          <div class="status-pick">
+            <button class="st-btn pending ${st==='pending'?'on':''}" onclick="setStatus('${p.id}','pending')">⚪ Pendiente</button>
+            <button class="st-btn process ${st==='process'?'on':''}" onclick="setStatus('${p.id}','process')">🟡 En proceso</button>
+            <button class="st-btn verif ${st==='verif'?'on':''}" onclick="setStatus('${p.id}','verif')">✅ Verificado</button>
+          </div>
+        </div>
+        <div class="req">${p.req}</div>
+        <div class="plat-actions">
+          <a class="link-btn" href="${p.link}" target="_blank">↗ Ir al formulario oficial</a>
+          <button class="ai-btn" onclick="askPlan('${p.id}', this)">🧠 Pedir plan IA</button>
+        </div>
+        <div class="plan-box" id="plan-${p.id}"></div>
+      </div>`;
+  }).join('');
+
+  const total = PLATS.length;
+  const verif = PLATS.filter(p=>s.channels?.[p.id]==='verif').length;
+  const proc = PLATS.filter(p=>s.channels?.[p.id]==='process').length;
+  const pct = Math.round((verif + proc*0.5) / total * 100);
+  document.getElementById('prog-pct').textContent = pct+'%';
+  document.getElementById('prog-fill').style.width = pct+'%';
+  document.getElementById('prog-text').textContent = verif+' verificadas · '+proc+' en proceso · '+(total-verif-proc)+' pendientes';
+}
+
+async function askPlan(id, btn){
+  const plat = PLATS.find(p=>p.id===id);
+  const box = document.getElementById('plan-'+id);
+  btn.disabled = true;
+  const orig = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner"></span>Generando plan...';
+  box.classList.add('show');
+  box.textContent = 'IA analizando...';
+  try {
+    const r = await fetch('/api/agent',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({agent:'verification',input:{platform:plat.name,type:plat.type,requirements:plat.req,company:'Uniproveedores.com.ar — distribuidora mayorista argentina'}})
+    });
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    box.textContent = d.output || d.text || 'Sin respuesta';
+    notify('Plan listo para '+plat.name);
+  } catch(e){
+    box.textContent = '❌ '+e.message;
+  }
+  btn.disabled = false;
+  btn.innerHTML = orig;
+}
+
+render();
+</script>
+</body>
+</html>

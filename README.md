@@ -1,39 +1,44 @@
-# SocialFlow — Publicador de Redes con IA
+# Agencia de Ventas IA — Uniproveedores
 
-App para generar copies + imágenes IA para Instagram, Facebook, WhatsApp, LinkedIn y X/Twitter.
+Panel de control con **4 agentes IA** que gestionan toda la venta digital de Uniproveedores.com.ar:
 
-## Deploy en Vercel (10 minutos)
+| Agente | URL | Función |
+|---|---|---|
+| 🛒 Mercado Libre | `/ml` | Optimiza listings (título 60ch SEO, bullets, descripción, keywords, estrategia MercadoLíder, calculadora de comisión) |
+| 🏪 Tienda Nube | `/tiendanube` | Genera ficha SEO completa (meta-title, meta-desc, slug, etiquetas, HTML, tips pixel/conversión) |
+| 📣 Redes Sociales | `/social` | Copies + imágenes IA para IG, FB, WA, LinkedIn, X, TikTok (con publicación de un clic) |
+| ✅ Verificación | `/verification` | Checklist y plan IA personalizado para tilde azul: Meta, X, TikTok, LinkedIn, ML, Google Business, Tienda Nube, WhatsApp Business |
 
-### 1. Subir a GitHub
-- Creá un repo en github.com con nombre `socialflow`
-- Subí todos estos archivos respetando la estructura:
+El **Panel de Control (`/`)** muestra KPIs en tiempo real (canales activos, verificaciones, última actividad) usando `localStorage` — el estado se comparte entre agentes.
+
+## Stack
+- Frontend: HTML+JS vanilla, deploy estático en Vercel
+- IA: Gemini 2.5 Flash (texto) + Imagen 4 Fast (imágenes)
+- Sin base de datos — estado en `localStorage`
+
+## Deploy
+1. Push a GitHub → conectar repo en Vercel
+2. Variables de entorno (Vercel → Settings → Environment Variables):
+   - `GEMINI_API_KEY` — obligatoria
+3. Redeploy
+
+## Endpoints API
+- `POST /api/agent` — `{ agent: 'ml'|'tiendanube'|'verification', input: {...} }`
+- `POST /api/generate` — copies por red social (legacy SocialFlow)
+- `POST /api/image` — imágenes con Imagen 4
+
+## Estructura
 ```
 socialflow/
-├── index.html
+├── index.html           Panel de Control
+├── ml.html              Agente Mercado Libre
+├── tiendanube.html      Agente Tienda Nube
+├── social.html          Agente Redes Sociales
+├── verification.html    Agente Verificación
 ├── vercel.json
 ├── package.json
-├── README.md
 └── api/
-    ├── generate.js
-    └── image.js
+    ├── agent.js         Backend ML/TN/Verificación
+    ├── generate.js      Backend copies redes
+    └── image.js         Backend Imagen 4
 ```
-
-### 2. Conectar con Vercel
-- Entrá a vercel.com → Sign up con GitHub
-- New Project → elegí el repo `socialflow`
-- Clic en Deploy
-
-### 3. Variables de entorno (IMPORTANTE)
-En Vercel → tu proyecto → Settings → Environment Variables:
-
-| Variable | Valor |
-|----------|-------|
-| `GEMINI_API_KEY` | AIzaSyCr2GPVtsv8QkxNpRusyZxJpcBaqjYTe-E |
-| `OPENAI_API_KEY` | sk-proj-enL1OLTghQaUizdc338YXtUD-... |
-
-### 4. Redeploy
-Después de agregar las variables: Deployments → Redeploy
-
-## Listo
-Tu URL será algo como: `socialflow-xxx.vercel.app`
-Cualquier persona puede usarla sin ver las API keys.
