@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agente Mercado Libre · Uniproveedores</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a16;color:#e0d8cc;min-height:100vh;}
+.header{background:rgba(255,255,255,0.03);border-bottom:1px solid rgba(255,241,89,0.18);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.back{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;}
+.back-ic{width:32px;height:32px;border-radius:8px;background:rgba(255,241,89,0.15);display:flex;align-items:center;justify-content:center;color:#fff159;font-size:18px;}
+.b-title{font-size:15px;font-weight:700;color:#fff159;}
+.b-sub{font-size:9px;color:#666;letter-spacing:2px;text-transform:uppercase;}
+.ia-badge{font-size:11px;color:#fff159;background:rgba(255,241,89,0.08);border:1px solid rgba(255,241,89,0.2);padding:4px 10px;border-radius:20px;}
+.main{max-width:760px;margin:0 auto;padding:20px 16px 60px;}
+.tip{background:rgba(255,241,89,0.06);border:1px solid rgba(255,241,89,0.15);border-radius:10px;padding:11px 16px;font-size:12px;color:#e6d870;margin-bottom:16px;}
+.card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:16px;margin-bottom:12px;}
+.sec-lbl{font-size:10px;color:#fff159;letter-spacing:2px;text-transform:uppercase;display:block;margin-bottom:10px;}
+.field{margin-bottom:11px;}.field:last-child{margin-bottom:0;}
+.field label{font-size:11px;color:#888;display:block;margin-bottom:5px;}
+input,textarea,select{width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:9px 12px;color:#e0d8cc;font-size:13px;font-family:inherit;}
+input:focus,textarea:focus,select:focus{outline:none;border-color:rgba(255,241,89,0.5);}
+textarea{resize:vertical;min-height:60px;}
+.btn-main{width:100%;background:linear-gradient(135deg,#fff159,#e6d440);border:none;border-radius:10px;padding:14px;color:#000;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:4px;}
+.btn-main:hover{opacity:0.9;}.btn-main:disabled{background:rgba(100,100,100,0.2);color:#555;cursor:not-allowed;}
+.result-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,241,89,0.2);border-radius:12px;padding:16px;margin-bottom:12px;border-left:4px solid #fff159;animation:fadeIn 0.35s ease;}
+.result-title{font-size:13px;font-weight:700;color:#fff159;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.result-body{background:rgba(0,0,0,0.25);border-radius:8px;padding:12px;font-size:13px;line-height:1.6;color:#d0c8b8;white-space:pre-wrap;}
+.btn-sm{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:7px;padding:5px 10px;cursor:pointer;font-size:11px;color:#aaa;font-family:inherit;}
+.btn-sm:hover{background:rgba(255,255,255,0.12);}.btn-sm.ok{background:rgba(0,200,100,0.1);border-color:rgba(0,200,100,0.3);color:#00c864;}
+.char-count{font-size:10px;color:#666;float:right;}
+.char-count.over{color:#ff5555;}
+.calc-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.calc-out{background:rgba(255,241,89,0.08);border:1px solid rgba(255,241,89,0.2);border-radius:8px;padding:10px;text-align:center;margin-top:8px;}
+.calc-out b{display:block;font-size:18px;color:#fff159;}
+.calc-out span{font-size:11px;color:#999;}
+.empty{text-align:center;padding:30px 20px;color:#444;}
+.loading{text-align:center;padding:30px 20px;color:#fff159;font-size:13px;}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.15);border-top-color:#fff159;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+#notif{position:fixed;top:16px;right:16px;z-index:9999;background:rgba(10,10,22,0.97);border:1px solid rgba(255,241,89,0.45);border-radius:10px;padding:11px 16px;font-size:13px;color:#fff159;display:none;box-shadow:0 4px 20px rgba(0,0,0,0.5);}
+</style>
+</head>
+<body>
+<div id="notif"></div>
+<div class="header">
+  <a class="back" href="/"><div class="back-ic">←</div><div><div class="b-title">Agente Mercado Libre</div><div class="b-sub">UNIPROVEEDORES · AGENCIA</div></div></a>
+  <div class="ia-badge">🛒 IA Gemini 2.5</div>
+</div>
+
+<div class="main">
+  <div class="tip">🛒 Optimiza listings de Mercado Libre con IA: títulos SEO 60 chars, bullets, descripción larga, palabras clave, estrategia y comisión.</div>
+
+  <div class="card">
+    <span class="sec-lbl">Producto a publicar</span>
+    <div class="field"><label>Nombre del producto *</label><input id="p-name" type="text" placeholder="Ej: Parches Detox Pies x 10 unidades"></div>
+    <div class="field"><label>Categoría</label>
+      <select id="p-cat">
+        <option value="Salud y Belleza" data-fee="13">Salud y Belleza (13%)</option>
+        <option value="Electrónica" data-fee="13">Electrónica (13%)</option>
+        <option value="Hogar y Muebles" data-fee="13">Hogar y Muebles (13%)</option>
+        <option value="Moda" data-fee="13">Moda (13%)</option>
+        <option value="Deportes y Fitness" data-fee="13">Deportes (13%)</option>
+        <option value="Bebés y Niños" data-fee="13">Bebés y Niños (13%)</option>
+        <option value="Herramientas" data-fee="13">Herramientas (13%)</option>
+        <option value="Industria y Oficina" data-fee="13">Industria y Oficina (13%)</option>
+        <option value="Otros" data-fee="16">Otros (16%)</option>
+      </select>
+    </div>
+    <div class="field"><label>Precio (ARS)</label><input id="p-price" type="number" placeholder="Ej: 5943" oninput="calcFee()"></div>
+    <div class="field"><label>Descripción / características</label><textarea id="p-desc" placeholder="Material, beneficios, medidas, modo de uso, qué incluye…"></textarea></div>
+    <div class="field"><label>Tipo de publicación</label>
+      <select id="p-type">
+        <option value="clasica">Clásica (envío gratis +$30.000)</option>
+        <option value="premium">Premium (12 cuotas sin interés)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="card">
+    <span class="sec-lbl">Calculadora rápida de comisión</span>
+    <div class="calc-row">
+      <div class="calc-out"><span>Comisión ML</span><b id="calc-fee">$0</b></div>
+      <div class="calc-out"><span>Neto a recibir</span><b id="calc-net">$0</b></div>
+    </div>
+    <div style="font-size:10px;color:#666;margin-top:6px;text-align:center;">* Estimación general. Comisión real varía 13-16% según categoría + costos de envío.</div>
+  </div>
+
+  <button class="btn-main" id="gen-btn" onclick="generate()">⚙️ Optimizar listing con IA</button>
+
+  <div id="results" style="margin-top:18px;">
+    <div class="empty"><div style="font-size:28px;margin-bottom:8px">🛒</div><div style="font-size:13px;color:#666">Completá los datos y optimizá tu publicación</div></div>
+  </div>
+</div>
+
+<script>
+let nT;
+function notify(m){const e=document.getElementById('notif');e.textContent=m;e.style.display='block';clearTimeout(nT);nT=setTimeout(()=>e.style.display='none',4000);}
+
+function calcFee(){
+  const price = parseFloat(document.getElementById('p-price').value)||0;
+  const cat = document.getElementById('p-cat');
+  const feePct = parseFloat(cat.options[cat.selectedIndex].dataset.fee)||13;
+  const fee = Math.round(price * feePct / 100);
+  const net = price - fee;
+  document.getElementById('calc-fee').textContent = '$'+fee.toLocaleString('es-AR');
+  document.getElementById('calc-net').textContent = '$'+net.toLocaleString('es-AR');
+}
+document.getElementById('p-cat').addEventListener('change',calcFee);
+
+function logActivity(text){
+  try {
+    const s = JSON.parse(localStorage.getItem('up_state')||'{}');
+    s.activity = s.activity || [];
+    s.activity.unshift({icon:'🛒',agent:'ML',text,time:new Date().toLocaleString('es-AR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})});
+    s.activity = s.activity.slice(0,20);
+    s.channels = s.channels || {};
+    s.channels.ml = s.channels.ml || 'active';
+    localStorage.setItem('up_state', JSON.stringify(s));
+  } catch(e){}
+}
+
+function copyText(id,btn){
+  const el=document.getElementById(id);
+  const txt=el.textContent;
+  navigator.clipboard.writeText(txt).catch(()=>{const a=document.createElement('textarea');a.value=txt;document.body.appendChild(a);a.select();document.execCommand('copy');document.body.removeChild(a);});
+  btn.textContent='✓ Copiado';btn.classList.add('ok');
+  setTimeout(()=>{btn.textContent='📋 Copiar';btn.classList.remove('ok');},2000);
+}
+
+async function generate(){
+  const name = document.getElementById('p-name').value.trim();
+  if(!name){ notify('Falta el nombre del producto'); return; }
+  const cat = document.getElementById('p-cat').value;
+  const price = document.getElementById('p-price').value;
+  const desc = document.getElementById('p-desc').value.trim();
+  const type = document.getElementById('p-type').value;
+
+  const btn = document.getElementById('gen-btn');
+  const res = document.getElementById('results');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Optimizando con IA...';
+  res.innerHTML = '<div class="loading"><span class="spinner"></span>Generando listing optimizado para Mercado Libre...</div>';
+
+  try {
+    const r = await fetch('/api/agent',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({agent:'ml',input:{name,cat,price,desc,type}})
+    });
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    const out = d.output || {};
+
+    res.innerHTML = `
+      <div class="result-card">
+        <div class="result-title">Título SEO <span class="char-count ${(out.title||'').length>60?'over':''}">${(out.title||'').length}/60</span></div>
+        <div class="result-body" id="r-title">${(out.title||'').replace(/</g,'&lt;')}</div>
+        <button class="btn-sm" style="margin-top:8px;" onclick="copyText('r-title',this)">📋 Copiar</button>
+      </div>
+      <div class="result-card">
+        <div class="result-title">Bullets (5 puntos clave) <button class="btn-sm" onclick="copyText('r-bullets',this)">📋 Copiar</button></div>
+        <div class="result-body" id="r-bullets">${(out.bullets||[]).map(b=>'• '+b).join('\n').replace(/</g,'&lt;')}</div>
+      </div>
+      <div class="result-card">
+        <div class="result-title">Descripción larga <button class="btn-sm" onclick="copyText('r-desc',this)">📋 Copiar</button></div>
+        <div class="result-body" id="r-desc">${(out.description||'').replace(/</g,'&lt;')}</div>
+      </div>
+      <div class="result-card">
+        <div class="result-title">Palabras clave (atributos) <button class="btn-sm" onclick="copyText('r-kw',this)">📋 Copiar</button></div>
+        <div class="result-body" id="r-kw">${(out.keywords||[]).join(', ').replace(/</g,'&lt;')}</div>
+      </div>
+      <div class="result-card">
+        <div class="result-title">📈 Estrategia MercadoLíder y precio</div>
+        <div class="result-body" id="r-strategy">${(out.strategy||'').replace(/</g,'&lt;')}</div>
+      </div>`;
+
+    logActivity('Listing optimizado: '+name.substring(0,40));
+    notify('✅ Listing listo. Copialo a tu publicación de ML');
+  } catch(e){
+    res.innerHTML = '<div style="background:rgba(255,80,80,0.08);border:1px solid rgba(255,80,80,0.25);border-radius:12px;padding:18px;color:#ff8080;font-size:13px;text-align:center">❌ '+e.message+'</div>';
+  }
+  btn.disabled = false; btn.innerHTML = '⚙️ Optimizar listing con IA';
+}
+
+calcFee();
+</script>
+</body>
+</html>

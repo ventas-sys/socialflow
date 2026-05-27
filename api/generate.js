@@ -46,10 +46,11 @@ export default async function handler(req, res) {
               fb: 'copy amigable para Facebook con precio incluido. Entre 150 y 300 caracteres.',
               wa: 'copy MUY corto para WhatsApp. Maximo 2 lineas. Incluir precio.',
               li: 'copy profesional para LinkedIn enfocado en valor. Entre 150 y 280 caracteres.',
-              tw: 'copy conciso para Twitter/X con precio. Maximo 230 caracteres.'
+              tw: 'copy conciso para Twitter/X con precio. Maximo 230 caracteres.',
+              tk: 'guion corto para TikTok: hook fuerte en 1er linea, beneficio, CTA. Maximo 150 caracteres. 3-5 hashtags virales al final.'
   };
 
-  const platNames = { ig: 'Instagram', fb: 'Facebook', wa: 'WhatsApp', li: 'LinkedIn', tw: 'X/Twitter' };
+  const platNames = { ig: 'Instagram', fb: 'Facebook', wa: 'WhatsApp', li: 'LinkedIn', tw: 'X/Twitter', tk: 'TikTok' };
           const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GK}`;
 
   try {
