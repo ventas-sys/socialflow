@@ -178,10 +178,105 @@ async function generate(){
     saveOutput(out);
     logActivity('Listing optimizado: '+name.substring(0,40));
     notify('✅ Listing listo. Copialo a tu publicación de ML');
+    renderPublishBox();
   } catch(e){
     res.innerHTML = '<div style="background:rgba(255,80,80,0.08);border:1px solid rgba(255,80,80,0.25);border-radius:12px;padding:18px;color:#ff8080;font-size:13px;text-align:center">❌ '+e.message+'</div>';
   }
   btn.disabled = false; btn.innerHTML = '⚙️ Optimizar listing con IA';
+}
+
+function renderPublishBox(){
+  const s = JSON.parse(localStorage.getItem('up_state')||'{}');
+  const out = s.outputs?.ml; const creds = s.connections?.ml;
+  if(!out) return;
+  let box = document.getElementById('publish-box');
+  if(!box){
+    box = document.createElement('div');
+    box.id = 'publish-box';
+    box.className = 'result-card';
+    box.style.borderLeftColor = '#00c864';
+    box.style.borderColor = 'rgba(0,200,100,0.25)';
+    document.getElementById('results').appendChild(box);
+  }
+  if(!creds?.verified){
+    box.innerHTML = `<div class="result-title" style="color:#00c864">🔌 Publicar directo en Mercado Libre</div>
+      <div style="font-size:12px;color:#999;margin-bottom:10px;">Conectá tu cuenta de Mercado Libre para publicar de un clic.</div>
+      <a href="/conexiones" style="display:inline-block;background:rgba(0,200,100,0.12);border:1px solid rgba(0,200,100,0.3);color:#00c864;padding:8px 14px;border-radius:7px;text-decoration:none;font-size:12px;font-weight:600;">Conectar Mercado Libre →</a>`;
+    return;
+  }
+  const price = document.getElementById('p-price').value;
+  box.innerHTML = `<div class="result-title" style="color:#00c864">🔌 Publicar directo en Mercado Libre <span style="font-size:10px;color:#00c864;background:rgba(0,200,100,0.12);padding:3px 8px;border-radius:8px;">cuenta: ${creds.nickname||'conectada'}</span></div>
+    <div class="field"><label style="font-size:11px;color:#888;">URLs de fotos del producto (una por línea, mínimo 1)</label>
+      <textarea id="pub-pics" placeholder="https://res.cloudinary.com/...&#10;https://..." style="width:100%;min-height:60px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:9px 12px;color:#e0d8cc;font-size:12px;font-family:'SF Mono',Menlo,monospace;"></textarea>
+      <div style="font-size:10px;color:#666;margin-top:4px;">ML exige URLs públicas. Subí las fotos a Imgur, Cloudinary o tu CDN.</div>
+    </div>
+    <div class="field"><label style="font-size:11px;color:#888;">Stock disponible</label>
+      <input id="pub-stock" type="number" value="1" min="1" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:9px 12px;color:#e0d8cc;font-size:13px;">
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+      <button class="btn-sm" onclick="predictCategory(this)" style="background:rgba(0,179,230,0.12);border-color:rgba(0,179,230,0.3);color:#00b3e6;">🔍 Detectar categoría ML</button>
+      <button class="btn-sm" id="cat-display" style="background:rgba(255,255,255,0.05);cursor:default;">categoría: —</button>
+    </div>
+    <button class="btn-main" id="publish-btn" onclick="publishML()" style="margin-top:14px;background:linear-gradient(135deg,#00c864,#00a050);color:white;">🚀 Publicar en Mercado Libre</button>
+    <div id="publish-result" style="margin-top:10px;font-size:12px;display:none;padding:10px;border-radius:7px;white-space:pre-wrap;line-height:1.5;"></div>`;
+}
+
+let mlCategoryId = '';
+async function predictCategory(btn){
+  const title = document.getElementById('r-title')?.textContent?.trim() || document.getElementById('p-name').value.trim();
+  if(!title) return notify('Falta el título');
+  const orig = btn.innerHTML; btn.innerHTML='<span class="spinner"></span>Detectando...'; btn.disabled=true;
+  try {
+    const r = await fetch('/api/ml/category',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title})});
+    const d = await r.json();
+    if(!d.ok) throw new Error(d.error||'No se pudo detectar');
+    mlCategoryId = d.categoryId;
+    document.getElementById('cat-display').textContent = d.categoryId+' · '+d.path;
+    notify('✅ Categoría: '+d.categoryName);
+  } catch(e){ notify('❌ '+e.message); }
+  btn.innerHTML=orig; btn.disabled=false;
+}
+
+async function publishML(){
+  const s = JSON.parse(localStorage.getItem('up_state')||'{}');
+  const out = s.outputs?.ml;
+  const creds = s.connections?.ml;
+  if(!out||!creds) return notify('Falta listing o conexión');
+  if(!mlCategoryId) return notify('Detectá la categoría primero');
+  const pics = document.getElementById('pub-pics').value.split('\n').map(x=>x.trim()).filter(Boolean);
+  if(!pics.length) return notify('Pegá al menos 1 URL de foto');
+  const price = document.getElementById('p-price').value;
+  if(!price) return notify('Falta el precio');
+
+  const btn = document.getElementById('publish-btn');
+  const r = document.getElementById('publish-result');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Publicando en ML...';
+  r.style.display='block'; r.style.background='rgba(0,200,100,0.05)'; r.style.color='#7eddae'; r.textContent='Subiendo a Mercado Libre...';
+
+  try {
+    const resp = await fetch('/api/ml/publish',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({token:creds.token,item:{
+        title: out.title,
+        category_id: mlCategoryId,
+        price,
+        quantity: document.getElementById('pub-stock').value || 1,
+        condition: 'new',
+        description: out.description,
+        pictures: pics
+      }})
+    });
+    const d = await resp.json();
+    if(!d.ok) throw new Error(d.error||'Falló la publicación');
+    r.textContent = '✅ Publicado en Mercado Libre\n\nID: '+d.itemId+'\nEstado: '+d.status+'\nVer: '+d.permalink;
+    r.innerHTML += '<br><a href="'+d.permalink+'" target="_blank" style="color:#00c864;font-weight:600;">Abrir publicación →</a>';
+    logActivity('Publicado en ML: '+d.itemId);
+    notify('🚀 Publicado en Mercado Libre');
+  } catch(e){
+    r.style.background='rgba(255,80,80,0.08)'; r.style.color='#ff9999';
+    r.textContent='❌ '+e.message;
+  }
+  btn.disabled=false; btn.innerHTML='🚀 Publicar en Mercado Libre';
 }
 
 function loadProduct(){
@@ -217,6 +312,7 @@ function saveOutput(out){
 
 calcFee();
 loadProduct();
+renderPublishBox();
 </script>
 </body>
 </html>
