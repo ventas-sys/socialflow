@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Producto activo · Uniproveedores</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a16;color:#e0d8cc;min-height:100vh;}
+.header{background:rgba(255,255,255,0.03);border-bottom:1px solid rgba(255,140,0,0.18);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.back{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;}
+.back-ic{width:32px;height:32px;border-radius:8px;background:rgba(255,140,0,0.15);display:flex;align-items:center;justify-content:center;color:#ff8c00;font-size:18px;}
+.b-title{font-size:15px;font-weight:700;color:#ff8c00;}
+.b-sub{font-size:9px;color:#666;letter-spacing:2px;text-transform:uppercase;}
+.ia-badge{font-size:11px;color:#ff8c00;background:rgba(255,140,0,0.08);border:1px solid rgba(255,140,0,0.2);padding:4px 10px;border-radius:20px;}
+.main{max-width:760px;margin:0 auto;padding:20px 16px 60px;}
+.tip{background:rgba(255,140,0,0.06);border:1px solid rgba(255,140,0,0.15);border-radius:10px;padding:11px 16px;font-size:12px;color:#ffb060;margin-bottom:16px;}
+.card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:16px;margin-bottom:12px;}
+.sec-lbl{font-size:10px;color:#ff8c00;letter-spacing:2px;text-transform:uppercase;display:block;margin-bottom:10px;}
+.field{margin-bottom:11px;}.field:last-child{margin-bottom:0;}
+.field label{font-size:11px;color:#888;display:block;margin-bottom:5px;}
+input,textarea,select{width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:9px 12px;color:#e0d8cc;font-size:13px;font-family:inherit;}
+input:focus,textarea:focus,select:focus{outline:none;border-color:rgba(255,140,0,0.45);}
+textarea{resize:vertical;min-height:70px;}
+.upload-zone{border:2px dashed rgba(255,255,255,0.15);border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:all 0.2s;position:relative;}
+.upload-zone:hover{border-color:rgba(255,140,0,0.5);background:rgba(255,140,0,0.05);}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.preview-img{width:100%;border-radius:8px;max-height:220px;object-fit:cover;margin-top:10px;display:none;}
+.btn-main{width:100%;background:linear-gradient(135deg,#ff8c00,#e55300);border:none;border-radius:10px;padding:14px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;}
+.btn-main:disabled{background:rgba(100,100,100,0.2);color:#555;cursor:not-allowed;}
+.btn-ghost{width:100%;background:transparent;border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:11px;color:#ccc;font-size:13px;cursor:pointer;font-family:inherit;margin-top:8px;}
+.btn-ghost:hover{background:rgba(255,255,255,0.05);}
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.btn-danger{background:rgba(255,80,80,0.08);border:1px solid rgba(255,80,80,0.25);color:#ff8080;border-radius:10px;padding:11px;font-size:13px;cursor:pointer;font-family:inherit;}
+.btn-danger:hover{background:rgba(255,80,80,0.15);}
+.btn-action{background:rgba(255,140,0,0.1);border:1px solid rgba(255,140,0,0.3);color:#ff8c00;border-radius:10px;padding:11px;font-size:13px;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-block;text-align:center;}
+#notif{position:fixed;top:16px;right:16px;z-index:9999;background:rgba(10,10,22,0.97);border:1px solid rgba(255,140,0,0.45);border-radius:10px;padding:11px 16px;font-size:13px;color:#ff8c00;display:none;}
+.status-bar{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.st-chip{font-size:10px;padding:3px 8px;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#888;}
+.st-chip.done{background:rgba(0,200,100,0.1);border-color:rgba(0,200,100,0.3);color:#00c864;}
+</style>
+</head>
+<body>
+<div id="notif"></div>
+<div class="header">
+  <a class="back" href="/"><div class="back-ic">←</div><div><div class="b-title">Producto activo</div><div class="b-sub">UNIPROVEEDORES · AGENCIA</div></div></a>
+  <div class="ia-badge">📦 Datos compartidos</div>
+</div>
+
+<div class="main">
+  <div class="tip">📦 Cargá el producto UNA sola vez. Todos los agentes (ML, Tienda Nube, Redes, Verificación) van a usar estos datos automáticamente.</div>
+
+  <div class="card">
+    <span class="sec-lbl">Foto del producto</span>
+    <div class="upload-zone" id="upload-zone">
+      <input type="file" id="photo-input" accept="image/*" onchange="onPhotoChange(event)">
+      <div style="font-size:28px;margin-bottom:6px;">📸</div>
+      <div style="font-size:13px;color:#888;">Subí la foto del producto</div>
+      <div style="font-size:11px;color:#555;margin-top:3px;">JPG, PNG, WEBP</div>
+    </div>
+    <img id="photo-preview" class="preview-img" alt="Preview">
+  </div>
+
+  <div class="card">
+    <span class="sec-lbl">Datos del producto</span>
+    <div class="field"><label>Nombre del producto *</label><input id="p-name" type="text" placeholder="Ej: Parches Detox para Pies x 10 unidades"></div>
+    <div class="field"><label>Precio (ARS)</label><input id="p-price" type="number" placeholder="Ej: 5943"></div>
+    <div class="field"><label>Categoría</label><input id="p-cat" type="text" placeholder="Ej: Salud y Belleza"></div>
+    <div class="field"><label>Descripción / beneficios / características *</label><textarea id="p-desc" placeholder="Material, modo de uso, qué incluye, beneficios, contraindicaciones, garantía…"></textarea></div>
+    <div class="field"><label>Público objetivo</label><input id="p-target" type="text" placeholder="Ej: Mujeres 35-65 con problemas circulatorios"></div>
+    <div class="field"><label>Link ML / TN existente (opcional)</label><input id="p-link" type="url" placeholder="https://..."></div>
+  </div>
+
+  <button class="btn-main" id="save-btn" onclick="saveProduct()">💾 Guardar producto activo</button>
+
+  <div id="status-card" class="card" style="display:none;margin-top:14px;">
+    <span class="sec-lbl">Estado de generación por agente</span>
+    <div class="status-bar" id="status-bar"></div>
+    <div class="btn-row" style="margin-top:14px;">
+      <a class="btn-action" href="/ml">🛒 Agente ML</a>
+      <a class="btn-action" href="/tiendanube">🏪 Agente TN</a>
+      <a class="btn-action" href="/social">📣 Agente Redes</a>
+      <a class="btn-action" href="/verification">✅ Verificación</a>
+    </div>
+    <button class="btn-danger" style="margin-top:10px;width:100%;" onclick="clearProduct()">🗑 Borrar producto activo</button>
+  </div>
+</div>
+
+<script>
+let nT, photoB64='';
+function notify(m){const e=document.getElementById('notif');e.textContent=m;e.style.display='block';clearTimeout(nT);nT=setTimeout(()=>e.style.display='none',4000);}
+
+function loadState(){ try{ return JSON.parse(localStorage.getItem('up_state')||'{}'); }catch(e){ return {}; } }
+function saveState(s){ localStorage.setItem('up_state', JSON.stringify(s)); }
+
+function onPhotoChange(e){
+  const file=e.target.files[0]; if(!file) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    photoB64=ev.target.result.split(',')[1];
+    const p=document.getElementById('photo-preview');
+    p.src=ev.target.result; p.style.display='block';
+    document.getElementById('upload-zone').style.borderColor='rgba(0,200,100,0.4)';
+    notify('✅ Foto cargada');
+  };
+  r.readAsDataURL(file);
+}
+
+function saveProduct(){
+  const name=document.getElementById('p-name').value.trim();
+  const desc=document.getElementById('p-desc').value.trim();
+  if(!name){ notify('Falta el nombre'); return; }
+  if(!desc){ notify('Falta la descripción'); return; }
+  const s=loadState();
+  s.product={
+    id: s.product?.id || 'p_'+Date.now(),
+    name,
+    price: document.getElementById('p-price').value,
+    category: document.getElementById('p-cat').value.trim(),
+    description: desc,
+    target: document.getElementById('p-target').value.trim(),
+    link: document.getElementById('p-link').value.trim(),
+    photoB64: photoB64 || s.product?.photoB64 || '',
+    photoDataUrl: photoB64 ? ('data:image/jpeg;base64,'+photoB64) : (s.product?.photoDataUrl||''),
+    savedAt: new Date().toISOString()
+  };
+  s.activity=s.activity||[];
+  s.activity.unshift({icon:'📦',agent:'PROD',text:'Producto activo: '+name.substring(0,40),time:new Date().toLocaleString('es-AR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})});
+  s.activity=s.activity.slice(0,20);
+  saveState(s);
+  notify('✅ Producto guardado. Ya podés abrir cualquier agente.');
+  render();
+}
+
+function clearProduct(){
+  if(!confirm('¿Borrar el producto activo y todos los outputs generados?')) return;
+  const s=loadState();
+  delete s.product;
+  delete s.outputs;
+  saveState(s);
+  notify('Producto y outputs borrados');
+  setTimeout(()=>location.reload(),600);
+}
+
+function render(){
+  const s=loadState();
+  const p=s.product;
+  if(p){
+    document.getElementById('p-name').value=p.name||'';
+    document.getElementById('p-price').value=p.price||'';
+    document.getElementById('p-cat').value=p.category||'';
+    document.getElementById('p-desc').value=p.description||'';
+    document.getElementById('p-target').value=p.target||'';
+    document.getElementById('p-link').value=p.link||'';
+    if(p.photoDataUrl){
+      const pi=document.getElementById('photo-preview');
+      pi.src=p.photoDataUrl; pi.style.display='block';
+      document.getElementById('upload-zone').style.borderColor='rgba(0,200,100,0.4)';
+    }
+    const o=s.outputs||{};
+    const bar=document.getElementById('status-bar');
+    const chips=[
+      {k:'ml',n:'🛒 ML'},
+      {k:'tn',n:'🏪 TN'},
+      {k:'social',n:'📣 Redes'},
+    ];
+    bar.innerHTML=chips.map(c=>{
+      const done=o[c.k]&&o[c.k].generatedAt;
+      return '<div class="st-chip '+(done?'done':'')+'">'+c.n+(done?' ✓':' ⏳')+'</div>';
+    }).join('');
+    document.getElementById('status-card').style.display='block';
+  }
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  const z=document.getElementById('upload-zone');
+  z.addEventListener('dragover',e=>{e.preventDefault();z.style.background='rgba(255,140,0,0.05)';});
+  z.addEventListener('dragleave',()=>{z.style.background='';});
+  z.addEventListener('drop',e=>{e.preventDefault();z.style.background='';const f=e.dataTransfer.files[0];if(f){onPhotoChange({target:{files:[f]}});}});
+});
+
+render();
+</script>
+</body>
+</html>

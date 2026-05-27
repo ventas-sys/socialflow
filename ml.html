@@ -175,6 +175,7 @@ async function generate(){
         <div class="result-body" id="r-strategy">${(out.strategy||'').replace(/</g,'&lt;')}</div>
       </div>`;
 
+    saveOutput(out);
     logActivity('Listing optimizado: '+name.substring(0,40));
     notify('✅ Listing listo. Copialo a tu publicación de ML');
   } catch(e){
@@ -183,7 +184,39 @@ async function generate(){
   btn.disabled = false; btn.innerHTML = '⚙️ Optimizar listing con IA';
 }
 
+function loadProduct(){
+  try {
+    const s = JSON.parse(localStorage.getItem('up_state')||'{}');
+    const p = s.product;
+    if(!p) return;
+    document.getElementById('p-name').value = p.name||'';
+    document.getElementById('p-price').value = p.price||'';
+    if(p.description) document.getElementById('p-desc').value = p.description;
+    if(p.category){
+      const sel = document.getElementById('p-cat');
+      const match = [...sel.options].find(o => o.value.toLowerCase().includes((p.category||'').toLowerCase()) || (p.category||'').toLowerCase().includes(o.value.toLowerCase()));
+      if(match) sel.value = match.value;
+    }
+    calcFee();
+    if(s.outputs?.ml?.generatedAt){
+      notify('📦 Producto activo cargado — output anterior disponible');
+    } else {
+      notify('📦 Producto activo cargado');
+    }
+  } catch(e){}
+}
+
+function saveOutput(out){
+  try {
+    const s = JSON.parse(localStorage.getItem('up_state')||'{}');
+    s.outputs = s.outputs || {};
+    s.outputs.ml = {...out, generatedAt: new Date().toISOString()};
+    localStorage.setItem('up_state', JSON.stringify(s));
+  } catch(e){}
+}
+
 calcFee();
+loadProduct();
 </script>
 </body>
 </html>
