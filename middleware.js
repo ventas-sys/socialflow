@@ -3,15 +3,11 @@ export const config = {
 };
 
 export default function middleware(request) {
-  const url = new URL(request.url);
   const password = process.env.SITE_PASSWORD || '';
 
-  if (!password) {
-    return new Response(
-      'Sitio privado mal configurado: falta SITE_PASSWORD en variables de entorno de Vercel.',
-      { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } }
-    );
-  }
+  // Fail-open: si no se configuro SITE_PASSWORD el sitio queda publico
+  // pero funcional. Para activar privacidad, setear la variable en Vercel.
+  if (!password) return;
 
   const auth = request.headers.get('authorization') || '';
   if (auth.startsWith('Basic ')) {
