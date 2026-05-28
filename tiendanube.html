@@ -89,6 +89,108 @@ function copyText(id,btn){
   setTimeout(()=>{btn.textContent='📋 Copiar';btn.classList.remove('ok');},2000);
 }
 
+function renderPublishBox(){
+  const s = JSON.parse(localStorage.getItem('up_state')||'{}');
+  const out = s.outputs?.tn; const creds = s.connections?.tn;
+  if(!out) return;
+  let box = document.getElementById('publish-box');
+  if(!box){
+    box = document.createElement('div');
+    box.id = 'publish-box';
+    box.className = 'result-card';
+    box.style.borderLeftColor = '#00c864';
+    box.style.borderColor = 'rgba(0,200,100,0.25)';
+    document.getElementById('results').appendChild(box);
+  }
+  if(!creds?.verified){
+    box.innerHTML = `<div class="result-title" style="color:#00c864">🔌 Publicar directo en Tienda Nube</div>
+      <div style="font-size:12px;color:#999;margin-bottom:10px;">Conectá tu tienda para crear el producto de un clic.</div>
+      <a href="/conexiones" style="display:inline-block;background:rgba(0,200,100,0.12);border:1px solid rgba(0,200,100,0.3);color:#00c864;padding:8px 14px;border-radius:7px;text-decoration:none;font-size:12px;font-weight:600;">Conectar Tienda Nube →</a>`;
+    return;
+  }
+  box.innerHTML = `<div class="result-title" style="color:#00c864">🔌 Publicar directo en Tienda Nube <span style="font-size:10px;color:#00c864;background:rgba(0,200,100,0.12);padding:3px 8px;border-radius:8px;">tienda: ${creds.storeName||'conectada'}</span></div>
+    <div class="field"><label style="font-size:11px;color:#888;">URLs de fotos (una por línea, opcional)</label>
+      <textarea id="tn-pics" placeholder="https://..." style="width:100%;min-height:50px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:9px 12px;color:#e0d8cc;font-size:12px;font-family:'SF Mono',Menlo,monospace;"></textarea>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div class="field"><label style="font-size:11px;color:#888;">Stock</label><input id="tn-stock" type="number" value="1" min="0" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:9px 12px;color:#e0d8cc;font-size:13px;"></div>
+      <div class="field"><label style="font-size:11px;color:#888;">SKU (opcional)</label><input id="tn-sku" type="text" placeholder="SKU-001" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:9px 12px;color:#e0d8cc;font-size:13px;"></div>
+    </div>
+    <div class="field"><label style="font-size:11px;color:#888;display:flex;align-items:center;gap:6px;"><input id="tn-pub" type="checkbox" style="width:auto;"> Publicar visible al instante (sino queda como borrador)</label></div>
+    <button class="btn-main" id="tn-publish-btn" onclick="publishTN()" style="background:linear-gradient(135deg,#00c864,#00a050);">🚀 Crear producto en Tienda Nube</button>
+    <div id="tn-publish-result" style="margin-top:10px;font-size:12px;display:none;padding:10px;border-radius:7px;white-space:pre-wrap;line-height:1.5;"></div>`;
+}
+
+async function publishTN(){
+  const s = JSON.parse(localStorage.getItem('up_state')||'{}');
+  const out = s.outputs?.tn;
+  const creds = s.connections?.tn;
+  if(!out||!creds) return notify('Falta ficha o conexión');
+  const price = document.getElementById('p-price').value;
+  if(!price) return notify('Falta el precio');
+  const pics = document.getElementById('tn-pics').value.split('\n').map(x=>x.trim()).filter(Boolean);
+
+  const btn = document.getElementById('tn-publish-btn');
+  const r = document.getElementById('tn-publish-result');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Creando producto...';
+  r.style.display='block'; r.style.background='rgba(0,200,100,0.05)'; r.style.color='#7eddae'; r.textContent='Conectando con Tienda Nube...';
+
+  try {
+    const resp = await fetch('/api/tn/publish',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        token: creds.token,
+        storeId: creds.storeId,
+        product: {
+          name: document.getElementById('p-name').value.trim(),
+          price,
+          stock: document.getElementById('tn-stock').value || 1,
+          sku: document.getElementById('tn-sku').value.trim() || null,
+          htmlDescription: out.htmlDescription,
+          slug: out.slug,
+          metaTitle: out.metaTitle,
+          metaDesc: out.metaDesc,
+          tags: out.tags,
+          images: pics,
+          published: document.getElementById('tn-pub').checked
+        }
+      })
+    });
+    const d = await resp.json();
+    if(!d.ok) throw new Error(d.error||'Falló la creación');
+    r.textContent = '✅ Producto '+(d.handle?'"'+d.handle+'"':'')+' creado en Tienda Nube\n\nID: '+d.productId;
+    logActivity('Producto creado en TN: '+d.productId);
+    notify('🚀 Producto creado en Tienda Nube');
+  } catch(e){
+    r.style.background='rgba(255,80,80,0.08)'; r.style.color='#ff9999';
+    r.textContent='❌ '+e.message;
+  }
+  btn.disabled=false; btn.innerHTML='🚀 Crear producto en Tienda Nube';
+}
+
+function loadProduct(){
+  try {
+    const s = JSON.parse(localStorage.getItem('up_state')||'{}');
+    const p = s.product;
+    if(!p) return;
+    document.getElementById('p-name').value = p.name||'';
+    document.getElementById('p-price').value = p.price||'';
+    document.getElementById('p-cat').value = p.category||'';
+    document.getElementById('p-desc').value = p.description||'';
+    document.getElementById('p-target').value = p.target||'';
+    notify('📦 Producto activo cargado');
+  } catch(e){}
+}
+
+function saveOutput(out){
+  try {
+    const s = JSON.parse(localStorage.getItem('up_state')||'{}');
+    s.outputs = s.outputs || {};
+    s.outputs.tn = {...out, generatedAt: new Date().toISOString()};
+    localStorage.setItem('up_state', JSON.stringify(s));
+  } catch(e){}
+}
+
 async function generate(){
   const name = document.getElementById('p-name').value.trim();
   if(!name){ notify('Falta el nombre del producto'); return; }
@@ -139,13 +241,18 @@ async function generate(){
         <div class="result-body">${(out.tips||'').replace(/</g,'&lt;')}</div>
       </div>`;
 
+    saveOutput(out);
     logActivity('Ficha SEO generada: '+name.substring(0,40));
     notify('✅ Ficha lista. Copiala a tu admin de Tienda Nube');
+    renderPublishBox();
   } catch(e){
     res.innerHTML = '<div style="background:rgba(255,80,80,0.08);border:1px solid rgba(255,80,80,0.25);border-radius:12px;padding:18px;color:#ff8080;font-size:13px;text-align:center">❌ '+e.message+'</div>';
   }
   btn.disabled = false; btn.innerHTML = '✨ Generar ficha SEO con IA';
 }
+
+loadProduct();
+renderPublishBox();
 </script>
 </body>
 </html>

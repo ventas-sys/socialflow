@@ -190,7 +190,29 @@ document.addEventListener('DOMContentLoaded',()=>{
     const f=e.dataTransfer.files[0];
     if(f){const inp=document.getElementById('photo-input');const dt=new DataTransfer();dt.items.add(f);inp.files=dt.files;onPhotoChange({target:{files:[f]}});}
   });
+  loadProduct();
 });
+
+function loadProduct(){
+  try {
+    const s=JSON.parse(localStorage.getItem('up_state')||'{}');
+    const p=s.product;
+    if(!p) return;
+    document.getElementById('p-name').value=p.name||'';
+    document.getElementById('p-price').value=p.price||'';
+    if(p.description) document.getElementById('p-desc').value=p.description;
+    if(p.link) document.getElementById('ml-link').value=p.link;
+    if(p.photoB64){
+      photoB64=p.photoB64;
+      const pi=document.getElementById('photo-preview');
+      pi.src=p.photoDataUrl||('data:image/jpeg;base64,'+p.photoB64);
+      pi.style.display='block';
+      document.getElementById('upload-zone').style.borderColor='rgba(0,200,100,0.4)';
+    }
+    checkReady();
+    notify('📦 Producto activo cargado');
+  } catch(e){}
+}
 
 async function generate(){
   const name=document.getElementById('p-name').value.trim();
@@ -253,6 +275,8 @@ async function generate(){
       s.activity = s.activity.slice(0,20);
       s.channels = s.channels || {};
       sel.forEach(id=>{ if(!s.channels[id]) s.channels[id]='active'; });
+      s.outputs = s.outputs || {};
+      s.outputs.social = {copies:{...copies}, photoDesc, generatedAt:new Date().toISOString()};
       localStorage.setItem('up_state', JSON.stringify(s));
     } catch(e){}
     notify('✅ Copies listos. Clic en 🎨 para generar imagen con Imagen 4.');

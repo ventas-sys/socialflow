@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conexiones · Uniproveedores</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a16;color:#e0d8cc;min-height:100vh;}
+.header{background:rgba(255,255,255,0.03);border-bottom:1px solid rgba(0,200,100,0.18);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.back{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;}
+.back-ic{width:32px;height:32px;border-radius:8px;background:rgba(0,200,100,0.15);display:flex;align-items:center;justify-content:center;color:#00c864;font-size:18px;}
+.b-title{font-size:15px;font-weight:700;color:#00c864;}
+.b-sub{font-size:9px;color:#666;letter-spacing:2px;text-transform:uppercase;}
+.ia-badge{font-size:11px;color:#00c864;background:rgba(0,200,100,0.08);border:1px solid rgba(0,200,100,0.2);padding:4px 10px;border-radius:20px;}
+.main{max-width:760px;margin:0 auto;padding:20px 16px 60px;}
+.tip{background:rgba(0,200,100,0.06);border:1px solid rgba(0,200,100,0.15);border-radius:10px;padding:11px 16px;font-size:12px;color:#7eddae;margin-bottom:16px;}
+.warn{background:rgba(255,140,0,0.06);border:1px solid rgba(255,140,0,0.18);border-radius:10px;padding:11px 16px;font-size:11px;color:#ffb060;margin-bottom:14px;line-height:1.55;}
+
+.conn-card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:16px;margin-bottom:12px;border-left:4px solid var(--accent,#888);}
+.conn-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+.conn-name{display:flex;align-items:center;gap:10px;}
+.conn-icon{width:36px;height:36px;border-radius:8px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;font-size:18px;}
+.conn-title{font-size:14px;font-weight:700;color:#fff;}
+.conn-sub{font-size:10px;color:#888;}
+.conn-state{font-size:10px;padding:4px 10px;border-radius:10px;background:rgba(150,150,150,0.1);color:#888;border:1px solid rgba(150,150,150,0.2);}
+.conn-state.ok{background:rgba(0,200,100,0.12);color:#00c864;border-color:rgba(0,200,100,0.3);}
+.conn-state.err{background:rgba(255,80,80,0.12);color:#ff8080;border-color:rgba(255,80,80,0.3);}
+.field{margin-bottom:10px;}
+.field label{font-size:10px;color:#888;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px;}
+input{width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:9px 12px;color:#e0d8cc;font-size:12px;font-family:'SF Mono',Menlo,monospace;}
+input:focus{outline:none;border-color:rgba(0,200,100,0.5);}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+.btn{background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:7px;padding:8px 14px;cursor:pointer;font-size:12px;color:#ccc;font-family:inherit;}
+.btn:hover{background:rgba(255,255,255,0.12);}
+.btn-test{background:rgba(0,200,100,0.12);border-color:rgba(0,200,100,0.3);color:#00c864;}
+.btn-save{background:rgba(0,179,230,0.12);border-color:rgba(0,179,230,0.3);color:#00b3e6;}
+.btn-clear{background:rgba(255,80,80,0.1);border-color:rgba(255,80,80,0.25);color:#ff8080;}
+.result{margin-top:10px;font-size:11px;padding:9px;border-radius:7px;display:none;line-height:1.5;white-space:pre-wrap;font-family:'SF Mono',Menlo,monospace;}
+.result.ok{display:block;background:rgba(0,200,100,0.08);color:#7eddae;border:1px solid rgba(0,200,100,0.2);}
+.result.err{display:block;background:rgba(255,80,80,0.08);color:#ff9999;border:1px solid rgba(255,80,80,0.25);}
+.help{font-size:10px;color:#666;margin-top:6px;line-height:1.5;}
+.help a{color:#00c864;text-decoration:none;}
+.help a:hover{text-decoration:underline;}
+#notif{position:fixed;top:16px;right:16px;z-index:9999;background:rgba(10,10,22,0.97);border:1px solid rgba(0,200,100,0.45);border-radius:10px;padding:11px 16px;font-size:13px;color:#00c864;display:none;}
+.spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,0.15);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:5px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+<div id="notif"></div>
+<div class="header">
+  <a class="back" href="/"><div class="back-ic">←</div><div><div class="b-title">Conexiones</div><div class="b-sub">UNIPROVEEDORES · AGENCIA</div></div></a>
+  <div class="ia-badge">🔌 APIs reales</div>
+</div>
+
+<div class="main">
+  <div class="tip">🔌 Pegá los tokens de cada plataforma. La agencia los usa para publicar y sincronizar de verdad. Se guardan SOLO en tu navegador (localStorage).</div>
+  <div class="warn"><b>⚠ Seguridad:</b> los tokens viajan en HTTPS a nuestro backend solo cuando ejecutás una acción. Nunca se almacenan en el servidor. Para borrarlos, usá "Limpiar" o vaciá el localStorage del sitio.</div>
+
+  <div class="conn-card" style="--accent:#fff159;">
+    <div class="conn-top">
+      <div class="conn-name"><div class="conn-icon">🛒</div><div><div class="conn-title">Mercado Libre</div><div class="conn-sub">developers.mercadolibre.com.ar</div></div></div>
+      <div class="conn-state" id="ml-state">sin conectar</div>
+    </div>
+    <div class="field"><label>Access Token</label><input id="ml-token" type="password" placeholder="APP_USR-..."></div>
+    <div class="field"><label>User ID (opcional, se detecta solo)</label><input id="ml-user" type="text" placeholder="123456789"></div>
+    <div class="help">Generá el token desde tu app en <a href="https://developers.mercadolibre.com.ar/devcenter" target="_blank">DevCenter ML</a> → tu app → "Probar" → autorización del usuario vendedor. El access_token dura 6 horas.</div>
+    <div class="btn-row">
+      <button class="btn btn-save" onclick="saveConn('ml')">💾 Guardar</button>
+      <button class="btn btn-test" onclick="testConn('ml')">🧪 Probar conexión</button>
+      <button class="btn btn-clear" onclick="clearConn('ml')">🗑 Limpiar</button>
+    </div>
+    <div class="result" id="ml-result"></div>
+  </div>
+
+  <div class="conn-card" style="--accent:#00b3e6;">
+    <div class="conn-top">
+      <div class="conn-name"><div class="conn-icon">🏪</div><div><div class="conn-title">Tienda Nube</div><div class="conn-sub">partners.tiendanube.com</div></div></div>
+      <div class="conn-state" id="tn-state">sin conectar</div>
+    </div>
+    <div class="field"><label>Store ID</label><input id="tn-store" type="text" placeholder="123456"></div>
+    <div class="field"><label>Access Token</label><input id="tn-token" type="password" placeholder="abc123..."></div>
+    <div class="help">Tu Store ID y token están en <a href="https://partners.tiendanube.com/apps" target="_blank">Partners TN</a> → tu app → Tiendas Instaladas. El token no expira hasta que desinstales la app.</div>
+    <div class="btn-row">
+      <button class="btn btn-save" onclick="saveConn('tn')">💾 Guardar</button>
+      <button class="btn btn-test" onclick="testConn('tn')">🧪 Probar conexión</button>
+      <button class="btn btn-clear" onclick="clearConn('tn')">🗑 Limpiar</button>
+    </div>
+    <div class="result" id="tn-result"></div>
+  </div>
+
+  <div class="conn-card" style="--accent:#1877F2;opacity:0.6;">
+    <div class="conn-top">
+      <div class="conn-name"><div class="conn-icon">📘</div><div><div class="conn-title">Meta (Facebook + Instagram)</div><div class="conn-sub">developers.facebook.com</div></div></div>
+      <div class="conn-state">próximamente</div>
+    </div>
+    <div class="help" style="margin-top:6px;">Llega en la siguiente fase. Necesita Page Access Token + IG Business Account ID.</div>
+  </div>
+</div>
+
+<script>
+let nT;
+function notify(m){const e=document.getElementById('notif');e.textContent=m;e.style.display='block';clearTimeout(nT);nT=setTimeout(()=>e.style.display='none',4000);}
+function loadState(){ try{ return JSON.parse(localStorage.getItem('up_state')||'{}'); }catch(e){ return {}; } }
+function saveState(s){ localStorage.setItem('up_state', JSON.stringify(s)); }
+
+function render(){
+  const s = loadState();
+  const c = s.connections||{};
+  if(c.ml?.token){
+    document.getElementById('ml-token').value = c.ml.token;
+    document.getElementById('ml-user').value = c.ml.userId||'';
+    const st = document.getElementById('ml-state');
+    st.textContent = c.ml.verified ? '✓ conectado · '+(c.ml.nickname||'') : 'guardado, sin verificar';
+    st.className = 'conn-state '+(c.ml.verified?'ok':'');
+  }
+  if(c.tn?.token){
+    document.getElementById('tn-token').value = c.tn.token;
+    document.getElementById('tn-store').value = c.tn.storeId||'';
+    const st = document.getElementById('tn-state');
+    st.textContent = c.tn.verified ? '✓ conectado · '+(c.tn.storeName||'') : 'guardado, sin verificar';
+    st.className = 'conn-state '+(c.tn.verified?'ok':'');
+  }
+}
+
+function saveConn(prov){
+  const s = loadState();
+  s.connections = s.connections || {};
+  if(prov==='ml'){
+    const token = document.getElementById('ml-token').value.trim();
+    const userId = document.getElementById('ml-user').value.trim();
+    if(!token){ notify('Falta el access token'); return; }
+    s.connections.ml = {token, userId, verified:false, savedAt:new Date().toISOString()};
+  } else if(prov==='tn'){
+    const token = document.getElementById('tn-token').value.trim();
+    const storeId = document.getElementById('tn-store').value.trim();
+    if(!token||!storeId){ notify('Falta token y/o Store ID'); return; }
+    s.connections.tn = {token, storeId, verified:false, savedAt:new Date().toISOString()};
+  }
+  saveState(s);
+  notify('💾 Credenciales guardadas. Probá la conexión.');
+  render();
+}
+
+function clearConn(prov){
+  if(!confirm('¿Borrar las credenciales de '+(prov==='ml'?'Mercado Libre':'Tienda Nube')+'?')) return;
+  const s = loadState();
+  s.connections = s.connections || {};
+  delete s.connections[prov];
+  saveState(s);
+  const fields = prov==='ml' ? ['ml-token','ml-user'] : ['tn-token','tn-store'];
+  fields.forEach(id=>document.getElementById(id).value='');
+  document.getElementById(prov+'-state').textContent = 'sin conectar';
+  document.getElementById(prov+'-state').className = 'conn-state';
+  const r = document.getElementById(prov+'-result');
+  r.style.display='none'; r.textContent='';
+  notify('Credenciales borradas');
+}
+
+async function testConn(prov){
+  const s = loadState();
+  const creds = s.connections?.[prov];
+  if(!creds){ notify('Guardá las credenciales primero'); return; }
+  const rEl = document.getElementById(prov+'-result');
+  const stEl = document.getElementById(prov+'-state');
+  rEl.className = 'result'; rEl.style.display='block'; rEl.textContent = 'Probando...';
+  try {
+    const r = await fetch('/api/'+prov+'/test',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(creds)
+    });
+    const d = await r.json();
+    if(d.error || !d.ok){
+      rEl.className = 'result err';
+      rEl.textContent = '❌ '+(d.error || 'Error desconocido');
+      stEl.textContent = 'error'; stEl.className = 'conn-state err';
+      return;
+    }
+    rEl.className = 'result ok';
+    rEl.textContent = '✅ Conectado\n\n'+JSON.stringify(d.info||{},null,2);
+    stEl.className = 'conn-state ok';
+    stEl.textContent = '✓ conectado'+(d.info?.nickname?' · '+d.info.nickname:'')+(d.info?.storeName?' · '+d.info.storeName:'');
+    const s2 = loadState();
+    s2.connections = s2.connections || {};
+    s2.connections[prov] = {...creds, verified:true, ...d.info};
+    s2.activity = s2.activity || [];
+    s2.activity.unshift({icon:'🔌',agent:'CONN',text:(prov==='ml'?'Mercado Libre':'Tienda Nube')+' verificado',time:new Date().toLocaleString('es-AR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})});
+    s2.activity = s2.activity.slice(0,20);
+    saveState(s2);
+    notify('✅ Conexión verificada');
+  } catch(e){
+    rEl.className = 'result err';
+    rEl.textContent = '❌ '+e.message;
+    stEl.textContent = 'error'; stEl.className = 'conn-state err';
+  }
+}
+
+render();
+</script>
+</body>
+</html>

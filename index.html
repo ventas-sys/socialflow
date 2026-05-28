@@ -65,6 +65,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .act-text{color:#ccc;flex:1;}
 .act-time{color:#666;font-size:10px;}
 
+.product-card{background:linear-gradient(180deg,rgba(255,140,0,0.08),rgba(255,140,0,0.02));border:1px solid rgba(255,140,0,0.3);border-radius:14px;padding:16px;margin-bottom:20px;display:flex;gap:14px;align-items:flex-start;}
+.product-card .ph{width:90px;height:90px;border-radius:10px;background:rgba(0,0,0,0.3);background-size:cover;background-position:center;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#555;font-size:30px;}
+.product-card .info{flex:1;min-width:0;}
+.product-card .pn{font-size:15px;font-weight:700;color:#fff;margin-bottom:3px;word-break:break-word;}
+.product-card .pmeta{font-size:12px;color:#999;margin-bottom:8px;}
+.product-card .chips{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;}
+.product-card .chip{font-size:10px;padding:3px 8px;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#888;}
+.product-card .chip.done{background:rgba(0,200,100,0.12);border-color:rgba(0,200,100,0.35);color:#00c864;}
+.product-card .btn-edit{background:rgba(255,140,0,0.12);border:1px solid rgba(255,140,0,0.35);color:#ff8c00;padding:5px 11px;border-radius:7px;text-decoration:none;font-size:11px;font-weight:600;display:inline-block;}
+.product-card .btn-all{background:linear-gradient(135deg,#ff8c00,#e55300);border:none;color:#fff;padding:5px 11px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;margin-left:6px;}
+.product-card .btn-all:disabled{background:rgba(100,100,100,0.2);color:#555;cursor:not-allowed;}
+.empty-product{background:rgba(255,255,255,0.03);border:2px dashed rgba(255,140,0,0.25);border-radius:14px;padding:24px 16px;text-align:center;margin-bottom:20px;}
+.empty-product a{display:inline-block;margin-top:10px;background:linear-gradient(135deg,#ff8c00,#e55300);color:#fff;padding:9px 18px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:700;}
+
 @media(max-width:760px){
   .kpi-grid{grid-template-columns:repeat(2,1fr);}
   .agents-grid{grid-template-columns:1fr;}
@@ -79,7 +93,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="logo-icon">UP</div>
     <div><div class="logo-title">Uniproveedores</div><div class="logo-sub">AGENCIA DE VENTAS · IA</div></div>
   </div>
-  <div class="online"><div class="dot-pulse"></div> Sistema operativo</div>
+  <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+    <a href="/producto" style="text-decoration:none;font-size:11px;color:#ff8c00;background:rgba(255,140,0,0.1);border:1px solid rgba(255,140,0,0.25);padding:4px 10px;border-radius:20px;">📦 Producto</a>
+    <a href="/conexiones" style="text-decoration:none;font-size:11px;color:#00c864;background:rgba(0,200,100,0.1);border:1px solid rgba(0,200,100,0.25);padding:4px 10px;border-radius:20px;">🔌 Conexiones</a>
+    <div class="online"><div class="dot-pulse"></div> Operativo</div>
+  </div>
 </div>
 
 <div class="main">
@@ -87,6 +105,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <h1>Panel de <span>Control</span></h1>
     <p>Tu agencia de ventas con IA. Mercado Libre, Tienda Nube y todas las redes sociales, controladas desde un solo lugar por agentes especializados.</p>
   </div>
+
+  <div id="product-zone"></div>
 
   <div class="kpi-grid">
     <div class="kpi"><div class="kpi-lbl">Canales activos</div><div class="kpi-val orange" id="kpi-channels">—</div><div class="kpi-sub">sobre 8 totales</div></div>
@@ -191,6 +211,89 @@ function renderChannels(){
   document.getElementById('kpi-verif').textContent = verif + '/' + CHANNELS.length;
 }
 
+function renderProduct(){
+  const s = loadState();
+  const zone = document.getElementById('product-zone');
+  const p = s.product;
+  if(!p){
+    zone.innerHTML = `<div class="empty-product">
+      <div style="font-size:30px;margin-bottom:6px;">📦</div>
+      <div style="font-size:14px;color:#ccc;font-weight:600;">Cargá tu producto activo</div>
+      <div style="font-size:11px;color:#888;margin-top:4px;">Una sola carga alimenta a los 4 agentes con foto, nombre, precio y descripción.</div>
+      <a href="/producto">Cargar producto</a>
+    </div>`;
+    return;
+  }
+  const o = s.outputs || {};
+  const chips = [
+    {k:'ml',n:'🛒 ML'},
+    {k:'tn',n:'🏪 TN'},
+    {k:'social',n:'📣 Redes'}
+  ];
+  const allDone = chips.every(c => o[c.k]?.generatedAt);
+  zone.innerHTML = `
+    <div class="product-card">
+      <div class="ph" ${p.photoDataUrl?`style="background-image:url('${p.photoDataUrl}')"`:''}>${p.photoDataUrl?'':'📦'}</div>
+      <div class="info">
+        <div class="pn">${(p.name||'').replace(/</g,'&lt;')}</div>
+        <div class="pmeta">${p.price?'$'+Number(p.price).toLocaleString('es-AR')+' · ':''}${(p.category||'sin categoría').replace(/</g,'&lt;')}</div>
+        <div class="chips">${chips.map(c=>{
+          const done = o[c.k]?.generatedAt;
+          return '<div class="chip '+(done?'done':'')+'">'+c.n+(done?' ✓':' ⏳')+'</div>';
+        }).join('')}</div>
+        <a class="btn-edit" href="/producto">✏️ Editar</a>
+        <button class="btn-all" id="gen-all-btn" onclick="generateAll()" ${allDone?'disabled':''}>${allDone?'✓ Todo generado':'⚡ Generar todo'}</button>
+      </div>
+    </div>`;
+}
+
+async function generateAll(){
+  const s = loadState();
+  const p = s.product;
+  if(!p) return;
+  const btn = document.getElementById('gen-all-btn');
+  btn.disabled = true; btn.textContent = '⏳ 0/3...';
+  s.outputs = s.outputs || {};
+  let done = 0;
+  const update = ()=>{ done++; btn.textContent='⏳ '+done+'/3...'; };
+
+  const mlInput = {name:p.name,cat:p.category,price:p.price,desc:p.description,type:'clasica'};
+  const tnInput = {name:p.name,cat:p.category,price:p.price,desc:p.description,target:p.target};
+  const socialReqs = ['ig','fb','wa','li','tw','tk'].map(id=>
+    fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({platform:id,info:p.name+(p.price?', precio $'+p.price:'')+(p.description?', '+p.description:''),tone:'energético con emojis y entusiasmo',photoB64:p.photoB64||null})
+    }).then(r=>r.json()).then(d=>({id,copy:d.copy||'',photoDesc:d.photoDesc}))
+  );
+
+  try {
+    const [ml, tn, social] = await Promise.all([
+      fetch('/api/agent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent:'ml',input:mlInput})}).then(r=>r.json()).then(d=>{update();return d;}),
+      fetch('/api/agent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent:'tiendanube',input:tnInput})}).then(r=>r.json()).then(d=>{update();return d;}),
+      Promise.all(socialReqs).then(rs=>{update();return rs;})
+    ]);
+
+    const state = loadState();
+    state.outputs = state.outputs || {};
+    const now = new Date().toISOString();
+    if(ml.output) state.outputs.ml = {...ml.output, generatedAt: now};
+    if(tn.output) state.outputs.tn = {...tn.output, generatedAt: now};
+    if(social && social.length){
+      const copies = {}; let photoDesc='';
+      social.forEach(r=>{ copies[r.id]=r.copy; if(r.photoDesc&&!photoDesc)photoDesc=r.photoDesc; });
+      state.outputs.social = {copies, photoDesc, generatedAt: now};
+    }
+    state.activity = state.activity || [];
+    state.activity.unshift({icon:'⚡',agent:'TODOS',text:'Generación masiva: '+(p.name||'').substring(0,30),time:new Date().toLocaleString('es-AR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})});
+    state.activity = state.activity.slice(0,20);
+    saveState(state);
+    renderProduct(); renderActivity();
+    btn.textContent='✓ Listo';
+  } catch(e){
+    btn.disabled = false; btn.textContent='⚠ Error — reintentar';
+    alert('Error al generar: '+e.message);
+  }
+}
+
 function renderActivity(){
   const state = loadState();
   const acts = state.activity || [];
@@ -209,6 +312,7 @@ function renderActivity(){
   }
 }
 
+renderProduct();
 renderChannels();
 renderActivity();
 </script>

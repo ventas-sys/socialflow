@@ -19,8 +19,16 @@ El **Panel de Control (`/`)** muestra KPIs en tiempo real (canales activos, veri
 ## Deploy
 1. Push a GitHub → conectar repo en Vercel
 2. Variables de entorno (Vercel → Settings → Environment Variables):
-   - `GEMINI_API_KEY` — obligatoria
+   - `GEMINI_API_KEY` — obligatoria para los agentes IA
+   - `SITE_PASSWORD` — **obligatoria**, contraseña para acceder al sitio (cualquier string fuerte)
 3. Redeploy
+
+## Privacidad
+El sitio es **privado**: `middleware.js` exige HTTP Basic Auth en todas las rutas (HTML + API) usando `SITE_PASSWORD`. Al entrar, el navegador pide usuario y contraseña:
+- **Usuario**: `uniproveedores` (o `admin`, o dejar vacío)
+- **Contraseña**: la que pusiste en `SITE_PASSWORD`
+
+Los tokens de Mercado Libre y Tienda Nube **no se guardan en el servidor** — quedan solo en `localStorage` del navegador.
 
 ## Endpoints API
 - `POST /api/agent` — `{ agent: 'ml'|'tiendanube'|'verification', input: {...} }`
@@ -30,7 +38,10 @@ El **Panel de Control (`/`)** muestra KPIs en tiempo real (canales activos, veri
 ## Estructura
 ```
 socialflow/
+├── middleware.js        Basic Auth global (sitio privado)
 ├── index.html           Panel de Control
+├── producto.html        Editor producto activo
+├── conexiones.html      Tokens ML + TN
 ├── ml.html              Agente Mercado Libre
 ├── tiendanube.html      Agente Tienda Nube
 ├── social.html          Agente Redes Sociales
@@ -38,7 +49,15 @@ socialflow/
 ├── vercel.json
 ├── package.json
 └── api/
-    ├── agent.js         Backend ML/TN/Verificación
-    ├── generate.js      Backend copies redes
-    └── image.js         Backend Imagen 4
+    ├── _http.js         Helper HTTPS + CORS
+    ├── agent.js         Backend ML/TN/Verificación (IA)
+    ├── generate.js      Backend copies redes (legacy)
+    ├── image.js         Backend Imagen 4
+    ├── ml/
+    │   ├── test.js
+    │   ├── category.js
+    │   └── publish.js
+    └── tn/
+        ├── test.js
+        └── publish.js
 ```
