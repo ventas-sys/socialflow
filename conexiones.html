@@ -60,15 +60,17 @@ input:focus{outline:none;border-color:rgba(0,200,100,0.5);}
 
   <div class="conn-card" style="--accent:#fff159;">
     <div class="conn-top">
-      <div class="conn-name"><div class="conn-icon">🛒</div><div><div class="conn-title">Mercado Libre</div><div class="conn-sub">developers.mercadolibre.com.ar</div></div></div>
+      <div class="conn-name"><div class="conn-icon">🛒</div><div><div class="conn-title">Mercado Libre</div><div class="conn-sub">OAuth · developers.mercadolibre.com.ar</div></div></div>
       <div class="conn-state" id="ml-state">sin conectar</div>
     </div>
-    <div class="field"><label>Access Token</label><input id="ml-token" type="password" placeholder="APP_USR-..."></div>
-    <div class="field"><label>User ID (opcional, se detecta solo)</label><input id="ml-user" type="text" placeholder="123456789"></div>
-    <div class="help">Generá el token desde tu app en <a href="https://developers.mercadolibre.com.ar/devcenter" target="_blank">DevCenter ML</a> → tu app → "Probar" → autorización del usuario vendedor. El access_token dura 6 horas.</div>
+    <div class="field"><label>Client ID (App ID)</label><input id="ml-cid" type="text" placeholder="5731065254303938"></div>
+    <div class="field"><label>Client Secret</label><input id="ml-cs" type="password" placeholder="fi5X5Ud8wqX9..."></div>
+    <div class="field"><label>Redirect URI (copialo en tu app de ML)</label><input id="ml-redirect" type="text" readonly style="background:rgba(0,0,0,0.2);font-size:11px;"></div>
+    <div class="help">⚠️ En <a href="https://developers.mercadolibre.com.ar/devcenter" target="_blank">DevCenter ML</a> → tu app → "Redirect URI" → pegá EXACTAMENTE el valor de arriba. Después guardás y autorizás.</div>
     <div class="btn-row">
-      <button class="btn btn-save" onclick="saveConn('ml')">💾 Guardar</button>
-      <button class="btn btn-test" onclick="testConn('ml')">🧪 Probar conexión</button>
+      <button class="btn btn-save" onclick="saveConn('ml')">💾 Guardar credenciales</button>
+      <button class="btn" style="background:rgba(255,140,0,0.15);border-color:rgba(255,140,0,0.4);color:#ff8c00;font-weight:700;" onclick="oauthML()">🚀 Autorizar Mercado Libre</button>
+      <button class="btn btn-test" onclick="refreshML()" id="ml-refresh-btn" style="display:none;">🔄 Renovar token</button>
       <button class="btn btn-clear" onclick="clearConn('ml')">🗑 Limpiar</button>
     </div>
     <div class="result" id="ml-result"></div>
@@ -108,12 +110,23 @@ function saveState(s){ localStorage.setItem('up_state', JSON.stringify(s)); }
 function render(){
   const s = loadState();
   const c = s.connections||{};
+  document.getElementById('ml-redirect').value = location.origin + '/ml-callback';
+  if(c.ml?.clientId){
+    document.getElementById('ml-cid').value = c.ml.clientId;
+    document.getElementById('ml-cs').value = c.ml.clientSecret||'';
+  }
   if(c.ml?.token){
-    document.getElementById('ml-token').value = c.ml.token;
-    document.getElementById('ml-user').value = c.ml.userId||'';
     const st = document.getElementById('ml-state');
-    st.textContent = c.ml.verified ? '✓ conectado · '+(c.ml.nickname||'') : 'guardado, sin verificar';
-    st.className = 'conn-state '+(c.ml.verified?'ok':'');
+    const expired = c.ml.expiresAt && Date.now() > c.ml.expiresAt;
+    if(expired){
+      st.textContent = '⚠ token vencido';
+      st.className = 'conn-state err';
+    } else if(c.ml.verified) {
+      const mins = c.ml.expiresAt ? Math.max(0, Math.round((c.ml.expiresAt - Date.now())/60000)) : null;
+      st.textContent = '✓ conectado · '+(c.ml.nickname||c.ml.userId||'')+(mins?' · vence en '+mins+' min':'');
+      st.className = 'conn-state ok';
+    }
+    if(c.ml.refreshToken) document.getElementById('ml-refresh-btn').style.display = 'inline-block';
   }
   if(c.tn?.token){
     document.getElementById('tn-token').value = c.tn.token;
@@ -128,10 +141,10 @@ function saveConn(prov){
   const s = loadState();
   s.connections = s.connections || {};
   if(prov==='ml'){
-    const token = document.getElementById('ml-token').value.trim();
-    const userId = document.getElementById('ml-user').value.trim();
-    if(!token){ notify('Falta el access token'); return; }
-    s.connections.ml = {token, userId, verified:false, savedAt:new Date().toISOString()};
+    const clientId = document.getElementById('ml-cid').value.trim();
+    const clientSecret = document.getElementById('ml-cs').value.trim();
+    if(!clientId || !clientSecret){ notify('Falta Client ID o Client Secret'); return; }
+    s.connections.ml = {...s.connections.ml, clientId, clientSecret, savedAt:new Date().toISOString()};
   } else if(prov==='tn'){
     const token = document.getElementById('tn-token').value.trim();
     const storeId = document.getElementById('tn-store').value.trim();
@@ -139,8 +152,44 @@ function saveConn(prov){
     s.connections.tn = {token, storeId, verified:false, savedAt:new Date().toISOString()};
   }
   saveState(s);
-  notify('💾 Credenciales guardadas. Probá la conexión.');
+  notify('💾 Credenciales guardadas');
   render();
+}
+
+function oauthML(){
+  const s = loadState();
+  const c = s.connections?.ml;
+  if(!c?.clientId || !c?.clientSecret){
+    notify('Guardá Client ID + Secret primero');
+    return;
+  }
+  const redirectUri = location.origin + '/ml-callback';
+  const authUrl = 'https://auth.mercadolibre.com.ar/authorization?response_type=code&client_id='+encodeURIComponent(c.clientId)+'&redirect_uri='+encodeURIComponent(redirectUri);
+  location.href = authUrl;
+}
+
+async function refreshML(){
+  const s = loadState();
+  const c = s.connections?.ml;
+  if(!c?.refreshToken){ notify('No hay refresh_token guardado'); return; }
+  const btn = document.getElementById('ml-refresh-btn');
+  btn.disabled = true; const orig = btn.innerHTML; btn.innerHTML='<span class="spinner"></span>Renovando...';
+  try {
+    const r = await fetch('/api/ml/refresh',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({clientId:c.clientId, clientSecret:c.clientSecret, refreshToken:c.refreshToken})
+    });
+    const d = await r.json();
+    if(!d.ok) throw new Error(d.error||'Error renovando');
+    const s2 = loadState();
+    s2.connections.ml = {...s2.connections.ml, token:d.accessToken, refreshToken:d.refreshToken||c.refreshToken, expiresAt:Date.now()+(d.expiresIn||21600)*1000};
+    saveState(s2);
+    notify('🔄 Token renovado');
+    render();
+  } catch(e){
+    notify('❌ '+e.message);
+  }
+  btn.disabled = false; btn.innerHTML = orig;
 }
 
 function clearConn(prov){
@@ -149,12 +198,13 @@ function clearConn(prov){
   s.connections = s.connections || {};
   delete s.connections[prov];
   saveState(s);
-  const fields = prov==='ml' ? ['ml-token','ml-user'] : ['tn-token','tn-store'];
-  fields.forEach(id=>document.getElementById(id).value='');
+  const fields = prov==='ml' ? ['ml-cid','ml-cs'] : ['tn-token','tn-store'];
+  fields.forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   document.getElementById(prov+'-state').textContent = 'sin conectar';
   document.getElementById(prov+'-state').className = 'conn-state';
   const r = document.getElementById(prov+'-result');
-  r.style.display='none'; r.textContent='';
+  if(r){ r.style.display='none'; r.textContent=''; }
+  if(prov==='ml') document.getElementById('ml-refresh-btn').style.display='none';
   notify('Credenciales borradas');
 }
 

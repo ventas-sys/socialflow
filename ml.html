@@ -237,12 +237,34 @@ async function predictCategory(btn){
   btn.innerHTML=orig; btn.disabled=false;
 }
 
+async function ensureFreshMLToken(){
+  let s = JSON.parse(localStorage.getItem('up_state')||'{}');
+  const c = s.connections?.ml;
+  if(!c) return null;
+  const expired = c.expiresAt && Date.now() > (c.expiresAt - 5*60*1000); // 5min margen
+  if(expired && c.refreshToken && c.clientId && c.clientSecret){
+    try {
+      const r = await fetch('/api/ml/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clientId:c.clientId,clientSecret:c.clientSecret,refreshToken:c.refreshToken})});
+      const d = await r.json();
+      if(d.ok){
+        s = JSON.parse(localStorage.getItem('up_state')||'{}');
+        s.connections.ml = {...s.connections.ml, token:d.accessToken, refreshToken:d.refreshToken||c.refreshToken, expiresAt:Date.now()+(d.expiresIn||21600)*1000};
+        localStorage.setItem('up_state', JSON.stringify(s));
+        notify('🔄 Token de ML renovado');
+        return s.connections.ml;
+      }
+    } catch(e){}
+  }
+  return c;
+}
+
 async function publishML(){
   const s = JSON.parse(localStorage.getItem('up_state')||'{}');
   const out = s.outputs?.ml;
-  const creds = s.connections?.ml;
+  let creds = s.connections?.ml;
   if(!out||!creds) return notify('Falta listing o conexión');
   if(!mlCategoryId) return notify('Detectá la categoría primero');
+  creds = await ensureFreshMLToken() || creds;
   const pics = document.getElementById('pub-pics').value.split('\n').map(x=>x.trim()).filter(Boolean);
   if(!pics.length) return notify('Pegá al menos 1 URL de foto');
   const price = document.getElementById('p-price').value;
