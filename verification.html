@@ -42,8 +42,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .ai-btn{background:linear-gradient(135deg,#a78bfa,#7c3aed);border:none;border-radius:7px;padding:5px 10px;font-size:11px;color:#fff;cursor:pointer;font-family:inherit;font-weight:600;}
 .ai-btn:hover{opacity:0.9;}.ai-btn:disabled{opacity:0.4;cursor:not-allowed;}
 
-.plan-box{background:rgba(0,0,0,0.25);border:1px solid rgba(167,139,250,0.2);border-radius:8px;padding:11px;margin-top:8px;font-size:12px;line-height:1.55;color:#d0c8b8;white-space:pre-wrap;display:none;}
+.plan-box{background:rgba(0,0,0,0.25);border:1px solid rgba(167,139,250,0.2);border-radius:8px;padding:14px 16px;margin-top:10px;font-size:12.5px;line-height:1.65;color:#d0c8b8;display:none;}
 .plan-box.show{display:block;animation:fadeIn 0.3s;}
+.plan-box h4{font-size:11px;color:#a78bfa;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin:14px 0 6px;padding:6px 10px;background:rgba(167,139,250,0.08);border-left:3px solid #a78bfa;border-radius:4px;}
+.plan-box h4:first-child{margin-top:0;}
+.plan-box p{margin:0 0 8px;white-space:pre-wrap;}
+.plan-box .week{font-weight:700;color:#c4b5fd;margin-top:6px;display:inline-block;}
+.plan-box-actions{display:flex;gap:6px;margin-top:12px;padding-top:10px;border-top:1px solid rgba(167,139,250,0.15);}
+.plan-box-btn{background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.25);color:#c4b5fd;padding:5px 10px;border-radius:6px;font-size:10px;cursor:pointer;font-family:inherit;}
+.plan-box-btn:hover{background:rgba(167,139,250,0.2);}
 @keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
 
 #notif{position:fixed;top:16px;right:16px;z-index:9999;background:rgba(10,10,22,0.97);border:1px solid rgba(167,139,250,0.45);border-radius:10px;padding:11px 16px;font-size:13px;color:#a78bfa;display:none;}
@@ -165,6 +172,31 @@ function render(){
   document.getElementById('prog-text').textContent = verif+' verificadas · '+proc+' en proceso · '+(total-verif-proc)+' pendientes';
 }
 
+function formatPlan(text){
+  if(!text) return '';
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const sections = text.split(/^={3,}\s*(.+?)\s*={3,}\s*$/m).filter(Boolean);
+  if(sections.length<=1){
+    return '<p>'+esc(text)+'</p>';
+  }
+  let html = '';
+  for(let i=0;i<sections.length;i++){
+    const block = sections[i].trim();
+    if(i%2===0 && i===0 && block){
+      html += '<p>'+esc(block)+'</p>';
+    } else if(i%2===1){
+      html += '<h4>'+esc(block)+'</h4>';
+    } else {
+      let body = esc(block);
+      body = body.replace(/^(SEMANA\s*\d+[^\n:]*:?)/gm,'<span class="week">$1</span>');
+      body = body.replace(/^(DIA\s+\d+[^\n:]*:?)/gmi,'<span class="week">$1</span>');
+      body = body.replace(/^(DIA DE LA APLICACION:?)/gmi,'<span class="week">$1</span>');
+      html += '<p>'+body+'</p>';
+    }
+  }
+  return html;
+}
+
 async function askPlan(id, btn){
   const plat = PLATS.find(p=>p.id===id);
   const box = document.getElementById('plan-'+id);
@@ -172,7 +204,7 @@ async function askPlan(id, btn){
   const orig = btn.innerHTML;
   btn.innerHTML = '<span class="spinner"></span>Generando plan...';
   box.classList.add('show');
-  box.textContent = 'IA analizando...';
+  box.innerHTML = '<p>IA armando plan estratégico completo... (puede tardar 15-25 segundos)</p>';
   try {
     const r = await fetch('/api/agent',{
       method:'POST',headers:{'Content-Type':'application/json'},
@@ -180,13 +212,34 @@ async function askPlan(id, btn){
     });
     const d = await r.json();
     if(d.error) throw new Error(d.error);
-    box.textContent = d.output || d.text || 'Sin respuesta';
-    notify('Plan listo para '+plat.name);
+    const raw = d.output || d.text || 'Sin respuesta';
+    box.dataset.raw = raw;
+    box.innerHTML = formatPlan(raw) + '<div class="plan-box-actions"><button class="plan-box-btn" onclick="copyPlan(\''+id+'\',this)">📋 Copiar plan completo</button><button class="plan-box-btn" onclick="printPlan(\''+id+'\')">🖨 Imprimir / PDF</button><button class="plan-box-btn" onclick="askPlan(\''+id+'\',document.querySelector(\'#plan-'+id+'\').previousElementSibling.querySelector(\'.ai-btn\'))">🔄 Regenerar</button></div>';
+    notify('Plan completo listo para '+plat.name);
   } catch(e){
-    box.textContent = '❌ '+e.message;
+    box.innerHTML = '<p style="color:#ff8080;">❌ '+e.message+'</p>';
   }
   btn.disabled = false;
   btn.innerHTML = orig;
+}
+
+function copyPlan(id, btn){
+  const box = document.getElementById('plan-'+id);
+  const txt = box.dataset.raw || '';
+  navigator.clipboard.writeText(txt).catch(()=>{const a=document.createElement('textarea');a.value=txt;document.body.appendChild(a);a.select();document.execCommand('copy');document.body.removeChild(a);});
+  const orig = btn.textContent;
+  btn.textContent = '✓ Copiado';
+  setTimeout(()=>btn.textContent=orig, 2000);
+}
+
+function printPlan(id){
+  const plat = PLATS.find(p=>p.id===id);
+  const box = document.getElementById('plan-'+id);
+  const raw = box.dataset.raw || '';
+  const w = window.open('', '_blank');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Plan '+plat.name+' - Uniproveedores</title><style>body{font-family:-apple-system,sans-serif;max-width:780px;margin:30px auto;padding:0 20px;line-height:1.6;color:#222;}h1{color:'+plat.color+';border-bottom:3px solid '+plat.color+';padding-bottom:8px;}h4{color:'+plat.color+';text-transform:uppercase;letter-spacing:1px;font-size:13px;margin-top:24px;padding:8px 12px;background:#f4f0fa;border-left:4px solid '+plat.color+';}p{white-space:pre-wrap;font-size:13px;}small{color:#888;}</style></head><body><h1>Plan de Verificación: '+plat.name+'</h1><small>Uniproveedores.com.ar · '+new Date().toLocaleString('es-AR')+'</small>'+formatPlan(raw)+'</body></html>');
+  w.document.close();
+  setTimeout(()=>w.print(), 500);
 }
 
 render();

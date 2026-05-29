@@ -83,34 +83,65 @@ Generá una ficha SEO completa para Tienda Nube. Respondé EXCLUSIVAMENTE con un
   }
 
   if (agent === 'verification') {
-    return `Sos consultor experto en verificación de cuentas y reputación digital para empresas argentinas.
+    return `Sos consultor senior en verificacion de cuentas, reputacion digital y trust signals para empresas argentinas. Trabajas para Uniproveedores.com.ar.
 
 Empresa: ${input.company || 'Uniproveedores.com.ar — distribuidora mayorista argentina'}
 Plataforma: ${input.platform}
 Tipo: ${input.type}
 Requisitos generales: ${input.requirements}
 
-Generá un PLAN PERSONALIZADO accionable en español argentino, sin frases genéricas. Estructurá la respuesta así (texto plano, sin markdown):
+Genera un PLAN ESTRATEGICO COMPLETO y accionable en espanol argentino, sin frases genericas. Pensalo como si lo armaras para presentar al directorio: tiene que cubrir desde el "por que" hasta el ultimo detalle operativo.
 
-PASO A PASO (30-60 días):
-1. ...
-2. ...
-3. ...
-(5-8 pasos concretos, fechas estimadas, qué documentación tener lista)
+Usa exactamente este formato (texto plano, sin markdown, sin emojis decorativos):
 
-DOCUMENTOS A PREPARAR:
-- ...
+=== POR QUE CONVIENE VERIFICAR ===
+3-4 lineas con el ROI concreto: incremento esperado de conversion, autoridad, alcance, indexacion, costo de oportunidad de NO verificarse. Numeros aproximados si los hay.
 
-COSTOS ESTIMADOS EN ARS:
-- ...
+=== ESTADO INICIAL Y BRECHA ===
+- Que se necesita cumplir vs que probablemente ya tenga la empresa.
+- 3-5 puntos especificos a auditar antes de aplicar.
 
-RIESGO DE RECHAZO Y CÓMO EVITARLO:
-- ...
+=== ROADMAP DIA POR DIA ===
+SEMANA 1 (dias 1-7):
+- Dia 1: ...
+- Dia 2-3: ...
+- Dia 4-7: ...
+SEMANA 2 (dias 8-14): ...
+SEMANA 3-4 (dias 15-30): ...
+DIA DE LA APLICACION: ...
+(Total 8-15 pasos concretos con fechas y entregables por paso)
 
-PRÓXIMA ACCIÓN HOY (lo primero que tiene que hacer apenas termine de leer):
-...
+=== DOCUMENTOS Y EVIDENCIAS A PREPARAR ===
+Lista numerada. Por cada documento:
+- Nombre
+- Donde obtenerlo (link/oficina/sistema)
+- Formato requerido (PDF, JPG, tamano max)
+- Tiempo estimado para conseguirlo
 
-Sé concreto, técnico, sin relleno. Máximo 1500 caracteres total.`;
+=== COSTOS DETALLADOS EN ARS (cotizacion mayo 2026) ===
+- Costo mensual/anual de la verificacion oficial
+- Costos indirectos (sesion fotos, redactor, gestor)
+- Inversion en contenido previo para fortalecer cuenta
+- Total minimo y total recomendado
+
+=== KPIs Y OBJETIVOS MEDIBLES (60 dias post verificacion) ===
+3-5 metricas con valor objetivo: ej "alcance organico +30%", "tasa de respuesta DM <2h", "rating promedio >=4.7", etc.
+
+=== RIESGOS DE RECHAZO Y MITIGACION ===
+Top 5 razones por las que rechazan en esta plataforma, con accion preventiva concreta para cada una.
+
+=== PLAN B (si te rechazan) ===
+- Tiempo de espera antes de reintentar
+- Que cambiar entre intento 1 y 2
+- Vias alternativas (partners, programas oficiales, agencias)
+
+=== CHECKLIST FINAL PRE-APLICACION ===
+12-18 items binarios (SI/NO) que la empresa debe poder responder "SI" antes de mandar la solicitud.
+
+=== PROXIMA ACCION CONCRETA EN LAS PROXIMAS 2 HORAS ===
+Una sola tarea ultra-especifica que el responsable tiene que hacer apenas termine de leer este plan. Que abra, que pegue, que botone tocar.
+
+Estilo: tecnico, directo, argentino formal. Sin saludos, sin disclaimer, sin "espero te sirva". Cero relleno. Maximo 4500 caracteres totales.`;
   }
 
   return null;
@@ -139,7 +170,7 @@ export default async function handler(req, res) {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: isJsonAgent ? 0.55 : 0.7,
-        maxOutputTokens: 4000,
+        maxOutputTokens: isJsonAgent ? 4000 : 8000,
         responseMimeType: isJsonAgent ? 'application/json' : 'text/plain'
       }
     });
