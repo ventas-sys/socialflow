@@ -245,8 +245,8 @@ async function testConn(prov){
   const stEl = document.getElementById(prov+'-state');
   rEl.className = 'result'; rEl.style.display='block'; rEl.textContent = 'Probando...';
   try {
-    const path = prov==='conta' ? 'contabilium' : prov;
-    const r = await fetch('/api/'+path+'/test',{
+    const url = prov==='conta' ? '/api/contabilium?action=test' : '/api/'+prov+'/test';
+    const r = await fetch(url,{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify(creds)
     });
