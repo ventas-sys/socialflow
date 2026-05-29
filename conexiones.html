@@ -92,6 +92,22 @@ input:focus{outline:none;border-color:rgba(0,200,100,0.5);}
     <div class="result" id="tn-result"></div>
   </div>
 
+  <div class="conn-card" style="--accent:#2ecc71;">
+    <div class="conn-top">
+      <div class="conn-name"><div class="conn-icon">📒</div><div><div class="conn-title">Contabilium</div><div class="conn-sub">rest.contabilium.com</div></div></div>
+      <div class="conn-state" id="conta-state">sin conectar</div>
+    </div>
+    <div class="field"><label>Client ID</label><input id="conta-cid" type="text" placeholder="tu_client_id"></div>
+    <div class="field"><label>Client Secret</label><input id="conta-cs" type="password" placeholder="tu_client_secret"></div>
+    <div class="help">Generá las credenciales en <a href="https://app.contabilium.com" target="_blank">Contabilium</a> → Configuración → API → "Generar credenciales API". Autenticación es OAuth Client Credentials.</div>
+    <div class="btn-row">
+      <button class="btn btn-save" onclick="saveConn('conta')">💾 Guardar</button>
+      <button class="btn btn-test" onclick="testConn('conta')">🧪 Probar conexión</button>
+      <button class="btn btn-clear" onclick="clearConn('conta')">🗑 Limpiar</button>
+    </div>
+    <div class="result" id="conta-result"></div>
+  </div>
+
   <div class="conn-card" style="--accent:#1877F2;opacity:0.6;">
     <div class="conn-top">
       <div class="conn-name"><div class="conn-icon">📘</div><div><div class="conn-title">Meta (Facebook + Instagram)</div><div class="conn-sub">developers.facebook.com</div></div></div>
@@ -135,6 +151,13 @@ function render(){
     st.textContent = c.tn.verified ? '✓ conectado · '+(c.tn.storeName||'') : 'guardado, sin verificar';
     st.className = 'conn-state '+(c.tn.verified?'ok':'');
   }
+  if(c.conta?.clientId){
+    document.getElementById('conta-cid').value = c.conta.clientId;
+    document.getElementById('conta-cs').value = c.conta.clientSecret||'';
+    const st = document.getElementById('conta-state');
+    st.textContent = c.conta.verified ? '✓ conectado' : 'guardado, sin verificar';
+    st.className = 'conn-state '+(c.conta.verified?'ok':'');
+  }
 }
 
 function saveConn(prov){
@@ -150,6 +173,11 @@ function saveConn(prov){
     const storeId = document.getElementById('tn-store').value.trim();
     if(!token||!storeId){ notify('Falta token y/o Store ID'); return; }
     s.connections.tn = {token, storeId, verified:false, savedAt:new Date().toISOString()};
+  } else if(prov==='conta'){
+    const clientId = document.getElementById('conta-cid').value.trim();
+    const clientSecret = document.getElementById('conta-cs').value.trim();
+    if(!clientId||!clientSecret){ notify('Falta Client ID o Secret'); return; }
+    s.connections.conta = {clientId, clientSecret, verified:false, savedAt:new Date().toISOString()};
   }
   saveState(s);
   notify('💾 Credenciales guardadas');
@@ -193,12 +221,13 @@ async function refreshML(){
 }
 
 function clearConn(prov){
-  if(!confirm('¿Borrar las credenciales de '+(prov==='ml'?'Mercado Libre':'Tienda Nube')+'?')) return;
+  const provName = prov==='ml'?'Mercado Libre':prov==='tn'?'Tienda Nube':'Contabilium';
+  if(!confirm('¿Borrar las credenciales de '+provName+'?')) return;
   const s = loadState();
   s.connections = s.connections || {};
   delete s.connections[prov];
   saveState(s);
-  const fields = prov==='ml' ? ['ml-cid','ml-cs'] : ['tn-token','tn-store'];
+  const fields = prov==='ml' ? ['ml-cid','ml-cs'] : prov==='tn' ? ['tn-token','tn-store'] : ['conta-cid','conta-cs'];
   fields.forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   document.getElementById(prov+'-state').textContent = 'sin conectar';
   document.getElementById(prov+'-state').className = 'conn-state';
@@ -216,7 +245,8 @@ async function testConn(prov){
   const stEl = document.getElementById(prov+'-state');
   rEl.className = 'result'; rEl.style.display='block'; rEl.textContent = 'Probando...';
   try {
-    const r = await fetch('/api/'+prov+'/test',{
+    const path = prov==='conta' ? 'contabilium' : prov;
+    const r = await fetch('/api/'+path+'/test',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify(creds)
     });
@@ -235,7 +265,8 @@ async function testConn(prov){
     s2.connections = s2.connections || {};
     s2.connections[prov] = {...creds, verified:true, ...d.info};
     s2.activity = s2.activity || [];
-    s2.activity.unshift({icon:'🔌',agent:'CONN',text:(prov==='ml'?'Mercado Libre':'Tienda Nube')+' verificado',time:new Date().toLocaleString('es-AR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})});
+    const provName = prov==='ml'?'Mercado Libre':prov==='tn'?'Tienda Nube':'Contabilium';
+    s2.activity.unshift({icon:'🔌',agent:'CONN',text:provName+' verificado',time:new Date().toLocaleString('es-AR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})});
     s2.activity = s2.activity.slice(0,20);
     saveState(s2);
     notify('✅ Conexión verificada');

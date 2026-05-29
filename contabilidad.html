@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agente Contabilidad · Uniproveedores</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a16;color:#e0d8cc;min-height:100vh;}
+.header{background:rgba(255,255,255,0.03);border-bottom:1px solid rgba(46,204,113,0.2);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.back{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;}
+.back-ic{width:32px;height:32px;border-radius:8px;background:rgba(46,204,113,0.15);display:flex;align-items:center;justify-content:center;color:#2ecc71;font-size:18px;}
+.b-title{font-size:15px;font-weight:700;color:#2ecc71;}
+.b-sub{font-size:9px;color:#666;letter-spacing:2px;text-transform:uppercase;}
+.ia-badge{font-size:11px;color:#2ecc71;background:rgba(46,204,113,0.08);border:1px solid rgba(46,204,113,0.2);padding:4px 10px;border-radius:20px;}
+.main{max-width:760px;margin:0 auto;padding:20px 16px 60px;}
+.tip{background:rgba(46,204,113,0.06);border:1px solid rgba(46,204,113,0.15);border-radius:10px;padding:11px 16px;font-size:12px;color:#7ee2a3;margin-bottom:16px;}
+.card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:16px;margin-bottom:12px;}
+.sec-lbl{font-size:10px;color:#2ecc71;letter-spacing:2px;text-transform:uppercase;display:block;margin-bottom:10px;}
+.field{margin-bottom:11px;}.field:last-child{margin-bottom:0;}
+.field label{font-size:11px;color:#888;display:block;margin-bottom:5px;}
+input,textarea,select{width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:9px 12px;color:#e0d8cc;font-size:13px;font-family:inherit;}
+input:focus,textarea:focus,select:focus{outline:none;border-color:rgba(46,204,113,0.5);}
+textarea{resize:vertical;min-height:50px;}
+.btn-main{width:100%;background:linear-gradient(135deg,#2ecc71,#27ae60);border:none;border-radius:10px;padding:14px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;}
+.btn-main:hover{opacity:0.92;}.btn-main:disabled{background:rgba(100,100,100,0.2);color:#555;cursor:not-allowed;}
+
+.input-tabs{display:flex;gap:6px;margin-bottom:10px;}
+.tab{flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:9px;cursor:pointer;font-size:12px;color:#888;font-family:inherit;text-align:center;}
+.tab.on{background:rgba(46,204,113,0.12);border-color:rgba(46,204,113,0.4);color:#2ecc71;}
+.tab-content{display:none;}.tab-content.on{display:block;}
+
+.upload-zone{border:2px dashed rgba(255,255,255,0.15);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:all 0.2s;position:relative;}
+.upload-zone:hover{border-color:rgba(46,204,113,0.5);background:rgba(46,204,113,0.05);}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.preview-img{width:100%;border-radius:8px;max-height:280px;object-fit:contain;margin-top:10px;display:none;background:rgba(0,0,0,0.3);}
+
+.camera-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
+.cam-btn{background:rgba(46,204,113,0.1);border:1px solid rgba(46,204,113,0.3);color:#2ecc71;padding:10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;position:relative;}
+.cam-btn input{position:absolute;inset:0;opacity:0;cursor:pointer;}
+
+.result-card{background:rgba(255,255,255,0.03);border:1px solid rgba(46,204,113,0.2);border-radius:12px;padding:16px;margin-bottom:12px;border-left:4px solid #2ecc71;animation:fadeIn 0.35s ease;}
+.result-title{font-size:13px;font-weight:700;color:#2ecc71;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.item-row{display:grid;grid-template-columns:2fr 0.6fr 1fr 1fr auto;gap:6px;margin-bottom:6px;align-items:end;}
+.item-row .del{background:rgba(255,80,80,0.1);border:1px solid rgba(255,80,80,0.25);color:#ff8080;border-radius:6px;padding:8px 10px;cursor:pointer;font-size:11px;}
+.add-item{background:rgba(46,204,113,0.08);border:1px dashed rgba(46,204,113,0.3);color:#2ecc71;padding:7px;border-radius:7px;cursor:pointer;font-size:11px;font-family:inherit;width:100%;margin-top:4px;}
+.confidence{font-size:10px;padding:3px 8px;border-radius:8px;}
+.confidence.alta{background:rgba(0,200,100,0.12);color:#00c864;}
+.confidence.media{background:rgba(255,140,0,0.12);color:#ff8c00;}
+.confidence.baja{background:rgba(255,80,80,0.12);color:#ff8080;}
+
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.15);border-top-color:#2ecc71;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+.loading{text-align:center;padding:30px 20px;color:#2ecc71;font-size:13px;}
+.empty{text-align:center;padding:30px 20px;color:#444;}
+#notif{position:fixed;top:16px;right:16px;z-index:9999;background:rgba(10,10,22,0.97);border:1px solid rgba(46,204,113,0.45);border-radius:10px;padding:11px 16px;font-size:13px;color:#2ecc71;display:none;max-width:300px;}
+
+.result-msg{font-size:12px;padding:10px;border-radius:7px;margin-top:10px;white-space:pre-wrap;display:none;line-height:1.5;}
+.result-msg.ok{background:rgba(0,200,100,0.08);color:#7eddae;border:1px solid rgba(0,200,100,0.2);}
+.result-msg.err{background:rgba(255,80,80,0.08);color:#ff9999;border:1px solid rgba(255,80,80,0.25);}
+
+@media(max-width:600px){
+  .item-row{grid-template-columns:1fr 1fr;}
+  .row,.row3{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+<div id="notif"></div>
+<div class="header">
+  <a class="back" href="/"><div class="back-ic">←</div><div><div class="b-title">Agente Contabilidad</div><div class="b-sub">UNIPROVEEDORES · AGENCIA</div></div></a>
+  <div class="ia-badge">📒 OCR + Contabilium</div>
+</div>
+
+<div class="main">
+  <div class="tip">📒 Sacá una foto a la factura con el celu, subila desde Google Drive o WhatsApp, y la IA extrae todos los datos y los carga en Contabilium.</div>
+
+  <div class="card">
+    <span class="sec-lbl">Origen de la factura</span>
+    <div class="input-tabs">
+      <button class="tab on" onclick="setTab('cam')">📸 Cámara / Galería</button>
+      <button class="tab" onclick="setTab('drive')">🔗 URL Drive / WhatsApp Web</button>
+    </div>
+
+    <div class="tab-content on" id="tab-cam">
+      <div class="upload-zone" id="upload-zone">
+        <input type="file" id="photo-input" accept="image/*" onchange="onPhotoChange(event)">
+        <div style="font-size:30px;margin-bottom:6px;">📸</div>
+        <div style="font-size:13px;color:#888;">Tocá para subir foto / arrastrá acá</div>
+        <div style="font-size:11px;color:#555;margin-top:3px;">JPG, PNG, WEBP, HEIC</div>
+      </div>
+      <div class="camera-btns">
+        <button class="cam-btn">📷 Sacar foto ahora<input type="file" accept="image/*" capture="environment" onchange="onPhotoChange(event)"></button>
+        <button class="cam-btn">🖼 Elegir de galería<input type="file" accept="image/*" onchange="onPhotoChange(event)"></button>
+      </div>
+      <img id="photo-preview" class="preview-img" alt="">
+    </div>
+
+    <div class="tab-content" id="tab-drive">
+      <div class="field"><label>URL pública de la imagen (Google Drive compartido, Imgur, WhatsApp Web export…)</label><input id="img-url" type="url" placeholder="https://drive.google.com/uc?id=..."></div>
+      <div style="font-size:10px;color:#666;line-height:1.5;margin-bottom:8px;">
+        <b>Google Drive:</b> compartí el archivo "para cualquiera con el link", copiá el ID y armá: <code style="background:#000;padding:2px 5px;border-radius:4px;">https://drive.google.com/uc?id=ID_DEL_ARCHIVO</code><br>
+        <b>WhatsApp Web:</b> arrastrá la foto del chat al escritorio y subila acá en la pestaña "Cámara".
+      </div>
+      <button class="btn-main" style="background:linear-gradient(135deg,#4285F4,#3367d6);" onclick="loadFromUrl()">Cargar desde URL</button>
+    </div>
+  </div>
+
+  <button class="btn-main" id="ocr-btn" onclick="extractInvoice()" disabled>✨ Extraer datos con IA</button>
+
+  <div id="extracted-zone" style="margin-top:18px;"></div>
+</div>
+
+<script>
+let nT, photoB64='', mimeType='image/jpeg', factura=null;
+function notify(m){const e=document.getElementById('notif');e.textContent=m;e.style.display='block';clearTimeout(nT);nT=setTimeout(()=>e.style.display='none',4000);}
+
+function setTab(t){
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('on',(t==='cam'&&i===0)||(t==='drive'&&i===1)));
+  document.getElementById('tab-cam').classList.toggle('on',t==='cam');
+  document.getElementById('tab-drive').classList.toggle('on',t==='drive');
+}
+
+function onPhotoChange(e){
+  const file=e.target.files[0]; if(!file) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    const dataUrl=ev.target.result;
+    photoB64=dataUrl.split(',')[1];
+    mimeType=file.type||'image/jpeg';
+    const p=document.getElementById('photo-preview');
+    p.src=dataUrl; p.style.display='block';
+    document.getElementById('upload-zone').style.borderColor='rgba(46,204,113,0.5)';
+    document.getElementById('ocr-btn').disabled=false;
+    notify('✅ Foto cargada — extraé los datos');
+  };
+  r.readAsDataURL(file);
+}
+
+async function loadFromUrl(){
+  const url=document.getElementById('img-url').value.trim();
+  if(!url){ notify('Pegá la URL'); return; }
+  notify('Descargando imagen...');
+  try {
+    const r=await fetch(url);
+    if(!r.ok) throw new Error('No se pudo descargar');
+    const blob=await r.blob();
+    mimeType=blob.type||'image/jpeg';
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      const dataUrl=ev.target.result;
+      photoB64=dataUrl.split(',')[1];
+      const p=document.getElementById('photo-preview');
+      p.src=dataUrl; p.style.display='block';
+      setTab('cam');
+      document.getElementById('ocr-btn').disabled=false;
+      notify('✅ Imagen lista');
+    };
+    reader.readAsDataURL(blob);
+  } catch(e){
+    notify('❌ Error: ' + e.message + ' (probá descargarla y subirla desde galería)');
+  }
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  const z=document.getElementById('upload-zone');
+  z.addEventListener('dragover',e=>{e.preventDefault();z.style.background='rgba(46,204,113,0.08)';});
+  z.addEventListener('dragleave',()=>{z.style.background='';});
+  z.addEventListener('drop',e=>{e.preventDefault();z.style.background='';const f=e.dataTransfer.files[0];if(f){onPhotoChange({target:{files:[f]}});}});
+});
+
+async function extractInvoice(){
+  if(!photoB64){ notify('Subí una foto primero'); return; }
+  const btn=document.getElementById('ocr-btn');
+  const zone=document.getElementById('extracted-zone');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span>Leyendo factura...';
+  zone.innerHTML='<div class="loading"><span class="spinner"></span>Gemini analizando la factura...</div>';
+  try {
+    const r=await fetch('/api/contabilium/extract',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({photoB64,mimeType})});
+    const d=await r.json();
+    if(d.error||!d.ok) throw new Error(d.error||'Error desconocido');
+    factura=d.factura;
+    renderFactura();
+    logActivity('Factura leida: '+(factura.proveedor?.razonSocial||'sin proveedor')+' $'+(factura.totales?.total||0));
+    notify('✅ Factura leida — revisá y cargá en Contabilium');
+  } catch(e){
+    zone.innerHTML='<div style="background:rgba(255,80,80,0.08);border:1px solid rgba(255,80,80,0.25);border-radius:12px;padding:18px;color:#ff8080;font-size:13px;text-align:center">❌ '+e.message+'</div>';
+  }
+  btn.disabled=false; btn.innerHTML='✨ Extraer datos con IA';
+}
+
+function logActivity(text){
+  try {
+    const s = JSON.parse(localStorage.getItem('up_state')||'{}');
+    s.activity = s.activity || [];
+    s.activity.unshift({icon:'📒',agent:'CONTA',text,time:new Date().toLocaleString('es-AR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})});
+    s.activity = s.activity.slice(0,20);
+    localStorage.setItem('up_state', JSON.stringify(s));
+  } catch(e){}
+}
+
+function renderFactura(){
+  const f=factura;
+  const conf=(f.confianza||'media').toLowerCase();
+  const zone=document.getElementById('extracted-zone');
+  const itemsHtml=(f.items||[]).map((it,i)=>itemRowHtml(it,i)).join('');
+  zone.innerHTML=`
+    <div class="result-card">
+      <div class="result-title">📋 Datos extraidos por IA <span class="confidence ${conf}">confianza ${conf}</span></div>
+      <div class="row3">
+        <div class="field"><label>Tipo</label>
+          <select id="f-tipo">
+            ${['Factura A','Factura B','Factura C','Factura E','Nota de Credito','Ticket','Recibo'].map(t=>'<option '+(f.tipoComprobante===t?'selected':'')+'>'+t+'</option>').join('')}
+          </select>
+        </div>
+        <div class="field"><label>Pto venta</label><input id="f-pv" value="${f.puntoVenta||''}"></div>
+        <div class="field"><label>Número</label><input id="f-num" value="${f.numeroComprobante||''}"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Fecha emisión</label><input id="f-fecha" type="date" value="${f.fechaEmision||''}"></div>
+        <div class="field"><label>Moneda</label>
+          <select id="f-moneda"><option ${f.moneda==='ARS'?'selected':''}>ARS</option><option ${f.moneda==='USD'?'selected':''}>USD</option></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-card">
+      <div class="result-title">🏢 Proveedor</div>
+      <div class="field"><label>Razón social</label><input id="f-prov" value="${(f.proveedor?.razonSocial||'').replace(/"/g,'&quot;')}"></div>
+      <div class="row">
+        <div class="field"><label>CUIT</label><input id="f-cuit" value="${f.proveedor?.cuit||''}" placeholder="20-12345678-9"></div>
+        <div class="field"><label>Condición IVA</label>
+          <select id="f-cond">
+            ${['Responsable Inscripto','Monotributo','Exento','Consumidor Final',''].map(t=>'<option '+(f.proveedor?.condicionIva===t?'selected':'')+'>'+t+'</option>').join('')}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-card">
+      <div class="result-title">📦 Items <button class="add-item" style="width:auto;padding:5px 10px;" onclick="addItem()">+ Agregar item</button></div>
+      <div id="items-list">${itemsHtml}</div>
+    </div>
+
+    <div class="result-card">
+      <div class="result-title">💰 Totales</div>
+      <div class="row3">
+        <div class="field"><label>Subtotal</label><input id="f-sub" type="number" step="0.01" value="${f.totales?.subtotal||0}"></div>
+        <div class="field"><label>IVA 21%</label><input id="f-iva21" type="number" step="0.01" value="${f.totales?.iva21||0}"></div>
+        <div class="field"><label>IVA 10.5%</label><input id="f-iva105" type="number" step="0.01" value="${f.totales?.iva105||0}"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Percepciones</label><input id="f-perc" type="number" step="0.01" value="${f.totales?.percepciones||0}"></div>
+        <div class="field"><label style="color:#2ecc71;font-weight:700;">TOTAL</label><input id="f-total" type="number" step="0.01" value="${f.totales?.total||0}" style="font-weight:700;color:#2ecc71;"></div>
+      </div>
+    </div>
+
+    <div class="result-card">
+      <div class="result-title">🚀 Cargar en Contabilium</div>
+      <div id="conta-status"></div>
+      <button class="btn-main" id="upload-btn" onclick="uploadToContabilium()" style="margin-top:8px;">📥 Cargar comprobante en Contabilium</button>
+      <div class="result-msg" id="upload-result"></div>
+    </div>
+  `;
+  renderContaStatus();
+}
+
+function itemRowHtml(it,i){
+  return `<div class="item-row" data-i="${i}">
+    <div class="field"><label>Descripción</label><input value="${(it.descripcion||'').replace(/"/g,'&quot;')}" onchange="updItem(${i},'descripcion',this.value)"></div>
+    <div class="field"><label>Cant</label><input type="number" step="0.01" value="${it.cantidad||1}" onchange="updItem(${i},'cantidad',this.value)"></div>
+    <div class="field"><label>P.Unit</label><input type="number" step="0.01" value="${it.precioUnitario||0}" onchange="updItem(${i},'precioUnitario',this.value)"></div>
+    <div class="field"><label>Subtot</label><input type="number" step="0.01" value="${it.subtotal||0}" onchange="updItem(${i},'subtotal',this.value)"></div>
+    <button class="del" onclick="delItem(${i})">×</button>
+  </div>`;
+}
+
+function updItem(i,k,v){ if(!factura.items[i]) return; factura.items[i][k]=k==='descripcion'?v:Number(v); }
+function delItem(i){ factura.items.splice(i,1); document.getElementById('items-list').innerHTML=factura.items.map((it,j)=>itemRowHtml(it,j)).join(''); }
+function addItem(){ factura.items=factura.items||[]; factura.items.push({descripcion:'',cantidad:1,precioUnitario:0,subtotal:0}); document.getElementById('items-list').innerHTML=factura.items.map((it,j)=>itemRowHtml(it,j)).join(''); }
+
+function renderContaStatus(){
+  const s=JSON.parse(localStorage.getItem('up_state')||'{}');
+  const c=s.connections?.conta;
+  const box=document.getElementById('conta-status');
+  if(!c?.verified){
+    box.innerHTML='<div style="font-size:12px;color:#999;margin-bottom:8px;">No tenés Contabilium conectado. <a href="/conexiones" style="color:#2ecc71;font-weight:600;">Conectalo acá →</a></div>';
+    const btn=document.getElementById('upload-btn');
+    btn.disabled=true; btn.style.opacity=0.4;
+  } else {
+    box.innerHTML='<div style="font-size:12px;color:#7ee2a3;">✓ Conectado a Contabilium</div>';
+  }
+}
+
+function collectFactura(){
+  return {
+    tipoComprobante: document.getElementById('f-tipo').value,
+    puntoVenta: document.getElementById('f-pv').value.trim(),
+    numeroComprobante: document.getElementById('f-num').value.trim(),
+    fechaEmision: document.getElementById('f-fecha').value,
+    moneda: document.getElementById('f-moneda').value,
+    proveedor: {
+      razonSocial: document.getElementById('f-prov').value.trim(),
+      cuit: document.getElementById('f-cuit').value.trim(),
+      condicionIva: document.getElementById('f-cond').value
+    },
+    items: factura.items||[],
+    totales: {
+      subtotal: parseFloat(document.getElementById('f-sub').value)||0,
+      iva21: parseFloat(document.getElementById('f-iva21').value)||0,
+      iva105: parseFloat(document.getElementById('f-iva105').value)||0,
+      percepciones: parseFloat(document.getElementById('f-perc').value)||0,
+      total: parseFloat(document.getElementById('f-total').value)||0
+    },
+    observaciones: factura.observaciones||''
+  };
+}
+
+async function uploadToContabilium(){
+  const s=JSON.parse(localStorage.getItem('up_state')||'{}');
+  const c=s.connections?.conta;
+  if(!c?.clientId){ notify('Conectá Contabilium primero'); return; }
+  const f=collectFactura();
+  const btn=document.getElementById('upload-btn');
+  const out=document.getElementById('upload-result');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span>Cargando en Contabilium...';
+  out.style.display='block'; out.className='result-msg'; out.textContent='Enviando...';
+  try {
+    const r=await fetch('/api/contabilium/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clientId:c.clientId,clientSecret:c.clientSecret,factura:f})});
+    const d=await r.json();
+    if(!d.ok) throw new Error(d.error||'Error desconocido');
+    out.className='result-msg ok';
+    out.textContent='✅ Comprobante cargado en Contabilium\nID: '+(d.comprobanteId||'(sin id devuelto)')+'\nProveedor: '+f.proveedor.razonSocial+'\nTotal: $'+f.totales.total;
+    logActivity('Cargado en Contabilium: '+f.proveedor.razonSocial+' $'+f.totales.total);
+    notify('🚀 Cargado en Contabilium');
+  } catch(e){
+    out.className='result-msg err';
+    out.textContent='❌ '+e.message;
+  }
+  btn.disabled=false; btn.innerHTML='📥 Cargar comprobante en Contabilium';
+}
+</script>
+</body>
+</html>
