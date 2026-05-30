@@ -78,15 +78,17 @@ input:focus{outline:none;border-color:rgba(0,200,100,0.5);}
 
   <div class="conn-card" style="--accent:#00b3e6;">
     <div class="conn-top">
-      <div class="conn-name"><div class="conn-icon">🏪</div><div><div class="conn-title">Tienda Nube</div><div class="conn-sub">partners.tiendanube.com</div></div></div>
+      <div class="conn-name"><div class="conn-icon">🏪</div><div><div class="conn-title">Tienda Nube</div><div class="conn-sub">OAuth · partners.tiendanube.com</div></div></div>
       <div class="conn-state" id="tn-state">sin conectar</div>
     </div>
-    <div class="field"><label>Store ID</label><input id="tn-store" type="text" placeholder="123456"></div>
-    <div class="field"><label>Access Token</label><input id="tn-token" type="password" placeholder="abc123..."></div>
-    <div class="help">Tu Store ID y token están en <a href="https://partners.tiendanube.com/apps" target="_blank">Partners TN</a> → tu app → Tiendas Instaladas. El token no expira hasta que desinstales la app.</div>
+    <div class="field"><label>App ID (ID de la aplicación)</label><input id="tn-cid" type="text" placeholder="32224"></div>
+    <div class="field"><label>Client Secret (Secreto del cliente)</label><input id="tn-cs" type="password" placeholder="..."></div>
+    <div class="field"><label>Redirect URI (copialo en tu app de TN Partners)</label><input id="tn-redirect" type="text" readonly style="background:rgba(0,0,0,0.2);font-size:11px;"></div>
+    <div class="help">⚠️ En <a href="https://partners.tiendanube.com" target="_blank">Partners TN</a> → tu app → <b>Configuración</b> → "URI de redirección" → pegá EXACTAMENTE el valor de arriba. Después guardás y autorizás desde acá.</div>
     <div class="btn-row">
-      <button class="btn btn-save" onclick="saveConn('tn')">💾 Guardar</button>
-      <button class="btn btn-test" onclick="testConn('tn')">🧪 Probar conexión</button>
+      <button class="btn btn-save" onclick="saveConn('tn')">💾 Guardar credenciales</button>
+      <button class="btn" style="background:rgba(0,179,230,0.15);border-color:rgba(0,179,230,0.4);color:#00b3e6;font-weight:700;" onclick="oauthTN()">🚀 Autorizar Tienda Nube</button>
+      <button class="btn btn-test" onclick="testConn('tn')" id="tn-test-btn">🧪 Probar conexión</button>
       <button class="btn btn-clear" onclick="clearConn('tn')">🗑 Limpiar</button>
     </div>
     <div class="result" id="tn-result"></div>
@@ -144,11 +146,14 @@ function render(){
     }
     if(c.ml.refreshToken) document.getElementById('ml-refresh-btn').style.display = 'inline-block';
   }
+  document.getElementById('tn-redirect').value = location.origin + '/tn-callback';
+  if(c.tn?.clientId){
+    document.getElementById('tn-cid').value = c.tn.clientId;
+    document.getElementById('tn-cs').value = c.tn.clientSecret||'';
+  }
   if(c.tn?.token){
-    document.getElementById('tn-token').value = c.tn.token;
-    document.getElementById('tn-store').value = c.tn.storeId||'';
     const st = document.getElementById('tn-state');
-    st.textContent = c.tn.verified ? '✓ conectado · '+(c.tn.storeName||'') : 'guardado, sin verificar';
+    st.textContent = c.tn.verified ? '✓ conectado · store '+(c.tn.storeId||'')+(c.tn.storeName?' ('+c.tn.storeName+')':'') : 'token guardado, probá conexión';
     st.className = 'conn-state '+(c.tn.verified?'ok':'');
   }
   if(c.conta?.clientId){
@@ -169,10 +174,10 @@ function saveConn(prov){
     if(!clientId || !clientSecret){ notify('Falta Client ID o Client Secret'); return; }
     s.connections.ml = {...s.connections.ml, clientId, clientSecret, savedAt:new Date().toISOString()};
   } else if(prov==='tn'){
-    const token = document.getElementById('tn-token').value.trim();
-    const storeId = document.getElementById('tn-store').value.trim();
-    if(!token||!storeId){ notify('Falta token y/o Store ID'); return; }
-    s.connections.tn = {token, storeId, verified:false, savedAt:new Date().toISOString()};
+    const clientId = document.getElementById('tn-cid').value.trim();
+    const clientSecret = document.getElementById('tn-cs').value.trim();
+    if(!clientId||!clientSecret){ notify('Falta App ID o Secret'); return; }
+    s.connections.tn = {...s.connections.tn, clientId, clientSecret, savedAt:new Date().toISOString()};
   } else if(prov==='conta'){
     const clientId = document.getElementById('conta-cid').value.trim();
     const clientSecret = document.getElementById('conta-cs').value.trim();
@@ -182,6 +187,17 @@ function saveConn(prov){
   saveState(s);
   notify('💾 Credenciales guardadas');
   render();
+}
+
+function oauthTN(){
+  const s = loadState();
+  const c = s.connections?.tn;
+  if(!c?.clientId || !c?.clientSecret){
+    notify('Guardá App ID + Secret primero');
+    return;
+  }
+  const authUrl = 'https://www.tiendanube.com/apps/'+encodeURIComponent(c.clientId)+'/authorize';
+  location.href = authUrl;
 }
 
 function oauthML(){
@@ -227,7 +243,7 @@ function clearConn(prov){
   s.connections = s.connections || {};
   delete s.connections[prov];
   saveState(s);
-  const fields = prov==='ml' ? ['ml-cid','ml-cs'] : prov==='tn' ? ['tn-token','tn-store'] : ['conta-cid','conta-cs'];
+  const fields = prov==='ml' ? ['ml-cid','ml-cs'] : prov==='tn' ? ['tn-cid','tn-cs'] : ['conta-cid','conta-cs'];
   fields.forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   document.getElementById(prov+'-state').textContent = 'sin conectar';
   document.getElementById(prov+'-state').className = 'conn-state';
@@ -245,7 +261,9 @@ async function testConn(prov){
   const stEl = document.getElementById(prov+'-state');
   rEl.className = 'result'; rEl.style.display='block'; rEl.textContent = 'Probando...';
   try {
-    const url = prov==='conta' ? '/api/contabilium?action=test' : '/api/'+prov+'/test';
+    const url = prov==='conta' ? '/api/contabilium?action=test'
+              : prov==='tn' ? '/api/tn?action=test'
+              : '/api/'+prov+'/test';
     const r = await fetch(url,{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify(creds)

@@ -136,7 +136,7 @@ async function publishTN(){
   r.style.display='block'; r.style.background='rgba(0,200,100,0.05)'; r.style.color='#7eddae'; r.textContent='Conectando con Tienda Nube...';
 
   try {
-    const resp = await fetch('/api/tn/publish',{
+    const resp = await fetch('/api/tn?action=publish',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         token: creds.token,
