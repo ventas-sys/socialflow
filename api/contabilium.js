@@ -122,10 +122,24 @@ REGLAS:
         responseMimeType: 'application/json'
       }
     });
-    if (data?.error) return res.status(500).json({ error: data.error.message || 'Error Gemini' });
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+    if (data?.error) return res.status(500).json({ error: data.error.message || 'Error Gemini', detail: data.error });
+    const candidate = data?.candidates?.[0];
+    const finishReason = candidate?.finishReason;
+    const blockReason = data?.promptFeedback?.blockReason;
+    const text = candidate?.content?.parts?.[0]?.text?.trim() || '';
+
+    if (blockReason) {
+      return res.status(500).json({ error: 'Gemini bloqueo la imagen: ' + blockReason, detail: data.promptFeedback });
+    }
+    if (finishReason && finishReason !== 'STOP' && !text) {
+      return res.status(500).json({ error: 'Gemini termino con motivo "' + finishReason + '" sin devolver texto. Probable causa: imagen muy grande, bloqueo de safety o limite de tokens.', finishReason });
+    }
+    if (!text) {
+      return res.status(500).json({ error: 'Gemini devolvio respuesta vacia', rawResponse: JSON.stringify(data).substring(0,500) });
+    }
+
     const parsed = extractJson(text);
-    if (!parsed) return res.status(500).json({ error: 'IA no devolvio JSON valido', raw: text.substring(0,300) });
+    if (!parsed) return res.status(500).json({ error: 'IA no devolvio JSON valido', raw: text.substring(0,500), finishReason });
     return res.status(200).json({ ok: true, factura: parsed });
   } catch(e) {
     return res.status(500).json({ error: e.message });
