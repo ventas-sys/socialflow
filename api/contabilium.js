@@ -1,4 +1,6 @@
 import https from 'https';
+import { PDFDocument } from 'pdf-lib';
+import nodemailer from 'nodemailer';
 import { httpRequest, cors } from './_http.js';
 
 function geminiVision(apiKey, body) {
@@ -147,10 +149,60 @@ REGLAS:
 }
 
 // Soporte de Contabilium (Leydy Pulgarin, 2026-06-01) confirmó que la API REST
-// no expone POST para crear comprobantes de compra: solo GET de lectura
-// (/api/compras/ordenes/search, /api/compras/ordenes/get). La carga debe hacerse
-// manualmente desde la plataforma web. Por eso el flujo "upload" fue reemplazado
-// por uno semi-automático que prepara los datos para pegar en app.contabilium.com.
+// no expone POST para crear comprobantes de compra. Pero descubrimos que tienen
+// importación por mail: enviando un PDF al inbox <CUIT>@compras.contabilium.com,
+// su propia IA lee la factura y la deja lista para importar en su web.
+// handleEmail toma la foto, la envuelve en un PDF y la manda por Gmail SMTP.
+
+async function imageToPdfBytes(photoB64, mimeType) {
+  const imgBytes = Buffer.from(photoB64, 'base64');
+  const pdf = await PDFDocument.create();
+  const isPng = (mimeType || '').toLowerCase().includes('png');
+  const img = isPng ? await pdf.embedPng(imgBytes) : await pdf.embedJpg(imgBytes);
+  const maxDim = 1700; // A4-ish a 200dpi para que pese poco
+  const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+  const w = img.width * scale, h = img.height * scale;
+  const page = pdf.addPage([w, h]);
+  page.drawImage(img, { x: 0, y: 0, width: w, height: h });
+  return Buffer.from(await pdf.save());
+}
+
+async function handleEmail(req, res) {
+  const { photoB64, mimeType, inbox, subject } = req.body || {};
+  const gmailUser = (process.env.GMAIL_USER || '').trim();
+  const gmailPass = (process.env.GMAIL_APP_PASSWORD || '').trim();
+
+  if (!gmailUser || !gmailPass) return res.status(500).json({ ok: false, error: 'GMAIL_USER y GMAIL_APP_PASSWORD no configuradas en Vercel' });
+  if (!photoB64) return res.status(400).json({ ok: false, error: 'Falta photoB64' });
+  if (!inbox || !/@compras\.contabilium\.com$/i.test(inbox)) return res.status(400).json({ ok: false, error: 'Inbox de Contabilium invalido. Formato esperado: <CUIT>@compras.contabilium.com' });
+
+  try {
+    let pdfBuf;
+    if ((mimeType || '').toLowerCase().includes('pdf')) {
+      pdfBuf = Buffer.from(photoB64, 'base64');
+    } else {
+      pdfBuf = await imageToPdfBytes(photoB64, mimeType);
+    }
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: gmailUser, pass: gmailPass }
+    });
+
+    const filename = 'factura-' + Date.now() + '.pdf';
+    const info = await transporter.sendMail({
+      from: gmailUser,
+      to: inbox,
+      subject: subject || 'Factura compra ' + new Date().toLocaleString('es-AR'),
+      text: 'Enviado automaticamente por SocialFlow (Agente Contabilidad).',
+      attachments: [{ filename, content: pdfBuf, contentType: 'application/pdf' }]
+    });
+
+    return res.status(200).json({ ok: true, messageId: info.messageId, sentTo: inbox, pdfSize: pdfBuf.length, filename });
+  } catch(e) {
+    return res.status(500).json({ ok: false, error: e.message, code: e.code });
+  }
+}
 
 export default async function handler(req, res) {
   cors(res);
@@ -160,5 +212,6 @@ export default async function handler(req, res) {
   const action = req.query?.action || req.body?.action || '';
   if (action === 'test') return handleTest(req, res);
   if (action === 'extract') return handleExtract(req, res);
-  return res.status(400).json({ error: 'action requerida: test | extract' });
+  if (action === 'email') return handleEmail(req, res);
+  return res.status(400).json({ error: 'action requerida: test | extract | email' });
 }

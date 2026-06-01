@@ -101,7 +101,8 @@ input:focus{outline:none;border-color:rgba(0,200,100,0.5);}
     </div>
     <div class="field"><label>Client ID</label><input id="conta-cid" type="text" placeholder="tu_client_id"></div>
     <div class="field"><label>Client Secret</label><input id="conta-cs" type="password" placeholder="tu_client_secret"></div>
-    <div class="help">Generá las credenciales en <a href="https://app.contabilium.com" target="_blank">Contabilium</a> → Configuración → API → "Generar credenciales API". Autenticación es OAuth Client Credentials.</div>
+    <div class="field"><label>Inbox de Compras (para Agente Contabilidad)</label><input id="conta-inbox" type="email" placeholder="30715327712@compras.contabilium.com"></div>
+    <div class="help">Las credenciales API se generan en <a href="https://app.contabilium.com" target="_blank">Contabilium</a> → Configuración → API.<br>El <b>Inbox</b> lo activás en Contabilium → Compras → "Importar facturas por mail" y te muestran tu dirección personal (tu CUIT@compras.contabilium.com). El Agente Contabilidad le manda las fotos como PDF para que su IA las lea sola.</div>
     <div class="btn-row">
       <button class="btn btn-save" onclick="saveConn('conta')">💾 Guardar</button>
       <button class="btn btn-test" onclick="testConn('conta')">🧪 Probar conexión</button>
@@ -163,6 +164,9 @@ function render(){
     st.textContent = c.conta.verified ? '✓ conectado' : 'guardado, sin verificar';
     st.className = 'conn-state '+(c.conta.verified?'ok':'');
   }
+  if(c.conta?.inbox){
+    document.getElementById('conta-inbox').value = c.conta.inbox;
+  }
 }
 
 function saveConn(prov){
@@ -181,8 +185,9 @@ function saveConn(prov){
   } else if(prov==='conta'){
     const clientId = document.getElementById('conta-cid').value.trim();
     const clientSecret = document.getElementById('conta-cs').value.trim();
+    const inbox = document.getElementById('conta-inbox').value.trim();
     if(!clientId||!clientSecret){ notify('Falta Client ID o Secret'); return; }
-    s.connections.conta = {clientId, clientSecret, verified:false, savedAt:new Date().toISOString()};
+    s.connections.conta = {clientId, clientSecret, inbox, verified:false, savedAt:new Date().toISOString()};
   }
   saveState(s);
   notify('💾 Credenciales guardadas');
@@ -243,7 +248,7 @@ function clearConn(prov){
   s.connections = s.connections || {};
   delete s.connections[prov];
   saveState(s);
-  const fields = prov==='ml' ? ['ml-cid','ml-cs'] : prov==='tn' ? ['tn-cid','tn-cs'] : ['conta-cid','conta-cs'];
+  const fields = prov==='ml' ? ['ml-cid','ml-cs'] : prov==='tn' ? ['tn-cid','tn-cs'] : ['conta-cid','conta-cs','conta-inbox'];
   fields.forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   document.getElementById(prov+'-state').textContent = 'sin conectar';
   document.getElementById(prov+'-state').className = 'conn-state';

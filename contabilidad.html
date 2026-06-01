@@ -76,7 +76,7 @@ textarea{resize:vertical;min-height:50px;}
 </div>
 
 <div class="main">
-  <div class="tip">📒 Sacá una foto a la factura, la IA extrae todos los datos y te los deja prolijos para pegar en Contabilium con un click. <span style="color:#999;">(Contabilium no permite carga automática de compras vía API — confirmado por su soporte.)</span></div>
+  <div class="tip">📒 Sacá una foto a la factura y mandala a Contabilium con un toque. Su IA la lee y la deja lista para importar en <b>Compras → Importar por mail</b>.</div>
 
   <div class="card">
     <span class="sec-lbl">Origen de la factura</span>
@@ -109,9 +109,14 @@ textarea{resize:vertical;min-height:50px;}
     </div>
   </div>
 
-  <button class="btn-main" id="ocr-btn" onclick="extractInvoice()" disabled>✨ Extraer datos con IA</button>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+    <button class="btn-main" id="send-btn" onclick="sendToContaInbox()" disabled style="background:linear-gradient(135deg,#2ecc71,#27ae60);">📧 Enviar a Contabilium</button>
+    <button class="btn-main" id="ocr-btn" onclick="extractInvoice()" disabled style="background:rgba(255,255,255,0.08);color:#aaa;font-weight:600;">✨ Solo previsualizar</button>
+  </div>
+  <div style="font-size:11px;color:#666;margin-top:8px;text-align:center;">Recomendado: <b style="color:#2ecc71;">📧 Enviar</b> — Contabilium lee la factura con su IA y te queda lista para importar. La "previsualización" es por si querés revisar los datos antes.</div>
 
   <div id="extracted-zone" style="margin-top:18px;"></div>
+  <div id="send-result" style="margin-top:18px;"></div>
 </div>
 
 <script>
@@ -135,6 +140,7 @@ function onPhotoChange(e){
     p.src=dataUrl; p.style.display='block';
     document.getElementById('upload-zone').style.borderColor='rgba(46,204,113,0.5)';
     document.getElementById('ocr-btn').disabled=false;
+    document.getElementById('send-btn').disabled=false;
     notify('✅ Foto cargada — extraé los datos');
   };
   r.readAsDataURL(file);
@@ -157,6 +163,7 @@ async function loadFromUrl(){
       p.src=dataUrl; p.style.display='block';
       setTab('cam');
       document.getElementById('ocr-btn').disabled=false;
+    document.getElementById('send-btn').disabled=false;
       notify('✅ Imagen lista');
     };
     reader.readAsDataURL(blob);
@@ -171,6 +178,28 @@ document.addEventListener('DOMContentLoaded',()=>{
   z.addEventListener('dragleave',()=>{z.style.background='';});
   z.addEventListener('drop',e=>{e.preventDefault();z.style.background='';const f=e.dataTransfer.files[0];if(f){onPhotoChange({target:{files:[f]}});}});
 });
+
+async function sendToContaInbox(){
+  if(!photoB64){ notify('Subí una foto primero'); return; }
+  const s = JSON.parse(localStorage.getItem('up_state')||'{}');
+  const inbox = s.connections?.conta?.inbox;
+  if(!inbox){ notify('Configurá tu inbox de Contabilium en /conexiones'); return; }
+  const btn = document.getElementById('send-btn');
+  const out = document.getElementById('send-result');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span>Enviando a Contabilium...';
+  out.innerHTML='<div style="background:rgba(46,204,113,0.06);border:1px solid rgba(46,204,113,0.2);border-radius:10px;padding:14px;color:#7ee2a3;font-size:13px;text-align:center"><span class="spinner"></span>Enviando PDF a '+inbox+'...</div>';
+  try {
+    const r = await fetch('/api/contabilium?action=email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({photoB64,mimeType,inbox})});
+    const d = await r.json();
+    if(!d.ok) throw new Error(d.error||'Error desconocido');
+    out.innerHTML='<div style="background:rgba(46,204,113,0.08);border:1px solid rgba(46,204,113,0.3);border-radius:10px;padding:16px;color:#7ee2a3;font-size:13px;line-height:1.6">✅ <b>Enviado a Contabilium</b><br>Inbox: '+d.sentTo+'<br>PDF: '+Math.round(d.pdfSize/1024)+' KB<br><br>En 30-60 segundos abrí <a href="https://app.contabilium.com/modulos/compras/consultafiscal.aspx" target="_blank" style="color:#2ecc71;font-weight:700;">Contabilium → Compras → Importar por mail</a> y la vas a ver lista para importar.</div>';
+    logActivity('Enviada por mail a Contabilium: '+inbox);
+    notify('📧 Enviado a Contabilium');
+  } catch(e){
+    out.innerHTML='<div style="background:rgba(255,80,80,0.08);border:1px solid rgba(255,80,80,0.25);border-radius:10px;padding:14px;color:#ff8080;font-size:13px;">❌ '+e.message+'</div>';
+  }
+  btn.disabled=false; btn.innerHTML='📧 Enviar a Contabilium';
+}
 
 async function extractInvoice(){
   if(!photoB64){ notify('Subí una foto primero'); return; }

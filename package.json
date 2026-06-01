@@ -3,5 +3,9 @@
     "version": "1.0.0",
     "description": "SocialFlow - Publicador de Redes con IA",
     "type": "module",
-    "engines": { "node": "24.x" }
+    "engines": { "node": "24.x" },
+    "dependencies": {
+        "pdf-lib": "^1.17.1",
+        "nodemailer": "^6.9.16"
+    }
 }
