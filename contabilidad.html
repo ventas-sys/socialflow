@@ -76,7 +76,7 @@ textarea{resize:vertical;min-height:50px;}
 </div>
 
 <div class="main">
-  <div class="tip">📒 Sacá una foto a la factura con el celu, subila desde Google Drive o WhatsApp, y la IA extrae todos los datos y los carga en Contabilium.</div>
+  <div class="tip">📒 Sacá una foto a la factura, la IA extrae todos los datos y te los deja prolijos para pegar en Contabilium con un click. <span style="color:#999;">(Contabilium no permite carga automática de compras vía API — confirmado por su soporte.)</span></div>
 
   <div class="card">
     <span class="sec-lbl">Origen de la factura</span>
@@ -238,7 +238,6 @@ function renderFactura(){
           </select>
         </div>
       </div>
-      <div class="field"><label>⚠ ID Proveedor en Contabilium *</label><input id="f-idprov" type="number" placeholder="Ej: 108377583" value="${f.proveedor?.idContabilium||''}"><div style="font-size:10px;color:#888;margin-top:4px;">Contabilium requiere el ID interno del proveedor (no el CUIT). Sacalo desde app.contabilium.com → Proveedores → buscá el proveedor → URL contiene el ID. Si no existe, creá el proveedor primero allá.</div></div>
     </div>
 
     <div class="result-card">
@@ -261,12 +260,117 @@ function renderFactura(){
 
     <div class="result-card">
       <div class="result-title">🚀 Cargar en Contabilium</div>
-      <div id="conta-status"></div>
-      <button class="btn-main" id="upload-btn" onclick="uploadToContabilium()" style="margin-top:8px;">📥 Cargar comprobante en Contabilium</button>
+      <div style="font-size:11px;color:#888;line-height:1.5;margin-bottom:10px;">Contabilium no acepta carga automática de compras por API. Te dejamos los datos listos: copialos campo por campo, o usá el botón grande para abrir Contabilium y copiar todo de una.</div>
+
+      <div id="quick-copies"></div>
+
+      <button class="btn-main" onclick="openContabiliumAndCopy()" style="margin-top:10px;">🚀 Abrir Contabilium + copiar todos los datos</button>
+      <button class="add-item" style="margin-top:8px;padding:10px;" onclick="markAsLoaded()">✅ Ya la cargué en Contabilium</button>
       <div class="result-msg" id="upload-result"></div>
     </div>
   `;
-  renderContaStatus();
+  renderQuickCopies();
+}
+
+// Cada fila lee en vivo de collectFactura() para no copiar valores stale si el usuario edita totales después.
+const QUICK_COPY_FIELDS = [
+  ['Proveedor', f => f.proveedor.razonSocial],
+  ['CUIT', f => (f.proveedor.cuit||'').replace(/[^0-9]/g,'')],
+  ['Fecha', f => f.fechaEmision],
+  ['N° comprobante', f => (f.puntoVenta||'')+(f.numeroComprobante?'-'+f.numeroComprobante:'')],
+  ['Subtotal', f => f.totales.subtotal],
+  ['IVA 21%', f => f.totales.iva21],
+  ['Total', f => f.totales.total]
+];
+
+function renderQuickCopies(){
+  document.getElementById('quick-copies').innerHTML = QUICK_COPY_FIELDS.map(([k],i)=>{
+    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:rgba(255,255,255,0.03);border-radius:7px;margin-bottom:5px;font-size:12px;">
+      <span style="color:#888;min-width:110px;">${k}</span>
+      <span style="flex:1;color:#e0d8cc;font-weight:600;word-break:break-all;" id="qc-val-${i}"></span>
+      <button onclick="copyField(${i})" style="background:rgba(46,204,113,0.12);border:1px solid rgba(46,204,113,0.3);color:#2ecc71;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;font-family:inherit;">📋 Copiar</button>
+    </div>`;
+  }).join('');
+  refreshQuickCopyValues();
+  // Mantenemos los previews sincronizados con cualquier edición del usuario.
+  document.querySelectorAll('.result-card input, .result-card select').forEach(el=>{
+    el.addEventListener('input', refreshQuickCopyValues);
+    el.addEventListener('change', refreshQuickCopyValues);
+  });
+}
+
+function refreshQuickCopyValues(){
+  const f = collectFactura();
+  QUICK_COPY_FIELDS.forEach(([,getter],i)=>{
+    const el = document.getElementById('qc-val-'+i);
+    if(!el) return;
+    const v = getter(f);
+    el.textContent = (v===undefined||v===null||v==='') ? '—' : v;
+  });
+}
+
+function copyField(i){
+  const f = collectFactura();
+  const v = QUICK_COPY_FIELDS[i][1](f);
+  if(v===undefined||v===null||v===''){ notify('Campo vacío'); return; }
+  copyText(String(v));
+}
+
+function copyText(t){
+  navigator.clipboard.writeText(t).then(()=>notify('📋 Copiado: '+t.substring(0,40))).catch(()=>notify('No se pudo copiar'));
+}
+
+function buildClipboardPayload(){
+  const f = collectFactura();
+  const cuitClean = (f.proveedor.cuit||'').replace(/[^0-9]/g,'');
+  const lines = [
+    '═══ FACTURA PARA CONTABILIUM ═══',
+    'Tipo: '+f.tipoComprobante,
+    'Fecha: '+f.fechaEmision,
+    'N°: '+(f.puntoVenta||'')+(f.numeroComprobante?'-'+f.numeroComprobante:''),
+    'Moneda: '+f.moneda,
+    '',
+    '🏢 PROVEEDOR',
+    'Razón social: '+f.proveedor.razonSocial,
+    'CUIT: '+cuitClean,
+    'Cond IVA: '+f.proveedor.condicionIva,
+    '',
+    '💰 TOTALES',
+    'Subtotal: '+f.totales.subtotal,
+    'IVA 21%: '+f.totales.iva21,
+    'IVA 10.5%: '+f.totales.iva105,
+    'Percepciones: '+f.totales.percepciones,
+    'TOTAL: '+f.totales.total
+  ];
+  if(f.items?.length){
+    lines.push('', '📦 ITEMS');
+    f.items.forEach((it,i)=>{
+      lines.push((i+1)+'. '+it.descripcion+' | '+it.cantidad+' x '+it.precioUnitario+' = '+it.subtotal);
+    });
+  }
+  return lines.join('\n');
+}
+
+function openContabiliumAndCopy(){
+  const payload = buildClipboardPayload();
+  navigator.clipboard.writeText(payload).then(()=>{
+    window.open('https://app.contabilium.com/', '_blank');
+    notify('📋 Datos copiados + Contabilium abierto');
+    const out = document.getElementById('upload-result');
+    out.style.display='block';
+    out.className='result-msg ok';
+    out.textContent='✅ Datos copiados al portapapeles. Pegá donde haga falta en Contabilium (Compras → Nueva factura) y guardá. Después tocá "Ya la cargué" para registrar en el historial.';
+  }).catch(()=>notify('❌ No se pudo copiar al portapapeles'));
+}
+
+function markAsLoaded(){
+  const f = collectFactura();
+  logActivity('Cargada manual en Contabilium: '+f.proveedor.razonSocial+' $'+f.totales.total);
+  const out = document.getElementById('upload-result');
+  out.style.display='block';
+  out.className='result-msg ok';
+  out.textContent='✅ Marcada como cargada en el historial. Subí otra factura cuando quieras.';
+  notify('✅ Registrado en el historial');
 }
 
 function itemRowHtml(it,i){
@@ -283,19 +387,6 @@ function updItem(i,k,v){ if(!factura.items[i]) return; factura.items[i][k]=k==='
 function delItem(i){ factura.items.splice(i,1); document.getElementById('items-list').innerHTML=factura.items.map((it,j)=>itemRowHtml(it,j)).join(''); }
 function addItem(){ factura.items=factura.items||[]; factura.items.push({descripcion:'',cantidad:1,precioUnitario:0,subtotal:0}); document.getElementById('items-list').innerHTML=factura.items.map((it,j)=>itemRowHtml(it,j)).join(''); }
 
-function renderContaStatus(){
-  const s=JSON.parse(localStorage.getItem('up_state')||'{}');
-  const c=s.connections?.conta;
-  const box=document.getElementById('conta-status');
-  if(!c?.verified){
-    box.innerHTML='<div style="font-size:12px;color:#999;margin-bottom:8px;">No tenés Contabilium conectado. <a href="/conexiones" style="color:#2ecc71;font-weight:600;">Conectalo acá →</a></div>';
-    const btn=document.getElementById('upload-btn');
-    btn.disabled=true; btn.style.opacity=0.4;
-  } else {
-    box.innerHTML='<div style="font-size:12px;color:#7ee2a3;">✓ Conectado a Contabilium</div>';
-  }
-}
-
 function collectFactura(){
   return {
     tipoComprobante: document.getElementById('f-tipo').value,
@@ -306,8 +397,7 @@ function collectFactura(){
     proveedor: {
       razonSocial: document.getElementById('f-prov').value.trim(),
       cuit: document.getElementById('f-cuit').value.trim(),
-      condicionIva: document.getElementById('f-cond').value,
-      idContabilium: document.getElementById('f-idprov').value.trim()
+      condicionIva: document.getElementById('f-cond').value
     },
     items: factura.items||[],
     totales: {
@@ -319,36 +409,6 @@ function collectFactura(){
     },
     observaciones: factura.observaciones||''
   };
-}
-
-async function uploadToContabilium(){
-  const s=JSON.parse(localStorage.getItem('up_state')||'{}');
-  const c=s.connections?.conta;
-  if(!c?.clientId){ notify('Conectá Contabilium primero'); return; }
-  const f=collectFactura();
-  const btn=document.getElementById('upload-btn');
-  const out=document.getElementById('upload-result');
-  btn.disabled=true; btn.innerHTML='<span class="spinner"></span>Cargando en Contabilium...';
-  out.style.display='block'; out.className='result-msg'; out.textContent='Enviando...';
-  try {
-    const r=await fetch('/api/contabilium?action=upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clientId:c.clientId,clientSecret:c.clientSecret,factura:f})});
-    const d=await r.json();
-    if(!d.ok){
-      let detail = d.error||'Error desconocido';
-      if(d.attempts){
-        detail += '\n\nIntentos:\n' + d.attempts.map(a=>'• '+a.url+' → HTTP '+a.status+(a.msg?' ('+a.msg+')':'')).join('\n');
-      }
-      throw new Error(detail);
-    }
-    out.className='result-msg ok';
-    out.textContent='✅ Comprobante cargado en Contabilium\nID: '+(d.comprobanteId||'(sin id devuelto)')+'\nEndpoint: '+(d.endpoint||'')+'\nProveedor: '+f.proveedor.razonSocial+'\nTotal: $'+f.totales.total;
-    logActivity('Cargado en Contabilium: '+f.proveedor.razonSocial+' $'+f.totales.total);
-    notify('🚀 Cargado en Contabilium');
-  } catch(e){
-    out.className='result-msg err';
-    out.textContent='❌ '+e.message;
-  }
-  btn.disabled=false; btn.innerHTML='📥 Cargar comprobante en Contabilium';
 }
 </script>
 </body>
