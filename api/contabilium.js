@@ -142,61 +142,87 @@ async function handleUpload(req, res) {
     const token = auth.access_token;
 
     const tipoMap = {
-      'Factura A': 'FacturaA',
-      'Factura B': 'FacturaB',
-      'Factura C': 'FacturaC',
-      'Factura E': 'FacturaE',
-      'Nota de Credito': 'NotaCreditoA',
-      'Ticket': 'Ticket',
-      'Recibo': 'Recibo'
+      'Factura A': 'FCA',
+      'Factura B': 'FCB',
+      'Factura C': 'FCC',
+      'Factura E': 'FCE',
+      'Nota de Credito': 'NCA',
+      'Ticket': 'TKT',
+      'Recibo': 'REC'
     };
 
     const items = (factura.items || []).map(it => ({
-      Concepto: it.descripcion || 'Item',
+      IdConcepto: it.idConcepto ? Number(it.idConcepto) : 0,
       Cantidad: Number(it.cantidad || 1),
-      Subtotal: Number(it.subtotal || it.precioUnitario || 0),
-      Iva: 21
+      Concepto: it.descripcion || 'Item',
+      PrecioUnitario: Number(it.precioUnitario || it.subtotal || 0),
+      Iva: Number(it.iva || 21),
+      Bonificacion: 0,
+      Codigo: it.codigo || '',
+      Tipo: 'P'
     }));
 
     if (!items.length) {
       items.push({
-        Concepto: factura.observaciones || 'Compra segun comprobante',
+        IdConcepto: 0,
         Cantidad: 1,
-        Subtotal: Number(factura.totales?.subtotal || factura.totales?.total || 0),
-        Iva: 21
+        Concepto: factura.observaciones || 'Compra segun comprobante',
+        PrecioUnitario: Number(factura.totales?.total || 0),
+        Iva: 21,
+        Bonificacion: 0,
+        Codigo: '',
+        Tipo: 'P'
       });
     }
 
     const comprobante = {
-      idProveedor: factura.proveedor?.idContabilium || null,
-      ProveedorRazonSocial: factura.proveedor?.razonSocial || 'Sin razon social',
-      ProveedorCuit: (factura.proveedor?.cuit || '').replace(/-/g, ''),
-      Tipo: tipoMap[factura.tipoComprobante] || 'FacturaB',
-      Numero: (factura.puntoVenta || '0001') + '-' + (factura.numeroComprobante || '00000001'),
+      TipoFc: tipoMap[factura.tipoComprobante] || 'FCB',
+      IdProveedor: Number(factura.proveedor?.idContabilium || 0),
+      PuntoVenta: Number(factura.puntoVenta) || 1,
+      IDMoneda: factura.moneda === 'USD' ? 1356 : 1355,
       Fecha: factura.fechaEmision || new Date().toISOString().split('T')[0],
-      Subtotal: Number(factura.totales?.subtotal || 0),
-      Iva21: Number(factura.totales?.iva21 || 0),
-      Iva105: Number(factura.totales?.iva105 || 0),
-      Total: Number(factura.totales?.total || 0),
-      Moneda: factura.moneda === 'USD' ? 'Dolar' : 'Pesos',
+      Items: items,
       Observaciones: 'Cargado por Agente Contabilidad Uniproveedores. ' + (factura.observaciones || ''),
-      Items: items
+      ProveedorRazonSocial: factura.proveedor?.razonSocial || '',
+      ProveedorCuit: (factura.proveedor?.cuit || '').replace(/-/g, '')
     };
 
-    const r = await httpRequest('POST', 'https://rest.contabilium.com/api/comprobantescompras', {
-      'Authorization': 'Bearer ' + token,
-      'Content-Type': 'application/json',
-      'Accept': 'application/json'
-    }, comprobante);
+    // Probamos varios endpoints porque el bot de Contabilium no sabia el exacto para compras
+    const endpoints = [
+      'https://rest.contabilium.com/api/comprobantescompras/crear',
+      'https://rest.contabilium.com/api/compras/crear',
+      'https://rest.contabilium.com/api/comprobantes/crear'
+    ];
 
-    if (r.status >= 400) {
-      return res.status(200).json({
-        ok: false,
-        error: r.body?.Message || r.body?.message || r.body?.error_description || ('HTTP ' + r.status),
-        details: r.body
-      });
+    const attempts = [];
+    for (const url of endpoints) {
+      const r = await httpRequest('POST', url, {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }, comprobante);
+
+      attempts.push({ url, status: r.status, body: r.body });
+
+      if (r.status === 200 || r.status === 201) {
+        return res.status(200).json({
+          ok: true,
+          comprobanteId: r.body?.Id || r.body?.id,
+          result: r.body,
+          endpoint: url
+        });
+      }
+      // Si es 401/403 cortamos (problema de auth, no de URL)
+      if (r.status === 401 || r.status === 403) break;
     }
-    return res.status(200).json({ ok: true, comprobanteId: r.body?.Id || r.body?.id, result: r.body });
+
+    const last = attempts[attempts.length - 1];
+    return res.status(200).json({
+      ok: false,
+      error: last?.body?.Message || last?.body?.message || last?.body?.error_description || ('Todos los endpoints fallaron. Último HTTP ' + last?.status),
+      attempts: attempts.map(a => ({ url: a.url, status: a.status, msg: a.body?.Message || a.body?.message || (typeof a.body === 'string' ? a.body.substring(0,200) : null) })),
+      sentBody: comprobante
+    });
   } catch(e) {
     return res.status(500).json({ ok: false, error: e.message });
   }
