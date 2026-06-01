@@ -238,6 +238,7 @@ function renderFactura(){
           </select>
         </div>
       </div>
+      <div class="field"><label>⚠ ID Proveedor en Contabilium *</label><input id="f-idprov" type="number" placeholder="Ej: 108377583" value="${f.proveedor?.idContabilium||''}"><div style="font-size:10px;color:#888;margin-top:4px;">Contabilium requiere el ID interno del proveedor (no el CUIT). Sacalo desde app.contabilium.com → Proveedores → buscá el proveedor → URL contiene el ID. Si no existe, creá el proveedor primero allá.</div></div>
     </div>
 
     <div class="result-card">
@@ -305,7 +306,8 @@ function collectFactura(){
     proveedor: {
       razonSocial: document.getElementById('f-prov').value.trim(),
       cuit: document.getElementById('f-cuit').value.trim(),
-      condicionIva: document.getElementById('f-cond').value
+      condicionIva: document.getElementById('f-cond').value,
+      idContabilium: document.getElementById('f-idprov').value.trim()
     },
     items: factura.items||[],
     totales: {
@@ -331,9 +333,15 @@ async function uploadToContabilium(){
   try {
     const r=await fetch('/api/contabilium?action=upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clientId:c.clientId,clientSecret:c.clientSecret,factura:f})});
     const d=await r.json();
-    if(!d.ok) throw new Error(d.error||'Error desconocido');
+    if(!d.ok){
+      let detail = d.error||'Error desconocido';
+      if(d.attempts){
+        detail += '\n\nIntentos:\n' + d.attempts.map(a=>'• '+a.url+' → HTTP '+a.status+(a.msg?' ('+a.msg+')':'')).join('\n');
+      }
+      throw new Error(detail);
+    }
     out.className='result-msg ok';
-    out.textContent='✅ Comprobante cargado en Contabilium\nID: '+(d.comprobanteId||'(sin id devuelto)')+'\nProveedor: '+f.proveedor.razonSocial+'\nTotal: $'+f.totales.total;
+    out.textContent='✅ Comprobante cargado en Contabilium\nID: '+(d.comprobanteId||'(sin id devuelto)')+'\nEndpoint: '+(d.endpoint||'')+'\nProveedor: '+f.proveedor.razonSocial+'\nTotal: $'+f.totales.total;
     logActivity('Cargado en Contabilium: '+f.proveedor.razonSocial+' $'+f.totales.total);
     notify('🚀 Cargado en Contabilium');
   } catch(e){
