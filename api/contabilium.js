@@ -1,4 +1,6 @@
 import https from 'https';
+import { PDFDocument } from 'pdf-lib';
+import nodemailer from 'nodemailer';
 import { httpRequest, cors } from './_http.js';
 
 function geminiVision(apiKey, body) {
@@ -122,109 +124,83 @@ REGLAS:
         responseMimeType: 'application/json'
       }
     });
-    if (data?.error) return res.status(500).json({ error: data.error.message || 'Error Gemini' });
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+    if (data?.error) return res.status(500).json({ error: data.error.message || 'Error Gemini', detail: data.error });
+    const candidate = data?.candidates?.[0];
+    const finishReason = candidate?.finishReason;
+    const blockReason = data?.promptFeedback?.blockReason;
+    const text = candidate?.content?.parts?.[0]?.text?.trim() || '';
+
+    if (blockReason) {
+      return res.status(500).json({ error: 'Gemini bloqueo la imagen: ' + blockReason, detail: data.promptFeedback });
+    }
+    if (finishReason && finishReason !== 'STOP' && !text) {
+      return res.status(500).json({ error: 'Gemini termino con motivo "' + finishReason + '" sin devolver texto. Probable causa: imagen muy grande, bloqueo de safety o limite de tokens.', finishReason });
+    }
+    if (!text) {
+      return res.status(500).json({ error: 'Gemini devolvio respuesta vacia', rawResponse: JSON.stringify(data).substring(0,500) });
+    }
+
     const parsed = extractJson(text);
-    if (!parsed) return res.status(500).json({ error: 'IA no devolvio JSON valido', raw: text.substring(0,300) });
+    if (!parsed) return res.status(500).json({ error: 'IA no devolvio JSON valido', raw: text.substring(0,500), finishReason });
     return res.status(200).json({ ok: true, factura: parsed });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
 }
 
-async function handleUpload(req, res) {
-  const { clientId, clientSecret, factura } = req.body || {};
-  if (!clientId || !clientSecret) return res.status(400).json({ ok: false, error: 'Falta clientId/clientSecret' });
-  if (!factura) return res.status(400).json({ ok: false, error: 'Falta factura' });
+// Soporte de Contabilium (Leydy Pulgarin, 2026-06-01) confirmó que la API REST
+// no expone POST para crear comprobantes de compra. Pero descubrimos que tienen
+// importación por mail: enviando un PDF al inbox <CUIT>@compras.contabilium.com,
+// su propia IA lee la factura y la deja lista para importar en su web.
+// handleEmail toma la foto, la envuelve en un PDF y la manda por Gmail SMTP.
+
+async function imageToPdfBytes(photoB64, mimeType) {
+  const imgBytes = Buffer.from(photoB64, 'base64');
+  const pdf = await PDFDocument.create();
+  const isPng = (mimeType || '').toLowerCase().includes('png');
+  const img = isPng ? await pdf.embedPng(imgBytes) : await pdf.embedJpg(imgBytes);
+  const maxDim = 1700; // A4-ish a 200dpi para que pese poco
+  const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+  const w = img.width * scale, h = img.height * scale;
+  const page = pdf.addPage([w, h]);
+  page.drawImage(img, { x: 0, y: 0, width: w, height: h });
+  return Buffer.from(await pdf.save());
+}
+
+async function handleEmail(req, res) {
+  const { photoB64, mimeType, inbox, subject } = req.body || {};
+  const gmailUser = (process.env.GMAIL_USER || '').trim();
+  const gmailPass = (process.env.GMAIL_APP_PASSWORD || '').trim();
+
+  if (!gmailUser || !gmailPass) return res.status(500).json({ ok: false, error: 'GMAIL_USER y GMAIL_APP_PASSWORD no configuradas en Vercel' });
+  if (!photoB64) return res.status(400).json({ ok: false, error: 'Falta photoB64' });
+  if (!inbox || !/@compras\.contabilium\.com$/i.test(inbox)) return res.status(400).json({ ok: false, error: 'Inbox de Contabilium invalido. Formato esperado: <CUIT>@compras.contabilium.com' });
 
   try {
-    const auth = await getContaToken(clientId, clientSecret);
-    const token = auth.access_token;
-
-    const tipoMap = {
-      'Factura A': 'FCA',
-      'Factura B': 'FCB',
-      'Factura C': 'FCC',
-      'Factura E': 'FCE',
-      'Nota de Credito': 'NCA',
-      'Ticket': 'TKT',
-      'Recibo': 'REC'
-    };
-
-    const items = (factura.items || []).map(it => ({
-      IdConcepto: it.idConcepto ? Number(it.idConcepto) : 0,
-      Cantidad: Number(it.cantidad || 1),
-      Concepto: it.descripcion || 'Item',
-      PrecioUnitario: Number(it.precioUnitario || it.subtotal || 0),
-      Iva: Number(it.iva || 21),
-      Bonificacion: 0,
-      Codigo: it.codigo || '',
-      Tipo: 'P'
-    }));
-
-    if (!items.length) {
-      items.push({
-        IdConcepto: 0,
-        Cantidad: 1,
-        Concepto: factura.observaciones || 'Compra segun comprobante',
-        PrecioUnitario: Number(factura.totales?.total || 0),
-        Iva: 21,
-        Bonificacion: 0,
-        Codigo: '',
-        Tipo: 'P'
-      });
+    let pdfBuf;
+    if ((mimeType || '').toLowerCase().includes('pdf')) {
+      pdfBuf = Buffer.from(photoB64, 'base64');
+    } else {
+      pdfBuf = await imageToPdfBytes(photoB64, mimeType);
     }
 
-    const comprobante = {
-      TipoFc: tipoMap[factura.tipoComprobante] || 'FCB',
-      IdProveedor: Number(factura.proveedor?.idContabilium || 0),
-      PuntoVenta: Number(factura.puntoVenta) || 1,
-      IDMoneda: factura.moneda === 'USD' ? 1356 : 1355,
-      Fecha: factura.fechaEmision || new Date().toISOString().split('T')[0],
-      Items: items,
-      Observaciones: 'Cargado por Agente Contabilidad Uniproveedores. ' + (factura.observaciones || ''),
-      ProveedorRazonSocial: factura.proveedor?.razonSocial || '',
-      ProveedorCuit: (factura.proveedor?.cuit || '').replace(/-/g, '')
-    };
-
-    // Probamos varios endpoints porque el bot de Contabilium no sabia el exacto para compras
-    const endpoints = [
-      'https://rest.contabilium.com/api/comprobantescompras/crear',
-      'https://rest.contabilium.com/api/compras/crear',
-      'https://rest.contabilium.com/api/comprobantes/crear'
-    ];
-
-    const attempts = [];
-    for (const url of endpoints) {
-      const r = await httpRequest('POST', url, {
-        'Authorization': 'Bearer ' + token,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }, comprobante);
-
-      attempts.push({ url, status: r.status, body: r.body });
-
-      if (r.status === 200 || r.status === 201) {
-        return res.status(200).json({
-          ok: true,
-          comprobanteId: r.body?.Id || r.body?.id,
-          result: r.body,
-          endpoint: url
-        });
-      }
-      // Si es 401/403 cortamos (problema de auth, no de URL)
-      if (r.status === 401 || r.status === 403) break;
-    }
-
-    const last = attempts[attempts.length - 1];
-    return res.status(200).json({
-      ok: false,
-      error: last?.body?.Message || last?.body?.message || last?.body?.error_description || ('Todos los endpoints fallaron. Último HTTP ' + last?.status),
-      attempts: attempts.map(a => ({ url: a.url, status: a.status, msg: a.body?.Message || a.body?.message || (typeof a.body === 'string' ? a.body.substring(0,200) : null) })),
-      sentBody: comprobante
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: gmailUser, pass: gmailPass }
     });
+
+    const filename = 'factura-' + Date.now() + '.pdf';
+    const info = await transporter.sendMail({
+      from: gmailUser,
+      to: inbox,
+      subject: subject || 'Factura compra ' + new Date().toLocaleString('es-AR'),
+      text: 'Enviado automaticamente por SocialFlow (Agente Contabilidad).',
+      attachments: [{ filename, content: pdfBuf, contentType: 'application/pdf' }]
+    });
+
+    return res.status(200).json({ ok: true, messageId: info.messageId, sentTo: inbox, pdfSize: pdfBuf.length, filename });
   } catch(e) {
-    return res.status(500).json({ ok: false, error: e.message });
+    return res.status(500).json({ ok: false, error: e.message, code: e.code });
   }
 }
 
@@ -236,6 +212,6 @@ export default async function handler(req, res) {
   const action = req.query?.action || req.body?.action || '';
   if (action === 'test') return handleTest(req, res);
   if (action === 'extract') return handleExtract(req, res);
-  if (action === 'upload') return handleUpload(req, res);
-  return res.status(400).json({ error: 'action requerida: test | extract | upload' });
+  if (action === 'email') return handleEmail(req, res);
+  return res.status(400).json({ error: 'action requerida: test | extract | email' });
 }
