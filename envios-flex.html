@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Envíos Flex · Uniproveedores</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a16;color:#e0d8cc;min-height:100vh;}
+.header{background:rgba(255,255,255,0.03);border-bottom:1px solid rgba(255,241,89,0.2);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.back{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;}
+.back-ic{width:32px;height:32px;border-radius:8px;background:rgba(255,241,89,0.15);display:flex;align-items:center;justify-content:center;color:#fff159;font-size:18px;}
+.b-title{font-size:15px;font-weight:700;color:#fff159;}
+.b-sub{font-size:9px;color:#666;letter-spacing:2px;text-transform:uppercase;}
+.ia-badge{font-size:11px;color:#fff159;background:rgba(255,241,89,0.08);border:1px solid rgba(255,241,89,0.2);padding:4px 10px;border-radius:20px;}
+.main{max-width:900px;margin:0 auto;padding:20px 16px 60px;}
+.tip{background:rgba(255,241,89,0.06);border:1px solid rgba(255,241,89,0.15);border-radius:10px;padding:11px 16px;font-size:12px;color:#fff159;margin-bottom:16px;}
+.card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:16px;margin-bottom:12px;}
+.sec-lbl{font-size:10px;color:#fff159;letter-spacing:2px;text-transform:uppercase;display:block;margin-bottom:10px;}
+.field{margin-bottom:11px;}.field:last-child{margin-bottom:0;}
+.field label{font-size:11px;color:#888;display:block;margin-bottom:5px;}
+input,select{width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:9px 12px;color:#e0d8cc;font-size:13px;font-family:inherit;}
+input:focus{outline:none;border-color:rgba(255,241,89,0.5);}
+.btn-main{width:100%;background:linear-gradient(135deg,#fff159,#ffd700);border:none;border-radius:10px;padding:14px;color:#000;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;}
+.btn-main:hover{opacity:0.92;}.btn-main:disabled{background:rgba(100,100,100,0.2);color:#555;cursor:not-allowed;}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.15);border-top-color:#fff159;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.totals{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+.total-box{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:14px;text-align:center;}
+.total-box .v{font-size:24px;font-weight:800;color:#fff159;}
+.total-box .l{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px;margin-top:4px;}
+.table{width:100%;border-collapse:collapse;font-size:13px;}
+.table th{text-align:left;color:#fff159;font-size:11px;text-transform:uppercase;letter-spacing:1px;padding:10px;border-bottom:1px solid rgba(255,255,255,0.08);}
+.table td{padding:12px 10px;border-bottom:1px solid rgba(255,255,255,0.04);}
+.table tr:hover td{background:rgba(255,241,89,0.04);}
+.qty{font-weight:800;color:#fff159;}
+.ids{font-size:11px;color:#888;font-family:monospace;}
+.err{background:rgba(255,80,80,0.08);border:1px solid rgba(255,80,80,0.25);border-radius:10px;padding:14px;color:#ff8080;font-size:13px;}
+.loading{text-align:center;padding:30px 20px;color:#fff159;font-size:13px;}
+.empty{text-align:center;padding:30px 20px;color:#666;font-size:13px;}
+details{margin-top:14px;font-size:12px;color:#888;}
+details pre{background:rgba(0,0,0,0.3);padding:10px;border-radius:6px;overflow:auto;max-height:300px;font-size:11px;}
+#notif{position:fixed;top:16px;right:16px;z-index:9999;background:rgba(10,10,22,0.97);border:1px solid rgba(255,241,89,0.45);border-radius:10px;padding:11px 16px;font-size:13px;color:#fff159;display:none;max-width:300px;}
+</style>
+</head>
+<body>
+<div id="notif"></div>
+<div class="header">
+  <a class="back" href="/"><div class="back-ic">←</div><div><div class="b-title">Envíos Flex</div><div class="b-sub">UNIPROVEEDORES · AGENCIA</div></div></a>
+  <div class="ia-badge">⚡ ML Flex</div>
+</div>
+
+<div class="main">
+  <div class="tip">⚡ Elegí un rango de fechas y vas a ver los envíos Flex de ese período agrupados por chofer/transportista.</div>
+
+  <div class="card">
+    <span class="sec-lbl">Rango de fechas</span>
+    <div class="row">
+      <div class="field"><label>Desde</label><input id="from" type="datetime-local" value="2026-05-23T13:00"></div>
+      <div class="field"><label>Hasta</label><input id="to" type="datetime-local" value="2026-05-30T12:00"></div>
+    </div>
+    <button class="btn-main" onclick="buscar()">🔍 Buscar envíos Flex</button>
+  </div>
+
+  <div id="result"></div>
+</div>
+
+<script>
+let nT;
+function notify(m){const e=document.getElementById('notif');e.textContent=m;e.style.display='block';clearTimeout(nT);nT=setTimeout(()=>e.style.display='none',4000);}
+
+function toIso(local){
+  // datetime-local devuelve "2026-05-23T13:00" sin tz → asumimos -03:00 (Buenos Aires)
+  if(!local) return null;
+  return local + ':00.000-03:00';
+}
+
+async function buscar(){
+  const s = JSON.parse(localStorage.getItem('up_state')||'{}');
+  const ml = s.connections?.ml;
+  if(!ml?.token || !ml?.userId){
+    document.getElementById('result').innerHTML='<div class="err">No tenés Mercado Libre conectado. <a href="/conexiones" style="color:#fff159;">Conectalo acá →</a></div>';
+    return;
+  }
+  if(ml.expiresAt && Date.now() > ml.expiresAt){
+    notify('⚠ Token vencido — refrescá en /conexiones antes de seguir');
+  }
+
+  const from = toIso(document.getElementById('from').value);
+  const to   = toIso(document.getElementById('to').value);
+  if(!from||!to){ notify('Elegí ambas fechas'); return; }
+
+  const out = document.getElementById('result');
+  out.innerHTML='<div class="loading"><span class="spinner"></span>Buscando órdenes y envíos en Mercado Libre… (puede tardar 10-30 seg)</div>';
+
+  try {
+    const r = await fetch('/api/ml/envios-flex',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({token:ml.token, userId:ml.userId, from, to})
+    });
+    const d = await r.json();
+    if(!d.ok) throw new Error(d.error||'Error desconocido');
+
+    const drivers = Object.entries(d.byDriver||{}).sort((a,b)=>b[1].cantidad - a[1].cantidad);
+
+    let html = '<div class="totals">' +
+      '<div class="total-box"><div class="v">'+d.totalOrders+'</div><div class="l">Órdenes</div></div>' +
+      '<div class="total-box"><div class="v">'+d.totalShipments+'</div><div class="l">Envíos totales</div></div>' +
+      '<div class="total-box"><div class="v">'+d.totalFlex+'</div><div class="l">Flex</div></div>' +
+      '</div>';
+
+    if(drivers.length === 0){
+      html += '<div class="empty">No hay envíos Flex en este rango.</div>';
+    } else {
+      html += '<div class="card"><span class="sec-lbl">Flex por transportista</span>';
+      html += '<table class="table"><thead><tr><th>Transportista</th><th style="text-align:right;">Cantidad</th><th>Primeros IDs</th></tr></thead><tbody>';
+      for(const [name, info] of drivers){
+        html += '<tr>' +
+          '<td>'+escapeHtml(name)+'</td>' +
+          '<td style="text-align:right;" class="qty">'+info.cantidad+'</td>' +
+          '<td class="ids">'+info.ids.slice(0,5).join(', ')+(info.ids.length>5?' …':'')+'</td>' +
+          '</tr>';
+      }
+      html += '</tbody></table></div>';
+    }
+
+    // Sample raw del primer Flex — colapsado por default, para inspección si "Sin asignar" toma todo
+    if(d.sample){
+      html += '<details><summary>🔍 Ver respuesta cruda del primer envío Flex (para debug si el chofer no aparece)</summary><pre>'+escapeHtml(JSON.stringify(d.sample,null,2))+'</pre></details>';
+    }
+
+    out.innerHTML = html;
+    notify('✅ '+d.totalFlex+' envíos Flex encontrados');
+  } catch(e){
+    out.innerHTML='<div class="err">❌ '+escapeHtml(e.message)+'</div>';
+  }
+}
+
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);}
+</script>
+</body>
+</html>
