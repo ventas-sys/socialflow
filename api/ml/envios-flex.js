@@ -75,7 +75,21 @@ export default async function handler(req, res) {
       byDriver[k].ids.push(sh.id);
     }
 
-    // Sample raw del primer Flex para poder inspeccionar el shape si "Sin asignar" toma todo.
+    const detalle = flex.map(sh => {
+      const a = sh.receiver_address || {};
+      const calle = [a.street_name, a.street_number].filter(Boolean).join(' ');
+      const zona = [a.city?.name, a.state?.name].filter(Boolean).join(', ');
+      const direccion = [calle, a.zip_code, zona].filter(Boolean).join(' · ');
+      return {
+        id: sh.id,
+        fecha: sh.date_created || sh.status_history?.date_handling || null,
+        chofer: pickDriver(sh),
+        direccion,
+        referencia: a.comment || '',
+        recibe: a.receiver_name || ''
+      };
+    }).sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''));
+
     const sample = flex[0] || null;
 
     return res.status(200).json({
@@ -84,6 +98,7 @@ export default async function handler(req, res) {
       totalShipments: shipments.length,
       totalFlex: flex.length,
       byDriver,
+      detalle,
       sample
     });
   } catch(e) {

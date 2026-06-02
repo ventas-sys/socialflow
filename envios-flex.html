@@ -125,11 +125,45 @@ async function buscar(){
           '</tr>';
       }
       html += '</tbody></table></div>';
+
+      // Detalle día por día con dirección + transportista
+      const porDia = {};
+      for(const env of (d.detalle||[])){
+        const dia = env.fecha ? new Date(env.fecha).toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'}) : 'Sin fecha';
+        (porDia[dia] = porDia[dia] || []).push(env);
+      }
+      const dias = Object.keys(porDia);
+      if(dias.length){
+        html += '<div class="card" style="margin-top:14px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">' +
+          '<span class="sec-lbl" style="margin:0;">Detalle día por día</span>' +
+          '<button onclick="exportarCSV()" style="background:rgba(255,241,89,0.1);border:1px solid rgba(255,241,89,0.3);color:#fff159;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit;">📥 Exportar CSV</button>' +
+          '</div>';
+        for(const dia of dias){
+          const envios = porDia[dia];
+          html += '<div style="margin-bottom:14px;">' +
+            '<div style="font-size:12px;color:#fff159;text-transform:capitalize;margin-bottom:6px;font-weight:700;">'+escapeHtml(dia)+' · '+envios.length+' envío'+(envios.length>1?'s':'')+'</div>' +
+            '<table class="table"><thead><tr>' +
+            '<th>Hora</th><th>Dirección</th><th>Recibe</th><th>Transportista</th>' +
+            '</tr></thead><tbody>';
+          for(const e of envios){
+            const hora = e.fecha ? new Date(e.fecha).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}) : '—';
+            const dir = e.direccion + (e.referencia ? ' <span style="color:#888;font-size:11px;">('+escapeHtml(e.referencia)+')</span>' : '');
+            html += '<tr>' +
+              '<td style="font-family:monospace;font-size:11px;color:#888;">'+hora+'</td>' +
+              '<td>'+(e.direccion?escapeHtml(e.direccion):'<span style="color:#666;">—</span>')+(e.referencia?' <span style="color:#888;font-size:11px;">('+escapeHtml(e.referencia)+')</span>':'')+'</td>' +
+              '<td style="font-size:12px;">'+escapeHtml(e.recibe||'—')+'</td>' +
+              '<td class="qty" style="font-size:12px;">'+escapeHtml(e.chofer||'—')+'</td>' +
+              '</tr>';
+          }
+          html += '</tbody></table></div>';
+        }
+        html += '</div>';
+        window._envios_detalle = d.detalle;
+      }
     }
 
-    // Sample raw del primer Flex — colapsado por default, para inspección si "Sin asignar" toma todo
     if(d.sample){
-      html += '<details><summary>🔍 Ver respuesta cruda del primer envío Flex (para debug si el chofer no aparece)</summary><pre>'+escapeHtml(JSON.stringify(d.sample,null,2))+'</pre></details>';
+      html += '<details><summary>🔍 Ver respuesta cruda del primer envío Flex (para debug)</summary><pre>'+escapeHtml(JSON.stringify(d.sample,null,2))+'</pre></details>';
     }
 
     out.innerHTML = html;
@@ -140,6 +174,27 @@ async function buscar(){
 }
 
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);}
+
+function exportarCSV(){
+  const data = window._envios_detalle;
+  if(!data||!data.length){ notify('Nada para exportar'); return; }
+  const cell = v => '"'+String(v??'').replace(/"/g,'""')+'"';
+  const head = ['Fecha','Hora','Direccion','Referencia','Recibe','Transportista','ID'];
+  const rows = data.map(e=>{
+    const d = e.fecha?new Date(e.fecha):null;
+    const fecha = d?d.toLocaleDateString('es-AR'):'';
+    const hora = d?d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}):'';
+    return [fecha,hora,e.direccion,e.referencia,e.recibe,e.chofer,e.id].map(cell).join(',');
+  });
+  const csv = '﻿' + head.map(cell).join(',') + '\n' + rows.join('\n');
+  const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'envios-flex-'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  notify('📥 CSV descargado');
+}
 </script>
 </body>
 </html>
