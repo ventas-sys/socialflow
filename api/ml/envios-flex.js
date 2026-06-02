@@ -118,6 +118,30 @@ export default async function handler(req, res) {
     const sample = flex[0] || null;
     const sampleAssignment = flex[0] ? assignments[flex[0].id] : null;
 
+    // Sonda diagnostica: probamos varios endpoints contra el primer envio Flex
+    // para encontrar cual devuelve el operador asignado (PABLO CHEN).
+    let diagnostico = null;
+    if (flex[0]) {
+      const id = flex[0].id;
+      const headers = { 'Authorization': 'Bearer ' + token };
+      const endpoints = [
+        '/flex/sites/MLA/shipments/' + id + '/assignment/v1',
+        '/flex/sites/MLA/shipments/' + id,
+        '/shipments/' + id + '/items',
+        '/shipments/' + id + '/route',
+        '/shipments/' + id + '/sla',
+        '/sites/MLA/users/' + userId + '/operators',
+        '/users/' + userId + '/drivers',
+        '/flex/sites/MLA/users/' + userId + '/operators'
+      ];
+      const results = await Promise.all(endpoints.map(ep =>
+        httpRequest('GET', 'https://api.mercadolibre.com' + ep, headers, null)
+          .then(r => ({ endpoint: ep, status: r.status, body: r.body }))
+          .catch(e => ({ endpoint: ep, status: 'error', body: { error: e.message } }))
+      ));
+      diagnostico = { shipmentId: id, results };
+    }
+
     return res.status(200).json({
       ok: true,
       totalOrders: orders.length,
@@ -127,7 +151,8 @@ export default async function handler(req, res) {
       byDriver,
       detalle,
       sample,
-      sampleAssignment
+      sampleAssignment,
+      diagnostico
     });
   } catch(e) {
     return res.status(500).json({ ok: false, error: e.message });
