@@ -162,8 +162,13 @@ async function buscar(){
       }
     }
 
+    if(d.sampleAssignment){
+      html += '<details open><summary>🚚 Ver assignment crudo del primer envío Flex (chofer asignado)</summary><pre>'+escapeHtml(JSON.stringify(d.sampleAssignment,null,2))+'</pre></details>';
+    } else if(d.totalFlex > 0){
+      html += '<div style="margin-top:10px;font-size:12px;color:#888;">ℹ️ El endpoint de assignment no devolvió data para ningún envío (posible: tu app no tiene scope de Flex, o tu cuenta no usa operadores Flex registrados).</div>';
+    }
     if(d.sample){
-      html += '<details><summary>🔍 Ver respuesta cruda del primer envío Flex (para debug)</summary><pre>'+escapeHtml(JSON.stringify(d.sample,null,2))+'</pre></details>';
+      html += '<details><summary>🔍 Ver respuesta cruda del primer envío Flex (debug)</summary><pre>'+escapeHtml(JSON.stringify(d.sample,null,2))+'</pre></details>';
     }
 
     out.innerHTML = html;

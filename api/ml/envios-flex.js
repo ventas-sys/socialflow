@@ -39,10 +39,33 @@ async function fetchShipmentsBatch(token, ids) {
   return out;
 }
 
-function pickDriver(sh) {
-  // Probamos los campos posibles donde ML expone el chofer/transportista en Flex.
-  // Si ninguno matchea queda "Sin asignar" y el sample raw permite ver el shape real.
-  return sh?.driver?.full_name ||
+async function fetchAssignmentsBatch(token, ids) {
+  const headers = { 'Authorization': 'Bearer ' + token };
+  const out = {};
+  const batchSize = 8;
+  for (let i = 0; i < ids.length; i += batchSize) {
+    const batch = ids.slice(i, i + batchSize);
+    const promises = batch.map(id =>
+      httpRequest('GET', 'https://api.mercadolibre.com/flex/sites/MLA/shipments/' + id + '/assignment/v1', headers, null)
+        .then(r => ({ id, body: r.status === 200 ? r.body : null }))
+        .catch(() => ({ id, body: null }))
+    );
+    const res = await Promise.all(promises);
+    for (const { id, body } of res) if (body) out[id] = body;
+  }
+  return out;
+}
+
+function pickDriver(sh, assignment) {
+  // Prioridad: el endpoint de assignment expone el chofer real asignado.
+  // Si no hay assignment caemos a campos del shipment estandar.
+  return assignment?.driver?.full_name ||
+    assignment?.driver?.name ||
+    assignment?.assignee?.full_name ||
+    assignment?.assignee?.name ||
+    assignment?.operator?.name ||
+    (assignment?.driver?.first_name && assignment?.driver?.last_name ? assignment.driver.first_name + ' ' + assignment.driver.last_name : null) ||
+    sh?.driver?.full_name ||
     sh?.driver?.name ||
     sh?.driver?.first_name ||
     (sh?.driver_id ? 'Driver ' + sh.driver_id : null) ||
@@ -67,9 +90,11 @@ export default async function handler(req, res) {
     const shipments = await fetchShipmentsBatch(token, shipIds);
     const flex = shipments.filter(s => s.logistic_type === 'self_service');
 
+    const assignments = await fetchAssignmentsBatch(token, flex.map(s => s.id));
+
     const byDriver = {};
     for (const sh of flex) {
-      const k = pickDriver(sh);
+      const k = pickDriver(sh, assignments[sh.id]);
       if (!byDriver[k]) byDriver[k] = { cantidad: 0, ids: [], orders: [] };
       byDriver[k].cantidad++;
       byDriver[k].ids.push(sh.id);
@@ -83,7 +108,7 @@ export default async function handler(req, res) {
       return {
         id: sh.id,
         fecha: sh.date_created || sh.status_history?.date_handling || null,
-        chofer: pickDriver(sh),
+        chofer: pickDriver(sh, assignments[sh.id]),
         direccion,
         referencia: a.comment || '',
         recibe: a.receiver_name || ''
@@ -91,15 +116,18 @@ export default async function handler(req, res) {
     }).sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''));
 
     const sample = flex[0] || null;
+    const sampleAssignment = flex[0] ? assignments[flex[0].id] : null;
 
     return res.status(200).json({
       ok: true,
       totalOrders: orders.length,
       totalShipments: shipments.length,
       totalFlex: flex.length,
+      totalAssignments: Object.keys(assignments).length,
       byDriver,
       detalle,
-      sample
+      sample,
+      sampleAssignment
     });
   } catch(e) {
     return res.status(500).json({ ok: false, error: e.message });
