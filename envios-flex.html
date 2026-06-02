@@ -104,84 +104,44 @@ async function buscar(){
     const d = await r.json();
     if(!d.ok) throw new Error(d.error||'Error desconocido');
 
-    const drivers = Object.entries(d.byDriver||{}).sort((a,b)=>b[1].cantidad - a[1].cantidad);
-
     let html = '<div class="totals">' +
       '<div class="total-box"><div class="v">'+d.totalOrders+'</div><div class="l">Órdenes</div></div>' +
       '<div class="total-box"><div class="v">'+d.totalShipments+'</div><div class="l">Envíos totales</div></div>' +
       '<div class="total-box"><div class="v">'+d.totalFlex+'</div><div class="l">Flex</div></div>' +
       '</div>';
 
-    if(drivers.length === 0){
+    if(!d.detalle || d.detalle.length === 0){
       html += '<div class="empty">No hay envíos Flex en este rango.</div>';
     } else {
-      html += '<div class="card"><span class="sec-lbl">Flex por transportista</span>';
-      html += '<table class="table"><thead><tr><th>Transportista</th><th style="text-align:right;">Cantidad</th><th>Primeros IDs</th></tr></thead><tbody>';
-      for(const [name, info] of drivers){
-        html += '<tr>' +
-          '<td>'+escapeHtml(name)+'</td>' +
-          '<td style="text-align:right;" class="qty">'+info.cantidad+'</td>' +
-          '<td class="ids">'+info.ids.slice(0,5).join(', ')+(info.ids.length>5?' …':'')+'</td>' +
-          '</tr>';
-      }
-      html += '</tbody></table></div>';
-
-      // Detalle día por día con dirección + transportista
       const porDia = {};
-      for(const env of (d.detalle||[])){
+      for(const env of d.detalle){
         const dia = env.fecha ? new Date(env.fecha).toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'}) : 'Sin fecha';
         (porDia[dia] = porDia[dia] || []).push(env);
       }
       const dias = Object.keys(porDia);
-      if(dias.length){
-        html += '<div class="card" style="margin-top:14px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">' +
-          '<span class="sec-lbl" style="margin:0;">Detalle día por día</span>' +
-          '<button onclick="exportarCSV()" style="background:rgba(255,241,89,0.1);border:1px solid rgba(255,241,89,0.3);color:#fff159;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit;">📥 Exportar CSV</button>' +
-          '</div>';
-        for(const dia of dias){
-          const envios = porDia[dia];
-          html += '<div style="margin-bottom:14px;">' +
-            '<div style="font-size:12px;color:#fff159;text-transform:capitalize;margin-bottom:6px;font-weight:700;">'+escapeHtml(dia)+' · '+envios.length+' envío'+(envios.length>1?'s':'')+'</div>' +
-            '<table class="table"><thead><tr>' +
-            '<th>Hora</th><th>Dirección</th><th>Recibe</th><th>Transportista</th>' +
-            '</tr></thead><tbody>';
-          for(const e of envios){
-            const hora = e.fecha ? new Date(e.fecha).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}) : '—';
-            const dir = e.direccion + (e.referencia ? ' <span style="color:#888;font-size:11px;">('+escapeHtml(e.referencia)+')</span>' : '');
-            html += '<tr>' +
-              '<td style="font-family:monospace;font-size:11px;color:#888;">'+hora+'</td>' +
-              '<td>'+(e.direccion?escapeHtml(e.direccion):'<span style="color:#666;">—</span>')+(e.referencia?' <span style="color:#888;font-size:11px;">('+escapeHtml(e.referencia)+')</span>':'')+'</td>' +
-              '<td style="font-size:12px;">'+escapeHtml(e.recibe||'—')+'</td>' +
-              '<td class="qty" style="font-size:12px;">'+escapeHtml(e.chofer||'—')+'</td>' +
-              '</tr>';
-          }
-          html += '</tbody></table></div>';
+      html += '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">' +
+        '<span class="sec-lbl" style="margin:0;">Detalle día por día · '+escapeHtml(d.transportista||'')+'</span>' +
+        '<button onclick="exportarCSV()" style="background:rgba(255,241,89,0.1);border:1px solid rgba(255,241,89,0.3);color:#fff159;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit;">📥 Exportar CSV</button>' +
+        '</div>';
+      for(const dia of dias){
+        const envios = porDia[dia];
+        html += '<div style="margin-bottom:14px;">' +
+          '<div style="font-size:12px;color:#fff159;text-transform:capitalize;margin-bottom:6px;font-weight:700;">'+escapeHtml(dia)+' · '+envios.length+' envío'+(envios.length>1?'s':'')+'</div>' +
+          '<table class="table"><thead><tr>' +
+          '<th>Hora</th><th>Dirección</th><th>Recibe</th>' +
+          '</tr></thead><tbody>';
+        for(const e of envios){
+          const hora = e.fecha ? new Date(e.fecha).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}) : '—';
+          html += '<tr>' +
+            '<td style="font-family:monospace;font-size:11px;color:#888;">'+hora+'</td>' +
+            '<td>'+(e.direccion?escapeHtml(e.direccion):'<span style="color:#666;">—</span>')+(e.referencia?' <span style="color:#888;font-size:11px;">('+escapeHtml(e.referencia)+')</span>':'')+'</td>' +
+            '<td style="font-size:12px;">'+escapeHtml(e.recibe||'—')+'</td>' +
+            '</tr>';
         }
-        html += '</div>';
-        window._envios_detalle = d.detalle;
-      }
-    }
-
-    if(d.diagnostico){
-      html += '<div class="card" style="margin-top:14px;border-color:rgba(255,200,0,0.3);">' +
-        '<span class="sec-lbl">🔬 Diagnóstico — buscar dónde está el chofer</span>' +
-        '<div style="font-size:12px;color:#aaa;margin-bottom:10px;">Probamos varios endpoints contra el envío <code>'+d.diagnostico.shipmentId+'</code>. Mirá cuál devuelve status 200 con el nombre del chofer (ej. PABLO CHEN):</div>';
-      if(d.diagnostico.shipmentKeys){
-        html += '<details style="margin-bottom:10px;"><summary style="cursor:pointer;font-size:12px;color:#fff159;">📋 Keys disponibles en el shipment ('+d.diagnostico.shipmentKeys.length+' campos)</summary>' +
-          '<div style="font-family:monospace;font-size:11px;color:#aaa;margin-top:6px;padding:8px;background:rgba(0,0,0,0.3);border-radius:6px;">'+d.diagnostico.shipmentKeys.join(', ')+'</div></details>';
-      }
-      for(const r of d.diagnostico.results){
-        const ok = r.status === 200;
-        const color = ok ? '#00c864' : '#888';
-        html += '<details style="margin-bottom:6px;border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:8px;">' +
-          '<summary style="cursor:pointer;font-family:monospace;font-size:11px;color:'+color+';">[' + r.status + '] ' + escapeHtml(r.endpoint) + '</summary>' +
-          '<pre style="background:rgba(0,0,0,0.3);padding:8px;border-radius:4px;font-size:10px;max-height:300px;overflow:auto;margin-top:6px;">'+escapeHtml(JSON.stringify(r.body,null,2).substring(0,3000))+'</pre>' +
-          '</details>';
+        html += '</tbody></table></div>';
       }
       html += '</div>';
-    }
-    if(d.sample){
-      html += '<details><summary>🔍 Ver shipment crudo (debug)</summary><pre>'+escapeHtml(JSON.stringify(d.sample,null,2))+'</pre></details>';
+      window._envios_detalle = d.detalle;
     }
 
     out.innerHTML = html;
@@ -197,12 +157,12 @@ function exportarCSV(){
   const data = window._envios_detalle;
   if(!data||!data.length){ notify('Nada para exportar'); return; }
   const cell = v => '"'+String(v??'').replace(/"/g,'""')+'"';
-  const head = ['Fecha','Hora','Direccion','Referencia','Recibe','Transportista','ID'];
+  const head = ['Fecha','Hora','Direccion','Referencia','Recibe','ID'];
   const rows = data.map(e=>{
     const d = e.fecha?new Date(e.fecha):null;
     const fecha = d?d.toLocaleDateString('es-AR'):'';
     const hora = d?d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}):'';
-    return [fecha,hora,e.direccion,e.referencia,e.recibe,e.chofer,e.id].map(cell).join(',');
+    return [fecha,hora,e.direccion,e.referencia,e.recibe,e.id].map(cell).join(',');
   });
   const csv = '﻿' + head.map(cell).join(',') + '\n' + rows.join('\n');
   const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
