@@ -166,6 +166,10 @@ async function buscar(){
       html += '<div class="card" style="margin-top:14px;border-color:rgba(255,200,0,0.3);">' +
         '<span class="sec-lbl">🔬 Diagnóstico — buscar dónde está el chofer</span>' +
         '<div style="font-size:12px;color:#aaa;margin-bottom:10px;">Probamos varios endpoints contra el envío <code>'+d.diagnostico.shipmentId+'</code>. Mirá cuál devuelve status 200 con el nombre del chofer (ej. PABLO CHEN):</div>';
+      if(d.diagnostico.shipmentKeys){
+        html += '<details style="margin-bottom:10px;"><summary style="cursor:pointer;font-size:12px;color:#fff159;">📋 Keys disponibles en el shipment ('+d.diagnostico.shipmentKeys.length+' campos)</summary>' +
+          '<div style="font-family:monospace;font-size:11px;color:#aaa;margin-top:6px;padding:8px;background:rgba(0,0,0,0.3);border-radius:6px;">'+d.diagnostico.shipmentKeys.join(', ')+'</div></details>';
+      }
       for(const r of d.diagnostico.results){
         const ok = r.status === 200;
         const color = ok ? '#00c864' : '#888';

@@ -125,21 +125,30 @@ export default async function handler(req, res) {
       const id = flex[0].id;
       const headers = { 'Authorization': 'Bearer ' + token };
       const endpoints = [
+        '/users/me',
         '/flex/sites/MLA/shipments/' + id + '/assignment/v1',
-        '/flex/sites/MLA/shipments/' + id,
-        '/shipments/' + id + '/items',
-        '/shipments/' + id + '/route',
-        '/shipments/' + id + '/sla',
-        '/sites/MLA/users/' + userId + '/operators',
-        '/users/' + userId + '/drivers',
-        '/flex/sites/MLA/users/' + userId + '/operators'
+        '/flex/sites/MLA/shipments/' + id + '/assignment/v2',
+        '/flex/sites/MLA/shipments/' + id + '/courier/v1',
+        '/flex/sites/MLA/shipments/' + id + '/courier',
+        '/flex/sites/MLA/users/' + userId + '/courier-shipment/v1',
+        '/flex/sites/MLA/users/' + userId + '/courier-shipment/v1/' + id,
+        '/shipments/' + id + '/handling_cost',
+        '/shipments/' + id + '/lead_time',
+        '/shipments/' + id + '/carrier',
+        '/shipments/' + id + '/agency',
+        '/shipments/' + id + '/courier',
+        '/marketplace/sites/MLA/users/' + userId + '/operators',
+        '/marketplace/users/' + userId + '/operators'
       ];
       const results = await Promise.all(endpoints.map(ep =>
         httpRequest('GET', 'https://api.mercadolibre.com' + ep, headers, null)
           .then(r => ({ endpoint: ep, status: r.status, body: r.body }))
           .catch(e => ({ endpoint: ep, status: 'error', body: { error: e.message } }))
       ));
-      diagnostico = { shipmentId: id, results };
+      // Tambien listamos TODAS las keys del shipment crudo por si el chofer
+      // esta en un campo que no estoy mirando.
+      const shipmentKeys = Object.keys(flex[0]).sort();
+      diagnostico = { shipmentId: id, results, shipmentKeys };
     }
 
     return res.status(200).json({
