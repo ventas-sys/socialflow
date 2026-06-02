@@ -162,13 +162,22 @@ async function buscar(){
       }
     }
 
-    if(d.sampleAssignment){
-      html += '<details open><summary>🚚 Ver assignment crudo del primer envío Flex (chofer asignado)</summary><pre>'+escapeHtml(JSON.stringify(d.sampleAssignment,null,2))+'</pre></details>';
-    } else if(d.totalFlex > 0){
-      html += '<div style="margin-top:10px;font-size:12px;color:#888;">ℹ️ El endpoint de assignment no devolvió data para ningún envío (posible: tu app no tiene scope de Flex, o tu cuenta no usa operadores Flex registrados).</div>';
+    if(d.diagnostico){
+      html += '<div class="card" style="margin-top:14px;border-color:rgba(255,200,0,0.3);">' +
+        '<span class="sec-lbl">🔬 Diagnóstico — buscar dónde está el chofer</span>' +
+        '<div style="font-size:12px;color:#aaa;margin-bottom:10px;">Probamos varios endpoints contra el envío <code>'+d.diagnostico.shipmentId+'</code>. Mirá cuál devuelve status 200 con el nombre del chofer (ej. PABLO CHEN):</div>';
+      for(const r of d.diagnostico.results){
+        const ok = r.status === 200;
+        const color = ok ? '#00c864' : '#888';
+        html += '<details style="margin-bottom:6px;border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:8px;">' +
+          '<summary style="cursor:pointer;font-family:monospace;font-size:11px;color:'+color+';">[' + r.status + '] ' + escapeHtml(r.endpoint) + '</summary>' +
+          '<pre style="background:rgba(0,0,0,0.3);padding:8px;border-radius:4px;font-size:10px;max-height:300px;overflow:auto;margin-top:6px;">'+escapeHtml(JSON.stringify(r.body,null,2).substring(0,3000))+'</pre>' +
+          '</details>';
+      }
+      html += '</div>';
     }
     if(d.sample){
-      html += '<details><summary>🔍 Ver respuesta cruda del primer envío Flex (debug)</summary><pre>'+escapeHtml(JSON.stringify(d.sample,null,2))+'</pre></details>';
+      html += '<details><summary>🔍 Ver shipment crudo (debug)</summary><pre>'+escapeHtml(JSON.stringify(d.sample,null,2))+'</pre></details>';
     }
 
     out.innerHTML = html;
