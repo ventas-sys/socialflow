@@ -151,7 +151,7 @@ function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':
 
 async function loadStatus(){
   try {
-    const r = await fetch('/api/wa/send');
+    const r = await fetch('/api/wa/webhook?action=send');
     const d = await r.json();
     const prov = d.provider || 'openwa';
     document.querySelectorAll('.prov-btn').forEach(b => b.classList.toggle('active', b.dataset.prov === prov));
@@ -214,7 +214,7 @@ async function enviarReal(){
   out.innerHTML = '<div class="status warn"><span class="spinner"></span>Enviando...</div>';
 
   try {
-    const r = await fetch('/api/wa/send', {
+    const r = await fetch('/api/wa/webhook?action=send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ to, text })
