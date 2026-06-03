@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WhatsApp Bot · Uniproveedores</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a16;color:#e0d8cc;min-height:100vh;}
+.header{background:rgba(255,255,255,0.03);border-bottom:1px solid rgba(37,211,102,0.2);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.back{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;}
+.back-ic{width:32px;height:32px;border-radius:8px;background:rgba(37,211,102,0.15);display:flex;align-items:center;justify-content:center;color:#25d366;font-size:18px;}
+.b-title{font-size:15px;font-weight:700;color:#25d366;}
+.b-sub{font-size:9px;color:#666;letter-spacing:2px;text-transform:uppercase;}
+.ia-badge{font-size:11px;color:#25d366;background:rgba(37,211,102,0.08);border:1px solid rgba(37,211,102,0.2);padding:4px 10px;border-radius:20px;}
+.main{max-width:900px;margin:0 auto;padding:20px 16px 60px;}
+.tip{background:rgba(37,211,102,0.06);border:1px solid rgba(37,211,102,0.15);border-radius:10px;padding:11px 16px;font-size:12px;color:#25d366;margin-bottom:16px;}
+.card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:16px;margin-bottom:12px;}
+.sec-lbl{font-size:10px;color:#25d366;letter-spacing:2px;text-transform:uppercase;display:block;margin-bottom:10px;}
+.field{margin-bottom:11px;}.field:last-child{margin-bottom:0;}
+.field label{font-size:11px;color:#888;display:block;margin-bottom:5px;}
+input,select,textarea{width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:9px 12px;color:#e0d8cc;font-size:13px;font-family:inherit;}
+textarea{resize:vertical;min-height:70px;font-family:inherit;}
+input:focus,textarea:focus,select:focus{outline:none;border-color:rgba(37,211,102,0.5);}
+.btn-main{width:100%;background:linear-gradient(135deg,#25d366,#128c7e);border:none;border-radius:10px;padding:14px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;}
+.btn-main:hover{opacity:0.92;}.btn-main:disabled{background:rgba(100,100,100,0.2);color:#555;cursor:not-allowed;}
+.btn-sec{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:8px 14px;color:#e0d8cc;font-size:12px;cursor:pointer;font-family:inherit;}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.status{display:flex;align-items:center;gap:8px;font-size:13px;padding:8px 12px;border-radius:8px;}
+.status.ok{background:rgba(37,211,102,0.1);color:#25d366;}
+.status.err{background:rgba(255,80,80,0.1);color:#ff8080;}
+.status.warn{background:rgba(255,200,0,0.1);color:#ffc800;}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+.dot.ok{background:#25d366;box-shadow:0 0 8px #25d366;}
+.dot.err{background:#ff5050;}
+.dot.warn{background:#ffc800;}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.15);border-top-color:#25d366;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.err{background:rgba(255,80,80,0.08);border:1px solid rgba(255,80,80,0.25);border-radius:10px;padding:14px;color:#ff8080;font-size:13px;margin-top:10px;}
+.success{background:rgba(37,211,102,0.08);border:1px solid rgba(37,211,102,0.25);border-radius:10px;padding:14px;color:#25d366;font-size:13px;margin-top:10px;}
+.tag{display:inline-block;font-size:10px;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,0.08);color:#aaa;margin-right:4px;letter-spacing:0.5px;}
+.tag.faq{background:rgba(37,211,102,0.15);color:#25d366;}
+.tag.tracking{background:rgba(0,179,230,0.15);color:#00b3e6;}
+.tag.catalogo{background:rgba(255,140,0,0.15);color:#ff8c00;}
+.tag.venta{background:rgba(255,241,89,0.15);color:#fff159;}
+.tag.soporte,.tag.reclamo{background:rgba(255,80,80,0.15);color:#ff8080;}
+.tag.saludo{background:rgba(167,139,250,0.15);color:#a78bfa;}
+.prov-toggle{display:flex;gap:6px;margin-bottom:14px;}
+.prov-btn{flex:1;padding:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;color:#888;cursor:pointer;font-size:12px;font-family:inherit;text-align:center;}
+.prov-btn.active{background:rgba(37,211,102,0.12);border-color:rgba(37,211,102,0.4);color:#25d366;font-weight:700;}
+code{background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;font-size:11px;font-family:monospace;color:#fff;}
+.kv{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px;}
+.kv:last-child{border:none;}
+.kv span:first-child{color:#888;}
+.kv span:last-child{color:#fff;font-family:monospace;}
+#notif{position:fixed;top:16px;right:16px;z-index:9999;background:rgba(10,10,22,0.97);border:1px solid rgba(37,211,102,0.45);border-radius:10px;padding:11px 16px;font-size:13px;color:#25d366;display:none;max-width:300px;}
+.chat-preview{background:rgba(0,0,0,0.2);border-radius:8px;padding:10px;margin-top:8px;font-size:12px;}
+.chat-preview .from{color:#25d366;font-weight:700;margin-bottom:4px;}
+.chat-preview .text{color:#e0d8cc;white-space:pre-wrap;}
+</style>
+</head>
+<body>
+<div id="notif"></div>
+<div class="header">
+  <a class="back" href="/"><div class="back-ic">←</div><div><div class="b-title">WhatsApp Bot</div><div class="b-sub">UNIPROVEEDORES · AGENCIA</div></div></a>
+  <div class="ia-badge">💬 WhatsApp</div>
+</div>
+
+<div class="main">
+  <div class="tip">💬 Bot de WhatsApp con FAQ automático, tracking de pedidos, consulta de catálogo y triage IA. Elegí el proveedor según tengas disponible y testealo.</div>
+
+  <div class="card">
+    <span class="sec-lbl">Estado del servicio</span>
+    <div id="status-box"><div class="status warn"><span class="dot warn"></span>Cargando...</div></div>
+  </div>
+
+  <div class="card">
+    <span class="sec-lbl">Proveedor activo</span>
+    <div class="prov-toggle">
+      <div class="prov-btn" id="prov-openwa" data-prov="openwa">⚡ open-wa (PoC / temporal)</div>
+      <div class="prov-btn" id="prov-meta" data-prov="meta">✅ Meta Cloud API (oficial)</div>
+    </div>
+    <div id="prov-info" style="font-size:12px;color:#888;line-height:1.6;"></div>
+  </div>
+
+  <div class="card">
+    <span class="sec-lbl">Probar bot (sin enviar a WhatsApp)</span>
+    <div class="field">
+      <label>Mensaje de prueba — simulá lo que escribiría un cliente</label>
+      <textarea id="test-text" placeholder="ej: hola, tienen lapiceras Pilot?"></textarea>
+    </div>
+    <div class="field">
+      <label>Nombre del cliente (opcional)</label>
+      <input id="test-name" placeholder="Juan Pérez">
+    </div>
+    <button class="btn-main" onclick="probarBot()">🧪 Probar respuesta del bot</button>
+    <div id="test-result"></div>
+  </div>
+
+  <div class="card">
+    <span class="sec-lbl">Enviar mensaje real a WhatsApp</span>
+    <div class="field">
+      <label>Número destino (con código de país, sin +)</label>
+      <input id="send-to" placeholder="5491155551234">
+    </div>
+    <div class="field">
+      <label>Mensaje</label>
+      <textarea id="send-text" placeholder="Hola desde SocialFlow"></textarea>
+    </div>
+    <button class="btn-main" onclick="enviarReal()">📤 Enviar mensaje</button>
+    <div id="send-result"></div>
+  </div>
+
+  <div class="card">
+    <span class="sec-lbl">Setup — pasos para activar</span>
+    <details open style="font-size:13px;color:#aaa;">
+      <summary style="cursor:pointer;color:#25d366;margin-bottom:10px;">⚡ Opción A: open-wa (rápido, mientras esperás Meta)</summary>
+      <ol style="padding-left:20px;line-height:1.8;">
+        <li>Desplegá el bridge de <code>openwa-bridge/</code> en Railway o Fly.io (ver README en la carpeta)</li>
+        <li>En Vercel, agregá variables: <code>WA_PROVIDER=openwa</code>, <code>WA_BRIDGE_URL=https://tu-bridge.up.railway.app</code>, <code>WA_BRIDGE_SECRET=string-random</code></li>
+        <li>Abrí <code>https://tu-bridge.up.railway.app/qr</code> y escaneá el QR con WhatsApp del número de empresa</li>
+        <li>Volvé acá y probá con "Enviar mensaje real"</li>
+      </ol>
+    </details>
+    <details style="font-size:13px;color:#aaa;margin-top:14px;">
+      <summary style="cursor:pointer;color:#25d366;margin-bottom:10px;">✅ Opción B: Meta Cloud API (oficial)</summary>
+      <ol style="padding-left:20px;line-height:1.8;">
+        <li>Esperá la verificación de tu negocio en <a href="https://business.facebook.com" target="_blank" style="color:#25d366;">business.facebook.com</a></li>
+        <li>Una vez aprobado, en Meta → WhatsApp → API Setup vas a tener: <code>phone_number_id</code>, <code>access_token</code>, <code>business_account_id</code></li>
+        <li>En Vercel agregá: <code>WA_PROVIDER=meta</code>, <code>WA_META_PHONE_NUMBER_ID</code>, <code>WA_META_ACCESS_TOKEN</code>, <code>WA_META_VERIFY_TOKEN=tu-string-secreto</code></li>
+        <li>En Meta → WhatsApp → Configuration apuntá el webhook a <code>https://tu-vercel.app/api/wa/webhook</code> con el mismo verify token</li>
+        <li>Suscribite al evento <code>messages</code></li>
+      </ol>
+    </details>
+  </div>
+
+  <div class="card">
+    <span class="sec-lbl">Funciones del bot</span>
+    <div class="kv"><span><span class="tag faq">FAQ</span> Horarios, pagos, envíos, devoluciones</span><span>Auto</span></div>
+    <div class="kv"><span><span class="tag tracking">TRACKING</span> Detecta nº de orden y consulta ML</span><span>Beta</span></div>
+    <div class="kv"><span><span class="tag catalogo">CATÁLOGO</span> "Tenés X?" → busca y manda foto+precio</span><span>Beta</span></div>
+    <div class="kv"><span><span class="tag venta">TRIAGE IA</span> Clasifica mensaje (venta/soporte/reclamo)</span><span>Gemini 2.5</span></div>
+  </div>
+</div>
+
+<script>
+let nT;
+function notify(m){const e=document.getElementById('notif');e.textContent=m;e.style.display='block';clearTimeout(nT);nT=setTimeout(()=>e.style.display='none',4000);}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);}
+
+async function loadStatus(){
+  try {
+    const r = await fetch('/api/wa/webhook?action=send');
+    const d = await r.json();
+    const prov = d.provider || 'openwa';
+    document.querySelectorAll('.prov-btn').forEach(b => b.classList.toggle('active', b.dataset.prov === prov));
+    renderProvInfo(prov);
+    document.getElementById('status-box').innerHTML =
+      '<div class="status ok"><span class="dot ok"></span>API activa · Proveedor: <b>'+prov+'</b></div>';
+  } catch(e) {
+    document.getElementById('status-box').innerHTML =
+      '<div class="status err"><span class="dot err"></span>API no responde: '+escapeHtml(e.message)+'</div>';
+  }
+}
+
+function renderProvInfo(prov){
+  const el = document.getElementById('prov-info');
+  if (prov === 'meta') {
+    el.innerHTML = '✅ Usando <b>Meta Cloud API</b> (oficial). Para cambiar, edita la variable <code>WA_PROVIDER</code> en Vercel.';
+  } else {
+    el.innerHTML = '⚡ Usando <b>open-wa bridge</b> (no oficial, vía Railway/Fly.io). Funciona como PoC mientras Meta verifica. Para cambiar a Meta, edita <code>WA_PROVIDER=meta</code> en Vercel.';
+  }
+}
+
+async function probarBot(){
+  const text = document.getElementById('test-text').value.trim();
+  const name = document.getElementById('test-name').value.trim();
+  const out = document.getElementById('test-result');
+  if (!text) { out.innerHTML = '<div class="err">Escribí un mensaje de prueba</div>'; return; }
+  out.innerHTML = '<div class="status warn"><span class="spinner"></span>Procesando...</div>';
+
+  try {
+    // Usamos el webhook con un from de prueba — Vercel evalua y devuelve qué responderia
+    // (en modo test el envio real se evita porque el provider va a fallar con el numero ficticio)
+    const r = await fetch('/api/wa/webhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Bridge-Secret': 'test' },
+      body: JSON.stringify({ from: '5491100000000', text, name })
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || 'Error desconocido');
+
+    let html = '<div class="success">' +
+      '<div style="margin-bottom:6px;"><span class="tag '+(d.category||'otro')+'">'+(d.category||'otro').toUpperCase()+'</span>' +
+      (d.needs_human ? '<span class="tag soporte">REQUIERE HUMANO</span>' : '') + '</div>';
+    if (d.reply) {
+      html += '<div class="chat-preview"><div class="from">🤖 Respuesta del bot</div><div class="text">'+escapeHtml(d.reply)+'</div></div>';
+    } else {
+      html += '<div style="color:#aaa;margin-top:6px;">El bot no responde a este mensaje (queda para humano).</div>';
+    }
+    html += '</div>';
+    out.innerHTML = html;
+  } catch(e) {
+    out.innerHTML = '<div class="err">❌ '+escapeHtml(e.message)+'</div>';
+  }
+}
+
+async function enviarReal(){
+  const to = document.getElementById('send-to').value.trim();
+  const text = document.getElementById('send-text').value.trim();
+  const out = document.getElementById('send-result');
+  if (!to || !text) { out.innerHTML = '<div class="err">Completá número y mensaje</div>'; return; }
+  out.innerHTML = '<div class="status warn"><span class="spinner"></span>Enviando...</div>';
+
+  try {
+    const r = await fetch('/api/wa/webhook?action=send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, text })
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || 'Error desconocido');
+    out.innerHTML = '<div class="success">✅ Enviado · ID: <code>'+(d.id||'(sin id)')+'</code> · vía '+d.provider+'</div>';
+    notify('✅ Mensaje enviado');
+  } catch(e) {
+    out.innerHTML = '<div class="err">❌ '+escapeHtml(e.message)+'</div>';
+  }
+}
+
+document.querySelectorAll('.prov-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    notify('Para cambiar el proveedor editá WA_PROVIDER en Vercel y redeploy');
+  });
+});
+
+loadStatus();
+</script>
+</body>
+</html>
