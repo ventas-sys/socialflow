@@ -3,7 +3,7 @@
 // Pensado para testing desde el panel /whatsapp.
 
 import { cors } from '../_http.js';
-import { sendMessage, getProvider } from './_provider.js';
+import { sendMessage, getProvider } from '../../lib/wa/provider.js';
 
 export default async function handler(req, res) {
   cors(res);

@@ -4,8 +4,8 @@
 //   y manda la respuesta.
 
 import { cors } from '../_http.js';
-import { normalizeIncoming, sendMessage } from './_provider.js';
-import { processMessage } from './_process.js';
+import { normalizeIncoming, sendMessage } from '../../lib/wa/provider.js';
+import { processMessage } from '../../lib/wa/process.js';
 
 export default async function handler(req, res) {
   cors(res);
