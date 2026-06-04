@@ -1,0 +1,6 @@
+node_modules/
+.env
+.state.json
+_IGNORE_*/
+.wwebjs_auth/
+session-*.data.json
