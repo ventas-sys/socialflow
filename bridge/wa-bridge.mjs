@@ -21,6 +21,7 @@ const STATE_FILE = path.join(__dirname, '.state.json');
 const WEBHOOK_URL = process.env.WA_WEBHOOK_URL || '';
 const TOKEN = process.env.WA_BRIDGE_TOKEN || '';
 const SESSION_NAME = process.env.WA_SESSION || 'uniproveedores';
+const HUMAN_LABEL_NAME = process.env.WA_HUMAN_LABEL || 'HUMANO';
 
 if (!WEBHOOK_URL) {
   console.error('Falta WA_WEBHOOK_URL (apuntar a https://TU-PROYECTO.vercel.app/api/wa/webhook)');
@@ -67,6 +68,36 @@ function recordHistory(from, role, text) {
   histories.set(from, arr);
 }
 
+let humanLabelId = null;
+const labeledChats = new Set();
+
+async function resolveHumanLabel(client) {
+  try {
+    const labels = await client.getAllLabels();
+    const found = (labels || []).find(l => (l.name || '').toUpperCase() === HUMAN_LABEL_NAME.toUpperCase());
+    if (found) {
+      humanLabelId = found.id;
+      console.log(`Etiqueta "${HUMAN_LABEL_NAME}" encontrada: id=${humanLabelId}`);
+    } else {
+      console.log(`⚠️  Etiqueta "${HUMAN_LABEL_NAME}" no existe. Creala manualmente en WhatsApp Business (Config → Herramientas → Etiquetas).`);
+    }
+  } catch (e) {
+    console.log(`⚠️  No se pudieron leer etiquetas (¿es WhatsApp Business?): ${e.message}`);
+  }
+}
+
+async function markChatForHuman(client, chatId) {
+  if (!humanLabelId) return;
+  if (labeledChats.has(chatId)) return;
+  try {
+    await client.addOrRemoveLabels(humanLabelId, chatId, 'add');
+    labeledChats.add(chatId);
+    console.log(`[${chatId}] 🟡 etiqueta HUMANO aplicada`);
+  } catch (e) {
+    console.error(`No se pudo etiquetar ${chatId}:`, e.message);
+  }
+}
+
 async function handleIncoming(client, msg) {
   try {
     const from = msg.from;
@@ -87,6 +118,7 @@ async function handleIncoming(client, msg) {
 
     if (result.state?.escalated) {
       console.log(`[${from}] *** marcado para humano ***`);
+      await markChatForHuman(client, from);
     }
   } catch (e) {
     console.error('handleIncoming error:', e.message);
@@ -112,6 +144,8 @@ async function main() {
     useChrome: false,
     autoRefresh: true,
   });
+
+  await resolveHumanLabel(client);
 
   client.onMessage(msg => handleIncoming(client, msg));
   console.log('Bridge corriendo. Esperando mensajes...');
