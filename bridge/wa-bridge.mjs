@@ -1,21 +1,19 @@
 #!/usr/bin/env node
 /**
- * Bridge open-wa <-> SocialFlow.
+ * Bridge whatsapp-web.js <-> SocialFlow.
  *
- * Mantiene la sesion de WhatsApp (open-wa-easy-api o @open-wa/wa-automate)
- * y delega cada mensaje al cerebro en la nube (/api/wa/webhook).
- * El estado por contacto vive en memoria + se persiste a disco cada 60s.
- *
- * Uso:
- *   npm install @open-wa/wa-automate dotenv
- *   WA_WEBHOOK_URL=https://TU-VERCEL.vercel.app/api/wa/webhook \
- *   WA_BRIDGE_TOKEN=secreto-fuerte \
- *   node bridge/wa-bridge.mjs
+ * Mantiene la sesion de WhatsApp Web y delega cada mensaje entrante al
+ * cerebro en Vercel (/api/wa/webhook). El estado por contacto vive en
+ * memoria + se persiste a disco cada 60s.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import 'dotenv/config';
+import pkg from 'whatsapp-web.js';
+import qrcode from 'qrcode-terminal';
+
+const { Client, LocalAuth } = pkg;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STATE_FILE = path.join(__dirname, '.state.json');
@@ -25,12 +23,14 @@ const SESSION_NAME = process.env.WA_SESSION || 'uniproveedores';
 const HUMAN_LABEL_NAME = process.env.WA_HUMAN_LABEL || 'HUMANO';
 
 if (!WEBHOOK_URL) {
-  console.error('Falta WA_WEBHOOK_URL (apuntar a https://TU-PROYECTO.vercel.app/api/wa/webhook)');
+  console.error('Falta WA_WEBHOOK_URL en .env');
   process.exit(1);
 }
 
 const states = new Map();
 const histories = new Map();
+const labeledChats = new Set();
+let humanLabelId = null;
 
 try {
   if (fs.existsSync(STATE_FILE)) {
@@ -69,18 +69,15 @@ function recordHistory(from, role, text) {
   histories.set(from, arr);
 }
 
-let humanLabelId = null;
-const labeledChats = new Set();
-
 async function resolveHumanLabel(client) {
   try {
-    const labels = await client.getAllLabels();
+    const labels = await client.getLabels();
     const found = (labels || []).find(l => (l.name || '').toUpperCase() === HUMAN_LABEL_NAME.toUpperCase());
     if (found) {
       humanLabelId = found.id;
       console.log(`Etiqueta "${HUMAN_LABEL_NAME}" encontrada: id=${humanLabelId}`);
     } else {
-      console.log(`⚠️  Etiqueta "${HUMAN_LABEL_NAME}" no existe. Creala manualmente en WhatsApp Business (Config → Herramientas → Etiquetas).`);
+      console.log(`⚠️  Etiqueta "${HUMAN_LABEL_NAME}" no existe en WhatsApp Business. Crearla manualmente.`);
     }
   } catch (e) {
     console.log(`⚠️  No se pudieron leer etiquetas (¿es WhatsApp Business?): ${e.message}`);
@@ -91,7 +88,8 @@ async function markChatForHuman(client, chatId) {
   if (!humanLabelId) return;
   if (labeledChats.has(chatId)) return;
   try {
-    await client.addOrRemoveLabels(humanLabelId, chatId, 'add');
+    const chat = await client.getChatById(chatId);
+    await chat.changeLabels([humanLabelId]);
     labeledChats.add(chatId);
     console.log(`[${chatId}] 🟡 etiqueta HUMANO aplicada`);
   } catch (e) {
@@ -101,9 +99,11 @@ async function markChatForHuman(client, chatId) {
 
 async function handleIncoming(client, msg) {
   try {
+    if (msg.fromMe) return;
+    const chat = await msg.getChat();
+    if (chat.isGroup) return;
     const from = msg.from;
     const text = msg.body || '';
-    if (msg.isGroupMsg || msg.fromMe) return;
     console.log(`[${from}] -> ${text.slice(0, 80)}`);
     recordHistory(from, 'user', text);
 
@@ -112,7 +112,7 @@ async function handleIncoming(client, msg) {
 
     for (const m of (result.messages || [])) {
       if (m.delaySec) await new Promise(r => setTimeout(r, m.delaySec * 1000));
-      await client.sendText(from, m.body);
+      await client.sendMessage(from, m.body);
       recordHistory(from, 'bot', m.body);
       console.log(`[${from}] <- ${m.body.slice(0, 80)}`);
     }
@@ -126,30 +126,41 @@ async function handleIncoming(client, msg) {
   }
 }
 
-async function main() {
-  let create;
-  try {
-    ({ create } = await import('@open-wa/wa-automate'));
-  } catch (e) {
-    console.error('Falta dependencia: npm install @open-wa/wa-automate');
-    process.exit(1);
-  }
-
-  const client = await create({
-    sessionId: SESSION_NAME,
-    multiDevice: true,
-    qrTimeout: 0,
-    authTimeout: 60,
+const client = new Client({
+  authStrategy: new LocalAuth({ clientId: SESSION_NAME, dataPath: path.join(__dirname, '.wwebjs_auth') }),
+  puppeteer: {
     headless: true,
-    cacheEnabled: false,
-    useChrome: false,
-    autoRefresh: true,
-  });
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--disable-gpu',
+    ],
+  },
+});
 
+client.on('qr', qr => {
+  console.log('\n=== Escaneá este QR desde WhatsApp Business del 011-3551-0715 ===');
+  console.log('   (Config → Dispositivos vinculados → Vincular un dispositivo)\n');
+  qrcode.generate(qr, { small: true });
+});
+
+client.on('authenticated', () => console.log('✅ Autenticado'));
+client.on('auth_failure', e => console.error('❌ Falló auth:', e));
+
+client.on('ready', async () => {
+  console.log('✅ Bridge listo. Esperando mensajes...');
   await resolveHumanLabel(client);
+});
 
-  client.onMessage(msg => handleIncoming(client, msg));
-  console.log('Bridge corriendo. Esperando mensajes...');
-}
+client.on('disconnected', reason => {
+  console.error('⚠️  Desconectado:', reason);
+  process.exit(1);
+});
 
-main().catch(e => { console.error(e); process.exit(1); });
+client.on('message', msg => handleIncoming(client, msg));
+
+client.initialize();
