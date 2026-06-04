@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agente WhatsApp · Uniproveedores</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a16;color:#e0d8cc;min-height:100vh;}
+.header{background:rgba(255,255,255,0.03);border-bottom:1px solid rgba(37,211,102,0.2);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-icon{width:36px;height:36px;border-radius:8px;background:#25D366;display:flex;align-items:center;justify-content:center;font-weight:800;color:white;font-size:18px;}
+.logo-title{font-size:16px;font-weight:700;color:#25D366;}
+.logo-sub{font-size:9px;color:#666;letter-spacing:2px;text-transform:uppercase;}
+.back{font-size:11px;color:#888;text-decoration:none;background:rgba(255,255,255,0.05);padding:5px 12px;border-radius:20px;border:1px solid rgba(255,255,255,0.1);}
+.back:hover{color:#25D366;}
+
+.main{max-width:1200px;margin:0 auto;padding:20px 16px 40px;}
+.hero{text-align:center;margin-bottom:18px;}
+.hero h1{font-size:24px;font-weight:800;color:#fff;margin-bottom:6px;}
+.hero h1 span{color:#25D366;}
+.hero p{font-size:13px;color:#888;max-width:680px;margin:0 auto;}
+
+.layout{display:grid;grid-template-columns:1fr 1.2fr;gap:18px;}
+@media(max-width:900px){.layout{grid-template-columns:1fr;}}
+
+.card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;}
+.card-title{font-size:12px;color:#25D366;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+
+.chat{background:#0d1418;border:1px solid rgba(255,255,255,0.06);border-radius:12px;height:520px;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px;}
+.bubble{max-width:78%;padding:8px 12px;border-radius:10px;font-size:13.5px;line-height:1.45;white-space:pre-wrap;word-wrap:break-word;}
+.bubble.user{background:#005c4b;color:#fff;align-self:flex-end;border-bottom-right-radius:2px;}
+.bubble.bot{background:#202c33;color:#e9edef;align-self:flex-start;border-bottom-left-radius:2px;}
+.bubble.meta{align-self:center;background:rgba(255,140,0,0.08);color:#ff8c00;font-size:10px;padding:4px 10px;border-radius:14px;border:1px solid rgba(255,140,0,0.2);}
+.bubble b{color:inherit;font-weight:700;}
+.bubble.bot.ia-redirect{border-left:3px solid #ff8c00;}
+.bubble.bot.ia-fallback{border-left:3px solid #3b82f6;}
+
+.input-row{display:flex;gap:8px;margin-top:10px;}
+.input-row input{flex:1;background:#1f2c33;border:1px solid rgba(255,255,255,0.1);color:#e9edef;padding:10px 14px;border-radius:24px;font-size:14px;font-family:inherit;}
+.input-row input:focus{outline:none;border-color:#25D366;}
+.input-row button{background:#25D366;color:#fff;border:none;width:42px;height:42px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.input-row button:hover{background:#1ea857;}
+.input-row button:disabled{background:#3a4d56;cursor:not-allowed;}
+
+.state-box{background:#0d1418;border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:10px;font-family:'SF Mono','Monaco',monospace;font-size:11px;color:#9aa;line-height:1.5;margin-bottom:10px;}
+.state-box b{color:#25D366;}
+
+.menu-tree{max-height:560px;overflow-y:auto;}
+.tree-node{padding:6px 0 6px 12px;border-left:1px solid rgba(255,255,255,0.08);margin-left:6px;}
+.tree-key{display:inline-block;background:rgba(37,211,102,0.12);color:#25D366;padding:1px 8px;border-radius:6px;font-family:monospace;font-size:11px;font-weight:700;margin-right:8px;border:1px solid rgba(37,211,102,0.25);}
+.tree-key.wild{background:rgba(255,140,0,0.12);color:#ff8c00;border-color:rgba(255,140,0,0.3);}
+.tree-key.normal{background:rgba(59,130,246,0.12);color:#3b82f6;border-color:rgba(59,130,246,0.3);}
+.tree-preview{color:#aaa;font-size:11.5px;line-height:1.4;}
+.tree-row{display:flex;align-items:flex-start;gap:6px;cursor:pointer;padding:3px 0;border-radius:4px;}
+.tree-row:hover{background:rgba(255,255,255,0.03);}
+
+.quick-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.quick{background:rgba(37,211,102,0.1);border:1px solid rgba(37,211,102,0.25);color:#25D366;padding:5px 10px;border-radius:14px;font-size:11px;cursor:pointer;font-family:inherit;}
+.quick:hover{background:rgba(37,211,102,0.2);}
+
+.reset-btn{background:rgba(255,80,80,0.1);border:1px solid rgba(255,80,80,0.25);color:#ff8888;padding:5px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-family:inherit;}
+
+.banner{background:linear-gradient(180deg,rgba(37,211,102,0.08),rgba(37,211,102,0.02));border:1px solid rgba(37,211,102,0.2);border-radius:12px;padding:14px;margin-bottom:18px;}
+.banner-row{display:flex;align-items:center;gap:10px;}
+.banner-icon{font-size:24px;}
+.banner-text{flex:1;font-size:13px;color:#ccc;line-height:1.5;}
+.banner-text b{color:#25D366;}
+
+.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
+.stat{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 10px;}
+.stat-lbl{font-size:9px;color:#666;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:3px;}
+.stat-val{font-size:18px;font-weight:700;color:#fff;}
+.stat-val.green{color:#25D366;}
+.stat-val.orange{color:#ff8c00;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon">💬</div>
+    <div><div class="logo-title">Agente WhatsApp</div><div class="logo-sub">UNIPROVEEDORES · BOT IA</div></div>
+  </div>
+  <a class="back" href="/">← Panel</a>
+</div>
+
+<div class="main">
+
+  <div class="hero">
+    <h1>Bot WhatsApp con <span>IA guía</span></h1>
+    <p>Las respuestas de tu AutoResponder cargadas + Gemini que reinterpreta cuando el cliente se sale del menú.</p>
+  </div>
+
+  <div class="banner">
+    <div class="banner-row">
+      <div class="banner-icon">📋</div>
+      <div class="banner-text">
+        <b>43 reglas cargadas</b> desde el CSV de AutoResponder con árbol de menús (a/b/c/d) y submenús.
+        Cuando el cliente escribe algo fuera de las opciones, <b>Gemini lo reinterpreta</b> y lo guía de vuelta o resuelve directo.
+      </div>
+    </div>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat"><div class="stat-lbl">Mensajes</div><div class="stat-val" id="stat-msgs">0</div></div>
+    <div class="stat"><div class="stat-lbl">Match directo</div><div class="stat-val green" id="stat-direct">0</div></div>
+    <div class="stat"><div class="stat-lbl">IA guió</div><div class="stat-val orange" id="stat-ia">0</div></div>
+  </div>
+
+  <div class="layout">
+
+    <div>
+      <div class="card">
+        <div class="card-title">💬 Probador conversacional</div>
+        <div class="state-box" id="state-box">
+          Estado: <b id="state-summary">root</b> · streak fallback: <span id="state-streak">0</span>
+          <button class="reset-btn" style="float:right;" onclick="resetChat()">Reset</button>
+        </div>
+        <div class="chat" id="chat"></div>
+        <div class="input-row">
+          <input type="text" id="msg" placeholder="Escribí como cliente..." onkeydown="if(event.key==='Enter')send()">
+          <button onclick="send()" id="send-btn">➤</button>
+        </div>
+        <div class="quick-row">
+          <button class="quick" onclick="quick('a')">a · ubicación</button>
+          <button class="quick" onclick="quick('b')">b · mayoristas</button>
+          <button class="quick" onclick="quick('c')">c · reclamos</button>
+          <button class="quick" onclick="quick('d')">d · precio local</button>
+          <button class="quick" onclick="quick('quiero comprar al por mayor')">salirse del menú</button>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <div class="card-title">🌳 Árbol de respuestas (AutoResponder)</div>
+        <div class="menu-tree" id="tree">Cargando...</div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+let chat = [];
+let state = { parentRow: null, fallbackStreak: 0, lastRuleRow: null };
+let stats = { msgs: 0, direct: 0, ia: 0 };
+let rulesData = null;
+
+async function loadTree() {
+  const r = await fetch('/data/wa-rules.json').then(r => r.json()).catch(() => null);
+  if (!r) { document.getElementById('tree').textContent = 'Error cargando árbol.'; return; }
+  rulesData = r;
+  renderTree();
+}
+
+function renderTree() {
+  const root = document.getElementById('tree');
+  root.innerHTML = '';
+  for (const rootRow of rulesData.roots) {
+    root.appendChild(renderNode(rootRow, 0));
+  }
+}
+
+function renderNode(rowNum, depth) {
+  const rule = rulesData.rules.find(r => r.rowNumber === rowNum);
+  if (!rule) return document.createTextNode('');
+  const wrap = document.createElement('div');
+  wrap.className = 'tree-node';
+  const row = document.createElement('div');
+  row.className = 'tree-row';
+  const key = document.createElement('span');
+  key.className = 'tree-key' + (rule.received === '*' ? ' wild' : rule.patternMode === 'normal' ? ' normal' : '');
+  key.textContent = rule.received === '*' ? '*' : rule.received;
+  row.appendChild(key);
+  const prev = document.createElement('span');
+  prev.className = 'tree-preview';
+  prev.textContent = (rule.messages[0] || '').slice(0, 90).replace(/\n/g, ' ');
+  row.appendChild(prev);
+  wrap.appendChild(row);
+  const kids = rulesData.childrenByRow[rowNum] || [];
+  for (const k of kids) wrap.appendChild(renderNode(k, depth + 1));
+  return wrap;
+}
+
+function addBubble(role, text, klass) {
+  const el = document.createElement('div');
+  el.className = 'bubble ' + role + (klass ? ' ' + klass : '');
+  el.textContent = text;
+  document.getElementById('chat').appendChild(el);
+  el.scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+
+function addMeta(text) {
+  const el = document.createElement('div');
+  el.className = 'bubble meta';
+  el.textContent = text;
+  document.getElementById('chat').appendChild(el);
+}
+
+function updateState() {
+  const summary = state.parentRow == null ? 'root (menú principal)' : 'submenú de fila ' + state.parentRow;
+  document.getElementById('state-summary').textContent = summary;
+  document.getElementById('state-streak').textContent = state.fallbackStreak || 0;
+  document.getElementById('stat-msgs').textContent = stats.msgs;
+  document.getElementById('stat-direct').textContent = stats.direct;
+  document.getElementById('stat-ia').textContent = stats.ia;
+}
+
+async function send() {
+  const input = document.getElementById('msg');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  document.getElementById('send-btn').disabled = true;
+  addBubble('user', text);
+  chat.push({ role: 'user', text });
+  stats.msgs++;
+
+  try {
+    const resp = await fetch('/api/wa/webhook', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: 'sim-user', text, state, history: chat.slice(-10), simulate: true }),
+    }).then(r => r.json());
+
+    if (resp.error) {
+      addMeta('Error: ' + resp.error);
+    } else {
+      state = resp.state;
+      const klass = resp.matched?.kind === 'ia_fallback' ? 'ia-fallback'
+        : resp.matched?.kind === 'ia_redirect' ? 'ia-redirect' : '';
+      const meta = [];
+      if (resp.matched) meta.push('match: ' + resp.matched.kind + (resp.matched.row ? ' (fila ' + resp.matched.row + ')' : ''));
+      if (resp.ia) meta.push('IA: ' + resp.ia.intent + (resp.ia.confidence != null ? ' (' + Math.round(resp.ia.confidence * 100) + '%)' : ''));
+      if (meta.length) addMeta(meta.join(' · '));
+
+      if (resp.matched?.kind === 'specific') stats.direct++;
+      if (resp.matched?.kind?.startsWith('ia_')) stats.ia++;
+
+      for (const m of (resp.messages || [])) {
+        addBubble('bot', m.body, klass);
+        chat.push({ role: 'bot', text: m.body });
+      }
+      if (state.escalated) addMeta('⚠️ Marcado para derivar a humano');
+    }
+  } catch (e) {
+    addMeta('Error de red: ' + e.message);
+  }
+  document.getElementById('send-btn').disabled = false;
+  updateState();
+  document.getElementById('msg').focus();
+}
+
+function quick(t) { document.getElementById('msg').value = t; send(); }
+
+function resetChat() {
+  chat = [];
+  state = { parentRow: null, fallbackStreak: 0, lastRuleRow: null };
+  stats = { msgs: 0, direct: 0, ia: 0 };
+  document.getElementById('chat').innerHTML = '';
+  addMeta('Conversación reiniciada. Probá enviando "hola", "a", "b", o algo fuera del menú.');
+  updateState();
+}
+
+loadTree();
+resetChat();
+</script>
+
+</body>
+</html>
