@@ -130,6 +130,7 @@ const client = new Client({
   authStrategy: new LocalAuth({ clientId: SESSION_NAME, dataPath: path.join(__dirname, '.wwebjs_auth') }),
   puppeteer: {
     headless: true,
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
