@@ -5,7 +5,8 @@
   "type": "module",
   "main": "wa-bridge.mjs",
   "scripts": {
-    "start": "node wa-bridge.mjs"
+    "start": "node wa-bridge.mjs",
+    "postinstall": "npx -y puppeteer browsers install chrome"
   },
   "engines": { "node": ">=20" },
   "dependencies": {
