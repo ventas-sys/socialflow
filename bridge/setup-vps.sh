@@ -16,7 +16,7 @@ fi
 
 echo "==> Instalando dependencias del sistema para Chromium (Ubuntu 24.04 t64)..."
 apt-get install -y \
-  git \
+  git unzip \
   ca-certificates fonts-liberation \
   libasound2t64 libatk-bridge2.0-0t64 libatk1.0-0t64 libc6 libcairo2 \
   libcups2t64 libdbus-1-3 libexpat1 libfontconfig1 libgbm1 libgcc-s1 \
