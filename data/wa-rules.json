@@ -1,0 +1,737 @@
+{
+  "source": "AutoResponder for WhatsApp CSV export",
+  "importedAt": "2026-06-04T19:26:24.743Z",
+  "totalRules": 43,
+  "roots": [
+    13,
+    14,
+    17,
+    18
+  ],
+  "childrenByRow": {
+    "1": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "4": [
+      5,
+      6
+    ],
+    "7": [
+      7,
+      8,
+      9,
+      10
+    ],
+    "10": [
+      11,
+      12
+    ],
+    "13": [
+      26,
+      27,
+      31
+    ],
+    "14": [
+      15,
+      16
+    ],
+    "15": [
+      25
+    ],
+    "16": [
+      34
+    ],
+    "17": [
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43
+    ],
+    "18": [
+      19,
+      20,
+      21
+    ],
+    "19": [
+      22
+    ],
+    "22": [
+      23,
+      24
+    ],
+    "25": [
+      32,
+      33
+    ],
+    "27": [
+      28,
+      29,
+      30
+    ],
+    "34": [
+      35,
+      36
+    ]
+  },
+  "rules": [
+    {
+      "rowNumber": 1,
+      "id": "36",
+      "label": "",
+      "received": "si",
+      "patternMode": "none",
+      "messages": [
+        "🤖Aca tenes el link de MercadoLibre con TODO lo disponible\n*Sale lo mismo* y podes pagar con QR, Tarjeta o efectivo 💯\n \nhttps://www.mercadolibre.com.ar/tienda/arbetter-by-uniproveedores"
+      ],
+      "recipients": "b",
+      "parentRow": 1,
+      "gotoRow": null,
+      "delaySec": 0,
+      "delayMaxSec": 0
+    },
+    {
+      "rowNumber": 2,
+      "id": "37",
+      "label": "",
+      "received": "no",
+      "patternMode": "none",
+      "messages": [
+        "🤖 Te cuento q los descuentos son desde 10 unidades, récorda q tenes Eco pack de varios artículos desde MercadoLibre y por local sale lo mismo... T paso link para q veas y pagues como quieras\n\nhttps://listado.mercadolibre.com.ar/_CustId_46539072\n\nQuerés igual hablar con un humano?"
+      ],
+      "recipients": "b",
+      "parentRow": 1,
+      "gotoRow": null,
+      "delaySec": 0,
+      "delayMaxSec": 0
+    },
+    {
+      "rowNumber": 3,
+      "id": "38",
+      "label": "",
+      "received": "*",
+      "patternMode": "none",
+      "messages": [
+        "🤖 Te pido q solo escribas *Si* o *No* que sino no te puedo ayudar"
+      ],
+      "recipients": "b",
+      "parentRow": 1,
+      "gotoRow": null,
+      "delaySec": 0,
+      "delayMaxSec": 0
+    },
+    {
+      "rowNumber": 4,
+      "id": "39",
+      "label": "",
+      "received": "*",
+      "patternMode": "none",
+      "messages": [
+        "🤖 Necesitas más ayuda?\nSi - Si un humano\n*No* - Fuiste de gran ayuda y muy amable"
+      ],
+      "recipients": "b",
+      "parentRow": 1,
+      "gotoRow": null,
+      "delaySec": 0,
+      "delayMaxSec": 0
+    },
+    {
+      "rowNumber": 5,
+      "id": "40",
+      "label": "",
+      "received": "si",
+      "patternMode": "none",
+      "messages": [
+        "🤖 Qué pena q no me explico bien, le aviso a mi supervisor y cuando quede libre t responde"
+      ],
+      "recipients": "b",
+      "parentRow": 4,
+      "gotoRow": null,
+      "delaySec": 0,
+      "delayMaxSec": 0
+    },
+    {
+      "rowNumber": 6,
+      "id": "41",
+      "label": "",
+      "received": "no",
+      "patternMode": "none",
+      "messages": [
+        "Qué bueno! Buena semana! 🤗"
+      ],
+      "recipients": "b",
+      "parentRow": 4,
+      "gotoRow": null,
+      "delaySec": 0,
+      "delayMaxSec": 0
+    },
+    {
+      "rowNumber": 7,
+      "id": "50",
+      "label": "",
+      "received": "si",
+      "patternMode": "none",
+      "messages": [
+        "🤖Aca tenes el link de MercadoLibre con TODO lo disponible\n*Sale lo mismo* y podes pagar con QR, Tarjeta o efectivo 💯\n \nhttps://www.mercadolibre.com.ar/tienda/arbetter-by-uniproveedores"
+      ],
+      "recipients": "b",
+      "parentRow": 7,
+      "gotoRow": null,
+      "delaySec": 0,
+      "delayMaxSec": 0
+    },
+    {
+      "rowNumber": 8,
+      "id": "51",
+      "label": "",
+      "received": "no",
+      "patternMode": "none",
+      "messages": [
+        "🤖 Te cuento q los descuentos son desde 10 unidades, récorda q tenes Eco pack de varios artículos desde MercadoLibre y por local sale lo mismo... T paso link para q veas y pagues como quieras\n\nhttps://listado.mercadolibre.com.ar/_CustId_46539072\n\nQuerés igual hablar con un humano?"
+      ],
+      "recipients": "b",
+      "parentRow": 7,
+      "gotoRow": null,
+      "delaySec": 0,
+      "delayMaxSec": 0
+    },
+    {
+      "rowNumber": 9,
+      "id": "52",
+      "label": "",
+      "received": "*",
+      "patternMode": "none",
+      "messages": [
+        "🤖 Te pido q solo escribas *Si* o *No* que sino no te puedo ayudar"
+      ],
+      "recipients": "b",
+      "parentRow": 7,
+      "gotoRow": null,
+      "delaySec": 0,
+      "delayMaxSec": 0
+    },
+    {
+      "rowNumber": 10,
+      "id": "53",
+      "label": "",
+      "received": "*",
+      "patternMode": "none",
+      "messages": [
+        "🤖 Necesitas más ayuda?\nSi - Si un humano\n*No* - Fuiste de gran ayuda y muy amable"
+      ],
+      "recipients": "b",
+      "parentRow": 7,
+      "gotoRow": null,
+      "delaySec": 0,
+      "delayMaxSec": 0
+    },
+    {
+      "rowNumber": 11,
+      "id": "54",
+      "label": "",
+      "received": "si",
+      "patternMode": "none",
+      "messages": [
+        "🤖 Qué pena q no me explico bien, le aviso a mi supervisor y cuando quede libre t responde"
+      ],
+      "recipients": "b",
+      "parentRow": 10,
+      "gotoRow": null,
+      "delaySec": 0,
+      "delayMaxSec": 0
+    },
+    {
+      "rowNumber": 12,
+      "id": "55",
+      "label": "",
+      "received": "no",
+      "patternMode": "none",
+      "messages": [
+        "Qué bueno! Buena semana! 🤗"
+      ],
+      "recipients": "b",
+      "parentRow": 10,
+      "gotoRow": null,
+      "delaySec": 0,
+      "delayMaxSec": 0
+    },
+    {
+      "rowNumber": 13,
+      "id": "58",
+      "label": "",
+      "received": "a",
+      "patternMode": "similar",
+      "messages": [
+        "🧭 *Ubicación y Horarios:*\n📍 Estamos en Buenos Aires, Floresta (Dirección: *Bacacay 4726*)\n\n⌚ *Horarios de Atención:*\n•Lunes a viernes de 14:00 a 17.30hs\n•Sábados de 10 a 12.30hs\n•Domingos y Feriado: Cerrado",
+        "🏪 Atendemos retiros, cambios o devoluciones ya concretadas y consultas. Si necesitas información sobre alguno de estos 3 temas responde únicamente con el número correspondiente:\n\n*1*. 📦 Retiro de producto\n*2*. 🔄 Cambio o devolución\n*3*. 📃 Consulta por una compra\n\n👋 Que tengas un buen día!"
+      ],
+      "recipients": "b",
+      "parentRow": null,
+      "gotoRow": null,
+      "delaySec": 3,
+      "delayMaxSec": 3
+    },
+    {
+      "rowNumber": 14,
+      "id": "59",
+      "label": "",
+      "received": "b",
+      "patternMode": "similar",
+      "messages": [
+        "📦 *Ventas Mayoristas Uniproovedores*\n\n🤝 En Uniproovedores tenemos los mejores precios mayoristas, y descuentos por volumen imperdibles!\n\n📌 Para continuar necesitamos saber si ya nos hiciste compras mayoristas previamente:\n*1*. ☑️ Si, ya soy cliente mayorista\n*2*. 🆕 No, quiero comprar al por mayor\n\n🫂 Respondé a este mensaje con el número correspondiente para que te podamos atender de la mejor manera."
+      ],
+      "recipients": "b",
+      "parentRow": null,
+      "gotoRow": null,
+      "delaySec": 3,
+      "delayMaxSec": 3
+    },
+    {
+      "rowNumber": 15,
+      "id": "60",
+      "label": "",
+      "received": "*1*",
+      "patternMode": "normal",
+      "messages": [
+        "☑️ Perfecto, para darte atención prioritaria, necesitamos identificarte, para eso, copiá y completá el mensaje siguiente con los datos correspondientes.\n🤝 No te llevará más de 30 segundos:",
+        "Cliente: _(Nombre con el que hayas comprado previamente)_\nCUIT: _(CUIT con el que hayas comprado previamente)_",
+        "📌 Con estos pequeños datos podremos continuar correctamente!"
+      ],
+      "recipients": "b",
+      "parentRow": 14,
+      "gotoRow": null,
+      "delaySec": 3,
+      "delayMaxSec": 3
+    },
+    {
+      "rowNumber": 16,
+      "id": "61",
+      "label": "",
+      "received": "*2*",
+      "patternMode": "normal",
+      "messages": [
+        "🆕 Bienvenido! para poder acceder a beneficios mayoristas necesitamos algunos datos básicos.\n\n📌 Para eso, copiá y pegá el siguiente mensaje completando con tus datos correspondientes, no te llevará mas de 30 segundos:",
+        "Nombre: _(Tu nombre y apellido)_\nMarca: _(Nombre de tu negocio/empresa/negocio)_\nCiudad/Provincia: _(Donde estás ubicado/a)_",
+        "☑️ Esto nos permite atenderte correctamente y ofrecerte los mejores descuentos!"
+      ],
+      "recipients": "b",
+      "parentRow": 14,
+      "gotoRow": null,
+      "delaySec": 3,
+      "delayMaxSec": 3
+    },
+    {
+      "rowNumber": 17,
+      "id": "62",
+      "label": "",
+      "received": "c",
+      "patternMode": "similar",
+      "messages": [
+        "🤬 *Reclamos por Compra:*\n\n🙏 Lamentamos el inconveniente, vamos a ayudarte de la forma más rápida posible.\n\n📌 Necesito que elijas el tipo de reclamo respondiendo únicamente con el número correspondiente:\n\n*1*. 📦 El producto no llegó\n*2*. 💢 El producto llegó dañado\n*3*. ❌ El producto no funciona, o funciona mal\n*4*. 🔄 Me llegó un producto/modelo distinto al que compré \n*5*.❗Me faltaron productos o accesorios en el envío\n*6*. 🔙 Me equivoqué al elegir el producto, o me arrepentí de comprarlo\n*7*. 📃 No me llegó la factura correspondiente"
+      ],
+      "recipients": "b",
+      "parentRow": null,
+      "gotoRow": null,
+      "delaySec": 3,
+      "delayMaxSec": 3
+    },
+    {
+      "rowNumber": 18,
+      "id": "63",
+      "label": "",
+      "received": "d",
+      "patternMode": "similar",
+      "messages": [
+        "🤔Querés saber el costo d un artículo por local?\n*Si* - Si quiero saberlo\nNo - Prefiero hablar c un humano por descuento"
+      ],
+      "recipients": "b",
+      "parentRow": null,
+      "gotoRow": null,
+      "delaySec": 0,
+      "delayMaxSec": 0
+    },
+    {
+      "rowNumber": 19,
+      "id": "64",
+      "label": "",
+      "received": "si",
+      "patternMode": "none",
+      "messages": [
+        "🤖Aca tenes el link de MercadoLibre con TODO lo disponible\n*Sale lo mismo* y podes pagar con QR, Tarjeta o efectivo 💯\n \nhttps://www.mercadolibre.com.ar/tienda/arbetter-by-uniproveedores"
+      ],
+      "recipients": "b",
+      "parentRow": 18,
+      "gotoRow": null,
+      "delaySec": 0,
+      "delayMaxSec": 0
+    },
+    {
+      "rowNumber": 20,
+      "id": "65",
+      "label": "",
+      "received": "no",
+      "patternMode": "none",
+      "messages": [
+        "🤖 Te cuento q los descuentos son desde 10 unidades, récorda q tenes Eco pack de varios artículos desde MercadoLibre y por local sale lo mismo... T paso link para q veas y pagues como quieras\n\nhttps://listado.mercadolibre.com.ar/_CustId_46539072\n\nQuerés igual hablar con un humano?"
+      ],
+      "recipients": "b",
+      "parentRow": 18,
+      "gotoRow": null,
+      "delaySec": 0,
+      "delayMaxSec": 0
+    },
+    {
+      "rowNumber": 21,
+      "id": "66",
+      "label": "",
+      "received": "*",
+      "patternMode": "none",
+      "messages": [
+        "🤖 Te pido q solo escribas *Si* o *No* que sino no te puedo ayudar"
+      ],
+      "recipients": "b",
+      "parentRow": 18,
+      "gotoRow": 18,
+      "delaySec": 0,
+      "delayMaxSec": 0
+    },
+    {
+      "rowNumber": 22,
+      "id": "67",
+      "label": "",
+      "received": "*",
+      "patternMode": "none",
+      "messages": [
+        "🤖 Necesitas más ayuda?\nSi - Si un humano\n*No* - Fuiste de gran ayuda y muy amable"
+      ],
+      "recipients": "b",
+      "parentRow": 19,
+      "gotoRow": null,
+      "delaySec": 0,
+      "delayMaxSec": 0
+    },
+    {
+      "rowNumber": 23,
+      "id": "68",
+      "label": "",
+      "received": "si",
+      "patternMode": "none",
+      "messages": [
+        "🤖 Qué pena q no me explico bien, le aviso a mi supervisor y cuando quede libre t responde"
+      ],
+      "recipients": "b",
+      "parentRow": 22,
+      "gotoRow": null,
+      "delaySec": 0,
+      "delayMaxSec": 0
+    },
+    {
+      "rowNumber": 24,
+      "id": "69",
+      "label": "",
+      "received": "no",
+      "patternMode": "none",
+      "messages": [
+        "Qué bueno! Buena semana! 🤗"
+      ],
+      "recipients": "b",
+      "parentRow": 22,
+      "gotoRow": null,
+      "delaySec": 0,
+      "delayMaxSec": 0
+    },
+    {
+      "rowNumber": 25,
+      "id": "70",
+      "label": "",
+      "received": "*cliente*cuit*",
+      "patternMode": "normal",
+      "messages": [
+        "☑️ Genial! Podemos continuar correctamente!\n\n📦 ¿A qué se debe esta consulta mayorista?\n*1*. 🛒 Quiero comprar nuevamente o saber la lista de precios\n*2*. 🫂 Quiero hablar con un humano\n\n📌 Respondé a este mensaje con el número correspondiente y enseguida te atendemos!"
+      ],
+      "recipients": "b",
+      "parentRow": 15,
+      "gotoRow": null,
+      "delaySec": 3,
+      "delayMaxSec": 3
+    },
+    {
+      "rowNumber": 26,
+      "id": "71",
+      "label": "",
+      "received": "1",
+      "patternMode": "similar",
+      "messages": [
+        "📦 *Retiro de Producto:*\n\n📌 Para poder venir a retirar un producto, es necesario:\n•Tener la compra realizada en los últimos 28 días\n•Venir dentro de los horarios de atención ya mencionados en el mensaje anterior\n•La persona que retire el producto debe venir con su DNI propio\n\n☑️ Podés retirar el producto vos o algún conocido tuyo\n🚫 Una vez pasados los 28 días no se podrá retirar el producto, por lo que en caso de no poder retirarlo, cancelar la compra.\n\n🫂 Gracias por confiar en nosotros! Que tengas un buen día!"
+      ],
+      "recipients": "c",
+      "parentRow": 13,
+      "gotoRow": null,
+      "delaySec": 3,
+      "delayMaxSec": 3
+    },
+    {
+      "rowNumber": 27,
+      "id": "72",
+      "label": "",
+      "received": "2",
+      "patternMode": "similar",
+      "messages": [
+        "🔄 *Cambios y Devoluciones:*\n\n👉 Elegí la opción que corresponda:\n*1.* Ya concreté el cambio/devolución mediante Mercado Libre\n*2.* Ya concreté el reclamo por Whatsapp\n*3.* Todavía no concreté un cambio o devolución de producto"
+      ],
+      "recipients": "c",
+      "parentRow": 13,
+      "gotoRow": null,
+      "delaySec": 3,
+      "delayMaxSec": 3
+    },
+    {
+      "rowNumber": 28,
+      "id": "73",
+      "label": "",
+      "received": "*1*",
+      "patternMode": "normal",
+      "messages": [
+        "🔄 *Cambio o Devolución por Mercado Libre:*\n\n☑️ Perfecto, si ya concretaste un cambio o devolución por la plataforma, Mercado Libre te indicará todos los pasos a seguir y gestionará los reembolsos o gastos.\n\n👋 Que tengas un buen día!"
+      ],
+      "recipients": "c",
+      "parentRow": 27,
+      "gotoRow": null,
+      "delaySec": 3,
+      "delayMaxSec": 3
+    },
+    {
+      "rowNumber": 29,
+      "id": "74",
+      "label": "",
+      "received": "*2*",
+      "patternMode": "normal",
+      "messages": [
+        "🔄 *Cambios y Devoluciones por Whatsapp:*\n\n☑️ Perfecto, si ya concretaste cambio o devolución por acá, recordá realizarlo siguiendo lo que acordamos, podés revisar el chat para recordarlo\n\n👋 Que tengas un buen día!"
+      ],
+      "recipients": "c",
+      "parentRow": 27,
+      "gotoRow": null,
+      "delaySec": 3,
+      "delayMaxSec": 3
+    },
+    {
+      "rowNumber": 30,
+      "id": "75",
+      "label": "",
+      "received": "*3*",
+      "patternMode": "normal",
+      "messages": [
+        "📌 Si todavía no abriste el reclamo, inicialo por acá respondiendo a este mensaje con la letra *C*"
+      ],
+      "recipients": "b",
+      "parentRow": 27,
+      "gotoRow": null,
+      "delaySec": 3,
+      "delayMaxSec": 3
+    },
+    {
+      "rowNumber": 31,
+      "id": "76",
+      "label": "",
+      "received": "3",
+      "patternMode": "similar",
+      "messages": [
+        "📃 *Consulta sobre una compra:*\n\n📦 En caso de que tengas consultas mayoristas, consultas sobre envíos,  o consultas minoristas respondé con las siguientes letras:\n*B*. Consultas mayoristas\n*C*. Consulta sobre el envío de mi compra\n*D*. Consulta minorista\n\n📌 Si tu consulta es otra, respondé a este mensaje con tu nombre y tu motivo de consulta y te atenderemos dentro de los siguientes horarios: Lunes a Viernes de 10:00 a 17:30hs.\n\n🫂 Que tengas un buen día!"
+      ],
+      "recipients": "b",
+      "parentRow": 13,
+      "gotoRow": null,
+      "delaySec": 3,
+      "delayMaxSec": 3
+    },
+    {
+      "rowNumber": 32,
+      "id": "77",
+      "label": "",
+      "received": "1",
+      "patternMode": "similar",
+      "messages": [
+        "🛒 *Precios y Compra Mayorista:*\n\n📌 A continuación te dejo la lista de precios e instrucciones para que puedas realizar la compra mayorista y aprovechar nuestros descuentos!\n\n📦 *Lista de precios:*\nhttps://drive.google.com/file/d/1MZZ606WgUropOvGaHJMABSH22qZSR86p/view?usp=sharing\n\n💸 *Beneficios Mayoristas Uniproovedores:*\n•Hasta 20% OFF sobre la lista\n•Descuento extra de un 7% comprando por bulto cerrado\n•Facturación adaptada a tu compra",
+        "🛒 A continuación te dejo los pasos a seguir para realizar una compra mayorista!\n\n🤝 Envianos tu pedido con este formato para poder realizarlo:\n•Producto/s\n•Cantidad del o los productos\n•¿Unidad o bulto cerrado?\n•Provincia o ciudad\n•Tipo de Factura\n\n📌 Con esa información te derivamos a un asesor para que puedas realizar la compra!\n\n🫂 Recordá que por Whatsapp atendemos de Lunes a Viernes de 9:00 a 17:30hs.\n\n👋 Que tengas un buen día!"
+      ],
+      "recipients": "b",
+      "parentRow": 25,
+      "gotoRow": null,
+      "delaySec": 3,
+      "delayMaxSec": 3
+    },
+    {
+      "rowNumber": 33,
+      "id": "78",
+      "label": "",
+      "received": "2",
+      "patternMode": "similar",
+      "messages": [
+        "🤝 Perfecto! Comentanos el motivo de la consulta y te derivo con un asesor.\n\n⌚ Recordá que por Whatsapp atendemos de Lunes a Viernes de 10:00 a 17:30hs.\n\n🫂 Que tengas un buen día!"
+      ],
+      "recipients": "b",
+      "parentRow": 25,
+      "gotoRow": null,
+      "delaySec": 3,
+      "delayMaxSec": 3
+    },
+    {
+      "rowNumber": 34,
+      "id": "79",
+      "label": "",
+      "received": "*nombre*marca*ciudad*provincia*",
+      "patternMode": "normal",
+      "messages": [
+        "📄 Perfecto! Completaste los datos correctamente.\n\n📌 Te dejo los precios y beneficios mayoristas de Uniproovedores!",
+        "🛒 *Precios y Compra Mayorista:*\n\n📌 A continuación te dejo la lista de precios e instrucciones para que puedas realizar la compra mayorista y aprovechar nuestros descuentos!\n\n📦 *Lista de precios:*\nhttps://drive.google.com/file/d/1MZZ606WgUropOvGaHJMABSH22qZSR86p/view?usp=sharing\n\n💸 *Beneficios Mayoristas Uniproovedores:*\n•Hasta 20% OFF sobre la lista\n•Descuento extra de un 7% comprando por bulto cerrado\n•Facturación adaptada a tu compra",
+        "📦 En caso de que hayas decidido que productos te gustaría comprar, responde con \"*Listo*\" y te enviaremos los pasos a seguir para comprar al por mayor!\n\n🫂 En caso de que prefieras hablar con un asesor responde con \"*Humano*\" y te derivaremos con un humano.\n\n⌚ Recorda que por Whatsapp atendemos de Lunes a Viernes de 9:00 a 17:30hs"
+      ],
+      "recipients": "b",
+      "parentRow": 16,
+      "gotoRow": null,
+      "delaySec": 3,
+      "delayMaxSec": 3
+    },
+    {
+      "rowNumber": 35,
+      "id": "80",
+      "label": "",
+      "received": "*listo*",
+      "patternMode": "normal",
+      "messages": [
+        "🛒 Perfecto! A continuación te dejo los pasos a seguir para realizar una compra mayorista!\n\n🤝 Envianos tu pedido con este formato para poder realizarlo:\n•Producto/s\n•Cantidad del o los productos\n•¿Unidad o bulto cerrado?\n•Provincia o ciudad\n•Tipo de Factura\n\n📌 Con esa información te derivamos a un asesor para que puedas realizar la compra!\n\n🫂 Recordá que por Whatsapp atendemos de Lunes a Viernes de 9:00 a 17:30hs.\n\n👋 Que tengas un buen día!"
+      ],
+      "recipients": "b",
+      "parentRow": 34,
+      "gotoRow": null,
+      "delaySec": 3,
+      "delayMaxSec": 3
+    },
+    {
+      "rowNumber": 36,
+      "id": "81",
+      "label": "",
+      "received": "*humano*",
+      "patternMode": "none",
+      "messages": [
+        "🫂 Perfecto! Comentanos tu motivo de consulta y te derivaremos con un asesor.\n\n⌚ Recordá que por Whatsapp atendemos de Lunes a Viernes de 9:00 a 17:30Hs\n\n👋 Que tengas un buen día!"
+      ],
+      "recipients": "c",
+      "parentRow": 34,
+      "gotoRow": null,
+      "delaySec": 3,
+      "delayMaxSec": 3
+    },
+    {
+      "rowNumber": 37,
+      "id": "82",
+      "label": "",
+      "received": "*1*",
+      "patternMode": "normal",
+      "messages": [
+        "📦 *No me llegó el producto:*\n\n🙏 Entendemos la situación, y para poder ayudarte necesitamos estos datos:\n\n1. Usuario de Mercado Libre\n2. Número de Compra\n3. ¿En Mercado Libre figura como \"Entregado\"? (Si / No)\n\n📌 Con esta información revisamos lo sucedido y te atenderá un asesor de Lunes a Viernes de 9:00 a 17:30hs para resolverlo, lamentamos los inconvenientes 🙏"
+      ],
+      "recipients": "b",
+      "parentRow": 17,
+      "gotoRow": null,
+      "delaySec": 3,
+      "delayMaxSec": 3
+    },
+    {
+      "rowNumber": 38,
+      "id": "83",
+      "label": "",
+      "received": "*2*",
+      "patternMode": "normal",
+      "messages": [
+        "💢 *El producto llegó dañado:*\n\n🙏 Entendemos lo sucedido, esto lamentablemente es un problema que suele ocurrir y es responsabilidad de Mercado Libre, ya que a los productos no les ponen un embalaje que los proteja y no los cuidan para nada durante los envíos.\n\n📌 Para poder resolver la situación lo más optimo es reclamarle a Mercado Libre por mal embalaje y daños durante el envío."
+      ],
+      "recipients": "b",
+      "parentRow": 17,
+      "gotoRow": null,
+      "delaySec": 3,
+      "delayMaxSec": 3
+    },
+    {
+      "rowNumber": 39,
+      "id": "84",
+      "label": "",
+      "received": "*3*",
+      "patternMode": "normal",
+      "messages": [
+        "❌ *El producto funciona mal:*\n\n🙏 Lamentamos que el producto no funcione como se esperaba, para poder ayudarte necesitamos que envíes los siguientes datos:\n\n1. Usuario de Mercado Libre\n2. ¿Qué problema presenta el envío?\n3. Captura de pantalla del producto comprado\n4. Foto o Vídeo del producto que muestre el funcionamiento defectuoso\n5. ¿Seguís teniendo el producto a tu disposición?\n\n📌 Con esta información vamos a poder ayudarte y un asesor va a revisar la situación para poder solucionarla y te va a poder atender de Lunes a Viernes de 9:00 a 17:30hs.\n\n🙏 Lamentamos los inconvenientes"
+      ],
+      "recipients": "b",
+      "parentRow": 17,
+      "gotoRow": null,
+      "delaySec": 3,
+      "delayMaxSec": 3
+    },
+    {
+      "rowNumber": 40,
+      "id": "85",
+      "label": "",
+      "received": "*4*",
+      "patternMode": "normal",
+      "messages": [
+        "🔄 *Me llegó un producto distinto al comprado:*\n\n🙏 Lamentamos que te haya llegado un producto o modelo erróneo, para poder ayudarte necesitamos que envíes los siguientes datos:\n\n1. Usuario de Mercado Libre\n2. Captura de pantalla del producto comprado\n3. Foto o Vídeo que muestre el producto que llegó\n4. Foto de la etiqueta de envío \n\n📌 Con esta información vamos a poder ayudarte y un asesor va a revisar la situación para poder solucionarla y te va a poder atender de Lunes a Viernes de 10:00 a 17:30hs.\n\n🙏 Lamentamos los inconvenientes"
+      ],
+      "recipients": "b",
+      "parentRow": 17,
+      "gotoRow": null,
+      "delaySec": 3,
+      "delayMaxSec": 3
+    },
+    {
+      "rowNumber": 41,
+      "id": "86",
+      "label": "",
+      "received": "*5*",
+      "patternMode": "normal",
+      "messages": [
+        "❗*Me faltaron productos o accesorios en el envío:*\n\n🙏 Lamentamos que hayan faltado productos o accesorios en el envío para poder ayudarte necesitamos que envíes los siguientes datos:\n\n1. Usuario de Mercado Libre\n2. Captura de pantalla del combo o kit comprado\n3. Foto o Vídeo que muestre el o los productos que llegaron\n4. Foto de la etiqueta de envío\n\n📌 Con esta información vamos a poder ayudarte y un asesor va a revisar la situación para poder solucionarla y te va a poder atender de Lunes a Viernes de 9:00 a 17:30hs.\n\n🙏 Lamentamos los inconvenientes"
+      ],
+      "recipients": "b",
+      "parentRow": 17,
+      "gotoRow": null,
+      "delaySec": 3,
+      "delayMaxSec": 3
+    },
+    {
+      "rowNumber": 42,
+      "id": "87",
+      "label": "",
+      "received": "*6*",
+      "patternMode": "normal",
+      "messages": [
+        "🔙 *Me equivoqué de producto/modelo o me arrepentí de la compra:*\n\n📦 Entendemos que esto puede suceder, por lo que a continuación te dejamos la solución:\n\n•Ingresás a Mercado Libre, vas a la compra y al \"Detalle de la compra\"\n•Luego aparece la opción \"Devolver o cambiar gratis\", y ahí elegís \"Es lo que pedí pero no me sirve.\n•También podés elegir \"Ayuda\", luego \"Quiero cambiar o devolver el producto\" y elegís \"Devolver, es lo que pedí pero no me sirve\" o \"Me arrepentí de comprarlo\".\n\n📌 Si seguís estos pasos vas a poder devolver correctamente el producto mediante Mercado Libre, y luego ellos te explicarán los pasos a continuar\n\n🫂 Que tengas un buen día!"
+      ],
+      "recipients": "c",
+      "parentRow": 17,
+      "gotoRow": null,
+      "delaySec": 3,
+      "delayMaxSec": 3
+    },
+    {
+      "rowNumber": 43,
+      "id": "88",
+      "label": "",
+      "received": "*7*",
+      "patternMode": "normal",
+      "messages": [
+        "📃 *No me llegó la factura correspondiente:*\n\n⌚ Entendemos que pueda demorar la emisión de la factura, esto se puede deber a que suelen haber fallos en la plataforma de ARCA, para poder recibir tu factura escribinos por Mercado Libre mediante el chat de la compra correspondiente, solicitando la factura\n\n📝 En caso de que quieras cambiar o modificar aspectos de la factura, también escribinos por Mercado Libre, enviando los datos correspondientes para realizar el cambio de factura\n\n🫂 Que tengas un buen día!"
+      ],
+      "recipients": "b",
+      "parentRow": 17,
+      "gotoRow": null,
+      "delaySec": 3,
+      "delayMaxSec": 3
+    }
+  ]
+}
