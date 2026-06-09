@@ -23,7 +23,7 @@ const SESSION_NAME = process.env.WA_SESSION || 'uniproveedores';
 const HUMAN_LABEL_NAME = process.env.WA_HUMAN_LABEL || 'HUMANO';
 const HUMAN_TAKEOVER_HOURS = Number(process.env.WA_HUMAN_TAKEOVER_HOURS || 3);
 const AUTOREPLY_WINDOW_MS = Number(process.env.WA_AUTOREPLY_MS || 3000);
-const FOLLOWUP_MINUTES = Number(process.env.WA_FOLLOWUP_MINUTES || 30);
+const FOLLOWUP_MINUTES = Number(process.env.WA_FOLLOWUP_MINUTES || 60);
 const NEW_CLIENTS_CSV = path.join(__dirname, 'new-clients.csv');
 
 if (!WEBHOOK_URL) {
@@ -177,21 +177,31 @@ function recordHistory(from, role, text) {
 async function resolveHumanLabel(client) {
   try {
     const labels = await client.getLabels();
+    const list = labels || [];
+    if (!list.length) {
+      console.log('⚠️  getLabels() devolvió 0 etiquetas. Asegurate de tener WhatsApp Business (no la app común).');
+      return;
+    }
+    console.log(`📋 Etiquetas detectadas en WhatsApp Business (${list.length}):`);
+    for (const l of list) console.log(`   • "${l.name}" → id=${l.id}`);
     const target = HUMAN_LABEL_NAME.toUpperCase();
-    const found = (labels || []).find(l => (l.name || '').toUpperCase().includes(target));
+    const found = list.find(l => (l.name || '').toUpperCase().includes(target));
     if (found) {
       humanLabelId = found.id;
-      console.log(`Etiqueta "${found.name}" encontrada: id=${humanLabelId}`);
+      console.log(`✅ Usando etiqueta "${found.name}" (id=${humanLabelId}) para marcar chats que necesitan asesor humano.`);
     } else {
-      console.log(`⚠️  Etiqueta que contenga "${HUMAN_LABEL_NAME}" no existe en WhatsApp Business. Crearla manualmente.`);
+      console.log(`⚠️  Ninguna etiqueta contiene "${HUMAN_LABEL_NAME}". Crear una con ese texto en el nombre (o cambiar WA_HUMAN_LABEL en .env).`);
     }
   } catch (e) {
-    console.log(`⚠️  No se pudieron leer etiquetas (¿es WhatsApp Business?): ${e.message}`);
+    console.log(`⚠️  No se pudieron leer etiquetas: ${e.message}`);
   }
 }
 
 async function markChatForHuman(client, chatId) {
-  if (!humanLabelId) return;
+  if (!humanLabelId) {
+    console.log(`[${chatId}] no se pudo etiquetar: humanLabelId es null (etiqueta no encontrada al arranque)`);
+    return;
+  }
   if (labeledChats.has(chatId)) return;
   try {
     const chat = await client.getChatById(chatId);
@@ -199,7 +209,7 @@ async function markChatForHuman(client, chatId) {
     labeledChats.add(chatId);
     console.log(`[${chatId}] 🟡 etiqueta HUMANO aplicada`);
   } catch (e) {
-    console.error(`No se pudo etiquetar ${chatId}:`, e.message);
+    console.error(`[${chatId}] no se pudo etiquetar:`, e.message);
   }
 }
 
@@ -254,7 +264,7 @@ async function handleIncoming(client, msg) {
   }
 }
 
-function handleOutgoing(msg) {
+async function handleOutgoing(client, msg) {
   try {
     if (!msg.fromMe) return;
     const chatId = msg.to;
@@ -279,6 +289,7 @@ function handleOutgoing(msg) {
 
     lastActivityAt.set(chatId, Date.now());
     markAsesorActive(chatId);
+    await markChatForHuman(client, chatId);
   } catch (e) {
     console.error('handleOutgoing error:', e.message);
   }
@@ -323,6 +334,6 @@ client.on('disconnected', reason => {
 });
 
 client.on('message', msg => handleIncoming(client, msg));
-client.on('message_create', msg => handleOutgoing(msg));
+client.on('message_create', msg => handleOutgoing(client, msg));
 
 client.initialize();
