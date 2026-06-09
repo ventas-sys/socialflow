@@ -21,9 +21,11 @@ const WEBHOOK_URL = process.env.WA_WEBHOOK_URL || '';
 const TOKEN = process.env.WA_BRIDGE_TOKEN || '';
 const SESSION_NAME = process.env.WA_SESSION || 'uniproveedores';
 const HUMAN_LABEL_NAME = process.env.WA_HUMAN_LABEL || 'HUMANO';
+const HUMAN_LABEL_ID_OVERRIDE = (process.env.WA_HUMAN_LABEL_ID || '').trim();
 const HUMAN_TAKEOVER_HOURS = Number(process.env.WA_HUMAN_TAKEOVER_HOURS || 3);
 const AUTOREPLY_WINDOW_MS = Number(process.env.WA_AUTOREPLY_MS || 3000);
 const FOLLOWUP_MINUTES = Number(process.env.WA_FOLLOWUP_MINUTES || 60);
+const SEND_NEW_CLIENT_EMAIL = (process.env.WA_NEW_CLIENT_EMAIL || '').toLowerCase() === 'true';
 const NEW_CLIENTS_CSV = path.join(__dirname, 'new-clients.csv');
 
 if (!WEBHOOK_URL) {
@@ -120,6 +122,7 @@ async function logNewClientIfFirst(client, msg) {
 }
 
 async function notifyNewClient(data) {
+  if (!SEND_NEW_CLIENT_EMAIL) return;
   if (!WEBHOOK_URL) return;
   try {
     await fetch(WEBHOOK_URL, {
@@ -175,26 +178,40 @@ function recordHistory(from, role, text) {
 }
 
 async function resolveHumanLabel(client) {
-  try {
-    const labels = await client.getLabels();
-    const list = labels || [];
-    if (!list.length) {
-      console.log('⚠️  getLabels() devolvió 0 etiquetas. Asegurate de tener WhatsApp Business (no la app común).');
-      return;
-    }
-    console.log(`📋 Etiquetas detectadas en WhatsApp Business (${list.length}):`);
-    for (const l of list) console.log(`   • "${l.name}" → id=${l.id}`);
-    const target = HUMAN_LABEL_NAME.toUpperCase();
-    const found = list.find(l => (l.name || '').toUpperCase().includes(target));
-    if (found) {
-      humanLabelId = found.id;
-      console.log(`✅ Usando etiqueta "${found.name}" (id=${humanLabelId}) para marcar chats que necesitan asesor humano.`);
-    } else {
-      console.log(`⚠️  Ninguna etiqueta contiene "${HUMAN_LABEL_NAME}". Crear una con ese texto en el nombre (o cambiar WA_HUMAN_LABEL en .env).`);
-    }
-  } catch (e) {
-    console.log(`⚠️  No se pudieron leer etiquetas: ${e.message}`);
+  if (HUMAN_LABEL_ID_OVERRIDE) {
+    humanLabelId = HUMAN_LABEL_ID_OVERRIDE;
+    console.log(`✅ Usando WA_HUMAN_LABEL_ID="${humanLabelId}" del .env (override manual).`);
+    return;
   }
+
+  const maxAttempts = 6;
+  for (let i = 1; i <= maxAttempts; i++) {
+    try {
+      const labels = await client.getLabels();
+      const list = labels || [];
+      if (list.length) {
+        console.log(`📋 Intento ${i}: ${list.length} etiqueta(s) detectada(s):`);
+        for (const l of list) console.log(`   • "${l.name}" → id=${l.id}`);
+        const target = HUMAN_LABEL_NAME.toUpperCase();
+        const found = list.find(l => (l.name || '').toUpperCase().includes(target));
+        if (found) {
+          humanLabelId = found.id;
+          console.log(`✅ Usando etiqueta "${found.name}" (id=${humanLabelId}) para marcar chats que necesitan asesor humano.`);
+          return;
+        }
+        console.log(`⚠️  Ninguna etiqueta contiene "${HUMAN_LABEL_NAME}". Crear una con ese texto en el nombre, o usar WA_HUMAN_LABEL_ID="<id>" en .env con uno de los IDs de arriba.`);
+        return;
+      }
+      console.log(`⏳ Intento ${i}/${maxAttempts}: getLabels() devolvió 0 — reintentando en 30s...`);
+    } catch (e) {
+      console.log(`⚠️  Intento ${i} falló: ${e.message}`);
+    }
+    if (i < maxAttempts) await new Promise(r => setTimeout(r, 30_000));
+  }
+  console.log(`⚠️  Después de ${maxAttempts * 30}s las etiquetas siguen vacías. Posibles causas:`);
+  console.log(`   - No es WhatsApp Business (es la app común)`);
+  console.log(`   - Las etiquetas no se sincronizaron al dispositivo vinculado`);
+  console.log(`   - Probá: abrí WhatsApp Business en el cel, tocá la etiqueta HUMANO, después pm2 restart wa-bridge`);
 }
 
 async function markChatForHuman(client, chatId) {
