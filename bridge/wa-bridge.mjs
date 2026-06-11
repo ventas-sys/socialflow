@@ -156,6 +156,26 @@ async function sendFollowupIfDue(client) {
   }
 }
 
+const startedAt = Date.now();
+
+async function sendHeartbeat() {
+  if (!WEBHOOK_URL) return;
+  try {
+    await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Bridge-Token': TOKEN },
+      body: JSON.stringify({
+        event: 'heartbeat',
+        stats: {
+          contactsKnown: knownContacts.size,
+          asesorActive: humanHandled.size,
+          uptimeSec: Math.round((Date.now() - startedAt) / 1000),
+        },
+      }),
+    });
+  } catch {}
+}
+
 async function postWebhook(from, text) {
   const state = states.get(from) || { parentRow: null, fallbackStreak: 0 };
   const history = histories.get(from) || [];
@@ -342,7 +362,10 @@ client.on('ready', async () => {
   console.log('✅ Bridge listo. Esperando mensajes...');
   await resolveHumanLabel(client);
   setInterval(() => sendFollowupIfDue(client).catch(e => console.error('followup tick fail:', e.message)), 5 * 60_000);
+  sendHeartbeat();
+  setInterval(() => sendHeartbeat(), 60_000);
   console.log(`📋 Follow-up "¿algo más?" cada 5min para chats con ${FOLLOWUP_MINUTES}min sin actividad`);
+  console.log(`💓 Heartbeat al panel cada 60s`);
 });
 
 client.on('disconnected', reason => {

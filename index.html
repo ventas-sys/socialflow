@@ -226,17 +226,29 @@ function statusLabel(s){
   return {cls:'no',txt:'pendiente'};
 }
 
+let waBotOnline = false;
+
+async function refreshWaBotStatus(){
+  try {
+    const r = await fetch('/api/wa/webhook').then(r=>r.json());
+    waBotOnline = !!r?.bot?.online;
+  } catch { waBotOnline = false; }
+  renderChannels();
+}
+
 function renderChannels(){
   const state = loadState();
   const grid = document.getElementById('ch-grid');
   grid.innerHTML = CHANNELS.map(c=>{
-    const st = state.channels?.[c.id] || 'pending';
+    let st = state.channels?.[c.id] || 'pending';
+    if (c.id === 'wa' && waBotOnline) st = 'active';
     const lbl = statusLabel(st);
     return `<div class="ch"><div class="ch-icon">${c.icon}</div><div class="ch-name">${c.name}</div><div class="ch-st ${lbl.cls}">${lbl.txt}</div></div>`;
   }).join('');
 
-  const active = CHANNELS.filter(c=>['active','verif'].includes(state.channels?.[c.id])).length;
-  const verif = CHANNELS.filter(c=>state.channels?.[c.id]==='verif').length;
+  const channelStatus = (id) => id === 'wa' && waBotOnline ? 'active' : state.channels?.[id];
+  const active = CHANNELS.filter(c=>['active','verif'].includes(channelStatus(c.id))).length;
+  const verif = CHANNELS.filter(c=>channelStatus(c.id)==='verif').length;
   document.getElementById('kpi-channels').textContent = active + '/' + CHANNELS.length;
   document.getElementById('kpi-verif').textContent = verif + '/' + CHANNELS.length;
 }
@@ -345,6 +357,8 @@ function renderActivity(){
 renderProduct();
 renderChannels();
 renderActivity();
+refreshWaBotStatus();
+setInterval(refreshWaBotStatus, 60_000);
 </script>
 </body>
 </html>
