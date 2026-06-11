@@ -2,6 +2,8 @@ import nodemailer from 'nodemailer';
 import { processMessage } from '../../lib/wa/brain.js';
 import { loadRules, menuOptionsAt } from '../../lib/wa/rules.js';
 
+let lastBotHeartbeat = null;
+
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
@@ -61,11 +63,20 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     const data = loadRules();
+    const bot = lastBotHeartbeat
+      ? {
+          online: Date.now() - lastBotHeartbeat.at < 180_000,
+          lastSeenAt: lastBotHeartbeat.at,
+          secondsAgo: Math.round((Date.now() - lastBotHeartbeat.at) / 1000),
+          stats: lastBotHeartbeat.stats || {},
+        }
+      : { online: false, neverSeen: true };
     return res.status(200).json({
       ok: true,
       totalRules: data.totalRules,
       roots: data.roots,
       rootOptions: menuOptionsAt(null, data),
+      bot,
     });
   }
 
@@ -78,6 +89,11 @@ export default async function handler(req, res) {
     if (!isSim && provided !== bridgeToken) {
       return res.status(401).json({ error: 'invalid bridge token' });
     }
+  }
+
+  if (req.body?.event === 'heartbeat') {
+    lastBotHeartbeat = { at: Date.now(), stats: req.body.stats || {} };
+    return res.status(200).json({ ok: true });
   }
 
   if (req.body?.event === 'new-client') {
