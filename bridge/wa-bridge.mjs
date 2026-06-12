@@ -242,9 +242,20 @@ async function markChatForHuman(client, chatId) {
   if (labeledChats.has(chatId)) return;
   try {
     const chat = await client.getChatById(chatId);
-    await chat.changeLabels([humanLabelId]);
+    let existingIds = [];
+    try {
+      const existing = await chat.getLabels();
+      existingIds = (existing || []).map(l => String(l.id));
+    } catch {}
+    const humanIdStr = String(humanLabelId);
+    if (existingIds.includes(humanIdStr)) {
+      labeledChats.add(chatId);
+      return;
+    }
+    const merged = [...existingIds, humanIdStr];
+    await chat.changeLabels(merged);
     labeledChats.add(chatId);
-    console.log(`[${chatId}] 🟡 etiqueta HUMANO aplicada`);
+    console.log(`[${chatId}] 🟡 etiqueta HUMANO aplicada (se conservan ${existingIds.length} existentes)`);
   } catch (e) {
     console.error(`[${chatId}] no se pudo etiquetar:`, e.message);
   }
