@@ -86,6 +86,26 @@ function markAsesorActive(chatId) {
   console.log(`[${chatId}] 🧑 asesor humano respondió — bot silenciado por ${mins}min`);
 }
 
+const CLOSING_PATTERNS = [
+  /gracias por (escribir|contactar|consultar|comunicarte|comunicarse)(nos|me|te|se)?\b/i,
+  /gracias por (tu|su|la|el|las|los) (consulta|mensaje|tiempo|comunicaci[oó]n|compra)/i,
+  /cualquier (otra )?(consulta|duda|cosa)[, ]+(nos|me) (avis|escrib|consult|llam)/i,
+  /(te|los|lo|las|la) esperamos\b/i,
+  /que teng(a|as|an) (un |una |unos |unas )?(buen|buena|buenos|buenas|gran|lindo|linda|lindos|lindas|excelente)s? (d[ií]a|finde|fin de semana|noche|tarde|jornada|semana)/i,
+  /saludos cordiales/i,
+  /hasta (luego|pronto|ma[nñ]ana|la pr[oó]xima|el lunes|el martes|el mi[eé]rcoles|el jueves|el viernes)/i,
+  /^saludos[\s!.😊🙂👍]*$/i,
+  /^(un )?(gran )?abrazo[\s!.😊🙂🤗]*$/i,
+  /buen finde\b/i,
+];
+
+function isClosingMessage(text) {
+  if (!text) return false;
+  const t = text.trim().toLowerCase();
+  if (t.length > 200) return false;
+  return CLOSING_PATTERNS.some(re => re.test(t));
+}
+
 async function logNewClientIfFirst(client, msg) {
   const from = msg.from;
   if (knownContacts.has(from)) return;
@@ -338,6 +358,11 @@ async function handleOutgoing(client, msg) {
     lastActivityAt.set(chatId, Date.now());
     markAsesorActive(chatId);
     await markChatForHuman(client, chatId);
+
+    if (isClosingMessage(body)) {
+      followupSent.set(chatId, Date.now());
+      console.log(`[${chatId}] ✋ cierre detectado ("${body.slice(0, 40)}") — follow-up "¿algo más?" suprimido`);
+    }
   } catch (e) {
     console.error('handleOutgoing error:', e.message);
   }
