@@ -1,8 +1,8 @@
 # Memoria — Unificación de cuentas Meta (Uniproveedores)
 
-> **Última sesión**: 2026-06-12
-> **Próxima sesión**: 2026-06-13 (mañana)
-> **Estado**: 🟡 En proceso — última acción pendiente: dar click en "Siguiente"
+> **Última sesión**: 2026-06-13 (sábado AM)
+> **Próxima sesión**: 2026-06-15 (lunes) — esperando coordinación con ex-diseñador
+> **Estado**: 🟡 En pausa — bloqueada por verificación del lado del diseñador
 
 ---
 
@@ -49,16 +49,26 @@ Unificar TODOS los activos digitales de Uniproveedores bajo:
 4. **Password de Instagram cambiada** (la usuaria controla el login ahora)
 5. **Mapeo completo** del Centro de cuentas y contactos
 
-### 🟡 En curso — pendiente click "Siguiente"
-Última pantalla vista: **"Agrega este correo electrónico a otra cuenta"** con las 4 tildes marcadas.
+### 🟡 BLOQUEADO — Meta pide verificación del lado del diseñador
+Al intentar eliminar `davincidigitalediciones@gmail.com` y `+5491122523624`, Meta pide **contraseña/código del correo a eliminar** — es decir, hace falta que el diseñador colabore (recibe un mail o código en su Gmail y lo comparte).
 
-Esta acción va a:
-- Mantener `redes@` en Uni Proveedores (Facebook)
-- **Reemplazar `davincidigitalediciones@gmail.com` en Instagram** ✅
-- **Reemplazar `davincidigitalediciones@gmail.com` en Threads uniproveedoresok** ✅
-- Reemplazar `ventaxml2020@gmail.com` en Threads uni.proveedores
+**Decisión 2026-06-13**: Pausar hasta el LUNES 2026-06-15 para escribirle al diseñador en horario razonable (no fin de semana temprano).
 
-➡️ **PRIMER ACCIÓN AL RETOMAR**: Volver al Centro de cuentas de IG → `redes@uniproveedores.com.ar` → "Agregar a otra cuenta" → dejar las 4 tildes → "Siguiente" → confirmar con código que llega a `redes@` o con 2FA.
+➡️ **PRIMER ACCIÓN AL RETOMAR EL LUNES**:
+1. Escribirle al diseñador con mensaje cordial (ver borrador abajo)
+2. Coordinar momento sincronizado para que él reenvíe el código de verificación cuando Meta se lo mande
+3. Volver al Centro de cuentas IG → `redes@uniproveedores.com.ar` → "Agregar a otra cuenta" → dejar las 4 tildes → "Siguiente"
+4. Cuando Meta mande verificación al gmail del diseñador → él te pasa el código → confirmás
+
+### Borrador de mensaje para el diseñador (WhatsApp)
+
+> Hola [Nombre], cómo andás. Te escribo porque estamos haciendo un orden de todas las cuentas digitales de Uniproveedores y necesito tu ayuda 10 minutos. El Instagram y Threads siguen vinculados a tu mail (davincidigitalediciones@gmail.com), y para pasarlos al mail empresarial (redes@uniproveedores.com.ar) Meta te va a mandar un código de verificación a vos. ¿Te puedo coordinar un momento esta semana en que estés disponible y me pases el código cuando llegue? Te agradezco un montón la mano de siempre 🙏
+
+### Backup plan si el diseñador no responde
+
+- Opción A: Esperar y reintentar (sin urgencia operativa)
+- Opción B: Forzar recuperación de IG usando el teléfono `+541135510715` (que ya está vinculado) — más riesgoso, puede levantar flags de seguridad
+- Opción C: Crear support ticket con Meta (lento, semanas)
 
 ---
 
