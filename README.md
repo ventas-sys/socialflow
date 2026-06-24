@@ -13,7 +13,7 @@ El **Panel de Control (`/`)** muestra KPIs en tiempo real (canales activos, veri
 
 ## Stack
 - Frontend: HTML+JS vanilla, deploy estático en Vercel
-- IA: Gemini 2.5 Flash (texto) + Imagen 4 Fast (imágenes)
+- IA: Gemini 2.5 Flash (texto) + Gemini 3.1 Flash Image (imágenes, Nano Banana 2)
 - Sin base de datos — estado en `localStorage`
 
 ## Deploy
@@ -25,7 +25,7 @@ El **Panel de Control (`/`)** muestra KPIs en tiempo real (canales activos, veri
 ## Endpoints API
 - `POST /api/agent` — `{ agent: 'ml'|'tiendanube'|'verification', input: {...} }`
 - `POST /api/generate` — copies por red social (legacy SocialFlow)
-- `POST /api/image` — imágenes con Imagen 4
+- `POST /api/image` — imágenes con Gemini 3.1 Flash Image
 
 ## Estructura
 ```
@@ -40,5 +40,5 @@ socialflow/
 └── api/
     ├── agent.js         Backend ML/TN/Verificación
     ├── generate.js      Backend copies redes
-    └── image.js         Backend Imagen 4
+    └── image.js         Backend Gemini 3.1 Flash Image
 ```

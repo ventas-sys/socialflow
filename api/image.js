@@ -19,19 +19,20 @@ export default async function handler(req, res) {
   const prompt = 'RESOLUCION 8K ULTRA HD, 1200 X 1200 PIXELES EXTREMA ATENCION A LOS DETALLES FINOS Y LAS TEXTURAS REALISTAS COLORES VIBRANTES Y PRECISOS ILUMINACION CINEMATOGRAFICA HIPERREALISMO FOTOGRAFICO EFECTOS VISUALES DE ALTA CALIDAD POSTPROCESAMIENTO PROFESIONAL EFECTOS DE LENS FLARE Y BOKEH. Ultra-realistic premium product advertisement photograph. ' + photoCtx + ' Product: ' + productName + '. ' + badgeTxt + ' ' + priceTxt + ' Professional commercial photograph ready for social media advertising.';
 
   const body = JSON.stringify({
-            instances: [{ prompt: prompt }],
-            parameters: {
-                        sampleCount: 1,
-                        aspectRatio: isSquare ? '1:1' : '16:9',
-                        safetyFilterLevel: 'block_some',
-                        personGeneration: 'allow_adult'
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+                        responseModalities: ['IMAGE', 'TEXT'],
+                        imageConfig: {
+                                      aspectRatio: isSquare ? '1:1' : '16:9',
+                                      outputMimeType: 'image/png'
+                        }
             }
   });
 
   return new Promise(function(resolve) {
             const opts = {
                         hostname: 'generativelanguage.googleapis.com',
-                        path: '/v1beta/models/imagen-4.0-fast-generate-001:predict?key=' + GK,
+                        path: '/v1beta/models/gemini-3.1-flash-image:generateContent?key=' + GK,
                         method: 'POST',
                         headers: {
                                       'Content-Type': 'application/json',
@@ -46,15 +47,17 @@ export default async function handler(req, res) {
                                                    try {
                                                                    const parsed = JSON.parse(data);
                                                                    if (parsed.error) {
-                                                                                     res.status(500).json({ error: parsed.error.message || 'Imagen API error' });
+                                                                                     res.status(500).json({ error: parsed.error.message || 'Gemini API error' });
                                                                                      return resolve();
                                                                    }
-                                                                   const b64 = (parsed.predictions && parsed.predictions[0] && parsed.predictions[0].bytesBase64Encoded) || '';
-                                                                   if (!b64) {
+                                                                   const parts = (parsed.candidates && parsed.candidates[0] && parsed.candidates[0].content && parsed.candidates[0].content.parts) || [];
+                                                                   const imgPart = parts.find(function(p) { return p.inlineData && p.inlineData.data; });
+                                                                   if (!imgPart) {
                                                                                      res.status(500).json({ error: 'No image: ' + data.substring(0, 200) });
                                                                                      return resolve();
                                                                    }
-                                                                   res.status(200).json({ url: 'data:image/png;base64,' + b64 });
+                                                                   const mime = imgPart.inlineData.mimeType || 'image/png';
+                                                                   res.status(200).json({ url: 'data:' + mime + ';base64,' + imgPart.inlineData.data });
                                                                    resolve();
                                                    } catch(e) {
                                                                    res.status(500).json({ error: 'Parse error: ' + e.message });

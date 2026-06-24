@@ -76,7 +76,7 @@ textarea{resize:vertical;min-height:60px;}
     <div class="logo-icon">←</div>
     <div><div class="logo-title">Agente Redes</div><div class="logo-sub">UNIPROVEEDORES · AGENCIA</div></div>
   </a>
-  <div class="ia-badge">✅ Gemini 2.5 + Imagen 4</div>
+  <div class="ia-badge">✅ Gemini 2.5 + Gemini 3.1 Flash Image</div>
 </div>
 <div class="main">
   <div class="tip">✅ Subí la foto, completá el producto y generá copies + imágenes IA.</div>
@@ -279,7 +279,7 @@ async function generate(){
       s.outputs.social = {copies:{...copies}, photoDesc, generatedAt:new Date().toISOString()};
       localStorage.setItem('up_state', JSON.stringify(s));
     } catch(e){}
-    notify('✅ Copies listos. Clic en 🎨 para generar imagen con Imagen 4.');
+    notify('✅ Copies listos. Clic en 🎨 para generar imagen con Gemini 3.1 Flash Image.');
   }catch(e){
     res.innerHTML='<div style="background:rgba(255,80,80,0.08);border:1px solid rgba(255,80,80,0.25);border-radius:12px;padding:20px;color:#ff8080;font-size:13px;text-align:center">❌ '+e.message+'</div>';
   }
