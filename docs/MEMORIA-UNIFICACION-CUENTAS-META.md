@@ -1,8 +1,8 @@
 # Memoria — Unificación de cuentas Meta (Uniproveedores)
 
-> **Última sesión**: 2026-06-13 (sábado PM)
-> **Próxima sesión**: 2026-06-16 (martes)
-> **Estado**: 🟡 Pausa hasta martes. Lunes 2026-06-15: escribir al diseñador.
+> **Última sesión**: 2026-06-24 (miércoles PM)
+> **Próxima sesión**: 2026-06-25 (jueves)
+> **Estado**: 🟡 Pausa hasta mañana. Tareas Meta + 2 ítems técnicos nuevos pendientes.
 
 ---
 
@@ -169,6 +169,28 @@ Decir "leé la memoria y seguimos". Dependiendo de la respuesta del diseñador, 
 - **PR #22**: mergeado a main
 - **Deploy**: VPS Hostinger, `pm2 restart wa-bridge` ejecutado ✅
 - **Bridge corriendo**: ✅ verificado en logs
+
+### Migración Imagen 4 → Gemini 3.1 Flash Image (miércoles 2026-06-24)
+- **Razón**: Google retira `imagen-4.0-*-generate-001` el 17 ago 2026
+- **Migración**: `api/image.js` ahora usa `gemini-3.1-flash-image:generateContent` con el nuevo formato (`contents/parts/inlineData`)
+- **También actualizado**: `README.md` y `social.html` (badges UI)
+- **Estado**: ✅ Commit `465429a` pusheado a branch `claude/sales-agency-setup-GuexB`
+- **Preview Vercel**: deployado en https://socialflow-git-claude-sales-ag-ab2aef-ventas-sys-2783s-projects.vercel.app
+- ⏳ **Pendiente jueves**: probar el preview en vivo, después mergear a main
+- ⏳ **Plan B si rompe**: el endpoint viejo todavía funciona hasta 17 ago, hay margen
+
+### GitHub 2FA bloqueado (miércoles 2026-06-24)
+- 🔴 No pudo entrar a GitHub: pantalla de 2FA recovery rechaza códigos
+- La usuaria tipeó "123456" → obvio inválido (los códigos reales son 8-10 caracteres)
+- **Plan jueves**:
+  1. Probar "Use a passkey instead" (link en la misma pantalla)
+  2. Buscar los códigos reales de respaldo de GitHub:
+     - Gmail (buscar "github recovery codes")
+     - Gestor de contraseñas
+     - Descargas → `github-recovery-codes.txt`
+     - Carpeta física en el local
+  3. Último recurso: https://github.com/account-recovery (tarda 3-7 días)
+- ⚠️ NO seguir tipeando códigos al azar → GitHub puede bloquear la cuenta
 
 ---
 
