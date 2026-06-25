@@ -1,8 +1,8 @@
 # Memoria — Unificación de cuentas Meta (Uniproveedores)
 
-> **Última sesión**: 2026-06-24 (miércoles PM)
-> **Próxima sesión**: 2026-06-25 (jueves)
-> **Estado**: 🟡 Pausa hasta mañana. Tareas Meta + 2 ítems técnicos nuevos pendientes.
+> **Última sesión**: 2026-06-25 (jueves) — **GRAN AVANCE**
+> **Próxima sesión**: 2026-06-26 (viernes) — chequear respuesta del diseñador
+> **Estado**: 🟢 Cuentas blindadas. Solo queda 1 acción del diseñador (renunciar al IG creator).
 
 ---
 
@@ -16,38 +16,39 @@ Unificar TODOS los activos digitales de Uniproveedores bajo:
 
 ---
 
-## Inventario relevado
+## Estado actual (2026-06-25)
 
-### Activos Meta (todos bajo el mismo Centro de cuentas ✅)
-| Activo | Perfil/handle | Estado |
-|---|---|---|
-| Facebook personal | Uni Proveedores | ✅ Acceso operativo, **2FA activa** |
-| Página Facebook | Uniproveedores | ✅ Administrada por Uni Proveedores |
-| Instagram | @uniproveedoresok | ✅ Password cambiado, **2FA pendiente** |
-| Threads (1) | uniproveedoresok | ✅ |
-| Threads (2) | uni.proveedores | ✅ |
-| WhatsApp Business app | +541135510715 | ✅ Tilde azul "Cuenta empresa" |
-| Business Portfolio | Uniproveedores (ID 307771705609080) | ⚠️ Verificación RECHAZADA |
-| Google Workspace | `redes@uniproveedores.com.ar` | ✅ **2FA activa** + Authenticator + códigos respaldo |
+### 🟢 Activos Meta — todos BLINDADOS
 
-### Contactos del Centro de cuentas
-| Contacto | Quién | Acción |
-|---|---|---|
-| `redes@uniproveedores.com.ar` | Mail empresa | 🟢 Mantener (principal) |
-| `ventaxml2020@gmail.com` | Gmail viejo de la usuaria | 🟡 Backup 30 días, luego eliminar. **2FA pendiente** |
-| `+541135510715` | WhatsApp empresa | 🟢 Mantener |
-| `davincidigitalediciones@gmail.com` | **Ex-diseñador externo** | 🔴 Pendiente eliminar (requiere su código) |
-| `+5491122523624` | **Diseñador (confirmado por usuaria)** | 🔴 Pendiente eliminar |
+| Activo | Perfil/handle | Password | 2FA | Mail diseñador | Estado |
+|---|---|---|---|---|---|
+| Facebook personal | Uni Proveedores | ✅ Tuya | ✅ SMS+Auth | ✅ Eliminado | 🟢 BLINDADO |
+| Página Facebook | Uniproveedores | N/A | Heredada | N/A | 🟢 BLINDADO |
+| Instagram | @uniproveedoresok | ✅ Cambiada (12-jun) | ✅ SMS al +15 + códigos guardados | ✅ Eliminado (25-jun) | 🟢 BLINDADO |
+| Threads (1) | uniproveedoresok | Heredado IG | Heredado | ✅ Eliminado (25-jun) | 🟢 BLINDADO |
+| Threads (2) | uni.proveedores | Heredado IG | Heredado | ✅ Eliminado | 🟢 BLINDADO |
+| WhatsApp Business app | +541135510715 | ✅ "Cuenta empresa" verificada | ⏳ Pendiente PIN | N/A | 🟡 OK pero falta PIN |
+| Business Portfolio | Uniproveedores (ID 307771705609080) | N/A | N/A | N/A | ⚠️ Verificación RECHAZADA, reaplicar |
+| Google Workspace | `redes@uniproveedores.com.ar` | ✅ Tuya | ✅ Authenticator + SMS + Passkey + códigos | N/A | 🟢 BLINDADO |
 
-### Permisos del diseñador en Business Manager (CRÍTICO)
+### 🟢 Centro de cuentas — Información de contacto limpia
+
+Estado final 2026-06-25:
+- ✅ `redes@uniproveedores.com.ar` (principal)
+- 🟡 `ventaxml2020@gmail.com` (backup, mantener 30 días más, 2FA pendiente)
+- ✅ `+541135510715` (WA empresa)
+- ✅ ~~`davincidigitalediciones@gmail.com`~~ **ELIMINADO 25-jun**
+- ✅ ~~`+5491122523624`~~ **ELIMINADO** (en algún momento entre 13-jun y 25-jun, ya no aparecía)
+
+### 🔴 Único pendiente del lado del diseñador
+
 | Activo | Acceso | Estado |
 |---|---|---|
-| Portfolio Uniproveedores | Era "Control total" | ✅ Reducido a **Acceso parcial Básico** (2026-06-13) |
-| Página FB Uniproveedores | Acceso parcial (Contenido, Mensajes, Anuncios, Estadísticas) | 🔴 Pendiente bajar (bloqueado por IG) |
-| Instagram @uniproveedoresok | **CONTROL TOTAL como CREADOR** | 🔴 **NO se puede cambiar desde la consola** — requiere acción del diseñador |
-| Threads | Heredado | 🔴 Pendiente |
+| Portfolio Uniproveedores | Era "Control total" | ✅ Reducido a "Acceso parcial básico" (13-jun) |
+| Página FB Uniproveedores | Acceso parcial heredado | 🟡 Sin urgencia (su mail ya está fuera, no recibe notificaciones) |
+| Instagram @uniproveedoresok | **CONTROL TOTAL como CREADOR** | 🔴 **Mensaje WhatsApp enviado 25-jun, esperando respuesta** |
 
-> ⚠️ **Hallazgo crítico 2026-06-13**: Meta considera al diseñador "creador" del IG `@uniproveedoresok` (lo conectó él al Business Portfolio originalmente). Su control total sobre el IG **no se puede revocar** desde la consola — solo él puede renunciar desde su propia cuenta de Facebook.
+> ⚠️ **Nota técnica**: aunque siga figurando como "creador" del IG, **no puede entrar** a la cuenta. Las defensas activas (password cambiada + 2FA) lo bloquean. El rol "creador" solo le da presencia en BM, no acceso operativo.
 
 ---
 
@@ -63,81 +64,82 @@ Unificar TODOS los activos digitales de Uniproveedores bajo:
 5. **Da Vinci DIGITAL bajado a "Acceso parcial básico"** en Portfolio (era Control total)
 6. **Confirmado**: `+5491122523624` es del diseñador → eliminar
 7. **Descubierto**: el diseñador tiene "Control total como creador" del IG — irreversible desde nuestro lado
-8. **2FA activada en `redes@uniproveedores.com.ar`** (Google Workspace):
-   - Notificación de Google ✅
-   - Google Authenticator ✅
-   - SMS al 011 3551-0715 ✅
-   - 1 llave de acceso (passkey) ✅
-   - Códigos de respaldo descargados ✅
+8. **2FA activada en `redes@uniproveedores.com.ar`** (Google Workspace) con full stack
 9. **Intento de 2FA en IG** → 🟡 bloqueado por Meta ("dispositivo no habitual")
 
-### 🟡 BLOQUEOS ACTIVOS
+### ✅ Sesión 2026-06-24 (miércoles)
+10. **Migración Imagen 4 → Gemini 3.1 Flash Image** (commit 465429a)
+11. **GitHub 2FA bloqueado** — plan jueves: usar passkey o buscar códigos respaldo
 
-**A) Mail/teléfono del diseñador en Centro de cuentas**
-Meta pide código que llega al gmail del diseñador para eliminarlo. **Requiere su colaboración.**
-
-**B) Control total del diseñador sobre IG**
-Meta lo considera "creador" del IG y no permite revocar desde la consola. **Requiere que él renuncie voluntariamente desde su FB.**
-
-**C) 2FA en Instagram**
-Meta bloqueó el cambio por "dispositivo no habitual" (probable porque acabamos de cambiar password ayer). Workaround: hacerlo desde el cel donde habitualmente se usa IG, o esperar 24-48h y reintentar desde PC.
+### ✅ Sesión 2026-06-25 (jueves) — **GRAN AVANCE** 🎉
+12. **Mail `davincidigitalediciones@gmail.com` ELIMINADO** del Centro de cuentas
+    - Primer intento desde PC: bloqueado por "única información de contacto del IG"
+    - Solución: agregar `redes@` al IG primero
+    - Reemplazo de mail bloqueado en PC por "dispositivo no habitual"
+    - **Solución final**: la usuaria avanzó (probablemente desde el cel o reintentando) y eliminó el mail con éxito
+    - Threads quedó limpio en el primer intento
+13. **Teléfono `+5491122523624` confirmado eliminado** (ya no aparecía en la lista del 25-jun)
+14. **2FA en Instagram ACTIVADA** ✅
+    - Método: SMS/WhatsApp al `+541135510715` (cel empresa)
+    - Bonus: códigos de respaldo guardados
+    - App de autenticación queda como mejora futura opcional
+15. **Mensaje al diseñador ENVIADO** pidiendo que renuncie al "control total como creador" del IG desde `business.facebook.com`. **Esperando respuesta para sesión del 26-jun.**
 
 ---
 
-## 📅 Plan inmediato
+## 🛡️ Análisis de seguridad — estado actual
 
-### Lunes 2026-06-15 — Mensaje al diseñador
-Escribirle en horario razonable. Borrador actualizado (incluye ambos pedidos):
+**Para que un atacante (incluido el ex-diseñador) entre al IG `@uniproveedoresok`, necesita TODO esto simultáneamente:**
 
-> Hola [Nombre], cómo andás. Te escribo porque estamos haciendo un orden general de las cuentas digitales de Uniproveedores y necesito tu ayuda con 2 cosas (15 minutos en total):
->
-> 1) **Códigos de verificación**: El IG y Threads siguen vinculados a tu mail (davincidigitalediciones@gmail.com). Para pasarlos al mail empresarial (redes@uniproveedores.com.ar), Meta te va a mandar un código de verificación a vos. ¿Te puedo coordinar un momento esta semana para que me pases el código cuando llegue?
->
-> 2) **Renunciar al control total del IG en Business Manager**: cuando creaste @uniproveedoresok, Meta te dejó como "creador" con control total irrevocable. Solo vos podés liberarlo desde business.facebook.com → buscarte en Personas → "Eliminar acceso" o transferir control. ¿Lo hacemos juntos por video llamada?
->
-> Te agradezco un montón la mano de siempre 🙏
+1. La password nueva (solo la usuaria la tiene)
+2. **Y** acceso físico al cel `+541135510715` (para recibir SMS de 2FA)
+3. **O** uno de los 5 códigos de respaldo (guardados en lugar seguro)
 
-### Martes 2026-06-16 — Retomar sesión
-Decir "leé la memoria y seguimos". Dependiendo de la respuesta del diseñador, los pasos son distintos:
+**Para FB:** mismo esquema + Google Authenticator activo.
 
-**Si el diseñador respondió y coopera**:
-1. Sesión coordinada (videollamada o mensajes): él renuncia a creator del IG + manda código de verificación de mail
-2. Limpiamos Centro de cuentas (eliminar gmail + teléfono del diseñador)
-3. Eliminamos al diseñador del Business Manager (Personas → 🗑️)
-4. Continuar con 2FA IG, mail WA Business app
+**Para mail redes@:** Authenticator + SMS + passkey + códigos respaldo.
 
-**Si el diseñador no respondió aún**:
-1. Avanzar con tareas independientes: 2FA IG (desde cel), mail WA Business app, 2FA ventaxml2020
-2. Esperar respuesta y volver al plan A
+> 🟢 **Conclusión**: cuentas blindadas. El diseñador, aunque siga figurando como "creador" en BM, no tiene capacidad operativa de entrar. El rol "creador" sin acceso es decorativo a efectos de riesgo.
+
+---
+
+## 📅 Plan inmediato — Sesión 2026-06-26 (viernes)
+
+### Escenario A — Diseñador respondió y va a renunciar
+1. Confirmar que entró a `business.facebook.com`
+2. Si se traba: pedirle screenshot y guiarlo
+3. Si quiere, video llamada de 5 min
+4. **Verificar en BM Personas** que ya no aparece (o queda sin permisos)
+5. Si queda residuo: click 🗑️ "Eliminar usuario" del Business Manager
+6. ✅ Caso cerrado
+
+### Escenario B — Diseñador no respondió aún
+1. Segundo mensaje más corto: *"Hola! ¿pudiste mirar lo del IG? Si necesitás que lo hagamos juntos te conecto en 5 min cuando puedas"*
+2. Avanzar con pendientes independientes (Etapa 4-6 abajo)
+
+### Escenario C — Diseñador dice "más adelante / no puedo"
+1. Aceptar, dejar pendiente
+2. **No es urgente porque las defensas activas lo bloquean igualmente**
+3. Avanzar con pendientes independientes
 
 ---
 
 ## Próximos pasos pendientes (en orden, completo)
 
-### Etapa 1 — Cerrar la unificación de contactos (requiere diseñador)
-- ⏳ Click "Siguiente" en pantalla pendiente del Centro de cuentas (reemplaza mail del diseñador en IG y Threads)
-- ⏳ Confirmar eliminación de `davincidigitalediciones@gmail.com`
-- ⏳ Eliminar `+5491122523624` (confirmado del diseñador)
-
-### Etapa 2 — Eliminar diseñador del Business Manager
-- ⏳ Pedirle que renuncie a "Control total como creador" del IG desde SU FB
-- ⏳ Confirmar Página FB libera permisos
+### Etapa 1 — Cerrar diseñador (requiere su acción) — EN CURSO 🟡
+- ⏳ Esperar respuesta WhatsApp del 25-jun
+- ⏳ Si coopera: renuncia al IG creator → verificar en BM Personas → ✅
 - ⏳ Eliminar usuario Da Vinci DIGITAL del Portfolio (🗑️)
 
-### Etapa 3 — 2FA en Instagram (independiente)
-- ⏳ Probar desde el cel (workaround del bloqueo de "dispositivo no habitual")
-- ⏳ Si falla en cel también: esperar 24-48h y reintentar PC
-- ⏳ Guardar códigos de respaldo
-
-### Etapa 4 — 2FA en `ventaxml2020@gmail.com` (backup importante)
+### Etapa 2 — 2FA en `ventaxml2020@gmail.com` (backup importante)
 - ⏳ Mismo proceso que `redes@`: Authenticator + códigos de respaldo
 - ⏳ Lo necesitamos blindado mientras siga siendo backup
 
-### Etapa 5 — WhatsApp Business app
+### Etapa 3 — WhatsApp Business app
 - ⏳ Cambiar mail del perfil empresa a `redes@uniproveedores.com.ar`
 - ⏳ Verificar 2FA del WhatsApp (PIN de 6 dígitos)
 
-### Etapa 6 — Verificación del negocio (RECHAZADA actualmente)
+### Etapa 4 — Verificación del negocio (RECHAZADA actualmente)
 - ⏳ Revisar motivos del rechazo en Business Manager → Información del negocio
 - ⏳ Reaplicar con documentación correcta:
   - CUIT 30-71532771-2
@@ -145,7 +147,11 @@ Decir "leé la memoria y seguimos". Dependiendo de la respuesta del diseñador, 
   - Factura de servicio reciente del domicilio Bacacay 4726
   - Web https://uniproveedores.com.ar/
 
-### Etapa 7 — Limpieza final (30 días después)
+### Etapa 5 — Mejora opcional: Authenticator en IG
+- ⏳ Agregar Google Authenticator como método de respaldo del 2FA de IG (ya activo por SMS)
+- ⏳ Beneficio: independiente de señal de cel + resistente a SIM swap
+
+### Etapa 6 — Limpieza final (30 días después)
 - ⏳ Eliminar `ventaxml2020@gmail.com` del Centro de cuentas
 - ⏳ Mantener acceso a esa casilla 6 meses más por seguridad
 
@@ -161,36 +167,38 @@ Decir "leé la memoria y seguimos". Dependiendo de la respuesta del diseñador, 
 
 ---
 
-## Trabajo paralelo no-Meta (también hecho en estas sesiones)
+## Trabajo paralelo no-Meta (en sesiones recientes)
 
 ### Fix bot WhatsApp (sábado 2026-06-13)
 - **Bug**: el bot mandaba "¿algo más?" follow-up incluso después de que la asesora cerrara con "gracias por escribirnos"
 - **Fix**: detección de ~10 patrones de cierre en español rioplatense en `bridge/wa-bridge.mjs`
 - **PR #22**: mergeado a main
 - **Deploy**: VPS Hostinger, `pm2 restart wa-bridge` ejecutado ✅
-- **Bridge corriendo**: ✅ verificado en logs
 
 ### Migración Imagen 4 → Gemini 3.1 Flash Image (miércoles 2026-06-24)
 - **Razón**: Google retira `imagen-4.0-*-generate-001` el 17 ago 2026
-- **Migración**: `api/image.js` ahora usa `gemini-3.1-flash-image:generateContent` con el nuevo formato (`contents/parts/inlineData`)
-- **También actualizado**: `README.md` y `social.html` (badges UI)
+- **Migración**: `api/image.js` ahora usa `gemini-3.1-flash-image:generateContent`
 - **Estado**: ✅ Commit `465429a` pusheado a branch `claude/sales-agency-setup-GuexB`
 - **Preview Vercel**: deployado en https://socialflow-git-claude-sales-ag-ab2aef-ventas-sys-2783s-projects.vercel.app
-- ⏳ **Pendiente jueves**: probar el preview en vivo, después mergear a main
-- ⏳ **Plan B si rompe**: el endpoint viejo todavía funciona hasta 17 ago, hay margen
+- ⏳ **Pendiente**: probar el preview en vivo, después mergear a main
+- ⏳ **Plan B si rompe**: el endpoint viejo todavía funciona hasta 17 ago
 
 ### GitHub 2FA bloqueado (miércoles 2026-06-24)
 - 🔴 No pudo entrar a GitHub: pantalla de 2FA recovery rechaza códigos
-- La usuaria tipeó "123456" → obvio inválido (los códigos reales son 8-10 caracteres)
-- **Plan jueves**:
-  1. Probar "Use a passkey instead" (link en la misma pantalla)
-  2. Buscar los códigos reales de respaldo de GitHub:
-     - Gmail (buscar "github recovery codes")
-     - Gestor de contraseñas
-     - Descargas → `github-recovery-codes.txt`
-     - Carpeta física en el local
-  3. Último recurso: https://github.com/account-recovery (tarda 3-7 días)
-- ⚠️ NO seguir tipeando códigos al azar → GitHub puede bloquear la cuenta
+- **Plan**:
+  1. Probar "Use a passkey instead"
+  2. Buscar los códigos reales de respaldo de GitHub (Gmail, gestor, descargas)
+  3. Último recurso: https://github.com/account-recovery (3-7 días)
+- ⚠️ NO seguir tipeando códigos al azar
+
+### Charla de arquitectura: n8n para escalar el bot (2026-06-25)
+- La usuaria mira shorts sobre automatización con n8n
+- Planteamos 4 escenarios (mejor capa de IA, follow-ups automáticos, integraciones cross-system, reemplazo total del bot)
+- **Decisiones tomadas**:
+  - Ella describe los temas de los shorts (pendiente)
+  - Mostrar opciones primero antes de decidir scope
+  - Claude mantiene el sistema (no n8n editor visual del lado del usuario)
+- 🟡 **Pausado**: la conversación se cortó cuando aparecieron los temas Meta urgentes. Retomar cuando ella tenga ganas.
 
 ---
 
@@ -206,3 +214,12 @@ Decir "leé la memoria y seguimos". Dependiendo de la respuesta del diseñador, 
 - Página principal: uniproveedoresok
 - Web: https://uniproveedores.com.ar/
 - VPS bridge WA: `/opt/socialflow` (rama `main`)
+
+---
+
+## 🎯 Resumen ultracorto del estado al 25-jun
+
+- 🟢 **Cuentas blindadas**: el diseñador no puede entrar a ninguna
+- 🟡 **Único pendiente**: que él renuncie voluntariamente al rol "creador" del IG en BM (mensaje WhatsApp enviado, esperando respuesta)
+- 🛡️ **Riesgo real**: muy bajo, las defensas activas son suficientes aunque el rol "creador" siga
+- 📅 **Próxima sesión**: viernes 26-jun, chequear si respondió
