@@ -129,6 +129,7 @@ textarea{resize:vertical;min-height:60px;}
       <label class="plat-row"><input type="checkbox" id="chk-li" checked style="width:auto;accent-color:#0A66C2"><div class="plat-dot" style="background:#0A66C2"></div><div><div class="plat-name">LinkedIn</div><div class="plat-mode">📝 + 🎨 Imagen IA</div></div></label>
       <label class="plat-row"><input type="checkbox" id="chk-tw" checked style="width:auto;accent-color:#888"><div class="plat-dot" style="background:#888"></div><div><div class="plat-name">X / Twitter</div><div class="plat-mode">📝 + 🎨 Imagen IA</div></div></label>
       <label class="plat-row"><input type="checkbox" id="chk-tk" checked style="width:auto;accent-color:#ff0050"><div class="plat-dot" style="background:#ff0050"></div><div><div class="plat-name">TikTok</div><div class="plat-mode">📝 + 🎨 Imagen IA</div></div></label>
+      <label class="plat-row"><input type="checkbox" id="chk-yt" checked style="width:auto;accent-color:#FF0000"><div class="plat-dot" style="background:#FF0000"></div><div><div class="plat-name">YouTube Shorts</div><div class="plat-mode">📝 + 🎨 Thumbnail IA</div></div></label>
     </div>
   </div>
 
@@ -140,8 +141,8 @@ textarea{resize:vertical;min-height:60px;}
 </div>
 
 <script>
-const PN={ig:'Instagram',fb:'Facebook',wa:'WhatsApp',li:'LinkedIn',tw:'X/Twitter',tk:'TikTok'};
-const PC={ig:'#E1306C',fb:'#1877F2',wa:'#25D366',li:'#0A66C2',tw:'#555',tk:'#ff0050'};
+const PN={ig:'Instagram',fb:'Facebook',wa:'WhatsApp',li:'LinkedIn',tw:'X/Twitter',tk:'TikTok',yt:'YouTube Shorts'};
+const PC={ig:'#E1306C',fb:'#1877F2',wa:'#25D366',li:'#0A66C2',tw:'#555',tk:'#ff0050',yt:'#FF0000'};
 let tone='energico',badge='OFERTA',copies={},photoB64='',photoDesc='',pName='',pPrice='';
 
 function checkReady(){document.getElementById('gen-btn').disabled=!document.getElementById('p-name').value.trim();}
@@ -160,6 +161,7 @@ function pub(id){
   else if(id==='ig'){cp();window.open('https://www.instagram.com/','_blank');notify('📸 Instagram abierto — pegá con Ctrl+V');}
   else if(id==='fb'){cp();window.open('https://www.facebook.com/','_blank');notify('📘 Facebook abierto — pegá con Ctrl+V');}
   else if(id==='tk'){cp();window.open('https://www.tiktok.com/upload','_blank');notify('🎵 TikTok abierto — pegá con Ctrl+V');}
+  else if(id==='yt'){cp();window.open('https://studio.youtube.com/channel/UC/videos/upload','_blank');notify('📺 YouTube Studio abierto — pegá con Ctrl+V');}
 }
 function cpTxt(id){
   const t=copies[id];if(!t)return;
@@ -219,7 +221,7 @@ async function generate(){
   const price=document.getElementById('p-price').value.trim();
   const desc=document.getElementById('p-desc').value.trim();
   const link=document.getElementById('ml-link').value.trim();
-  const sel=['ig','fb','wa','li','tw','tk'].filter(id=>document.getElementById('chk-'+id)?.checked);
+  const sel=['ig','fb','wa','li','tw','tk','yt'].filter(id=>document.getElementById('chk-'+id)?.checked);
   if(!name||!sel.length)return;
 
   pName=name;pPrice=price;
