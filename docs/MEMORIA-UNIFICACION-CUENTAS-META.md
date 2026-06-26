@@ -1,8 +1,49 @@
 # Memoria — Unificación de cuentas Meta (Uniproveedores)
 
-> **Última sesión**: 2026-06-25 (jueves) — **GRAN AVANCE**
-> **Próxima sesión**: 2026-06-26 (viernes) — chequear respuesta del diseñador
-> **Estado**: 🟢 Cuentas blindadas. Solo queda 1 acción del diseñador (renunciar al IG creator).
+> **Última sesión**: 2026-06-25 (jueves) — **GRAN AVANCE + setup ampliado**
+> **Próxima sesión**: 2026-06-26 (viernes) — chequear diseñador + setup YouTube + decidir camino publicación unificada
+> **Estado**: 🟢 Cuentas blindadas. Pendiente: 1 acción del diseñador (renunciar al IG creator) + planificar publicación cross-network.
+
+---
+
+## 🎯 Plan ordenado para mañana 2026-06-26
+
+### Prioridad 1 — Cerrar caso diseñador (10 min)
+- Chequear si respondió al WhatsApp del 25-jun
+- Si sí: guiarlo paso a paso (o el atajo `https://business.facebook.com/settings/instagram-accounts?business_id=307771705609080`)
+- Si no: segundo intento + avanzar igual con el resto
+
+### Prioridad 2 — Setup YouTube Data API + MCP (1-2 hs)
+- Seguir guía detallada en `docs/SETUP-YOUTUBE-MCP.md`
+- Verificar/crear canal de marca Uniproveedores en YouTube
+- Crear proyecto Google Cloud + habilitar API + OAuth credentials
+- Instalar MCP en Claude Code y autenticarlo
+- Test: Claude lee playlist "Watch Later" de la usuaria
+
+### Prioridad 3 — Decidir camino publicación unificada (5 min de decisión + arranque)
+- Discutir las 3 opciones del doc `docs/PLAN-PUBLICACION-UNIFICADA.md`
+- Responder las 3 preguntas (volumen, presupuesto, visión a 6-12 meses)
+- Recomendación previa: 🅰️ Camino Híbrido (n8n + Meta Business Suite + APIs)
+- Arrancar setup de la opción elegida
+
+### Prioridad 4 — Quedan pendientes menores (en próximas sesiones)
+- 2FA en `ventaxml2020@gmail.com` (backup importante)
+- Mail empresa en WhatsApp Business app
+- Verificación del negocio Meta (reaplicar con CUIT + factura Bacacay)
+- Agregar Authenticator como respaldo de 2FA en IG (mejora opcional)
+
+---
+
+## 📚 Docs de referencia generados 2026-06-25
+
+| Doc | Para qué sirve |
+|---|---|
+| [`INVENTARIO-REDES-SOCIALES.md`](./INVENTARIO-REDES-SOCIALES.md) | Mapa completo de cada red, estado, gaps |
+| [`SETUP-YOUTUBE-MCP.md`](./SETUP-YOUTUBE-MCP.md) | Setup paso a paso de YouTube API + MCP (mañana) |
+| [`PLAN-PUBLICACION-UNIFICADA.md`](./PLAN-PUBLICACION-UNIFICADA.md) | 3 caminos para publicar cross-network (decidir mañana) |
+| [`MEMORIA-UNIFICACION-CUENTAS-META.md`](./MEMORIA-UNIFICACION-CUENTAS-META.md) | Este archivo — memoria viva del proceso |
+
+---
 
 ---
 
