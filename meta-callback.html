@@ -60,7 +60,7 @@ p{font-size:13px;color:#999;line-height:1.6;margin-bottom:8px;}
   const redirectUri = location.origin + '/meta-callback';
 
   try {
-    const r = await fetch('/api/meta/exchange', {
+    const r = await fetch('/api/meta?action=exchange', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ clientId, clientSecret, code, redirectUri })

@@ -357,7 +357,7 @@ async function publishMeta(id){
   const btn=document.getElementById('pub-btn-'+id);
   if(btn){ btn.disabled=true; btn.innerHTML='⏳ Publicando...'; }
   try{
-    const r=await fetch('/api/meta/publish',{
+    const r=await fetch('/api/meta?action=publish',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         pageToken:m.pageToken, pageId:m.pageId, igId:m.igId,
