@@ -1,8 +1,33 @@
 # Plan de Publicación Unificada — Cross-Network
 
 > **Objetivo**: 1 click → publicar simultáneamente en FB, IG, Threads, YouTube, TikTok, WhatsApp, LinkedIn (las que tengan ROI).
-> **Estado actual**: copies y imágenes generados con IA en `social.html`, pero la publicación es **manual** (copy-paste a cada red).
-> **Para discutir mañana**: cuál de los 3 caminos elegimos.
+> **Estado actual**: copies y imágenes generados con IA en `social.html`. Publicación directa FB+IG vía conector Meta nativo (ya construido).
+
+---
+
+## ✅ DECISIÓN TOMADA (2026-06-30): conector NATIVO, no n8n
+
+Al revisar el proyecto encontramos que ya existe `conexiones.html` + backend OAuth
+(ML, Tienda Nube, Contabilium). En vez de sumar n8n (herramienta externa), se
+construyó el **conector Meta nativo** siguiendo el mismo patrón:
+
+- `api/meta/exchange.js` — OAuth → token largo (~60d) + páginas FB + IG Business
+- `api/meta/publish.js` — publica en página FB (feed/photos) e IG (container + media_publish)
+- `meta-callback.html` — callback OAuth
+- `conexiones.html` — tarjeta Meta funcional (App ID/Secret + Autorizar)
+- `social.html` — botón "🚀 Publicar" real en FB/IG + YouTube como 7ma red
+
+**Pendiente para que publique imágenes**: IG (y fotos de FB por URL) requieren
+imagen con **URL pública**. Hoy `/api/image` devuelve data URL (base64). Falta
+un paso de hosting (subir la imagen generada a un bucket público / Vercel Blob).
+El publicado de **texto a FB** ya funciona end-to-end.
+
+**Pendiente de credenciales (lo hace la usuaria)**: crear app en
+developers.facebook.com, pegar App ID + App Secret en Conexiones, autorizar.
+
+Las secciones de abajo quedan como referencia histórica del análisis de opciones.
+
+---
 
 ---
 
