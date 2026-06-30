@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conectando Meta…</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a16;color:#e0d8cc;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.box{max-width:520px;width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(24,119,242,0.3);border-radius:16px;padding:32px;text-align:center;}
+.icon{font-size:48px;margin-bottom:14px;}
+h1{font-size:18px;color:#1877F2;margin-bottom:10px;font-weight:700;}
+p{font-size:13px;color:#999;line-height:1.6;margin-bottom:8px;}
+.spinner{display:inline-block;width:30px;height:30px;border:3px solid rgba(24,119,242,0.2);border-top-color:#1877F2;border-radius:50%;animation:spin 0.8s linear infinite;margin:14px 0;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.ok{color:#00c864;border-color:rgba(0,200,100,0.3) !important;}
+.err{color:#ff8080;border-color:rgba(255,80,80,0.3) !important;}
+.code{background:rgba(0,0,0,0.3);padding:9px;border-radius:7px;font-family:monospace;font-size:11px;color:#888;margin-top:10px;word-break:break-all;text-align:left;}
+.btn{display:inline-block;margin-top:14px;background:linear-gradient(135deg,#1877F2,#0a5dc2);color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:700;}
+</style>
+</head>
+<body>
+<div class="box" id="box">
+  <div class="icon" id="icon">🔌</div>
+  <h1 id="title">Conectando con Meta…</h1>
+  <p id="msg">Procesando autorización</p>
+  <div class="spinner" id="spin"></div>
+  <div id="extra"></div>
+</div>
+
+<script>
+(async function(){
+  const params = new URLSearchParams(location.search);
+  const code = params.get('code');
+  const err = params.get('error');
+  const errDesc = params.get('error_description');
+
+  const set = (icon, title, msg, cls) => {
+    document.getElementById('icon').textContent = icon;
+    document.getElementById('title').textContent = title;
+    document.getElementById('msg').textContent = msg;
+    document.getElementById('box').classList.add(cls);
+    document.getElementById('spin').style.display = 'none';
+  };
+  const back = '<a class="btn" href="/conexiones">← Volver a Conexiones</a>';
+
+  if (err) { set('❌','Autorización cancelada', errDesc || err, 'err'); document.getElementById('extra').innerHTML = back; return; }
+  if (!code) { set('⚠️','Falta el código','No llegó el parámetro ?code= desde Meta.','err'); document.getElementById('extra').innerHTML = back; return; }
+
+  let s = {};
+  try { s = JSON.parse(localStorage.getItem('up_state')||'{}'); } catch(e){}
+  const creds = s.connections?.meta || {};
+  const { clientId, clientSecret } = creds;
+
+  if (!clientId || !clientSecret) {
+    set('⚠️','Faltan App ID / App Secret','Volvé a Conexiones, pegá App ID + App Secret y volvé a autorizar.','err');
+    document.getElementById('extra').innerHTML = back; return;
+  }
+
+  const redirectUri = location.origin + '/meta-callback';
+
+  try {
+    const r = await fetch('/api/meta/exchange', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ clientId, clientSecret, code, redirectUri })
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || 'Falló el intercambio');
+
+    if (!d.pages || !d.pages.length) {
+      set('⚠️','Sin páginas','Autorizaste pero no apareció ninguna página de Facebook administrable. Verificá que tu usuario sea admin de la página Uniproveedores.','err');
+      document.getElementById('extra').innerHTML = back; return;
+    }
+
+    // elegimos automáticamente la primera página (o la que tenga IG vinculado)
+    const page = d.pages.find(p => p.igId) || d.pages[0];
+
+    s.connections = s.connections || {};
+    s.connections.meta = {
+      ...creds,
+      userToken: d.userToken,
+      expiresAt: Date.now() + (d.expiresIn || 5184000) * 1000,
+      pages: d.pages,
+      pageId: page.id,
+      pageName: page.name,
+      pageToken: page.accessToken,
+      igId: page.igId,
+      igUsername: page.igUsername,
+      verified: true,
+      authorizedAt: new Date().toISOString()
+    };
+    s.channels = s.channels || {};
+    s.channels.fb = 'active';
+    if (page.igId) s.channels.ig = 'active';
+    s.activity = s.activity || [];
+    s.activity.unshift({icon:'🔌',agent:'META',text:'Facebook + Instagram autorizados ('+page.name+')',time:new Date().toLocaleString('es-AR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})});
+    s.activity = s.activity.slice(0,20);
+    localStorage.setItem('up_state', JSON.stringify(s));
+
+    const igTxt = page.igId ? ' + Instagram @'+page.igUsername : ' (sin Instagram vinculado)';
+    set('✅','¡Conectado!', 'Página "'+page.name+'"'+igTxt+'. Te llevamos a Conexiones…', 'ok');
+    setTimeout(()=>location.href='/conexiones', 2200);
+  } catch(e) {
+    set('❌','Error al intercambiar', e.message, 'err');
+    document.getElementById('extra').innerHTML = '<div class="code">code: '+code+'</div>'+back;
+  }
+})();
+</script>
+</body>
+</html>

@@ -109,7 +109,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div id="product-zone"></div>
 
   <div class="kpi-grid">
-    <div class="kpi"><div class="kpi-lbl">Canales activos</div><div class="kpi-val orange" id="kpi-channels">—</div><div class="kpi-sub">sobre 8 totales</div></div>
+    <div class="kpi"><div class="kpi-lbl">Canales activos</div><div class="kpi-val orange" id="kpi-channels">—</div><div class="kpi-sub">sobre 10 totales</div></div>
     <div class="kpi"><div class="kpi-lbl">Verificaciones</div><div class="kpi-val green" id="kpi-verif">—</div><div class="kpi-sub">cuentas verificadas</div></div>
     <div class="kpi"><div class="kpi-lbl">Agentes IA</div><div class="kpi-val blue">5</div><div class="kpi-sub">en línea 24/7</div></div>
     <div class="kpi"><div class="kpi-lbl">Última actividad</div><div class="kpi-val" id="kpi-act" style="font-size:14px;padding-top:6px;">—</div><div class="kpi-sub" id="kpi-act-sub">sin registros</div></div>
@@ -143,8 +143,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div class="agent-status"><div class="dot-pulse"></div> Activo</div>
       </div>
       <div class="agent-name">Agente Redes Sociales</div>
-      <div class="agent-desc">Genera copies y imágenes IA para Instagram, Facebook, WhatsApp, LinkedIn, X/Twitter y TikTok. Publicación con un clic.</div>
-      <div class="agent-meta"><span>Copies · Imagen IA · 6 redes</span><span class="agent-cta">Abrir</span></div>
+      <div class="agent-desc">Genera copies e imágenes IA para Instagram, Facebook, WhatsApp, LinkedIn, X/Twitter, TikTok y YouTube Shorts. Publica directo en FB+IG con Meta conectado.</div>
+      <div class="agent-meta"><span>Copies · Imagen IA · 7 redes</span><span class="agent-cta">Abrir</span></div>
     </a>
 
     <a class="agent" href="/verification.html" style="--accent:#a78bfa;--accent-bg:rgba(167,139,250,0.12);">
@@ -210,6 +210,7 @@ const CHANNELS = [
   {id:'li',name:'LinkedIn',icon:'💼'},
   {id:'tw',name:'X/Twitter',icon:'🐦'},
   {id:'tk',name:'TikTok',icon:'🎵'},
+  {id:'yt',name:'YouTube',icon:'📺'},
   {id:'gb',name:'Google Business',icon:'🗺️'}
 ];
 
@@ -301,7 +302,7 @@ async function generateAll(){
 
   const mlInput = {name:p.name,cat:p.category,price:p.price,desc:p.description,type:'clasica'};
   const tnInput = {name:p.name,cat:p.category,price:p.price,desc:p.description,target:p.target};
-  const socialReqs = ['ig','fb','wa','li','tw','tk'].map(id=>
+  const socialReqs = ['ig','fb','wa','li','tw','tk','yt'].map(id=>
     fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({platform:id,info:p.name+(p.price?', precio $'+p.price:'')+(p.description?', '+p.description:''),tone:'energético con emojis y entusiasmo',photoB64:p.photoB64||null})
     }).then(r=>r.json()).then(d=>({id,copy:d.copy||'',photoDesc:d.photoDesc}))
