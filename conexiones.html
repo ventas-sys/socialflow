@@ -271,7 +271,7 @@ async function refreshML(){
   const btn = document.getElementById('ml-refresh-btn');
   btn.disabled = true; const orig = btn.innerHTML; btn.innerHTML='<span class="spinner"></span>Renovando...';
   try {
-    const r = await fetch('/api/ml/refresh',{
+    const r = await fetch('/api/ml/exchange?action=refresh',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({clientId:c.clientId, clientSecret:c.clientSecret, refreshToken:c.refreshToken})
     });
@@ -316,6 +316,7 @@ async function testConn(prov){
   try {
     const url = prov==='conta' ? '/api/contabilium?action=test'
               : prov==='tn' ? '/api/tn?action=test'
+              : prov==='ml' ? '/api/ml/exchange?action=test'
               : '/api/'+prov+'/test';
     const r = await fetch(url,{
       method:'POST',headers:{'Content-Type':'application/json'},
