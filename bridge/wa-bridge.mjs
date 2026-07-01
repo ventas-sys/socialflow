@@ -301,9 +301,12 @@ async function markChatForHuman(client, chatId) {
     console.log(`[${chatId}] no se pudo etiquetar: humanLabelId es null (etiqueta no encontrada al arranque)`);
     return;
   }
+  // Canales/newsletters/difusión no soportan etiquetas: los salteamos.
+  if (chatId.endsWith('@newsletter') || chatId.endsWith('@broadcast')) { labeledChats.add(chatId); return; }
   if (labeledChats.has(chatId)) return;
   try {
     const chat = await client.getChatById(chatId);
+    if (typeof chat.changeLabels !== 'function') { labeledChats.add(chatId); return; }
     let existingIds = [];
     try {
       const existing = await chat.getLabels();
@@ -409,6 +412,8 @@ async function handleOutgoing(client, msg) {
     if (!msg.fromMe) return;
     const chatId = msg.to;
     if (!chatId || chatId === 'status@broadcast') return;
+    // Ignorar canales/newsletters, difusión y grupos: no son clientes 1-a-1.
+    if (chatId.endsWith('@newsletter') || chatId.endsWith('@broadcast') || chatId.endsWith('@g.us')) return;
     const body = (msg.body || '').trim();
     if (!body) return;
 
