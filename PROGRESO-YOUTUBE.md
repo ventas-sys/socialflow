@@ -15,15 +15,25 @@
   - Avatar: **Tariq** (HeyGen) con voz Español Latinoamérica. Salió CON subtítulos.
   - Comentario con link publicado.
 
+## ✅ HECHO (sesión 2)
+- **Canal ordenado:** descripción, enlaces (Web, MercadoLibre, WhatsApp wa.me/541135510715), país AR, correo.
+- **Layout home:** tráiler = Short del avatar; destacado = bolsa; Shorts arriba de los largos.
+- **4 listas de reproducción de PRODUCTOS creadas (públicas):**
+  - 💡 Iluminación y Tecnología (38)
+  - 🔧 Herramientas y Ferretería (24)
+  - 🏠 Hogar, Cocina y Confort (6)
+  - 🎁 Ofertas y Novedades / Temporada (2)
+  - (falta terminar de clasificar el resto de los ~117 videos de "Herramientas" con el truco del filtro)
+- Nota: listas privadas "ia bot", "IA videos", "TRADING" son personales → NO tocar.
+
 ## ⏳ PENDIENTE (al retomar)
-1. **Fijar el comentario** del link — no dejó (cuenta nueva, ~2 meses). Reintentar más adelante.
-   - Lo importante: que el link esté en la **DESCRIPCIÓN** del video (verificar en Studio → Contenido → Shorts).
-2. **Ordenar canal:** descripción del canal, enlaces (ML, Tienda Nube, WhatsApp), marca de agua de video, video destacado.
-3. **Plantilla de miniatura** 1280×720 en Canva (para videos largos; los Shorts no la necesitan).
-4. **Próximos guiones** (esperando precios):
-   - 🔦 Linterna llavero
-   - 🔥 Mini soplete electrónico
-   - 🪚 Corta vidrio 6 puntas
+1. **PRÓXIMO FOCO → Reescribir/renovar los videos MÁS VISTOS con el avatar.**
+   - Cómo elegirlos: Studio → Contenido → Vídeos → ordenar por **"Visualizaciones"** (de mayor a menor).
+   - Por cada top: guion 40s → avatar HeyGen → CapCut (video viejo de fondo + avatar en esquina) → republicar/actualizar.
+2. **Terminar de clasificar** el resto de videos en las 4 listas (filtro por término).
+3. **Fijar el comentario** del link — no dejó (cuenta nueva). Reintentar. El link igual está en la descripción.
+4. **Plantilla de miniatura** 1280×720 en Canva (para videos largos).
+5. **Próximos guiones** (esperando precios): linterna llavero, mini soplete, corta vidrio 6 puntas.
 
 ## 🧰 Stack que está usando
 - **HeyGen** (avatar Tariq + voz español) — plan gratis 3 videos/mes.
