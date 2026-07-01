@@ -1,8 +1,46 @@
+import https from 'node:https';
 import nodemailer from 'nodemailer';
 import { processMessage } from '../../lib/wa/brain.js';
 import { loadRules, menuOptionsAt } from '../../lib/wa/rules.js';
 
 let lastBotHeartbeat = null;
+
+// Transcribe una nota de voz de WhatsApp con Gemini 2.5 (soporta audio nativo).
+function transcribeAudio(audioB64, mime) {
+  return new Promise((resolve, reject) => {
+    const key = (process.env.GEMINI_API_KEY || '').trim();
+    if (!key) return resolve('');
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+    const body = JSON.stringify({
+      contents: [{
+        parts: [
+          { inline_data: { mime_type: mime || 'audio/ogg', data: audioB64 } },
+          { text: 'Transcribí este audio al español rioplatense. Devolvé SOLO el texto transcripto, sin comillas ni explicaciones.' },
+        ],
+      }],
+      generationConfig: { temperature: 0, maxOutputTokens: 500 },
+    });
+    const u = new URL(url);
+    const req = https.request({
+      hostname: u.hostname,
+      path: u.pathname + u.search,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+    }, (res) => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => {
+        try {
+          const j = JSON.parse(data);
+          resolve((j?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim());
+        } catch { resolve(''); }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(20000, () => { req.destroy(); reject(new Error('timeout transcribiendo')); });
+    req.write(body); req.end();
+  });
+}
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -105,13 +143,31 @@ export default async function handler(req, res) {
     }
   }
 
-  const { from, text, state, history } = req.body || {};
+  const { from, state, history, audioB64, mime } = req.body || {};
+  let { text } = req.body || {};
+
+  // Si llega una nota de voz, la transcribimos y seguimos el flujo normal.
+  let transcribed = null;
+  if (audioB64 && typeof audioB64 === 'string') {
+    try {
+      transcribed = await transcribeAudio(audioB64, mime);
+      text = transcribed;
+    } catch (e) {
+      return res.status(200).json({
+        messages: [{ body: 'Perdón, no pude escuchar bien el audio 🙏 ¿Me lo escribís o lo grabás de nuevo?', delaySec: 0 }],
+        state: state || { parentRow: null, fallbackStreak: 0 },
+        reason: 'audio_transcribe_error',
+      });
+    }
+  }
+
   if (!from || typeof text !== 'string') {
-    return res.status(400).json({ error: 'faltan from + text' });
+    return res.status(400).json({ error: 'faltan from + text (o audioB64)' });
   }
 
   try {
     const result = await processMessage({ from, text, state, history });
+    if (transcribed != null) result.transcribed = transcribed;
     return res.status(200).json(result);
   } catch (e) {
     return res.status(500).json({ error: e.message });

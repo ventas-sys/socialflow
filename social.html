@@ -129,7 +129,9 @@ textarea{resize:vertical;min-height:60px;}
       <label class="plat-row"><input type="checkbox" id="chk-li" checked style="width:auto;accent-color:#0A66C2"><div class="plat-dot" style="background:#0A66C2"></div><div><div class="plat-name">LinkedIn</div><div class="plat-mode">📝 + 🎨 Imagen IA</div></div></label>
       <label class="plat-row"><input type="checkbox" id="chk-tw" checked style="width:auto;accent-color:#888"><div class="plat-dot" style="background:#888"></div><div><div class="plat-name">X / Twitter</div><div class="plat-mode">📝 + 🎨 Imagen IA</div></div></label>
       <label class="plat-row"><input type="checkbox" id="chk-tk" checked style="width:auto;accent-color:#ff0050"><div class="plat-dot" style="background:#ff0050"></div><div><div class="plat-name">TikTok</div><div class="plat-mode">📝 + 🎨 Imagen IA</div></div></label>
+      <label class="plat-row"><input type="checkbox" id="chk-yt" checked style="width:auto;accent-color:#FF0000"><div class="plat-dot" style="background:#FF0000"></div><div><div class="plat-name">YouTube Shorts</div><div class="plat-mode">📝 + 🎨 Thumbnail IA</div></div></label>
     </div>
+    <div id="meta-conn-banner" style="display:none;margin-top:10px;font-size:11px;padding:9px 12px;border-radius:8px;background:rgba(24,119,242,0.08);border:1px solid rgba(24,119,242,0.25);color:#5b9bff;"></div>
   </div>
 
   <button class="btn-main" id="gen-btn" onclick="generate()" disabled>✨ Generar copies</button>
@@ -140,9 +142,25 @@ textarea{resize:vertical;min-height:60px;}
 </div>
 
 <script>
-const PN={ig:'Instagram',fb:'Facebook',wa:'WhatsApp',li:'LinkedIn',tw:'X/Twitter',tk:'TikTok'};
-const PC={ig:'#E1306C',fb:'#1877F2',wa:'#25D366',li:'#0A66C2',tw:'#555',tk:'#ff0050'};
+const PN={ig:'Instagram',fb:'Facebook',wa:'WhatsApp',li:'LinkedIn',tw:'X/Twitter',tk:'TikTok',yt:'YouTube Shorts'};
+const PC={ig:'#E1306C',fb:'#1877F2',wa:'#25D366',li:'#0A66C2',tw:'#555',tk:'#ff0050',yt:'#FF0000'};
 let tone='energico',badge='OFERTA',copies={},photoB64='',photoDesc='',pName='',pPrice='';
+let genImages={}; // id -> data URL de la imagen generada (para publicar)
+
+function metaConn(){ try{ return (JSON.parse(localStorage.getItem('up_state')||'{}').connections||{}).meta; }catch(e){ return null; } }
+function showMetaBanner(){
+  const b=document.getElementById('meta-conn-banner'); if(!b) return;
+  const m=metaConn();
+  if(m?.verified && !(m.expiresAt && Date.now()>m.expiresAt)){
+    const ig=m.igUsername?' + IG @'+m.igUsername:'';
+    b.style.display='block';
+    b.innerHTML='🔌 Meta conectado: '+(m.pageName||'página')+ig+' — vas a poder publicar directo con el botón 🚀 Publicar.';
+  } else {
+    b.style.display='block';
+    b.style.background='rgba(255,140,0,0.08)';b.style.borderColor='rgba(255,140,0,0.25)';b.style.color='#ffb060';
+    b.innerHTML='⚠ Meta no conectado. Para publicar directo en FB+IG, andá a <a href="/conexiones" style="color:#ff8c00;font-weight:700;">🔌 Conexiones</a> y autorizá Meta. Mientras tanto, usá 🔗 Abrir.';
+  }
+}
 
 function checkReady(){document.getElementById('gen-btn').disabled=!document.getElementById('p-name').value.trim();}
 function setTone(t){tone=t;['energico','profesional','casual','urgente'].forEach(id=>document.getElementById('t-'+id)?.classList.toggle('on',id===t));}
@@ -191,6 +209,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(f){const inp=document.getElementById('photo-input');const dt=new DataTransfer();dt.items.add(f);inp.files=dt.files;onPhotoChange({target:{files:[f]}});}
   });
   loadProduct();
+  showMetaBanner();
 });
 
 function loadProduct(){
@@ -219,7 +238,7 @@ async function generate(){
   const price=document.getElementById('p-price').value.trim();
   const desc=document.getElementById('p-desc').value.trim();
   const link=document.getElementById('ml-link').value.trim();
-  const sel=['ig','fb','wa','li','tw','tk'].filter(id=>document.getElementById('chk-'+id)?.checked);
+  const sel=['ig','fb','wa','li','tw','tk','yt'].filter(id=>document.getElementById('chk-'+id)?.checked);
   if(!name||!sel.length)return;
 
   pName=name;pPrice=price;
@@ -260,7 +279,8 @@ async function generate(){
           <div class="card-btns">
             <button class="btn-sm" id="cp-${id}" onclick="cpTxt('${id}')">📋 Copiar</button>
                         <button class="btn-img" id="img-btn-${id}" onclick="genImg('${id}')">🎨 Imagen IA</button>
-            <button class="btn-pub" style="background:${PC[id]}" onclick="pub('${id}')">🔗 Abrir ${PN[id]}</button>
+            ${(id==='fb'||id==='ig') ? `<button class="btn-pub" id="pub-btn-${id}" style="background:${PC[id]}" onclick="publishMeta('${id}')">🚀 Publicar</button>` : ''}
+            <button class="btn-pub" style="background:${(id==='fb'||id==='ig')?'rgba(255,255,255,0.12)':PC[id]};${(id==='fb'||id==='ig')?'color:#aaa':''}" onclick="pub('${id}')">🔗 Abrir</button>
           </div>
         </div>
         <div class="copy-body">${copies[id].replace(/</g,'&lt;')}</div>
@@ -302,6 +322,7 @@ async function genImg(id){
     });
     const d=await r.json();
     if(d.error)throw new Error(d.error);
+    genImages[id]=d.url;
     resultDiv.innerHTML=`
       <img src="${d.url}" style="width:100%;border-radius:10px;display:block" alt="Imagen IA">
       <div class="img-actions">
@@ -313,6 +334,57 @@ async function genImg(id){
     resultDiv.innerHTML='<div style="color:#ff8080;font-size:12px;padding:10px;text-align:center">❌ '+e.message+'</div>';
   }
   btn.disabled=false;btn.innerHTML='🎨 Imagen IA';
+}
+
+// Publica directo en Facebook / Instagram vía el conector Meta (api/meta/publish)
+async function publishMeta(id){
+  const m=metaConn();
+  if(!m?.verified || (m.expiresAt && Date.now()>m.expiresAt)){
+    notify('⚠ Meta no conectado. Andá a Conexiones y autorizá.');
+    location.href='/conexiones'; return;
+  }
+  const text=copies[id]||'';
+  if(!text){ notify('Generá el copy primero'); return; }
+
+  // Instagram SIEMPRE necesita imagen con URL pública
+  const img=genImages[id]||genImages.fb||genImages.ig||'';
+  const isPublicUrl = img && /^https?:\/\//i.test(img); // data: no sirve para Meta
+  if(id==='ig' && !isPublicUrl){
+    notify('⚠ Instagram necesita una imagen con URL pública. Generá imagen y usá hosting (fase próxima).');
+    return;
+  }
+
+  const btn=document.getElementById('pub-btn-'+id);
+  if(btn){ btn.disabled=true; btn.innerHTML='⏳ Publicando...'; }
+  try{
+    const r=await fetch('/api/meta?action=publish',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        pageToken:m.pageToken, pageId:m.pageId, igId:m.igId,
+        message:text,
+        imageUrl: isPublicUrl ? img : '',
+        targets: { fb: id==='fb', ig: id==='ig' }
+      })
+    });
+    const d=await r.json();
+    const rr = d.results?.[id];
+    if(rr?.ok){
+      if(btn){ btn.innerHTML='✓ Publicado'; btn.style.background='#00c864'; }
+      notify('✅ Publicado en '+PN[id]);
+      try{
+        const s=JSON.parse(localStorage.getItem('up_state')||'{}');
+        s.activity=s.activity||[];
+        s.activity.unshift({icon:'🚀',agent:'META',text:'Publicado en '+PN[id]+': '+(pName||'').substring(0,30),time:new Date().toLocaleString('es-AR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})});
+        s.activity=s.activity.slice(0,20);
+        localStorage.setItem('up_state',JSON.stringify(s));
+      }catch(e){}
+    } else {
+      throw new Error(rr?.error || d.error || 'No se pudo publicar');
+    }
+  }catch(e){
+    notify('❌ '+e.message);
+    if(btn){ btn.disabled=false; btn.innerHTML='🚀 Publicar'; }
+  }
 }
 </script>
 </body>

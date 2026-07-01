@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import 'dotenv/config';
 import pkg from 'whatsapp-web.js';
 import qrcode from 'qrcode-terminal';
+import { RECORDATORIO } from '../lib/wa/business-config.js';
 
 const { Client, LocalAuth } = pkg;
 
@@ -24,9 +25,15 @@ const HUMAN_LABEL_NAME = process.env.WA_HUMAN_LABEL || 'HUMANO';
 const HUMAN_LABEL_ID_OVERRIDE = (process.env.WA_HUMAN_LABEL_ID || '').trim();
 const HUMAN_TAKEOVER_HOURS = Number(process.env.WA_HUMAN_TAKEOVER_HOURS || 3);
 const AUTOREPLY_WINDOW_MS = Number(process.env.WA_AUTOREPLY_MS || 3000);
-const FOLLOWUP_MINUTES = Number(process.env.WA_FOLLOWUP_MINUTES || 60);
+const FOLLOWUP_MINUTES = Number(process.env.WA_FOLLOWUP_MINUTES || 120);
+const REMINDER_DAYS = Number(process.env.WA_REMINDER_DAYS || RECORDATORIO.diasDespues || 5);
 const SEND_NEW_CLIENT_EMAIL = (process.env.WA_NEW_CLIENT_EMAIL || '').toLowerCase() === 'true';
 const NEW_CLIENTS_CSV = path.join(__dirname, 'new-clients.csv');
+
+// Día calendario local (YYYY-MM-DD) para limitar follow-up a 1 por día por chat.
+function dayKey(ts) {
+  return new Date(ts).toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
+}
 
 if (!WEBHOOK_URL) {
   console.error('Falta WA_WEBHOOK_URL en .env');
@@ -42,6 +49,8 @@ const lastIncomingAt = new Map();
 const botSentRecent = [];
 const followupSent = new Map();
 const knownContacts = new Set();
+const firstContactAt = new Map();   // chatId -> timestamp del primer contacto
+const reminderSent = new Set();      // chatId que ya recibieron el recordatorio de 5 días
 let humanLabelId = null;
 
 try {
@@ -51,7 +60,9 @@ try {
     for (const [k, v] of Object.entries(raw.histories || {})) histories.set(k, v);
     for (const [k, v] of Object.entries(raw.humanHandled || {})) humanHandled.set(k, v);
     for (const k of (raw.knownContacts || [])) knownContacts.add(k);
-    console.log(`Estado cargado: ${states.size} contactos · ${humanHandled.size} con asesor activo · ${knownContacts.size} ya conocidos`);
+    for (const [k, v] of Object.entries(raw.firstContactAt || {})) firstContactAt.set(k, v);
+    for (const k of (raw.reminderSent || [])) reminderSent.add(k);
+    console.log(`Estado cargado: ${states.size} contactos · ${humanHandled.size} con asesor activo · ${knownContacts.size} ya conocidos · ${reminderSent.size} con recordatorio enviado`);
   }
 } catch (e) { console.error('No se pudo cargar estado previo:', e.message); }
 
@@ -66,6 +77,8 @@ setInterval(() => {
       histories: Object.fromEntries(histories),
       humanHandled: Object.fromEntries(humanHandled),
       knownContacts: Array.from(knownContacts),
+      firstContactAt: Object.fromEntries(firstContactAt),
+      reminderSent: Array.from(reminderSent),
     };
     fs.writeFileSync(STATE_FILE, JSON.stringify(out));
   } catch (e) { console.error('persist fail:', e.message); }
@@ -110,6 +123,7 @@ async function logNewClientIfFirst(client, msg) {
   const from = msg.from;
   if (knownContacts.has(from)) return;
   knownContacts.add(from);
+  if (!firstContactAt.has(from)) firstContactAt.set(from, Date.now());
 
   let name = '';
   try {
@@ -157,7 +171,9 @@ async function sendFollowupIfDue(client) {
   const now = Date.now();
   const cutoff = FOLLOWUP_MINUTES * 60_000;
   for (const [chatId, h] of humanHandled.entries()) {
-    if (followupSent.has(chatId)) continue;
+    // Máximo 1 follow-up por día calendario por chat.
+    const lastFu = followupSent.get(chatId);
+    if (lastFu && dayKey(lastFu) === dayKey(now)) continue;
     if (h.escalated) continue;
     const last = lastActivityAt.get(chatId) || 0;
     if (now - last < cutoff) continue;
@@ -172,6 +188,28 @@ async function sendFollowupIfDue(client) {
       console.log(`[${chatId}] 💬 follow-up "¿algo más?" enviado tras ${FOLLOWUP_MINUTES}min sin actividad — bot retoma`);
     } catch (e) {
       console.error(`follow-up fail ${chatId}:`, e.message);
+    }
+  }
+}
+
+// Recordatorio a los N días del primer contacto: promo + incentivo de calificación.
+// Solo aplica a contactos que escribieron DESPUÉS del deploy (firstContactAt vacío al inicio),
+// así no se dispara masivamente sobre clientes viejos.
+async function sendRemindersIfDue(client) {
+  const now = Date.now();
+  const cutoff = REMINDER_DAYS * 86_400_000;
+  for (const [chatId, firstAt] of firstContactAt.entries()) {
+    if (reminderSent.has(chatId)) continue;
+    if (now - firstAt < cutoff) continue;
+    if (isAsesorActive(chatId)) continue; // no interrumpir una charla con humano
+    try {
+      await client.sendMessage(chatId, RECORDATORIO.mensaje);
+      botSentRecent.push({ chatId, body: RECORDATORIO.mensaje, at: Date.now() });
+      reminderSent.add(chatId);
+      lastActivityAt.set(chatId, Date.now());
+      console.log(`[${chatId}] 🎁 recordatorio ${REMINDER_DAYS}d enviado (promo + calificación)`);
+    } catch (e) {
+      console.error(`recordatorio fail ${chatId}:`, e.message);
     }
   }
 }
@@ -196,15 +234,19 @@ async function sendHeartbeat() {
   } catch {}
 }
 
-async function postWebhook(from, text) {
+async function postWebhook(from, text, audio) {
   const state = states.get(from) || { parentRow: null, fallbackStreak: 0 };
   const history = histories.get(from) || [];
-  const body = JSON.stringify({ from, text, state, history: history.slice(-10) });
+  const payload = { from, text, state, history: history.slice(-10) };
+  if (audio?.audioB64) {
+    payload.audioB64 = audio.audioB64;
+    payload.mime = audio.mime;
+  }
 
   const res = await fetch(WEBHOOK_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Bridge-Token': TOKEN },
-    body,
+    body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(`webhook ${res.status}`);
   return res.json();
@@ -289,8 +331,23 @@ async function handleIncoming(client, msg) {
     const now = Date.now();
     lastIncomingAt.set(from, now);
     lastActivityAt.set(from, now);
-    const text = (msg.body || '').trim();
-    if (!text) {
+    let text = (msg.body || '').trim();
+
+    // Nota de voz: la bajamos y la mandamos al webhook para transcribir.
+    let audio = null;
+    if (!text && (msg.type === 'ptt' || msg.type === 'audio') && msg.hasMedia) {
+      try {
+        const media = await msg.downloadMedia();
+        if (media?.data) {
+          audio = { audioB64: media.data, mime: media.mimetype || 'audio/ogg' };
+          console.log(`[${from}] -> 🎤 nota de voz (${media.mimetype || 'audio/ogg'}) — transcribiendo...`);
+        }
+      } catch (e) {
+        console.error(`[${from}] audio download fail:`, e.message);
+      }
+    }
+
+    if (!text && !audio) {
       console.log(`[${from}] -> (sin texto: ${msg.type}) [ignorado]`);
       return;
     }
@@ -302,15 +359,30 @@ async function handleIncoming(client, msg) {
     if (isAsesorActive(from)) {
       const h = humanHandled.get(from);
       const minsLeft = Math.round((h.until - now) / 60000);
-      console.log(`[${from}] -> ${text.slice(0, 60)} [silenciado: asesor activo ${minsLeft}min restantes]`);
-      recordHistory(from, 'user', text);
+      // Si fue audio durante asesor activo, igual lo dejamos en historial (transcripto si se puede).
+      if (audio) {
+        try {
+          const r = await postWebhook(from, '', audio);
+          if (r?.transcribed) recordHistory(from, 'user', r.transcribed);
+        } catch {}
+      } else {
+        recordHistory(from, 'user', text);
+      }
+      console.log(`[${from}] -> ${(text || '🎤audio').slice(0, 60)} [silenciado: asesor activo ${minsLeft}min restantes]`);
       return;
     }
 
-    console.log(`[${from}] -> ${text.slice(0, 80)}`);
-    recordHistory(from, 'user', text);
+    if (text) {
+      console.log(`[${from}] -> ${text.slice(0, 80)}`);
+      recordHistory(from, 'user', text);
+    }
 
-    const result = await postWebhook(from, text);
+    const result = await postWebhook(from, text, audio);
+    if (audio && result.transcribed) {
+      text = result.transcribed;
+      console.log(`[${from}] -> 🎤 "${text.slice(0, 80)}"`);
+      recordHistory(from, 'user', text);
+    }
     states.set(from, result.state);
 
     for (const m of (result.messages || [])) {
@@ -398,9 +470,11 @@ client.on('ready', async () => {
   console.log('✅ Bridge listo. Esperando mensajes...');
   await resolveHumanLabel(client);
   setInterval(() => sendFollowupIfDue(client).catch(e => console.error('followup tick fail:', e.message)), 5 * 60_000);
+  setInterval(() => sendRemindersIfDue(client).catch(e => console.error('reminder tick fail:', e.message)), 60 * 60_000);
   sendHeartbeat();
   setInterval(() => sendHeartbeat(), 60_000);
-  console.log(`📋 Follow-up "¿algo más?" cada 5min para chats con ${FOLLOWUP_MINUTES}min sin actividad`);
+  console.log(`📋 Follow-up "¿algo más?" cada 5min para chats con ${FOLLOWUP_MINUTES}min sin actividad (máx 1/día por chat)`);
+  console.log(`🎁 Recordatorio a los ${REMINDER_DAYS} días del primer contacto (chequeo cada 1h)`);
   console.log(`💓 Heartbeat al panel cada 60s`);
 });
 
