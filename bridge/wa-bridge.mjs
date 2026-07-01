@@ -99,12 +99,20 @@ function markAsesorActive(chatId) {
   console.log(`[${chatId}] 🧑 asesor humano respondió — bot silenciado por ${mins}min`);
 }
 
+// La charla se cerró (mensaje de despedida): saca el chat del loop de follow-up
+// y bloquea el "¿algo más?". Lo mande el bot o un humano, si hubo cierre no molestamos.
+function marcarCierre(chatId, quien) {
+  humanHandled.delete(chatId);
+  followupSent.set(chatId, Date.now());
+  console.log(`[${chatId}] ✋ cierre (${quien}) — follow-up "¿algo más?" suprimido`);
+}
+
 const CLOSING_PATTERNS = [
   /gracias por (escribir|contactar|consultar|comunicarte|comunicarse)(nos|me|te|se)?\b/i,
   /gracias por (tu|su|la|el|las|los) (consulta|mensaje|tiempo|comunicaci[oó]n|compra)/i,
   /cualquier (otra )?(consulta|duda|cosa)[, ]+(nos|me) (avis|escrib|consult|llam)/i,
   /(te|los|lo|las|la) esperamos\b/i,
-  /que teng(a|as|an) (un |una |unos |unas )?(buen|buena|buenos|buenas|gran|lindo|linda|lindos|lindas|excelente)s? (d[ií]a|finde|fin de semana|noche|tarde|jornada|semana)/i,
+  /que teng(a|as|an) (un |una |unos |unas )?(buen|buena|buenos|buenas|gran|lindo|linda|lindos|lindas|hermoso|hermosa|hermosos|hermosas|excelente)s? (d[ií]a|finde|fin de semana|noche|tarde|jornada|semana)/i,
   /saludos cordiales/i,
   /hasta (luego|pronto|ma[nñ]ana|la pr[oó]xima|el lunes|el martes|el mi[eé]rcoles|el jueves|el viernes)/i,
   /^saludos[\s!.😊🙂👍]*$/i,
@@ -301,9 +309,12 @@ async function markChatForHuman(client, chatId) {
     console.log(`[${chatId}] no se pudo etiquetar: humanLabelId es null (etiqueta no encontrada al arranque)`);
     return;
   }
+  // Canales/newsletters/difusión no soportan etiquetas: los salteamos.
+  if (chatId.endsWith('@newsletter') || chatId.endsWith('@broadcast')) { labeledChats.add(chatId); return; }
   if (labeledChats.has(chatId)) return;
   try {
     const chat = await client.getChatById(chatId);
+    if (typeof chat.changeLabels !== 'function') { labeledChats.add(chatId); return; }
     let existingIds = [];
     try {
       const existing = await chat.getLabels();
@@ -394,7 +405,11 @@ async function handleIncoming(client, msg) {
       console.log(`[${from}] <- ${m.body.slice(0, 80)}`);
     }
 
-    if (result.state?.escalated) {
+    // Si el BOT cerró la charla (despedida), no mandamos "¿algo más?" después.
+    const botCerro = (result.messages || []).some(m => isClosingMessage(m.body));
+    if (botCerro) {
+      marcarCierre(from, 'bot');
+    } else if (result.state?.escalated) {
       console.log(`[${from}] *** marcado para humano ***`);
       await markChatForHuman(client, from);
       markAsesorActive(from);
@@ -409,6 +424,8 @@ async function handleOutgoing(client, msg) {
     if (!msg.fromMe) return;
     const chatId = msg.to;
     if (!chatId || chatId === 'status@broadcast') return;
+    // Ignorar canales/newsletters, difusión y grupos: no son clientes 1-a-1.
+    if (chatId.endsWith('@newsletter') || chatId.endsWith('@broadcast') || chatId.endsWith('@g.us')) return;
     const body = (msg.body || '').trim();
     if (!body) return;
 
@@ -432,8 +449,7 @@ async function handleOutgoing(client, msg) {
     await markChatForHuman(client, chatId);
 
     if (isClosingMessage(body)) {
-      followupSent.set(chatId, Date.now());
-      console.log(`[${chatId}] ✋ cierre detectado ("${body.slice(0, 40)}") — follow-up "¿algo más?" suprimido`);
+      marcarCierre(chatId, 'asesor');
     }
   } catch (e) {
     console.error('handleOutgoing error:', e.message);
