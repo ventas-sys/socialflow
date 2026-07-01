@@ -99,12 +99,20 @@ function markAsesorActive(chatId) {
   console.log(`[${chatId}] 🧑 asesor humano respondió — bot silenciado por ${mins}min`);
 }
 
+// La charla se cerró (mensaje de despedida): saca el chat del loop de follow-up
+// y bloquea el "¿algo más?". Lo mande el bot o un humano, si hubo cierre no molestamos.
+function marcarCierre(chatId, quien) {
+  humanHandled.delete(chatId);
+  followupSent.set(chatId, Date.now());
+  console.log(`[${chatId}] ✋ cierre (${quien}) — follow-up "¿algo más?" suprimido`);
+}
+
 const CLOSING_PATTERNS = [
   /gracias por (escribir|contactar|consultar|comunicarte|comunicarse)(nos|me|te|se)?\b/i,
   /gracias por (tu|su|la|el|las|los) (consulta|mensaje|tiempo|comunicaci[oó]n|compra)/i,
   /cualquier (otra )?(consulta|duda|cosa)[, ]+(nos|me) (avis|escrib|consult|llam)/i,
   /(te|los|lo|las|la) esperamos\b/i,
-  /que teng(a|as|an) (un |una |unos |unas )?(buen|buena|buenos|buenas|gran|lindo|linda|lindos|lindas|excelente)s? (d[ií]a|finde|fin de semana|noche|tarde|jornada|semana)/i,
+  /que teng(a|as|an) (un |una |unos |unas )?(buen|buena|buenos|buenas|gran|lindo|linda|lindos|lindas|hermoso|hermosa|hermosos|hermosas|excelente)s? (d[ií]a|finde|fin de semana|noche|tarde|jornada|semana)/i,
   /saludos cordiales/i,
   /hasta (luego|pronto|ma[nñ]ana|la pr[oó]xima|el lunes|el martes|el mi[eé]rcoles|el jueves|el viernes)/i,
   /^saludos[\s!.😊🙂👍]*$/i,
@@ -397,7 +405,11 @@ async function handleIncoming(client, msg) {
       console.log(`[${from}] <- ${m.body.slice(0, 80)}`);
     }
 
-    if (result.state?.escalated) {
+    // Si el BOT cerró la charla (despedida), no mandamos "¿algo más?" después.
+    const botCerro = (result.messages || []).some(m => isClosingMessage(m.body));
+    if (botCerro) {
+      marcarCierre(from, 'bot');
+    } else if (result.state?.escalated) {
       console.log(`[${from}] *** marcado para humano ***`);
       await markChatForHuman(client, from);
       markAsesorActive(from);
@@ -437,8 +449,7 @@ async function handleOutgoing(client, msg) {
     await markChatForHuman(client, chatId);
 
     if (isClosingMessage(body)) {
-      followupSent.set(chatId, Date.now());
-      console.log(`[${chatId}] ✋ cierre detectado ("${body.slice(0, 40)}") — follow-up "¿algo más?" suprimido`);
+      marcarCierre(chatId, 'asesor');
     }
   } catch (e) {
     console.error('handleOutgoing error:', e.message);
