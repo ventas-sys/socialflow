@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **Nombre** | UNIPROVEEDORES |
-| **Usuario / @handle** | `uniproveedores` (si está tomado: `uniproveedores.ar` / `uniproveedores.ok` / `uniproveedoresarg`) |
+| **Usuario / @handle** | **`uniproveedoresok`** (el `uniproveedores` estaba tomado — usar `uniproveedoresok` en TODAS para coherencia) |
 | **Foto de perfil** | Logo (engranaje + rayo) sobre fondo negro |
 | **Portada / banner** | El de YouTube reutilizado (negro + hexágonos verdes) |
 | **Web** | https://uniproveedores.com.ar |
@@ -89,10 +89,16 @@ Reviews y ofertas en nuestros videos. Consultas por WhatsApp: 011-3551-0715.
 
 ## 📌 Estado (ir tildando)
 ```
-[ ] Instagram        [ ] Facebook Página
+[x] Instagram (@uniproveedoresok, cuenta empresa)
+[x] Facebook Página (Uniproveedores, con dirección Bacacay 4726, IG vinculado)
 [ ] TikTok           [x] YouTube
 [ ] X/Twitter        [ ] LinkedIn empresa
 [ ] Google Business  [ ] Pinterest (opcional)
 [x] WhatsApp Business
 ```
+
+## ⚠️ Nota Facebook: 2 cuentas
+- **Página "Uniproveedores"** (id 61589819153465) = la oficial del negocio. Usar SIEMPRE esta.
+- **Perfil personal "Uni Proveedores"** (id 61555949293485) = admin dueño detrás de la Página. NO borrar, NO usar como negocio.
+- Pendiente FB: botón WhatsApp CTA + invitar amigos a seguir la Página.
 </content>
