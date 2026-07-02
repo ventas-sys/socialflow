@@ -358,6 +358,15 @@ async function handleIncoming(client, msg) {
       }
     }
 
+    // Foto/video/archivo sin texto: no lo descargamos, pero le avisamos al
+    // cerebro para que responda en contexto (ej: reclamo esperando la foto).
+    if (!text && !audio && ['image', 'video', 'document'].includes(msg.type)) {
+      text = msg.type === 'image' ? '(el cliente mandó una foto 📸)'
+           : msg.type === 'video' ? '(el cliente mandó un video 🎬)'
+           : '(el cliente mandó un archivo 📎)';
+      console.log(`[${from}] -> 📎 media (${msg.type}) — se avisa al cerebro`);
+    }
+
     if (!text && !audio) {
       console.log(`[${from}] -> (sin texto: ${msg.type}) [ignorado]`);
       return;
