@@ -109,9 +109,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div id="product-zone"></div>
 
   <div class="kpi-grid">
-    <div class="kpi"><div class="kpi-lbl">Canales activos</div><div class="kpi-val orange" id="kpi-channels">—</div><div class="kpi-sub">sobre 8 totales</div></div>
+    <div class="kpi"><div class="kpi-lbl">Canales activos</div><div class="kpi-val orange" id="kpi-channels">—</div><div class="kpi-sub" id="kpi-channels-sub">sobre 10 totales</div></div>
     <div class="kpi"><div class="kpi-lbl">Verificaciones</div><div class="kpi-val green" id="kpi-verif">—</div><div class="kpi-sub">cuentas verificadas</div></div>
-    <div class="kpi"><div class="kpi-lbl">Agentes IA</div><div class="kpi-val blue">5</div><div class="kpi-sub">en línea 24/7</div></div>
+    <div class="kpi"><div class="kpi-lbl">Agentes IA</div><div class="kpi-val blue">8</div><div class="kpi-sub">en línea 24/7</div></div>
     <div class="kpi"><div class="kpi-lbl">Última actividad</div><div class="kpi-val" id="kpi-act" style="font-size:14px;padding-top:6px;">—</div><div class="kpi-sub" id="kpi-act-sub">sin registros</div></div>
   </div>
 
@@ -145,6 +145,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="agent-name">Agente Redes Sociales</div>
       <div class="agent-desc">Genera copies y imágenes IA para Instagram, Facebook, WhatsApp, LinkedIn, X/Twitter y TikTok. Publicación con un clic.</div>
       <div class="agent-meta"><span>Copies · Imagen IA · 6 redes</span><span class="agent-cta">Abrir</span></div>
+    </a>
+
+    <a class="agent" href="/youtube.html" style="--accent:#ff4444;--accent-bg:rgba(255,0,0,0.12);">
+      <div class="agent-top">
+        <div class="agent-icon">▶️</div>
+        <div class="agent-status"><div class="dot-pulse" style="background:#ff4444;"></div> Activo</div>
+      </div>
+      <div class="agent-name">Agente YouTube</div>
+      <div class="agent-desc">Genera el guion para tu avatar IA + títulos SEO, descripción con link de Mercado Libre, hashtags y subtítulos. Listo para HeyGen y publicar.</div>
+      <div class="agent-meta"><span>Guion · Avatar IA · Shorts</span><span class="agent-cta">Abrir</span></div>
     </a>
 
     <a class="agent" href="/verification.html" style="--accent:#a78bfa;--accent-bg:rgba(167,139,250,0.12);">
@@ -210,6 +220,7 @@ const CHANNELS = [
   {id:'li',name:'LinkedIn',icon:'💼'},
   {id:'tw',name:'X/Twitter',icon:'🐦'},
   {id:'tk',name:'TikTok',icon:'🎵'},
+  {id:'yt',name:'YouTube',icon:'▶️'},
   {id:'gb',name:'Google Business',icon:'🗺️'}
 ];
 
