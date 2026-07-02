@@ -104,6 +104,8 @@ Reviews y ofertas en nuestros videos. Consultas por WhatsApp: 011-3551-0715.
 
 ## ⏳ Pendientes de contacto (48hs / seguridad)
 - X: cambiar mail/teléfono al del negocio (bloqueado 48hs por seguridad).
+- LinkedIn: cuenta bloqueada, **verificación pendiente para mañana**. Al desbloquear:
+  crear Página de empresa "Uniproveedores" (logo, bio media, web, sector Comercio minorista).
 
 ## ⚠️ Nota Facebook: 2 cuentas
 - **Página "Uniproveedores"** (id 61589819153465) = la oficial del negocio. Usar SIEMPRE esta.
