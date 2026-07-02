@@ -410,9 +410,15 @@ async function handleIncoming(client, msg) {
     if (botCerro) {
       marcarCierre(from, 'bot');
     } else if (result.state?.escalated) {
-      console.log(`[${from}] *** marcado para humano ***`);
+      // Pidió supervisor o requiere humano: etiqueta + bot silenciado.
+      console.log(`[${from}] *** marcado para humano (bot en pausa) ***`);
       await markChatForHuman(client, from);
       markAsesorActive(from);
+    } else if (result.state?.flagHuman) {
+      // Mayorista/reclamo: etiqueta para que un humano lo siga,
+      // pero el bot SIGUE respondiendo las dudas del cliente.
+      console.log(`[${from}] 🟡 etiquetado para humano (bot sigue activo)`);
+      await markChatForHuman(client, from);
     }
   } catch (e) {
     console.error('handleIncoming error:', e.message);
