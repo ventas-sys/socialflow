@@ -91,11 +91,19 @@ Reviews y ofertas en nuestros videos. Consultas por WhatsApp: 011-3551-0715.
 ```
 [x] Instagram (@uniproveedoresok, cuenta empresa)
 [x] Facebook Página (Uniproveedores, con dirección Bacacay 4726, IG vinculado)
-[ ] TikTok           [x] YouTube
-[ ] X/Twitter        [ ] LinkedIn empresa
-[ ] Google Business  [ ] Pinterest (opcional)
+[x] TikTok (@uniproveedoresok, Business, 1 video)  [x] YouTube
+[x] X/Twitter (@uniproveedores, cuenta 2011, 88 seg)   [ ] LinkedIn empresa
+[x] Google Business (Uniproveedores, 4.1★ 614 reseñas, verificado)  [ ] Pinterest (opcional)
 [x] WhatsApp Business
 ```
+
+## ⚠️ Nota Google Business: 2 fichas (duplicado)
+- **Uniproveedores** = 4.1★ · 614 reseñas · Bacacay 4726 · verificada · owner uniproveedores@gmail.com + redes@uniproveedores.com.ar. **LA OFICIAL.**
+- **Arbetter** = 3.3★ · 27 reseñas · misma dirección = DUPLICADO. Pendiente: fusionar/reportar duplicado (con cuidado, no borrar).
+- Pendiente Uniproveedores: sumar WhatsApp como tel secundario, fotos (tardan en verse), enlaces de redes.
+
+## ⏳ Pendientes de contacto (48hs / seguridad)
+- X: cambiar mail/teléfono al del negocio (bloqueado 48hs por seguridad).
 
 ## ⚠️ Nota Facebook: 2 cuentas
 - **Página "Uniproveedores"** (id 61589819153465) = la oficial del negocio. Usar SIEMPRE esta.
