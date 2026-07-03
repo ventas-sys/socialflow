@@ -50,10 +50,19 @@ const botSentRecent = [];
 const sentIds = new Set(); // IDs de mensajes enviados por el BOT: reconocimiento infalible
 const followupSent = new Map();
 
-// TODO envío del bot pasa por acá: registra el ID único del mensaje para que
-// handleOutgoing lo reconozca sin depender del texto (WhatsApp puede alterar
-// el cuerpo del evento — negritas, previews — y romper el match por texto).
+// Candado anti-carrera: mientras el bot está enviando a un chat, cualquier
+// evento fromMe de ese chat es del bot. El evento message_create se dispara
+// ANTES de que client.sendMessage() resuelva, así que registrar "después de
+// enviar" siempre llega tarde (visto en logs: detectaba el 2º mensaje de una
+// secuencia como "asesor respondió" y silenciaba el bot 3 horas).
+const botSendingUntil = new Map();
+
+// TODO envío del bot pasa por acá. Registra la huella ANTES de enviar (para
+// que el evento la encuentre aunque llegue en plena transmisión) + candado
+// de 20s por chat + ID único del mensaje al confirmar.
 async function botSend(client, chatId, body) {
+  botSentRecent.push({ chatId, body, at: Date.now() });      // pre-registro
+  botSendingUntil.set(chatId, Date.now() + 20_000);          // candado
   const sent = await client.sendMessage(chatId, body);
   try {
     const id = sent?.id?._serialized;
@@ -65,7 +74,6 @@ async function botSend(client, chatId, body) {
       }
     }
   } catch {}
-  botSentRecent.push({ chatId, body, at: Date.now() });
   return sent;
 }
 
@@ -506,7 +514,8 @@ async function handleIncoming(client, msg) {
 
     // Foto/video/archivo sin texto: no lo descargamos, pero le avisamos al
     // cerebro para que responda en contexto (ej: reclamo esperando la foto).
-    if (!text && !audio && ['image', 'video', 'document'].includes(msg.type)) {
+    // Grupos excluidos: no son clientes 1-a-1.
+    if (!text && !audio && !from.endsWith('@g.us') && ['image', 'video', 'document'].includes(msg.type)) {
       text = msg.type === 'image' ? '(el cliente mandó una foto 📸)'
            : msg.type === 'video' ? '(el cliente mandó un video 🎬)'
            : '(el cliente mandó un archivo 📎)';
@@ -608,8 +617,14 @@ async function handleOutgoing(client, msg) {
     if (!body) return;
 
     // ¿Es un mensaje que mandó el PROPIO BOT?
-    // 1) Por ID único del mensaje (infalible: botSend registra el id de todo
-    //    lo que envía; no depende del texto para nada).
+    // 0) Candado de envío: si el bot está mandando a este chat AHORA MISMO
+    //    (ventana de 20s), el evento es suyo. Cubre la carrera en la que el
+    //    evento llega antes de que sendMessage() termine de resolver.
+    if (Date.now() < (botSendingUntil.get(chatId) || 0)) {
+      lastActivityAt.set(chatId, Date.now());
+      return;
+    }
+    // 1) Por ID único del mensaje (botSend registra el id de todo lo enviado).
     const msgId = msg.id?._serialized;
     if (msgId && sentIds.has(msgId)) {
       lastActivityAt.set(chatId, Date.now());
