@@ -51,6 +51,7 @@ const followupSent = new Map();
 const knownContacts = new Set();
 const firstContactAt = new Map();   // chatId -> timestamp del primer contacto
 const reminderSent = new Set();      // chatId que ya recibieron el recordatorio de 5 días
+const productFollowup = new Map();   // chatId -> ts del link de producto (para "¿pudiste comprarlo?")
 let humanLabelId = null;
 
 try {
@@ -62,6 +63,7 @@ try {
     for (const k of (raw.knownContacts || [])) knownContacts.add(k);
     for (const [k, v] of Object.entries(raw.firstContactAt || {})) firstContactAt.set(k, v);
     for (const k of (raw.reminderSent || [])) reminderSent.add(k);
+    for (const [k, v] of Object.entries(raw.productFollowup || {})) productFollowup.set(k, v);
     console.log(`Estado cargado: ${states.size} contactos · ${humanHandled.size} con asesor activo · ${knownContacts.size} ya conocidos · ${reminderSent.size} con recordatorio enviado`);
   }
 } catch (e) { console.error('No se pudo cargar estado previo:', e.message); }
@@ -79,6 +81,7 @@ setInterval(() => {
       knownContacts: Array.from(knownContacts),
       firstContactAt: Object.fromEntries(firstContactAt),
       reminderSent: Array.from(reminderSent),
+      productFollowup: Object.fromEntries(productFollowup),
     };
     fs.writeFileSync(STATE_FILE, JSON.stringify(out));
   } catch (e) { console.error('persist fail:', e.message); }
@@ -186,7 +189,7 @@ async function sendFollowupIfDue(client) {
     const last = lastActivityAt.get(chatId) || 0;
     if (now - last < cutoff) continue;
 
-    const msg = '¿Te puedo ayudar en algo más? 🙂\nSi querés volver a ver el menú, escribí *a*, *b*, *c* o *d*.';
+    const msg = '¿Te puedo ayudar en algo más? 🙂';
     try {
       await client.sendMessage(chatId, msg);
       botSentRecent.push({ chatId, body: msg, at: now });
@@ -196,6 +199,25 @@ async function sendFollowupIfDue(client) {
       console.log(`[${chatId}] 💬 follow-up "¿algo más?" enviado tras ${FOLLOWUP_MINUTES}min sin actividad — bot retoma`);
     } catch (e) {
       console.error(`follow-up fail ${chatId}:`, e.message);
+    }
+  }
+
+  // Follow-up post-producto: le mandamos el link y no volvió a escribir.
+  for (const [chatId, ts] of productFollowup.entries()) {
+    if (now - ts < cutoff) continue;
+    productFollowup.delete(chatId);
+    if (isAsesorActive(chatId)) continue;
+    const lastFu = followupSent.get(chatId);
+    if (lastFu && dayKey(lastFu) === dayKey(now)) continue; // máx 1 por día
+    const msg2 = '¿Cómo vas? 🙂 ¿Pudiste comprarlo desde el link, o te doy una mano con algo más?';
+    try {
+      await client.sendMessage(chatId, msg2);
+      botSentRecent.push({ chatId, body: msg2, at: now });
+      followupSent.set(chatId, now);
+      lastActivityAt.set(chatId, now);
+      console.log(`[${chatId}] 🛒 follow-up post-producto ("¿pudiste comprarlo?") tras ${FOLLOWUP_MINUTES}min`);
+    } catch (e) {
+      console.error(`follow-up producto fail ${chatId}:`, e.message);
     }
   }
 }
@@ -412,6 +434,7 @@ async function handleIncoming(client, msg) {
     const now = Date.now();
     lastIncomingAt.set(from, now);
     lastActivityAt.set(from, now);
+    productFollowup.delete(from); // el cliente volvió a escribir: la charla sigue viva
     let text = (msg.body || '').trim();
 
     // Nota de voz: la bajamos y la mandamos al webhook para transcribir.
@@ -484,6 +507,12 @@ async function handleIncoming(client, msg) {
       console.log(`[${from}] <- ${m.body.slice(0, 80)}`);
     }
 
+    // Mandó el link de un producto: si el cliente no vuelve a escribir en
+    // FOLLOWUP_MINUTES, le preguntamos si pudo comprarlo o necesita ayuda.
+    if (result.reason === 'ia_producto') {
+      productFollowup.set(from, Date.now());
+    }
+
     // Si el BOT cerró la charla (despedida), no mandamos "¿algo más?" después.
     const botCerro = (result.messages || []).some(m => isClosingMessage(m.body));
     if (botCerro) {
@@ -516,11 +545,23 @@ async function handleOutgoing(client, msg) {
     const body = (msg.body || '').trim();
     if (!body) return;
 
-    const cutoff = Date.now() - 60_000;
+    // ¿Es un mensaje que mandó el PROPIO BOT? Matching robusto:
+    // - NO se borra la entrada al matchear (message_create puede dispararse
+    //   más de una vez para el mismo mensaje, sobre todo con links y preview)
+    // - match por prefijo en ambos sentidos (el preview del link puede
+    //   alterar levemente el cuerpo del evento)
+    // - retención de 5 minutos.
+    // Antes, el 2do evento del mensaje con link no matcheaba -> el bridge
+    // creía que "el asesor respondió a mano" y silenciaba el bot 3 horas.
+    const cutoff = Date.now() - 5 * 60_000;
     while (botSentRecent.length && botSentRecent[0].at < cutoff) botSentRecent.shift();
-    const idx = botSentRecent.findIndex(s => s.chatId === chatId && s.body === body);
-    if (idx !== -1) {
-      botSentRecent.splice(idx, 1);
+    const esDelBot = botSentRecent.some(s => {
+      if (s.chatId !== chatId) return false;
+      const a = (s.body || '').trim();
+      if (a === body) return true;
+      return a.startsWith(body) || body.startsWith(a);
+    });
+    if (esDelBot) {
       lastActivityAt.set(chatId, Date.now());
       return;
     }
@@ -531,7 +572,9 @@ async function handleOutgoing(client, msg) {
       return;
     }
 
+    console.log(`[${chatId}] 🧑 mensaje manual del asesor detectado: "${body.slice(0, 50)}"`);
     lastActivityAt.set(chatId, Date.now());
+    productFollowup.delete(chatId);
     markAsesorActive(chatId);
     await markChatForHuman(client, chatId);
 
