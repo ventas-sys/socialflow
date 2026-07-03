@@ -64,6 +64,8 @@ try {
     for (const [k, v] of Object.entries(raw.firstContactAt || {})) firstContactAt.set(k, v);
     for (const k of (raw.reminderSent || [])) reminderSent.add(k);
     for (const [k, v] of Object.entries(raw.productFollowup || {})) productFollowup.set(k, v);
+    for (const [k, v] of Object.entries(raw.lastActivityAt || {})) lastActivityAt.set(k, v);
+    for (const [k, v] of Object.entries(raw.followupSent || {})) followupSent.set(k, v);
     console.log(`Estado cargado: ${states.size} contactos · ${humanHandled.size} con asesor activo · ${knownContacts.size} ya conocidos · ${reminderSent.size} con recordatorio enviado`);
   }
 } catch (e) { console.error('No se pudo cargar estado previo:', e.message); }
@@ -82,6 +84,8 @@ setInterval(() => {
       firstContactAt: Object.fromEntries(firstContactAt),
       reminderSent: Array.from(reminderSent),
       productFollowup: Object.fromEntries(productFollowup),
+      lastActivityAt: Object.fromEntries(lastActivityAt),
+      followupSent: Object.fromEntries(followupSent),
     };
     fs.writeFileSync(STATE_FILE, JSON.stringify(out));
   } catch (e) { console.error('persist fail:', e.message); }
@@ -102,18 +106,22 @@ function markAsesorActive(chatId) {
   console.log(`[${chatId}] 🧑 asesor humano respondió — bot silenciado por ${mins}min`);
 }
 
-// La charla se cerró (mensaje de despedida): saca el chat del loop de follow-up
-// y bloquea el "¿algo más?". Lo mande el bot o un humano, si hubo cierre no molestamos.
+// La charla se cerró (mensaje de despedida): bloquea el "¿algo más?".
+// Si cerró el BOT, se libera para futuras charlas. Si cerró el ASESOR,
+// el bot QUEDA en silencio (el humano dio por terminado el chat: no hay
+// que re-escribirle nada al cliente, ni siquiera si contesta "gracias").
 function marcarCierre(chatId, quien) {
-  humanHandled.delete(chatId);
+  if (quien === 'bot') humanHandled.delete(chatId);
   followupSent.set(chatId, Date.now());
-  console.log(`[${chatId}] ✋ cierre (${quien}) — follow-up "¿algo más?" suprimido`);
+  productFollowup.delete(chatId);
+  console.log(`[${chatId}] ✋ cierre (${quien}) — follow-ups suprimidos${quien === 'asesor' ? ' · bot sigue en silencio' : ''}`);
 }
 
 const CLOSING_PATTERNS = [
   /gracias por (escribir|contactar|consultar|comunicarte|comunicarse)(nos|me|te|se)?\b/i,
   /gracias por (tu|su|la|el|las|los) (consulta|mensaje|tiempo|comunicaci[oó]n|compra)/i,
   /cualquier (otra )?(consulta|duda|cosa)[, ]+(nos|me) (avis|escrib|consult|llam)/i,
+  /cualquier (otra )?(consulta|duda|cosa)[\s,]*(h[aá]blame|avisame|av[ií]same|escribime|escr[ií]bime|decime|consultame|chiflame)/i,
   /(te|los|lo|las|la) esperamos\b/i,
   /que teng(a|as|an) (un |una |unos |unas )?(buen|buena|buenos|buenas|gran|lindo|linda|lindos|lindas|hermoso|hermosa|hermosos|hermosas|excelente)s? (d[ií]a|finde|fin de semana|noche|tarde|jornada|semana)/i,
   /saludos cordiales/i,
@@ -128,6 +136,27 @@ function isClosingMessage(text) {
   const t = text.trim().toLowerCase();
   if (t.length > 200) return false;
   return CLOSING_PATTERNS.some(re => re.test(t));
+}
+
+// Cierres típicos DEL CLIENTE ("dale, te aviso", "gracias", "listo"...).
+// Si el cliente dio por terminada la charla, no lo molestamos con follow-ups.
+const CLIENT_CLOSING_PATTERNS = [
+  /^(muchas |mil |ok |dale )?gracias+[\s!.,🙌👍🙂😊❤️🌟⭐🤝]*$/i,
+  /^(dale|listo|ok+a?|okey|joya|b[aá]rbaro|genial|perfecto|buen[ií]simo|de una|igualmente|tranqui)[\s!.,🙌👍🙂😊❤️🤝]*$/i,
+  /\b(te|les) aviso\b/i,
+  /\blo (veo|miro|reviso) y (te|les) (aviso|digo|escribo)\b/i,
+  /\bdespu[eé]s (te|les) (aviso|digo|escribo|hablo)\b/i,
+  /\bcualquier cosa (te|les) (aviso|escribo|hablo|digo)\b/i,
+  /\bnos vemos\b/i,
+  /\bhasta (luego|ma[nñ]ana)\b/i,
+];
+
+function isClientClosing(text) {
+  if (!text) return false;
+  const t = text.trim();
+  if (t.length > 120) return false;
+  if (t.includes('?')) return false; // si pregunta algo, la charla sigue
+  return CLIENT_CLOSING_PATTERNS.some(re => re.test(t));
 }
 
 async function logNewClientIfFirst(client, msg) {
@@ -187,7 +216,9 @@ async function sendFollowupIfDue(client) {
     if (lastFu && dayKey(lastFu) === dayKey(now)) continue;
     if (h.escalated) continue;
     const last = lastActivityAt.get(chatId) || 0;
-    if (now - last < cutoff) continue;
+    // Sin registro de actividad (ej: reinicio con estado viejo): NO disparar
+    // el follow-up "a ciegas" — esperar a que haya actividad real.
+    if (!last || now - last < cutoff) continue;
 
     const msg = '¿Te puedo ayudar en algo más? 🙂';
     try {
@@ -466,6 +497,16 @@ async function handleIncoming(client, msg) {
     }
     const chat = await msg.getChat();
     if (chat.isGroup) return;
+
+    // El cliente cerró la charla ("gracias", "dale, te aviso", "listo"):
+    // NO le re-escribimos nada (ni "de nada" ni "¿algo más?"). Chat cerrado.
+    if (text && isClientClosing(text)) {
+      followupSent.set(from, now);
+      productFollowup.delete(from);
+      recordHistory(from, 'user', text);
+      console.log(`[${from}] ✋ cierre del cliente ("${text.slice(0, 40)}") — chat cerrado, sin respuesta`);
+      return;
+    }
 
     await logNewClientIfFirst(client, msg);
 
