@@ -304,16 +304,50 @@ async function resolveHumanLabel(client) {
   console.log(`   - Probá: abrí WhatsApp Business en el cel, tocá la etiqueta HUMANO, después pm2 restart wa-bridge`);
 }
 
+// WhatsApp Business migró "Etiquetas" a "Listas": el API de labels puede
+// dejar de andar según la versión. Por eso el marcado para humano usa un
+// esquema de 3 niveles, del más confiable al menos:
+//   1) Marcar el chat como NO LEÍDO (funciona siempre, con o sin Listas)
+//   2) Avisar por WhatsApp al supervisor (si WA_SUPERVISOR_NUMBER está en .env)
+//   3) Etiqueta HUMANO (best-effort; con re-resolución lazy post-migración)
+let lastLabelResolveAt = 0;
+
 async function markChatForHuman(client, chatId) {
-  if (!humanLabelId) {
-    console.log(`[${chatId}] no se pudo etiquetar: humanLabelId es null (etiqueta no encontrada al arranque)`);
+  if (chatId.endsWith('@newsletter') || chatId.endsWith('@broadcast')) return;
+  let chat = null;
+  try { chat = await client.getChatById(chatId); } catch (e) {
+    console.error(`[${chatId}] no se pudo abrir el chat:`, e.message);
     return;
   }
-  // Canales/newsletters/difusión no soportan etiquetas: los salteamos.
-  if (chatId.endsWith('@newsletter') || chatId.endsWith('@broadcast')) { labeledChats.add(chatId); return; }
+
+  // 1) No leído: el chat queda pendiente a la vista, sin depender de Listas.
+  try {
+    if (typeof chat.markUnread === 'function') {
+      await chat.markUnread();
+      console.log(`[${chatId}] 🔵 marcado como NO LEÍDO (pendiente para humano)`);
+    }
+  } catch (e) { console.error(`[${chatId}] markUnread fail:`, e.message); }
+
+  // 3) Etiqueta (best-effort). Si al arranque no había (migración a Listas),
+  //    reintenta resolverla como mucho una vez cada 10 minutos.
+  if (!humanLabelId && Date.now() - lastLabelResolveAt > 10 * 60_000) {
+    lastLabelResolveAt = Date.now();
+    try {
+      const labels = await client.getLabels();
+      const target = HUMAN_LABEL_NAME.toUpperCase();
+      const found = (labels || []).find(l => (l.name || '').toUpperCase().includes(target));
+      if (found) {
+        humanLabelId = found.id;
+        console.log(`✅ Etiqueta "${found.name}" re-detectada (id=${humanLabelId}) tras la migración a Listas.`);
+      }
+    } catch {}
+  }
+  if (!humanLabelId) {
+    console.log(`[${chatId}] sin etiqueta disponible (¿WhatsApp Listas?) — queda como no leído + aviso a supervisor`);
+    return;
+  }
   if (labeledChats.has(chatId)) return;
   try {
-    const chat = await client.getChatById(chatId);
     if (typeof chat.changeLabels !== 'function') { labeledChats.add(chatId); return; }
     let existingIds = [];
     try {
@@ -331,6 +365,42 @@ async function markChatForHuman(client, chatId) {
     console.log(`[${chatId}] 🟡 etiqueta HUMANO aplicada (se conservan ${existingIds.length} existentes)`);
   } catch (e) {
     console.error(`[${chatId}] no se pudo etiquetar:`, e.message);
+  }
+}
+
+// 2) Aviso directo al supervisor por WhatsApp con link al chat del cliente.
+//    Se activa poniendo WA_SUPERVISOR_NUMBER en el .env (solo dígitos, con
+//    código de país, ej: 5491122334455). Máximo 1 aviso por chat cada 6 horas.
+const SUPERVISOR_NUMBER = (process.env.WA_SUPERVISOR_NUMBER || '').replace(/[^0-9]/g, '');
+const supervisorNotified = new Map();
+
+function motivoHumano(reason) {
+  if (reason === 'ia_reclamo_ml' || reason === 'ia_reclamo_datos') return 'Reclamo de compra ML 📦';
+  if (reason === 'ia_mayorista') return 'Consulta mayorista 🧾';
+  if (reason === 'ia_escalate_human') return 'Pidió hablar con una persona 🧑';
+  return 'Necesita atención';
+}
+
+async function notifySupervisor(client, chatId, reason, lastText) {
+  if (!SUPERVISOR_NUMBER) return;
+  const supervisorChat = SUPERVISOR_NUMBER + '@c.us';
+  if (chatId === supervisorChat) return;
+  const last = supervisorNotified.get(chatId) || 0;
+  if (Date.now() - last < 6 * 3_600_000) return;
+  const phone = chatId.split('@')[0];
+  const body =
+    `🔔 *Atención requerida*\n` +
+    `Cliente: +${phone}\n` +
+    `Motivo: ${motivoHumano(reason)}\n` +
+    (lastText ? `Último mensaje: "${String(lastText).slice(0, 120)}"\n` : '') +
+    `👉 https://wa.me/${phone}`;
+  try {
+    await client.sendMessage(supervisorChat, body);
+    botSentRecent.push({ chatId: supervisorChat, body, at: Date.now() });
+    supervisorNotified.set(chatId, Date.now());
+    console.log(`[${chatId}] 📣 aviso enviado al supervisor (+${SUPERVISOR_NUMBER})`);
+  } catch (e) {
+    console.error(`aviso a supervisor fail:`, e.message);
   }
 }
 
@@ -419,15 +489,17 @@ async function handleIncoming(client, msg) {
     if (botCerro) {
       marcarCierre(from, 'bot');
     } else if (result.state?.escalated) {
-      // Pidió supervisor o requiere humano: etiqueta + bot silenciado.
+      // Pidió supervisor o requiere humano: marcado + aviso + bot silenciado.
       console.log(`[${from}] *** marcado para humano (bot en pausa) ***`);
       await markChatForHuman(client, from);
       markAsesorActive(from);
+      await notifySupervisor(client, from, result.reason, text);
     } else if (result.state?.flagHuman) {
-      // Mayorista/reclamo: etiqueta para que un humano lo siga,
+      // Mayorista/reclamo: marcado + aviso para que un humano lo siga,
       // pero el bot SIGUE respondiendo las dudas del cliente.
-      console.log(`[${from}] 🟡 etiquetado para humano (bot sigue activo)`);
+      console.log(`[${from}] 🟡 marcado para humano (bot sigue activo)`);
       await markChatForHuman(client, from);
+      await notifySupervisor(client, from, result.reason, text);
     }
   } catch (e) {
     console.error('handleIncoming error:', e.message);
