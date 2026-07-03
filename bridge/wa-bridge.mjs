@@ -47,7 +47,33 @@ const humanHandled = new Map();
 const lastActivityAt = new Map();
 const lastIncomingAt = new Map();
 const botSentRecent = [];
+const sentIds = new Set(); // IDs de mensajes enviados por el BOT: reconocimiento infalible
 const followupSent = new Map();
+
+// TODO envío del bot pasa por acá: registra el ID único del mensaje para que
+// handleOutgoing lo reconozca sin depender del texto (WhatsApp puede alterar
+// el cuerpo del evento — negritas, previews — y romper el match por texto).
+async function botSend(client, chatId, body) {
+  const sent = await client.sendMessage(chatId, body);
+  try {
+    const id = sent?.id?._serialized;
+    if (id) {
+      sentIds.add(id);
+      if (sentIds.size > 800) {
+        const it = sentIds.values();
+        for (let i = 0; i < 300; i++) sentIds.delete(it.next().value);
+      }
+    }
+  } catch {}
+  botSentRecent.push({ chatId, body, at: Date.now() });
+  return sent;
+}
+
+// Huella del texto: solo letras/números, sin emojis, negritas ni espacios.
+// Tolera cualquier decoración que WhatsApp agregue o saque.
+function textFingerprint(t) {
+  return String(t || '').normalize('NFD').replace(/[^\p{L}\p{N}]/gu, '').toLowerCase().slice(0, 160);
+}
 const knownContacts = new Set();
 const firstContactAt = new Map();   // chatId -> timestamp del primer contacto
 const reminderSent = new Set();      // chatId que ya recibieron el recordatorio de 5 días
@@ -222,8 +248,7 @@ async function sendFollowupIfDue(client) {
 
     const msg = '¿Te puedo ayudar en algo más? 🙂';
     try {
-      await client.sendMessage(chatId, msg);
-      botSentRecent.push({ chatId, body: msg, at: now });
+      await botSend(client, chatId, msg);
       followupSent.set(chatId, now);
       humanHandled.delete(chatId);
       lastActivityAt.set(chatId, now);
@@ -242,8 +267,7 @@ async function sendFollowupIfDue(client) {
     if (lastFu && dayKey(lastFu) === dayKey(now)) continue; // máx 1 por día
     const msg2 = '¿Cómo vas? 🙂 ¿Pudiste comprarlo desde el link, o te doy una mano con algo más?';
     try {
-      await client.sendMessage(chatId, msg2);
-      botSentRecent.push({ chatId, body: msg2, at: now });
+      await botSend(client, chatId, msg2);
       followupSent.set(chatId, now);
       lastActivityAt.set(chatId, now);
       console.log(`[${chatId}] 🛒 follow-up post-producto ("¿pudiste comprarlo?") tras ${FOLLOWUP_MINUTES}min`);
@@ -264,8 +288,7 @@ async function sendRemindersIfDue(client) {
     if (now - firstAt < cutoff) continue;
     if (isAsesorActive(chatId)) continue; // no interrumpir una charla con humano
     try {
-      await client.sendMessage(chatId, RECORDATORIO.mensaje);
-      botSentRecent.push({ chatId, body: RECORDATORIO.mensaje, at: Date.now() });
+      await botSend(client, chatId, RECORDATORIO.mensaje);
       reminderSent.add(chatId);
       lastActivityAt.set(chatId, Date.now());
       console.log(`[${chatId}] 🎁 recordatorio ${REMINDER_DAYS}d enviado (promo + calificación)`);
@@ -448,8 +471,7 @@ async function notifySupervisor(client, chatId, reason, lastText) {
     (lastText ? `Último mensaje: "${String(lastText).slice(0, 120)}"\n` : '') +
     `👉 https://wa.me/${phone}`;
   try {
-    await client.sendMessage(supervisorChat, body);
-    botSentRecent.push({ chatId: supervisorChat, body, at: Date.now() });
+    await botSend(client, supervisorChat, body);
     supervisorNotified.set(chatId, Date.now());
     console.log(`[${chatId}] 📣 aviso enviado al supervisor (+${SUPERVISOR_NUMBER})`);
   } catch (e) {
@@ -541,8 +563,7 @@ async function handleIncoming(client, msg) {
 
     for (const m of (result.messages || [])) {
       if (m.delaySec) await new Promise(r => setTimeout(r, m.delaySec * 1000));
-      await client.sendMessage(from, m.body);
-      botSentRecent.push({ chatId: from, body: m.body, at: Date.now() });
+      await botSend(client, from, m.body);
       lastActivityAt.set(from, Date.now());
       recordHistory(from, 'bot', m.body);
       console.log(`[${from}] <- ${m.body.slice(0, 80)}`);
@@ -586,21 +607,24 @@ async function handleOutgoing(client, msg) {
     const body = (msg.body || '').trim();
     if (!body) return;
 
-    // ¿Es un mensaje que mandó el PROPIO BOT? Matching robusto:
-    // - NO se borra la entrada al matchear (message_create puede dispararse
-    //   más de una vez para el mismo mensaje, sobre todo con links y preview)
-    // - match por prefijo en ambos sentidos (el preview del link puede
-    //   alterar levemente el cuerpo del evento)
-    // - retención de 5 minutos.
-    // Antes, el 2do evento del mensaje con link no matcheaba -> el bridge
-    // creía que "el asesor respondió a mano" y silenciaba el bot 3 horas.
+    // ¿Es un mensaje que mandó el PROPIO BOT?
+    // 1) Por ID único del mensaje (infalible: botSend registra el id de todo
+    //    lo que envía; no depende del texto para nada).
+    const msgId = msg.id?._serialized;
+    if (msgId && sentIds.has(msgId)) {
+      lastActivityAt.set(chatId, Date.now());
+      return;
+    }
+    // 2) Respaldo por huella de texto (solo letras/números): tolera que
+    //    WhatsApp altere negritas, emojis o el preview del link en el evento.
     const cutoff = Date.now() - 5 * 60_000;
     while (botSentRecent.length && botSentRecent[0].at < cutoff) botSentRecent.shift();
-    const esDelBot = botSentRecent.some(s => {
+    const fpBody = textFingerprint(body);
+    const esDelBot = fpBody && botSentRecent.some(s => {
       if (s.chatId !== chatId) return false;
-      const a = (s.body || '').trim();
-      if (a === body) return true;
-      return a.startsWith(body) || body.startsWith(a);
+      const fpSent = textFingerprint(s.body);
+      if (!fpSent) return false;
+      return fpSent === fpBody || fpSent.startsWith(fpBody) || fpBody.startsWith(fpSent);
     });
     if (esDelBot) {
       lastActivityAt.set(chatId, Date.now());
