@@ -1,8 +1,11 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
+import Scanner from './Scanner'
 import './Movements.css'
 
 export default function Movements({ products, movements, onAdd }) {
   const [showForm, setShowForm] = useState(false)
+  const [showScanner, setShowScanner] = useState(false)
+  const [scanMessage, setScanMessage] = useState('')
   const [formData, setFormData] = useState({
     type: 'entrada',
     productId: '',
@@ -18,6 +21,7 @@ export default function Movements({ products, movements, onAdd }) {
     e.preventDefault()
     setError('')
     setSuccess('')
+    setScanMessage('')
 
     if (!formData.productId) {
       setError('Debes seleccionar un producto')
@@ -71,6 +75,31 @@ export default function Movements({ products, movements, onAdd }) {
     }
   }
 
+  const handleScan = useCallback((code) => {
+    setShowScanner(false)
+    const product = products.find(
+      p => p.code && (p.code === code || code.includes(p.code))
+    )
+    if (product) {
+      setFormData(prev => ({
+        ...prev,
+        type: 'entrada',
+        productId: product.id,
+        quantity: prev.quantity || '1',
+        reason: 'Ingreso por escaneo QR',
+        reference: code.slice(0, 60),
+      }))
+      setScanMessage(`✓ Código detectado: ${product.name}. Revisá la cantidad y confirmá.`)
+      setShowForm(true)
+      setError('')
+    } else {
+      setScanMessage('')
+      setFormData(prev => ({ ...prev, reference: code.slice(0, 60) }))
+      setShowForm(true)
+      setError(`No hay ningún producto con el código "${code.slice(0, 40)}". Seleccioná el producto manualmente o cargalo primero en Inventario con ese código.`)
+    }
+  }, [products])
+
   const getMovementIcon = (type) => (type === 'entrada' ? '📥' : '📤')
   const getMovementLabel = (type) => (type === 'entrada' ? 'Entrada' : 'Salida')
 
@@ -102,13 +131,32 @@ export default function Movements({ products, movements, onAdd }) {
           <h1>🔄 Movimientos de Stock</h1>
           <p>Registra entradas y salidas de mercancía</p>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="btn-add"
-        >
-          {showForm ? '✕ Cancelar' : '+ Nuevo Movimiento'}
-        </button>
+        <div className="header-actions">
+          <button
+            onClick={() => setShowScanner(true)}
+            className="btn-scan"
+          >
+            📷 Escanear QR
+          </button>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="btn-add"
+          >
+            {showForm ? '✕ Cancelar' : '+ Nuevo Movimiento'}
+          </button>
+        </div>
       </div>
+
+      {showScanner && (
+        <Scanner
+          onScan={handleScan}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
+
+      {scanMessage && !showScanner && (
+        <div className="success-message">{scanMessage}</div>
+      )}
 
       {showForm && (
         <div className="form-panel">
