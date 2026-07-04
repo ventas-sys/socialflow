@@ -244,7 +244,7 @@ async function ensureFreshMLToken(){
   const expired = c.expiresAt && Date.now() > (c.expiresAt - 5*60*1000); // 5min margen
   if(expired && c.refreshToken && c.clientId && c.clientSecret){
     try {
-      const r = await fetch('/api/ml/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clientId:c.clientId,clientSecret:c.clientSecret,refreshToken:c.refreshToken})});
+      const r = await fetch('/api/ml/exchange?action=refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clientId:c.clientId,clientSecret:c.clientSecret,refreshToken:c.refreshToken})});
       const d = await r.json();
       if(d.ok){
         s = JSON.parse(localStorage.getItem('up_state')||'{}');

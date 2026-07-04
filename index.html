@@ -7,10 +7,10 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a16;color:#e0d8cc;min-height:100vh;}
-.header{background:rgba(255,255,255,0.03);border-bottom:1px solid rgba(164,215,43,0.15);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+.header{background:rgba(255,255,255,0.03);border-bottom:1px solid rgba(198,222,0,0.15);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
 .logo{display:flex;align-items:center;gap:10px;}
-.logo-icon{width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#a4d72b,#6f9e14);display:flex;align-items:center;justify-content:center;font-weight:800;color:#0d0d0d;font-size:13px;flex-shrink:0;}
-.logo-title{font-size:16px;font-weight:700;color:#a4d72b;}
+.logo-icon{width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#c6de00,#87a800);display:flex;align-items:center;justify-content:center;font-weight:800;color:#161a00;font-size:13px;flex-shrink:0;}
+.logo-title{font-size:16px;font-weight:700;color:#c6de00;}
 .logo-sub{font-size:9px;color:#666;letter-spacing:2px;text-transform:uppercase;}
 .online{font-size:11px;color:#00c864;background:rgba(0,200,100,0.1);border:1px solid rgba(0,200,100,0.2);padding:4px 10px;border-radius:20px;display:flex;align-items:center;gap:6px;}
 .dot-pulse{width:7px;height:7px;border-radius:50%;background:#00c864;animation:pulse 1.6s infinite;}
@@ -19,7 +19,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .main{max-width:1100px;margin:0 auto;padding:24px 16px 60px;}
 .hero{text-align:center;margin-bottom:24px;padding:12px 0 8px;}
 .hero h1{font-size:26px;font-weight:800;color:#fff;margin-bottom:6px;}
-.hero h1 span{background:linear-gradient(135deg,#a4d72b,#7cb518);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.hero h1 span{background:linear-gradient(135deg,#c6de00,#a3c300);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
 .hero p{font-size:13px;color:#888;max-width:580px;margin:0 auto;}
 
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px;}
@@ -28,16 +28,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .kpi-val{font-size:22px;font-weight:700;color:#fff;}
 .kpi-sub{font-size:10px;color:#888;margin-top:2px;}
 .kpi-val.green{color:#00c864;}
-.kpi-val.orange{color:#a4d72b;}
+.kpi-val.orange{color:#c6de00;}
 .kpi-val.blue{color:#3b82f6;}
 
-.section-title{font-size:11px;color:#a4d72b;letter-spacing:2px;text-transform:uppercase;margin:18px 0 12px;display:flex;align-items:center;gap:8px;}
-.section-title::after{content:'';flex:1;height:1px;background:rgba(164,215,43,0.15);}
+.section-title{font-size:11px;color:#c6de00;letter-spacing:2px;text-transform:uppercase;margin:18px 0 12px;display:flex;align-items:center;gap:8px;}
+.section-title::after{content:'';flex:1;height:1px;background:rgba(198,222,0,0.15);}
 
 .agents-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:24px;}
 .agent{background:linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02));border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:18px;text-decoration:none;color:inherit;display:block;transition:all 0.2s;position:relative;overflow:hidden;}
-.agent:hover{border-color:rgba(164,215,43,0.4);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.3);}
-.agent::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent,#a4d72b);}
+.agent:hover{border-color:rgba(198,222,0,0.4);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.3);}
+.agent::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent,#c6de00);}
 .agent-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;}
 .agent-icon{width:42px;height:42px;border-radius:10px;background:var(--accent-bg);display:flex;align-items:center;justify-content:center;font-size:22px;}
 .agent-status{font-size:10px;color:#00c864;background:rgba(0,200,100,0.12);border:1px solid rgba(0,200,100,0.25);padding:3px 8px;border-radius:10px;display:inline-flex;align-items:center;gap:5px;}
@@ -55,17 +55,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .ch-name{font-size:11px;font-weight:600;color:#ccc;margin-bottom:3px;}
 .ch-st{font-size:9px;padding:2px 7px;border-radius:10px;display:inline-block;}
 .ch-st.ok{color:#00c864;background:rgba(0,200,100,0.12);}
-.ch-st.warn{color:#a4d72b;background:rgba(164,215,43,0.12);}
+.ch-st.warn{color:#c6de00;background:rgba(198,222,0,0.12);}
 .ch-st.no{color:#888;background:rgba(150,150,150,0.1);}
 
 .activity{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;}
 .act-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:12px;}
 .act-row:last-child{border:none;}
-.act-icon{width:26px;height:26px;border-radius:8px;background:rgba(164,215,43,0.1);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.act-icon{width:26px;height:26px;border-radius:8px;background:rgba(198,222,0,0.1);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
 .act-text{color:#ccc;flex:1;}
 .act-time{color:#666;font-size:10px;}
 
-.product-card{background:linear-gradient(180deg,rgba(164,215,43,0.08),rgba(164,215,43,0.02));border:1px solid rgba(164,215,43,0.3);border-radius:14px;padding:16px;margin-bottom:20px;display:flex;gap:14px;align-items:flex-start;}
+.product-card{background:linear-gradient(180deg,rgba(198,222,0,0.08),rgba(198,222,0,0.02));border:1px solid rgba(198,222,0,0.3);border-radius:14px;padding:16px;margin-bottom:20px;display:flex;gap:14px;align-items:flex-start;}
 .product-card .ph{width:90px;height:90px;border-radius:10px;background:rgba(0,0,0,0.3);background-size:cover;background-position:center;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#555;font-size:30px;}
 .product-card .info{flex:1;min-width:0;}
 .product-card .pn{font-size:15px;font-weight:700;color:#fff;margin-bottom:3px;word-break:break-word;}
@@ -73,11 +73,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .product-card .chips{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px;}
 .product-card .chip{font-size:10px;padding:3px 8px;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#888;}
 .product-card .chip.done{background:rgba(0,200,100,0.12);border-color:rgba(0,200,100,0.35);color:#00c864;}
-.product-card .btn-edit{background:rgba(164,215,43,0.12);border:1px solid rgba(164,215,43,0.35);color:#a4d72b;padding:5px 11px;border-radius:7px;text-decoration:none;font-size:11px;font-weight:600;display:inline-block;}
-.product-card .btn-all{background:linear-gradient(135deg,#a4d72b,#6f9e14);border:none;color:#0d0d0d;padding:5px 11px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;margin-left:6px;}
+.product-card .btn-edit{background:rgba(198,222,0,0.12);border:1px solid rgba(198,222,0,0.35);color:#c6de00;padding:5px 11px;border-radius:7px;text-decoration:none;font-size:11px;font-weight:600;display:inline-block;}
+.product-card .btn-all{background:linear-gradient(135deg,#c6de00,#87a800);border:none;color:#161a00;padding:5px 11px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;margin-left:6px;}
 .product-card .btn-all:disabled{background:rgba(100,100,100,0.2);color:#555;cursor:not-allowed;}
-.empty-product{background:rgba(255,255,255,0.03);border:2px dashed rgba(164,215,43,0.25);border-radius:14px;padding:24px 16px;text-align:center;margin-bottom:20px;}
-.empty-product a{display:inline-block;margin-top:10px;background:linear-gradient(135deg,#a4d72b,#6f9e14);color:#0d0d0d;padding:9px 18px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:700;}
+.empty-product{background:rgba(255,255,255,0.03);border:2px dashed rgba(198,222,0,0.25);border-radius:14px;padding:24px 16px;text-align:center;margin-bottom:20px;}
+.empty-product a{display:inline-block;margin-top:10px;background:linear-gradient(135deg,#c6de00,#87a800);color:#161a00;padding:9px 18px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:700;}
 
 @media(max-width:760px){
   .kpi-grid{grid-template-columns:repeat(2,1fr);}
@@ -94,7 +94,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div><div class="logo-title">Uniproveedores</div><div class="logo-sub">AGENCIA DE VENTAS · IA</div></div>
   </div>
   <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-    <a href="/producto" style="text-decoration:none;font-size:11px;color:#a4d72b;background:rgba(164,215,43,0.1);border:1px solid rgba(164,215,43,0.25);padding:4px 10px;border-radius:20px;">📦 Producto</a>
+    <a href="/producto" style="text-decoration:none;font-size:11px;color:#c6de00;background:rgba(198,222,0,0.1);border:1px solid rgba(198,222,0,0.25);padding:4px 10px;border-radius:20px;">📦 Producto</a>
     <a href="/conexiones" style="text-decoration:none;font-size:11px;color:#00c864;background:rgba(0,200,100,0.1);border:1px solid rgba(0,200,100,0.25);padding:4px 10px;border-radius:20px;">🔌 Conexiones</a>
     <div class="online"><div class="dot-pulse"></div> Operativo</div>
   </div>
@@ -109,7 +109,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div id="product-zone"></div>
 
   <div class="kpi-grid">
-    <div class="kpi"><div class="kpi-lbl">Canales activos</div><div class="kpi-val orange" id="kpi-channels">—</div><div class="kpi-sub" id="kpi-channels-sub">sobre 10 totales</div></div>
+    <div class="kpi"><div class="kpi-lbl">Canales activos</div><div class="kpi-val orange" id="kpi-channels">—</div><div class="kpi-sub">sobre 10 totales</div></div>
     <div class="kpi"><div class="kpi-lbl">Verificaciones</div><div class="kpi-val green" id="kpi-verif">—</div><div class="kpi-sub">cuentas verificadas</div></div>
     <div class="kpi"><div class="kpi-lbl">Agentes IA</div><div class="kpi-val blue">8</div><div class="kpi-sub">en línea 24/7</div></div>
     <div class="kpi"><div class="kpi-lbl">Última actividad</div><div class="kpi-val" id="kpi-act" style="font-size:14px;padding-top:6px;">—</div><div class="kpi-sub" id="kpi-act-sub">sin registros</div></div>
@@ -137,14 +137,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="agent-meta"><span>Fichas · SEO · Conversión</span><span class="agent-cta">Abrir</span></div>
     </a>
 
-    <a class="agent" href="/social.html" style="--accent:#a4d72b;--accent-bg:rgba(164,215,43,0.12);">
+    <a class="agent" href="/social.html" style="--accent:#c6de00;--accent-bg:rgba(198,222,0,0.12);">
       <div class="agent-top">
         <div class="agent-icon">📣</div>
         <div class="agent-status"><div class="dot-pulse"></div> Activo</div>
       </div>
       <div class="agent-name">Agente Redes Sociales</div>
-      <div class="agent-desc">Genera copies y imágenes IA para Instagram, Facebook, WhatsApp, LinkedIn, X/Twitter y TikTok. Publicación con un clic.</div>
-      <div class="agent-meta"><span>Copies · Imagen IA · 6 redes</span><span class="agent-cta">Abrir</span></div>
+      <div class="agent-desc">Genera copies e imágenes IA para Instagram, Facebook, WhatsApp, LinkedIn, X/Twitter, TikTok y YouTube Shorts. Publica directo en FB+IG con Meta conectado.</div>
+      <div class="agent-meta"><span>Copies · Imagen IA · 7 redes</span><span class="agent-cta">Abrir</span></div>
     </a>
 
     <a class="agent" href="/youtube.html" style="--accent:#ff4444;--accent-bg:rgba(255,0,0,0.12);">
@@ -200,7 +200,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
   <div class="section-title">Estado de canales</div>
   <div class="channels">
-    <div style="font-size:12px;color:#888;">Vista rápida de tus canales de venta y comunicación. Tocá <a href="/verification.html" style="color:#a4d72b;">Agente Verificación</a> para gestionar cada uno.</div>
+    <div style="font-size:12px;color:#888;">Vista rápida de tus canales de venta y comunicación. Tocá <a href="/verification.html" style="color:#c6de00;">Agente Verificación</a> para gestionar cada uno.</div>
     <div class="ch-grid" id="ch-grid"></div>
   </div>
 
@@ -220,7 +220,7 @@ const CHANNELS = [
   {id:'li',name:'LinkedIn',icon:'💼'},
   {id:'tw',name:'X/Twitter',icon:'🐦'},
   {id:'tk',name:'TikTok',icon:'🎵'},
-  {id:'yt',name:'YouTube',icon:'▶️'},
+  {id:'yt',name:'YouTube',icon:'📺'},
   {id:'gb',name:'Google Business',icon:'🗺️'}
 ];
 
@@ -312,7 +312,7 @@ async function generateAll(){
 
   const mlInput = {name:p.name,cat:p.category,price:p.price,desc:p.description,type:'clasica'};
   const tnInput = {name:p.name,cat:p.category,price:p.price,desc:p.description,target:p.target};
-  const socialReqs = ['ig','fb','wa','li','tw','tk'].map(id=>
+  const socialReqs = ['ig','fb','wa','li','tw','tk','yt'].map(id=>
     fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({platform:id,info:p.name+(p.price?', precio $'+p.price:'')+(p.description?', '+p.description:''),tone:'energético con emojis y entusiasmo',photoB64:p.photoB64||null})
     }).then(r=>r.json()).then(d=>({id,copy:d.copy||'',photoDesc:d.photoDesc}))

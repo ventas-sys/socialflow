@@ -15,7 +15,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .ia-badge{font-size:11px;color:#00c864;background:rgba(0,200,100,0.08);border:1px solid rgba(0,200,100,0.2);padding:4px 10px;border-radius:20px;}
 .main{max-width:760px;margin:0 auto;padding:20px 16px 60px;}
 .tip{background:rgba(0,200,100,0.06);border:1px solid rgba(0,200,100,0.15);border-radius:10px;padding:11px 16px;font-size:12px;color:#7eddae;margin-bottom:16px;}
-.warn{background:rgba(164,215,43,0.06);border:1px solid rgba(164,215,43,0.18);border-radius:10px;padding:11px 16px;font-size:11px;color:#ffb060;margin-bottom:14px;line-height:1.55;}
+.warn{background:rgba(198,222,0,0.06);border:1px solid rgba(198,222,0,0.18);border-radius:10px;padding:11px 16px;font-size:11px;color:#ffb060;margin-bottom:14px;line-height:1.55;}
 
 .conn-card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:16px;margin-bottom:12px;border-left:4px solid var(--accent,#888);}
 .conn-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
@@ -69,7 +69,7 @@ input:focus{outline:none;border-color:rgba(0,200,100,0.5);}
     <div class="help">⚠️ En <a href="https://developers.mercadolibre.com.ar/devcenter" target="_blank">DevCenter ML</a> → tu app → "Redirect URI" → pegá EXACTAMENTE el valor de arriba. Después guardás y autorizás.</div>
     <div class="btn-row">
       <button class="btn btn-save" onclick="saveConn('ml')">💾 Guardar credenciales</button>
-      <button class="btn" style="background:rgba(164,215,43,0.15);border-color:rgba(164,215,43,0.4);color:#a4d72b;font-weight:700;" onclick="oauthML()">🚀 Autorizar Mercado Libre</button>
+      <button class="btn" style="background:rgba(198,222,0,0.15);border-color:rgba(198,222,0,0.4);color:#c6de00;font-weight:700;" onclick="oauthML()">🚀 Autorizar Mercado Libre</button>
       <button class="btn btn-test" onclick="refreshML()" id="ml-refresh-btn" style="display:none;">🔄 Renovar token</button>
       <button class="btn btn-clear" onclick="clearConn('ml')">🗑 Limpiar</button>
     </div>
@@ -111,12 +111,21 @@ input:focus{outline:none;border-color:rgba(0,200,100,0.5);}
     <div class="result" id="conta-result"></div>
   </div>
 
-  <div class="conn-card" style="--accent:#1877F2;opacity:0.6;">
+  <div class="conn-card" style="--accent:#1877F2;">
     <div class="conn-top">
-      <div class="conn-name"><div class="conn-icon">📘</div><div><div class="conn-title">Meta (Facebook + Instagram)</div><div class="conn-sub">developers.facebook.com</div></div></div>
-      <div class="conn-state">próximamente</div>
+      <div class="conn-name"><div class="conn-icon">📘</div><div><div class="conn-title">Meta (Facebook + Instagram)</div><div class="conn-sub">OAuth · developers.facebook.com</div></div></div>
+      <div class="conn-state" id="meta-state">sin conectar</div>
     </div>
-    <div class="help" style="margin-top:6px;">Llega en la siguiente fase. Necesita Page Access Token + IG Business Account ID.</div>
+    <div class="field"><label>App ID (ID de la app de Meta)</label><input id="meta-cid" type="text" placeholder="1234567890123456"></div>
+    <div class="field"><label>App Secret (Clave secreta de la app)</label><input id="meta-cs" type="password" placeholder="..."></div>
+    <div class="field"><label>Redirect URI (copialo en tu app de Meta)</label><input id="meta-redirect" type="text" readonly style="background:rgba(0,0,0,0.2);font-size:11px;"></div>
+    <div class="help">⚠️ En <a href="https://developers.facebook.com/apps" target="_blank">Meta for Developers</a> → tu app → <b>Facebook Login → Configuración</b> → "URI de redireccionamiento de OAuth válidos" → pegá EXACTAMENTE el valor de arriba. Necesitás los permisos: <code>pages_manage_posts, pages_read_engagement, pages_show_list, instagram_basic, instagram_content_publish, business_management</code>. La cuenta de Instagram tiene que ser <b>Business</b> y estar vinculada a la página de Facebook.</div>
+    <div class="btn-row">
+      <button class="btn btn-save" onclick="saveConn('meta')">💾 Guardar credenciales</button>
+      <button class="btn" style="background:rgba(24,119,242,0.15);border-color:rgba(24,119,242,0.4);color:#5b9bff;font-weight:700;" onclick="oauthMeta()">🚀 Autorizar Meta</button>
+      <button class="btn btn-clear" onclick="clearConn('meta')">🗑 Limpiar</button>
+    </div>
+    <div class="result" id="meta-result"></div>
   </div>
 </div>
 
@@ -167,6 +176,23 @@ function render(){
   if(c.conta?.inbox){
     document.getElementById('conta-inbox').value = c.conta.inbox;
   }
+  document.getElementById('meta-redirect').value = location.origin + '/meta-callback';
+  if(c.meta?.clientId){
+    document.getElementById('meta-cid').value = c.meta.clientId;
+    document.getElementById('meta-cs').value = c.meta.clientSecret||'';
+  }
+  if(c.meta?.verified){
+    const st = document.getElementById('meta-state');
+    const expired = c.meta.expiresAt && Date.now() > c.meta.expiresAt;
+    if(expired){
+      st.textContent = '⚠ token vencido · reautorizá';
+      st.className = 'conn-state err';
+    } else {
+      const ig = c.meta.igUsername ? ' + IG @'+c.meta.igUsername : '';
+      st.textContent = '✓ '+(c.meta.pageName||'página')+ig;
+      st.className = 'conn-state ok';
+    }
+  }
 }
 
 function saveConn(prov){
@@ -188,6 +214,11 @@ function saveConn(prov){
     const inbox = document.getElementById('conta-inbox').value.trim();
     if(!clientId||!clientSecret){ notify('Falta Client ID o Secret'); return; }
     s.connections.conta = {clientId, clientSecret, inbox, verified:false, savedAt:new Date().toISOString()};
+  } else if(prov==='meta'){
+    const clientId = document.getElementById('meta-cid').value.trim();
+    const clientSecret = document.getElementById('meta-cs').value.trim();
+    if(!clientId||!clientSecret){ notify('Falta App ID o App Secret'); return; }
+    s.connections.meta = {...s.connections.meta, clientId, clientSecret, savedAt:new Date().toISOString()};
   }
   saveState(s);
   notify('💾 Credenciales guardadas');
@@ -217,6 +248,22 @@ function oauthML(){
   location.href = authUrl;
 }
 
+function oauthMeta(){
+  const s = loadState();
+  const c = s.connections?.meta;
+  if(!c?.clientId || !c?.clientSecret){
+    notify('Guardá App ID + App Secret primero');
+    return;
+  }
+  const redirectUri = location.origin + '/meta-callback';
+  const scope = 'pages_manage_posts,pages_read_engagement,pages_show_list,instagram_basic,instagram_content_publish,business_management';
+  const authUrl = 'https://www.facebook.com/v21.0/dialog/oauth?response_type=code'
+    + '&client_id='+encodeURIComponent(c.clientId)
+    + '&redirect_uri='+encodeURIComponent(redirectUri)
+    + '&scope='+encodeURIComponent(scope);
+  location.href = authUrl;
+}
+
 async function refreshML(){
   const s = loadState();
   const c = s.connections?.ml;
@@ -224,7 +271,7 @@ async function refreshML(){
   const btn = document.getElementById('ml-refresh-btn');
   btn.disabled = true; const orig = btn.innerHTML; btn.innerHTML='<span class="spinner"></span>Renovando...';
   try {
-    const r = await fetch('/api/ml/refresh',{
+    const r = await fetch('/api/ml/exchange?action=refresh',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({clientId:c.clientId, clientSecret:c.clientSecret, refreshToken:c.refreshToken})
     });
@@ -242,13 +289,14 @@ async function refreshML(){
 }
 
 function clearConn(prov){
-  const provName = prov==='ml'?'Mercado Libre':prov==='tn'?'Tienda Nube':'Contabilium';
+  const provName = prov==='ml'?'Mercado Libre':prov==='tn'?'Tienda Nube':prov==='meta'?'Meta (FB+IG)':'Contabilium';
   if(!confirm('¿Borrar las credenciales de '+provName+'?')) return;
   const s = loadState();
   s.connections = s.connections || {};
   delete s.connections[prov];
+  if(prov==='meta' && s.channels){ delete s.channels.fb; delete s.channels.ig; }
   saveState(s);
-  const fields = prov==='ml' ? ['ml-cid','ml-cs'] : prov==='tn' ? ['tn-cid','tn-cs'] : ['conta-cid','conta-cs','conta-inbox'];
+  const fields = prov==='ml' ? ['ml-cid','ml-cs'] : prov==='tn' ? ['tn-cid','tn-cs'] : prov==='meta' ? ['meta-cid','meta-cs'] : ['conta-cid','conta-cs','conta-inbox'];
   fields.forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   document.getElementById(prov+'-state').textContent = 'sin conectar';
   document.getElementById(prov+'-state').className = 'conn-state';
@@ -268,6 +316,7 @@ async function testConn(prov){
   try {
     const url = prov==='conta' ? '/api/contabilium?action=test'
               : prov==='tn' ? '/api/tn?action=test'
+              : prov==='ml' ? '/api/ml/exchange?action=test'
               : '/api/'+prov+'/test';
     const r = await fetch(url,{
       method:'POST',headers:{'Content-Type':'application/json'},
