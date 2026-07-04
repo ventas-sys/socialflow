@@ -67,14 +67,36 @@ Cada mensaje va a la IA con un **banco de memoria** (armado desde business-confi
 - **Gemini**: `GEMINI_API_KEY` en Vercel. ⚠️ El 2026-07-02 Google bloqueó la API por facturación ("Lightning dunning decision is deny", proyecto 154343840927) → el bot caía al fallback. Se resolvió pagando. Si reaparece: revisar https://console.cloud.google.com/billing. El webhook devuelve campo `debug` con el error exacto de Gemini (probar con `curl -d '{"simulate":true,"from":"t@c.us","text":"..."}' .../api/wa/webhook`).
 - **Bridge .env** (`bridge/.env` en el VPS): `WA_WEBHOOK_URL` (prod), `WA_BRIDGE_TOKEN`, `WA_HUMAN_LABEL`, `WA_SUPERVISOR_NUMBER`, `WA_FOLLOWUP_MINUTES` (default 120), `WA_REMINDER_DAYS` (default 5).
 
+## 🚪 Reglas de cierre de conversación (definidas con la usuaria)
+
+- **El ASESOR cierra** ("gracias por escribirnos…") → el bot NO escribe nada más en ese chat (ni al "gracias" del cliente). Silencio 3h.
+- **El CLIENTE cierra** ("Graciass", "listo", "dale, te aviso") → sin respuesta, sin follow-ups. "gracias pero me llegó roto" NO es cierre (va a reclamo).
+- **Charla abierta sin respuesta** → a las 2h: "¿Te puedo ayudar en algo más? 🙂" (máx 1/día).
+- **Link de producto sin respuesta** → a las 2h: "¿Pudiste comprarlo o te doy una mano?".
+- **Cliente pasó nº de compra de ML** → vale igual que el usuario para el reclamo.
+
+## 🐛 El bug del auto-silencio (histórico, RESUELTO en #37)
+
+Síntoma: tras cada mensaje del bot con link, el chat quedaba mudo 3hs.
+Causa (confirmada en logs del VPS): el evento `message_create` del mensaje
+enviado se dispara ANTES de que `client.sendMessage()` resuelva → el registro
+del ID/huella llegaba tarde → el bridge tomaba su propio 2º mensaje como
+"asesor respondió a mano" → `markAsesorActive` 3hs. El 1º mensaje se salvaba
+por la ventana de auto-reply (3s). Fix: `botSend()` pre-registra la huella
+ANTES de enviar + candado `botSendingUntil` de 20s por chat.
+
 ## 📜 Historial de PRs del asistente (jul 2026)
 
-#21 base + #24 cierres suprimen follow-up · #25 fix Gemini thinking budget · #26 IA primero (sin menú Sí/No) · #27 aceptar reply vacío (plantillas) · #28 banco de memoria + mensajes cortos · #29 sigue respondiendo tras mayorista/reclamo · #30 confirmación reclamo + ve fotos · #31 marcado humano robusto (Listas).
+#21 base · #24 cierres suprimen follow-up · #25 fix Gemini thinking budget · #26 IA primero (sin menú Sí/No) · #27 aceptar reply vacío (plantillas) · #28 banco de memoria + mensajes cortos · #29 sigue respondiendo tras mayorista/reclamo · #30 confirmación reclamo + ve fotos · #31 marcado humano robusto (Listas) · #33 follow-up post-producto · #34 cierres asesor/cliente respetados + relojes persistidos · #35 reconocimiento por ID · #36 nº de compra resuelve reclamo · #37 **fix definitivo carrera de eventos (auto-silencio)**.
+
+## ✅ Estado 2026-07-03: EN PRUEBA con clientes reales por unos días
+
+Probado OK: saludos, productos con link filtrado, mayorista + seguimiento, reclamos (fotos + usuario/nº de compra + billetitos), cierres, audio, avisos al supervisor (`WA_SUPERVISOR_NUMBER` configurado), etiqueta HUMANO + no-leído.
 
 ## ⏳ Pendientes
 
-- [ ] Configurar `WA_SUPERVISOR_NUMBER` en el VPS y probar el aviso
-- [ ] Probar flujo reclamo completo (foto → usuario → billetitos)
+- [ ] Revisar comportamiento tras días de prueba real (logs: `pm2 logs wa-bridge`)
 - [ ] Conector Meta: crear app en developers.facebook.com y autorizar en `/conexiones` (para publicar FB+IG desde el panel)
+- [ ] Colores de marca en el panel (quedó el naranja por defecto)
 - [ ] Hosting público de imágenes IA (para publicar fotos en IG vía API)
 - [ ] YouTube Data API + MCP (guía en `docs/SETUP-YOUTUBE-MCP.md`)
