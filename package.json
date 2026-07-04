@@ -1,11 +1,23 @@
 {
-    "name": "socialflow",
+    "name": "stock-inventory",
     "version": "1.0.0",
-    "description": "SocialFlow - Publicador de Redes con IA",
+    "description": "Stock & ML - Gestión de Inventario PWA",
     "type": "module",
     "engines": { "node": "24.x" },
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview"
+    },
     "dependencies": {
-        "pdf-lib": "^1.17.1",
-        "nodemailer": "^6.9.16"
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1",
+        "firebase": "^10.7.0",
+        "html5-qrcode": "^2.3.8"
+    },
+    "devDependencies": {
+        "@vitejs/plugin-react": "^4.2.1",
+        "vite": "^5.0.8",
+        "vite-plugin-pwa": "^0.17.4"
     }
 }
