@@ -1,18 +1,21 @@
 import React, { useState, useCallback } from 'react'
 import Scanner from './Scanner'
+import { comboAvailable } from './Combos'
 import './Movements.css'
 
-export default function Movements({ products, movements, onAdd }) {
+const EMPTY_FORM = {
+  type: 'entrada',
+  itemKey: '', // "p:<id>" producto | "c:<id>" combo
+  quantity: '',
+  reason: '',
+  reference: '',
+}
+
+export default function Movements({ products, combos, movements, onAdd }) {
   const [showForm, setShowForm] = useState(false)
   const [showScanner, setShowScanner] = useState(false)
   const [scanMessage, setScanMessage] = useState('')
-  const [formData, setFormData] = useState({
-    type: 'entrada',
-    productId: '',
-    quantity: '',
-    reason: '',
-    reference: '',
-  })
+  const [formData, setFormData] = useState(EMPTY_FORM)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
@@ -23,47 +26,83 @@ export default function Movements({ products, movements, onAdd }) {
     setSuccess('')
     setScanMessage('')
 
-    if (!formData.productId) {
-      setError('Debes seleccionar un producto')
+    if (!formData.itemKey) {
+      setError('Debes seleccionar un producto o combo')
       return
     }
 
-    if (!formData.quantity || parseInt(formData.quantity) <= 0) {
+    const quantity = parseInt(formData.quantity)
+    if (!quantity || quantity <= 0) {
       setError('La cantidad debe ser mayor a 0')
       return
     }
 
-    const product = products.find(p => p.id === formData.productId)
-    if (!product) {
-      setError('Producto no encontrado')
-      return
-    }
-
-    if (formData.type === 'salida' && (product.quantity || 0) < parseInt(formData.quantity)) {
-      setError(`Stock insuficiente. Disponible: ${product.quantity || 0}`)
-      return
-    }
+    const [kind, id] = formData.itemKey.split(':')
 
     setLoading(true)
     try {
-      await onAdd({
-        productId: formData.productId,
-        productName: product.name,
-        type: formData.type,
-        quantity: parseInt(formData.quantity),
-        reason: formData.reason,
-        reference: formData.reference,
-      })
+      if (kind === 'c') {
+        const combo = combos.find(c => c.id === id)
+        if (!combo) {
+          setError('Combo no encontrado')
+          return
+        }
+
+        if (formData.type === 'salida') {
+          // Validar stock de cada componente
+          for (const item of combo.items) {
+            const p = products.find(pp => pp.id === item.productId)
+            const needed = item.quantity * quantity
+            if (!p) {
+              setError('Un producto del combo fue eliminado. Editá el combo primero.')
+              return
+            }
+            if ((p.quantity || 0) < needed) {
+              setError(`Stock insuficiente de "${p.name}": necesitás ${needed} y hay ${p.quantity || 0}.`)
+              return
+            }
+          }
+        }
+
+        await onAdd({
+          comboId: combo.id,
+          comboName: combo.name,
+          productName: `🎁 ${combo.name}`,
+          type: formData.type,
+          quantity,
+          reason: formData.reason,
+          reference: formData.reference,
+          breakdown: combo.items.map(item => {
+            const p = products.find(pp => pp.id === item.productId)
+            return {
+              productId: item.productId,
+              productName: p?.name || '(eliminado)',
+              quantity: item.quantity * quantity,
+            }
+          }),
+        })
+      } else {
+        const product = products.find(p => p.id === id)
+        if (!product) {
+          setError('Producto no encontrado')
+          return
+        }
+        if (formData.type === 'salida' && (product.quantity || 0) < quantity) {
+          setError(`Stock insuficiente. Disponible: ${product.quantity || 0}`)
+          return
+        }
+        await onAdd({
+          productId: product.id,
+          productName: product.name,
+          type: formData.type,
+          quantity,
+          reason: formData.reason,
+          reference: formData.reference,
+        })
+      }
 
       setSuccess(`${formData.type === 'entrada' ? 'Entrada' : 'Salida'} registrada correctamente`)
-      setFormData({
-        type: 'entrada',
-        productId: '',
-        quantity: '',
-        reason: '',
-        reference: '',
-      })
-
+      setFormData(EMPTY_FORM)
       setTimeout(() => {
         setShowForm(false)
         setSuccess('')
@@ -80,25 +119,31 @@ export default function Movements({ products, movements, onAdd }) {
     const product = products.find(
       p => p.code && (p.code === code || code.includes(p.code))
     )
-    if (product) {
+    const combo = !product
+      ? combos.find(c => c.code && (c.code === code || code.includes(c.code)))
+      : null
+
+    if (product || combo) {
+      const itemKey = product ? `p:${product.id}` : `c:${combo.id}`
+      const name = product ? product.name : combo.name
       setFormData(prev => ({
         ...prev,
         type: 'entrada',
-        productId: product.id,
+        itemKey,
         quantity: prev.quantity || '1',
         reason: 'Ingreso por escaneo QR',
         reference: code.slice(0, 60),
       }))
-      setScanMessage(`✓ Código detectado: ${product.name}. Revisá la cantidad y confirmá.`)
+      setScanMessage(`✓ Código detectado: ${name}. Revisá la cantidad y confirmá.`)
       setShowForm(true)
       setError('')
     } else {
       setScanMessage('')
       setFormData(prev => ({ ...prev, reference: code.slice(0, 60) }))
       setShowForm(true)
-      setError(`No hay ningún producto con el código "${code.slice(0, 40)}". Seleccioná el producto manualmente o cargalo primero en Inventario con ese código.`)
+      setError(`No hay ningún producto o combo con el código "${code.slice(0, 40)}". Seleccionalo manualmente o cargale ese código en Inventario/Combos.`)
     }
-  }, [products])
+  }, [products, combos])
 
   const getMovementIcon = (type) => (type === 'entrada' ? '📥' : '📤')
   const getMovementLabel = (type) => (type === 'entrada' ? 'Entrada' : 'Salida')
@@ -132,26 +177,17 @@ export default function Movements({ products, movements, onAdd }) {
           <p>Registra entradas y salidas de mercancía</p>
         </div>
         <div className="header-actions">
-          <button
-            onClick={() => setShowScanner(true)}
-            className="btn-scan"
-          >
+          <button onClick={() => setShowScanner(true)} className="btn-scan">
             📷 Escanear QR
           </button>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="btn-add"
-          >
+          <button onClick={() => setShowForm(!showForm)} className="btn-add">
             {showForm ? '✕ Cancelar' : '+ Nuevo Movimiento'}
           </button>
         </div>
       </div>
 
       {showScanner && (
-        <Scanner
-          onScan={handleScan}
-          onClose={() => setShowScanner(false)}
-        />
+        <Scanner onScan={handleScan} onClose={() => setShowScanner(false)} />
       )}
 
       {scanMessage && !showScanner && (
@@ -190,19 +226,30 @@ export default function Movements({ products, movements, onAdd }) {
 
             <div className="form-grid">
               <div className="form-group">
-                <label>Producto *</label>
+                <label>Producto o Combo *</label>
                 <select
-                  value={formData.productId}
-                  onChange={e => setFormData({ ...formData, productId: e.target.value })}
+                  value={formData.itemKey}
+                  onChange={e => setFormData({ ...formData, itemKey: e.target.value })}
                   disabled={loading}
                   required
                 >
-                  <option value="">-- Selecciona un producto --</option>
-                  {products.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} (Stock: {p.quantity || 0})
-                    </option>
-                  ))}
+                  <option value="">-- Selecciona --</option>
+                  <optgroup label="📦 Productos">
+                    {products.map(p => (
+                      <option key={p.id} value={`p:${p.id}`}>
+                        {p.name} (Stock: {p.quantity || 0})
+                      </option>
+                    ))}
+                  </optgroup>
+                  {combos.length > 0 && (
+                    <optgroup label="🎁 Combos">
+                      {combos.map(c => (
+                        <option key={c.id} value={`c:${c.id}`}>
+                          {c.name} (Se pueden armar: {comboAvailable(c, products)})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
               </div>
 
@@ -219,6 +266,13 @@ export default function Movements({ products, movements, onAdd }) {
                 />
               </div>
             </div>
+
+            {formData.itemKey.startsWith('c:') && (
+              <div className="combo-hint">
+                🎁 Al registrar este movimiento se {formData.type === 'entrada' ? 'sumará' : 'descontará'} el
+                stock de <strong>cada producto</strong> que compone el combo, multiplicado por la cantidad.
+              </div>
+            )}
 
             <div className="form-group">
               <label>Motivo o Referencia</label>
@@ -243,11 +297,7 @@ export default function Movements({ products, movements, onAdd }) {
             </div>
 
             <div className="form-actions">
-              <button
-                type="submit"
-                className="btn-primary"
-                disabled={loading}
-              >
+              <button type="submit" className="btn-primary" disabled={loading}>
                 {loading ? '⏳ Registrando...' : '✓ Registrar Movimiento'}
               </button>
               <button
@@ -300,9 +350,14 @@ export default function Movements({ products, movements, onAdd }) {
                 </div>
                 <div className="movement-card-details">
                   <span className="detail-badge">{getMovementLabel(m.type)}</span>
-                  <span className="quantity">{m.quantity} unidades</span>
+                  <span className="quantity">{m.quantity} {m.comboId ? 'combos' : 'unidades'}</span>
                   {m.reason && <span className="reason">• {m.reason}</span>}
                 </div>
+                {m.breakdown?.length > 0 && (
+                  <div className="breakdown">
+                    Incluye: {m.breakdown.map(b => `${b.quantity}× ${b.productName}`).join(', ')}
+                  </div>
+                )}
                 {m.reference && (
                   <div className="reference">Ref: {m.reference}</div>
                 )}
