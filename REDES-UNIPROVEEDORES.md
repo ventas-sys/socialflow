@@ -97,10 +97,12 @@ Reviews y ofertas en nuestros videos. Consultas por WhatsApp: 011-3551-0715.
 [x] WhatsApp Business
 ```
 
-## ⚠️ Nota Google Business: 2 fichas (duplicado)
-- **Uniproveedores** = 4.1★ · 614 reseñas · Bacacay 4726 · verificada · owner uniproveedores@gmail.com + redes@uniproveedores.com.ar. **LA OFICIAL.**
-- **Arbetter** = 3.3★ · 27 reseñas · misma dirección = DUPLICADO. Pendiente: fusionar/reportar duplicado (con cuidado, no borrar).
-- Pendiente Uniproveedores: sumar WhatsApp como tel secundario, fotos (tardan en verse), enlaces de redes.
+## Nota Google Business: 2 fichas (2 marcas, NO duplicado)
+- **Uniproveedores** = 4.1★ · 614 reseñas · Bacacay 4726 · verificada · owner uniproveedores@gmail.com + redes@uniproveedores.com.ar. Ficha principal.
+- **Arbetter** = 3.3★ · 27 reseñas · **es una segunda marca propia**, NO un duplicado → se dejan las dos fichas separadas, cada una con su reputación. NO fusionar.
+- Google Business Uniproveedores: WhatsApp (wa.me), web, ubicación y 5 redes cargadas ✅.
+  - ⚠️ Corregir link IG: debe ser instagram.com/**uniproveedoresok** (estaba sin "ok").
+  - TikTok link apunta a @redesredes519 → actualizar cuando se renombre a uniproveedoresok.
 
 ## ⏳ Pendientes de contacto (48hs / seguridad)
 - X: cambiar mail/teléfono al del negocio (bloqueado 48hs por seguridad).
