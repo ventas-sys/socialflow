@@ -13,6 +13,9 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || 'YOUR_APP_ID_HERE'
 }
 
+// true cuando todavía se está usando la config de relleno
+export const isFirebaseConfigured = !firebaseConfig.apiKey.startsWith('YOUR_')
+
 const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
 export const googleProvider = new GoogleAuthProvider()
