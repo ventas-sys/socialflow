@@ -7,6 +7,7 @@ export const STOCK_TYPES = ['FULL', 'FERRE', 'BASE']
 const EMPTY_FORM = {
   name: '',
   code: '',
+  barcode: '',
   price: '',
   location: '',
   stockType: '',
@@ -53,6 +54,7 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, ed
     setFormData({
       name: combo.name || '',
       code: combo.code || '',
+      barcode: combo.barcode || '',
       price: combo.price || '',
       location: combo.location || '',
       stockType: combo.stockType || '',
@@ -150,13 +152,23 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, ed
 
     setLoading(true)
     try {
+      // Guarda también los códigos de barras y SKU de los productos que
+      // componen el combo, para que un operario pueda encontrar el combo
+      // escaneando cualquiera de sus productos
+      const itemBarcodes = items.flatMap(item => {
+        const p = products.find(pp => pp.id === item.productId)
+        return [p?.barcode, p?.code].filter(Boolean)
+      })
+
       const data = {
         name: formData.name.trim(),
         code: formData.code.trim(),
+        barcode: formData.barcode.trim(),
         price: formData.price ? parseFloat(formData.price) : 0,
         location: formData.location.trim(),
         stockType: formData.stockType,
         items,
+        itemBarcodes,
         photos: formData.photos,
       }
       if (editingId) {
@@ -220,12 +232,22 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, ed
                 />
               </div>
               <div className="form-group">
-                <label>Código</label>
+                <label>SKU</label>
                 <input
                   type="text"
                   value={formData.code}
                   onChange={e => setFormData({ ...formData, code: e.target.value })}
-                  placeholder="Código o SKU del combo"
+                  placeholder="SKU del combo"
+                  disabled={loading}
+                />
+              </div>
+              <div className="form-group">
+                <label>|||| Código de barras del combo</label>
+                <input
+                  type="text"
+                  value={formData.barcode}
+                  onChange={e => setFormData({ ...formData, barcode: e.target.value })}
+                  placeholder="EAN / UPC del combo"
                   disabled={loading}
                 />
               </div>
@@ -395,7 +417,8 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, ed
                     <div>
                       <div className="combo-name">🎁 {combo.name}</div>
                       <div className="combo-meta">
-                        {combo.code && <span>Código: {combo.code} · </span>}
+                        {combo.code && <span>SKU: {combo.code} · </span>}
+                        {combo.barcode && <span>|||| {combo.barcode} · </span>}
                         {combo.price ? `$${Number(combo.price).toFixed(2)}` : 'Sin precio'}
                         {combo.location && <span> · 📍 {combo.location}</span>}
                         {combo.stockType && (

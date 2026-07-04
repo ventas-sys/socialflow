@@ -2,11 +2,13 @@ import React, { useState, useRef } from 'react'
 import * as XLSX from 'xlsx'
 import { compressImage, MAX_PHOTOS, MAX_PHOTOS_BYTES, photosSize } from '../utils/images'
 import { comboAvailable, STOCK_TYPES } from './Combos'
+import Scanner from './Scanner'
 import './Inventory.css'
 
 const EMPTY_FORM = {
   name: '',
   code: '',
+  barcode: '',
   category: '',
   price: '',
   minStock: '5',
@@ -20,7 +22,8 @@ const EMPTY_FORM = {
 // Mapea encabezados del Excel (sin acentos, minúsculas) a campos del producto
 const COLUMN_MAP = {
   nombre: 'name', producto: 'name', name: 'name', articulo: 'name', descripcion_corta: 'name',
-  codigo: 'code', sku: 'code', code: 'code', 'codigo de barras': 'code', ean: 'code',
+  codigo: 'code', sku: 'code', code: 'code',
+  'codigo de barras': 'barcode', barcode: 'barcode', ean: 'barcode', upc: 'barcode', 'codigo universal': 'barcode',
   categoria: 'category', category: 'category', rubro: 'category',
   precio: 'price', price: 'price', 'precio venta': 'price',
   cantidad: 'quantity', stock: 'quantity', qty: 'quantity', unidades: 'quantity', existencia: 'quantity',
@@ -56,6 +59,7 @@ export default function Inventory({
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [kindFilter, setKindFilter] = useState('all') // all | products | combos
+  const [showSearchScanner, setShowSearchScanner] = useState(false)
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState('')
   const fileInputRef = useRef(null)
@@ -71,6 +75,7 @@ export default function Inventory({
     setFormData({
       name: product.name || '',
       code: product.code || '',
+      barcode: product.barcode || '',
       category: product.category || '',
       price: product.price || '',
       minStock: product.minStock || '5',
@@ -187,6 +192,7 @@ export default function Inventory({
           return {
             name: String(p.name).trim(),
             code: p.code !== undefined ? String(p.code).trim() : '',
+            barcode: p.barcode !== undefined ? String(p.barcode).trim() : '',
             category: p.category !== undefined ? String(p.category).trim() : '',
             price: parseNumber(p.price),
             quantity: Math.round(parseNumber(p.quantity)),
@@ -222,8 +228,8 @@ export default function Inventory({
 
   const downloadTemplate = () => {
     const ws = XLSX.utils.aoa_to_sheet([
-      ['Nombre', 'Código', 'Categoría', 'Precio', 'Cantidad', 'Stock Mínimo', 'Ubicación', 'Tipo', 'Descripción'],
-      ['Producto de ejemplo', 'SKU-001', 'General', 1500, 10, 5, 'Estante A3', 'FULL', 'Descripción opcional'],
+      ['Nombre', 'SKU', 'Código de Barras', 'Categoría', 'Precio', 'Cantidad', 'Stock Mínimo', 'Ubicación', 'Tipo', 'Descripción'],
+      ['Producto de ejemplo', 'SKU-001', '7790001001234', 'General', 1500, 10, 5, 'Estante A3', 'FULL', 'Descripción opcional'],
     ])
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Productos')
@@ -241,14 +247,31 @@ export default function Inventory({
 
   // Productos y combos unificados en una sola lista
   const toMillis = (t) => (t?.toMillis ? t.toMillis() : new Date(t || 0).getTime())
+
+  // Un combo se encuentra por nombre, su código de barras, su SKU o el
+  // código de barras / SKU de cualquier producto que lo compone
+  const comboComponentCodes = (combo) => {
+    const live = (combo.items || []).flatMap(item => {
+      const p = products.find(pp => pp.id === item.productId)
+      return [p?.barcode, p?.code].filter(Boolean)
+    })
+    return [...live, ...(combo.itemBarcodes || [])]
+  }
+
   const matchesSearch = (item) => {
+    if (!searchTerm.trim()) return true
     const q = searchTerm.toLowerCase()
-    return (
+    if (
       item.name?.toLowerCase().includes(q) ||
       item.code?.toLowerCase().includes(q) ||
+      item.barcode?.toLowerCase().includes(q) ||
       item.location?.toLowerCase().includes(q) ||
       item.stockType?.toLowerCase().includes(q)
-    )
+    ) return true
+    if (item.kind === 'combo') {
+      return comboComponentCodes(item).some(c => c.toLowerCase().includes(q))
+    }
+    return false
   }
 
   const allRows = [
@@ -322,12 +345,23 @@ export default function Inventory({
               </div>
 
               <div className="form-group">
-                <label>Código</label>
+                <label>SKU</label>
                 <input
                   type="text"
                   value={formData.code}
                   onChange={e => setFormData({ ...formData, code: e.target.value })}
-                  placeholder="Código o SKU"
+                  placeholder="Código interno / SKU"
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>|||| Código de barras</label>
+                <input
+                  type="text"
+                  value={formData.barcode}
+                  onChange={e => setFormData({ ...formData, barcode: e.target.value })}
+                  placeholder="EAN / UPC (ej: 7790001001234)"
                   disabled={loading}
                 />
               </div>
@@ -494,14 +528,31 @@ export default function Inventory({
         </button>
       </div>
 
-      <div className="search-box">
+      <div className="search-box search-row">
         <input
           type="text"
-          placeholder="🔍 Buscar por nombre, código, ubicación o tipo..."
+          placeholder="🔍 Buscar por nombre, SKU, código de barras, ubicación o tipo..."
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
         />
+        <button
+          className="btn-search-scan"
+          onClick={() => setShowSearchScanner(true)}
+          title="Buscar escaneando con la cámara"
+        >
+          📷
+        </button>
       </div>
+
+      {showSearchScanner && (
+        <Scanner
+          onScan={(code) => {
+            setShowSearchScanner(false)
+            setSearchTerm(code)
+          }}
+          onClose={() => setShowSearchScanner(false)}
+        />
+      )}
 
       {allRows.length === 0 ? (
         <div className="empty-state">
@@ -521,7 +572,8 @@ export default function Inventory({
                 <th>Foto</th>
                 <th>Tipo</th>
                 <th>Nombre</th>
-                <th>Código</th>
+                <th>SKU</th>
+                <th>Cód. Barras</th>
                 <th>FULL/FERRE/BASE</th>
                 <th>Precio</th>
                 <th>Stock</th>
@@ -551,6 +603,7 @@ export default function Inventory({
                     </td>
                     <td className="bold">{row.name}</td>
                     <td>{row.code || '-'}</td>
+                    <td className="barcode-cell">{row.barcode || '-'}</td>
                     <td>
                       {row.stockType ? (
                         <span className={`badge-st ${row.stockType.toLowerCase()}`}>{row.stockType}</span>

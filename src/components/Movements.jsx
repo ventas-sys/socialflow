@@ -105,11 +105,23 @@ export default function Movements({ products, combos, movements, onAdd }) {
 
   const handleScan = useCallback((code) => {
     setShowScanner(false)
-    const product = products.find(
-      p => p.code && (p.code === code || code.includes(p.code))
-    )
+    const matches = (value) => value && (value === code || code.includes(value))
+
+    // Producto: por código de barras o SKU
+    const product = products.find(p => matches(p.barcode) || matches(p.code))
+
+    // Combo: por su código de barras, su SKU, o el código de barras/SKU
+    // de cualquier producto que lo compone
     const combo = !product
-      ? combos.find(c => c.code && (c.code === code || code.includes(c.code)))
+      ? combos.find(c =>
+          matches(c.barcode) ||
+          matches(c.code) ||
+          (c.itemBarcodes || []).some(matches) ||
+          c.items?.some(item => {
+            const p = products.find(pp => pp.id === item.productId)
+            return matches(p?.barcode) || matches(p?.code)
+          })
+        )
       : null
 
     if (product || combo) {

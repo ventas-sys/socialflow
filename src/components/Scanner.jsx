@@ -56,7 +56,7 @@ export default function Scanner({ onScan, onClose }) {
           <p className="scanner-error">{error}</p>
         ) : (
           <p className="scanner-hint">
-            Apuntá al código QR de la etiqueta de MercadoLibre o al código de barras del producto.
+            Apuntá al código de barras del producto/combo o al QR de la etiqueta de MercadoLibre.
           </p>
         )}
       </div>
