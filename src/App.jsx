@@ -14,9 +14,7 @@ import {
   getDocs,
   query,
   where,
-  orderBy,
   Timestamp,
-  writeBatch,
 } from 'firebase/firestore'
 import Dashboard from './components/Dashboard'
 import Inventory from './components/Inventory'
@@ -48,23 +46,26 @@ export default function App() {
   const loadUserData = async (userId) => {
     setLoadingData(true)
     try {
+      // Se ordena en el cliente para no requerir índices compuestos en Firestore
+      const toMillis = (t) => (t?.toMillis ? t.toMillis() : new Date(t || 0).getTime())
+
       const productsSnap = await getDocs(
-        query(
-          collection(db, 'products'),
-          where('userId', '==', userId),
-          orderBy('createdAt', 'desc')
-        )
+        query(collection(db, 'products'), where('userId', '==', userId))
       )
-      setProducts(productsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+      setProducts(
+        productsSnap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
+      )
 
       const movementsSnap = await getDocs(
-        query(
-          collection(db, 'movements'),
-          where('userId', '==', userId),
-          orderBy('date', 'desc')
-        )
+        query(collection(db, 'movements'), where('userId', '==', userId))
       )
-      setMovements(movementsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+      setMovements(
+        movementsSnap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => toMillis(b.date) - toMillis(a.date))
+      )
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
