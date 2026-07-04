@@ -22,6 +22,9 @@ export const isFirebaseConfigured = true
 const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
 export const googleProvider = new GoogleAuthProvider()
+// Mostrar siempre el selector de cuentas de Google en vez de entrar
+// automáticamente con la última cuenta usada
+googleProvider.setCustomParameters({ prompt: 'select_account' })
 export const db = getFirestore(app)
 
 export default app
