@@ -3,7 +3,7 @@
     "version": "1.0.0",
     "description": "Stock & ML - Gestión de Inventario PWA",
     "type": "module",
-    "engines": { "node": "24.x" },
+    "engines": { "node": "20.x" },
     "scripts": {
         "dev": "vite",
         "build": "vite build",
