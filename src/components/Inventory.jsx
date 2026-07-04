@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react'
 import * as XLSX from 'xlsx'
 import { compressImage, MAX_PHOTOS, MAX_PHOTOS_BYTES, photosSize } from '../utils/images'
+import { comboAvailable, STOCK_TYPES } from './Combos'
 import './Inventory.css'
 
 const EMPTY_FORM = {
@@ -11,6 +12,7 @@ const EMPTY_FORM = {
   minStock: '5',
   quantity: '0',
   location: '',
+  stockType: '',
   description: '',
   photos: [],
 }
@@ -24,6 +26,7 @@ const COLUMN_MAP = {
   cantidad: 'quantity', stock: 'quantity', qty: 'quantity', unidades: 'quantity', existencia: 'quantity',
   'stock minimo': 'minStock', minimo: 'minStock', 'min stock': 'minStock',
   ubicacion: 'location', location: 'location', deposito: 'location', estante: 'location', posicion: 'location', pasillo: 'location',
+  tipo: 'stockType', 'tipo de stock': 'stockType', 'tipo stock': 'stockType', canal: 'stockType', 'full ferre base': 'stockType',
   descripcion: 'description', description: 'description', detalle: 'description',
 }
 
@@ -36,13 +39,23 @@ const parseNumber = (v) => {
   return isNaN(n) ? 0 : n
 }
 
-export default function Inventory({ products, onAdd, onUpdate, onDelete, onImport }) {
+export default function Inventory({
+  products,
+  combos = [],
+  onAdd,
+  onUpdate,
+  onDelete,
+  onImport,
+  onDeleteCombo,
+  onEditCombo,
+}) {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [formData, setFormData] = useState(EMPTY_FORM)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const [kindFilter, setKindFilter] = useState('all') // all | products | combos
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState('')
   const fileInputRef = useRef(null)
@@ -63,6 +76,7 @@ export default function Inventory({ products, onAdd, onUpdate, onDelete, onImpor
       minStock: product.minStock || '5',
       quantity: product.quantity ?? '0',
       location: product.location || '',
+      stockType: product.stockType || '',
       description: product.description || '',
       photos: product.photos || [],
     })
@@ -178,6 +192,7 @@ export default function Inventory({ products, onAdd, onUpdate, onDelete, onImpor
             quantity: Math.round(parseNumber(p.quantity)),
             minStock: p.minStock !== undefined ? Math.round(parseNumber(p.minStock)) : 5,
             location: p.location !== undefined ? String(p.location).trim() : '',
+            stockType: p.stockType !== undefined ? String(p.stockType).trim().toUpperCase() : '',
             description: p.description !== undefined ? String(p.description).trim() : '',
             photos: [],
           }
@@ -207,19 +222,41 @@ export default function Inventory({ products, onAdd, onUpdate, onDelete, onImpor
 
   const downloadTemplate = () => {
     const ws = XLSX.utils.aoa_to_sheet([
-      ['Nombre', 'Código', 'Categoría', 'Precio', 'Cantidad', 'Stock Mínimo', 'Ubicación', 'Descripción'],
-      ['Producto de ejemplo', 'SKU-001', 'General', 1500, 10, 5, 'Estante A3', 'Descripción opcional'],
+      ['Nombre', 'Código', 'Categoría', 'Precio', 'Cantidad', 'Stock Mínimo', 'Ubicación', 'Tipo', 'Descripción'],
+      ['Producto de ejemplo', 'SKU-001', 'General', 1500, 10, 5, 'Estante A3', 'FULL', 'Descripción opcional'],
     ])
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Productos')
     XLSX.writeFile(wb, 'plantilla-productos.xlsx')
   }
 
-  const filteredProducts = products.filter(p =>
-    p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.location?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const handleDeleteCombo = async (id) => {
+    if (!window.confirm('¿Eliminar este combo? (No afecta el stock de los productos)')) return
+    try {
+      await onDeleteCombo(id)
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
+  // Productos y combos unificados en una sola lista
+  const toMillis = (t) => (t?.toMillis ? t.toMillis() : new Date(t || 0).getTime())
+  const matchesSearch = (item) => {
+    const q = searchTerm.toLowerCase()
+    return (
+      item.name?.toLowerCase().includes(q) ||
+      item.code?.toLowerCase().includes(q) ||
+      item.location?.toLowerCase().includes(q) ||
+      item.stockType?.toLowerCase().includes(q)
+    )
+  }
+
+  const allRows = [
+    ...(kindFilter !== 'combos' ? products.map(p => ({ kind: 'product', ...p })) : []),
+    ...(kindFilter !== 'products' ? combos.map(c => ({ kind: 'combo', ...c })) : []),
+  ]
+    .filter(matchesSearch)
+    .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
 
   return (
     <div className="inventory-container">
@@ -352,6 +389,20 @@ export default function Inventory({ products, onAdd, onUpdate, onDelete, onImpor
                   disabled={loading}
                 />
               </div>
+
+              <div className="form-group">
+                <label>Tipo de stock</label>
+                <select
+                  value={formData.stockType}
+                  onChange={e => setFormData({ ...formData, stockType: e.target.value })}
+                  disabled={loading}
+                >
+                  <option value="">-- Sin asignar --</option>
+                  {STOCK_TYPES.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="form-group">
@@ -422,19 +473,40 @@ export default function Inventory({ products, onAdd, onUpdate, onDelete, onImpor
         </div>
       )}
 
+      <div className="filter-chips">
+        <button
+          className={`chip-btn ${kindFilter === 'all' ? 'active' : ''}`}
+          onClick={() => setKindFilter('all')}
+        >
+          Todos ({products.length + combos.length})
+        </button>
+        <button
+          className={`chip-btn ${kindFilter === 'products' ? 'active' : ''}`}
+          onClick={() => setKindFilter('products')}
+        >
+          📦 Productos ({products.length})
+        </button>
+        <button
+          className={`chip-btn ${kindFilter === 'combos' ? 'active' : ''}`}
+          onClick={() => setKindFilter('combos')}
+        >
+          🎁 Combos ({combos.length})
+        </button>
+      </div>
+
       <div className="search-box">
         <input
           type="text"
-          placeholder="🔍 Buscar por nombre o código..."
+          placeholder="🔍 Buscar por nombre, código, ubicación o tipo..."
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
         />
       </div>
 
-      {filteredProducts.length === 0 ? (
+      {allRows.length === 0 ? (
         <div className="empty-state">
           <p>📦</p>
-          <p>{searchTerm ? 'No se encontraron productos' : 'No hay productos. Creá uno o importá tu Excel para empezar.'}</p>
+          <p>{searchTerm ? 'No se encontraron resultados' : 'No hay productos. Creá uno o importá tu Excel para empezar.'}</p>
           {!searchTerm && (
             <button className="btn-template" onClick={downloadTemplate}>
               ⬇️ Descargar plantilla Excel
@@ -447,49 +519,73 @@ export default function Inventory({ products, onAdd, onUpdate, onDelete, onImpor
             <thead>
               <tr>
                 <th>Foto</th>
+                <th>Tipo</th>
                 <th>Nombre</th>
                 <th>Código</th>
-                <th>Categoría</th>
+                <th>FULL/FERRE/BASE</th>
                 <th>Precio</th>
                 <th>Stock</th>
-                <th>Mín.</th>
                 <th>📍 Ubicación</th>
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {filteredProducts.map(product => (
-                <tr key={product.id} className={product.quantity < product.minStock ? 'low-stock' : ''}>
-                  <td>
-                    {product.photos?.length ? (
-                      <img className="row-thumb" src={product.photos[0]} alt={product.name} />
-                    ) : (
-                      <div className="row-thumb placeholder">📦</div>
-                    )}
-                  </td>
-                  <td className="bold">{product.name}</td>
-                  <td>{product.code || '-'}</td>
-                  <td>{product.category || '-'}</td>
-                  <td>${product.price ? Number(product.price).toFixed(2) : '0.00'}</td>
-                  <td className="stock">{product.quantity || 0}</td>
-                  <td>{product.minStock || 5}</td>
-                  <td>{product.location || '-'}</td>
-                  <td>
-                    <span className={`badge ${product.quantity >= product.minStock ? 'ok' : 'warn'}`}>
-                      {product.quantity >= product.minStock ? '✓ OK' : '⚠ Bajo'}
-                    </span>
-                  </td>
-                  <td className="actions">
-                    <button onClick={() => handleEdit(product)} className="btn-edit" title="Editar">
-                      ✏️
-                    </button>
-                    <button onClick={() => handleDelete(product.id)} className="btn-del" title="Eliminar">
-                      🗑️
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {allRows.map(row => {
+                const isCombo = row.kind === 'combo'
+                const stock = isCombo ? comboAvailable(row, products) : (row.quantity || 0)
+                const isLow = isCombo ? stock <= 0 : (row.quantity ?? 0) < (row.minStock || 5)
+                return (
+                  <tr key={`${row.kind}-${row.id}`} className={isLow ? 'low-stock' : ''}>
+                    <td>
+                      {row.photos?.length ? (
+                        <img className="row-thumb" src={row.photos[0]} alt={row.name} />
+                      ) : (
+                        <div className="row-thumb placeholder">{isCombo ? '🎁' : '📦'}</div>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`kind-badge ${row.kind}`}>
+                        {isCombo ? '🎁 Combo' : '📦 Producto'}
+                      </span>
+                    </td>
+                    <td className="bold">{row.name}</td>
+                    <td>{row.code || '-'}</td>
+                    <td>
+                      {row.stockType ? (
+                        <span className={`badge-st ${row.stockType.toLowerCase()}`}>{row.stockType}</span>
+                      ) : '-'}
+                    </td>
+                    <td>${row.price ? Number(row.price).toFixed(2) : '0.00'}</td>
+                    <td className="stock">
+                      {stock}
+                      {isCombo && <span className="stock-note"> armables</span>}
+                    </td>
+                    <td>{row.location || '-'}</td>
+                    <td>
+                      <span className={`badge ${!isLow ? 'ok' : 'warn'}`}>
+                        {!isLow ? '✓ OK' : (isCombo ? '⚠ Sin stock' : '⚠ Bajo')}
+                      </span>
+                    </td>
+                    <td className="actions">
+                      <button
+                        onClick={() => (isCombo ? onEditCombo(row) : handleEdit(row))}
+                        className="btn-edit"
+                        title="Editar"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => (isCombo ? handleDeleteCombo(row.id) : handleDelete(row.id))}
+                        className="btn-del"
+                        title="Eliminar"
+                      >
+                        🗑️
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>

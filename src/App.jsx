@@ -36,6 +36,8 @@ export default function App() {
   const [movements, setMovements] = useState([])
   const [depositMap, setDepositMap] = useState(null)
   const [loadingData, setLoadingData] = useState(false)
+  // Pedido de edición de un combo desde la pestaña Inventario
+  const [comboEditRequest, setComboEditRequest] = useState(null)
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -361,10 +363,16 @@ export default function App() {
             {currentTab === 'inventory' && (
               <Inventory
                 products={products}
+                combos={combos}
                 onAdd={addProduct}
                 onUpdate={updateProduct}
                 onDelete={deleteProduct}
                 onImport={importProducts}
+                onDeleteCombo={deleteCombo}
+                onEditCombo={(combo) => {
+                  setComboEditRequest({ combo, ts: Date.now() })
+                  setCurrentTab('combos')
+                }}
               />
             )}
             {currentTab === 'combos' && (
@@ -374,6 +382,7 @@ export default function App() {
                 onAdd={addCombo}
                 onUpdate={updateCombo}
                 onDelete={deleteCombo}
+                editRequest={comboEditRequest}
               />
             )}
             {currentTab === 'movements' && (

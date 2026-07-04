@@ -1,12 +1,17 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+import { compressImage, MAX_PHOTOS, MAX_PHOTOS_BYTES, photosSize } from '../utils/images'
 import './Combos.css'
+
+export const STOCK_TYPES = ['FULL', 'FERRE', 'BASE']
 
 const EMPTY_FORM = {
   name: '',
   code: '',
   price: '',
   location: '',
+  stockType: '',
   items: [{ productId: '', quantity: '1' }],
+  photos: [],
 }
 
 // Cuántos combos completos se pueden armar con el stock actual (solo informativo,
@@ -22,12 +27,21 @@ export function comboAvailable(combo, products) {
   return available === Infinity ? 0 : Math.max(0, available)
 }
 
-export default function Combos({ combos, products, onAdd, onUpdate, onDelete }) {
+export default function Combos({ combos, products, onAdd, onUpdate, onDelete, editRequest }) {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [formData, setFormData] = useState(EMPTY_FORM)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const photoInputRef = useRef(null)
+
+  // Abre el formulario cuando se pide editar un combo desde Inventario
+  useEffect(() => {
+    if (editRequest?.combo) {
+      handleEdit(editRequest.combo)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editRequest?.ts])
 
   const resetForm = () => {
     setFormData(EMPTY_FORM)
@@ -41,13 +55,51 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete }) 
       code: combo.code || '',
       price: combo.price || '',
       location: combo.location || '',
+      stockType: combo.stockType || '',
       items: combo.items?.length
         ? combo.items.map(i => ({ productId: i.productId, quantity: String(i.quantity) }))
         : [{ productId: '', quantity: '1' }],
+      photos: combo.photos || [],
     })
     setEditingId(combo.id)
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleAddPhotos = async (e) => {
+    const files = Array.from(e.target.files || [])
+    e.target.value = ''
+    if (!files.length) return
+    setError('')
+    try {
+      const room = MAX_PHOTOS - formData.photos.length
+      if (room <= 0) {
+        setError(`Máximo ${MAX_PHOTOS} fotos por combo`)
+        return
+      }
+      const newPhotos = []
+      for (const file of files.slice(0, room)) {
+        newPhotos.push(await compressImage(file))
+      }
+      const all = [...formData.photos, ...newPhotos]
+      if (photosSize(all) > MAX_PHOTOS_BYTES) {
+        setError('Las fotos superan el tamaño máximo. Probá con imágenes más chicas o menos fotos.')
+        return
+      }
+      setFormData({ ...formData, photos: all })
+      if (files.length > room) {
+        setError(`Se agregaron solo ${room} fotos (máximo ${MAX_PHOTOS} por combo)`)
+      }
+    } catch (err) {
+      setError('Error al procesar la imagen: ' + err.message)
+    }
+  }
+
+  const removePhoto = (index) => {
+    setFormData({
+      ...formData,
+      photos: formData.photos.filter((_, i) => i !== index),
+    })
   }
 
   const setItem = (index, field, value) => {
@@ -103,7 +155,9 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete }) 
         code: formData.code.trim(),
         price: formData.price ? parseFloat(formData.price) : 0,
         location: formData.location.trim(),
+        stockType: formData.stockType,
         items,
+        photos: formData.photos,
       }
       if (editingId) {
         await onUpdate(editingId, data)
@@ -197,6 +251,19 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete }) 
                   disabled={loading}
                 />
               </div>
+              <div className="form-group">
+                <label>Tipo de stock</label>
+                <select
+                  value={formData.stockType}
+                  onChange={e => setFormData({ ...formData, stockType: e.target.value })}
+                  disabled={loading}
+                >
+                  <option value="">-- Sin asignar --</option>
+                  {STOCK_TYPES.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="form-group">
@@ -252,6 +319,43 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete }) 
               )}
             </div>
 
+            <div className="form-group">
+              <label>Fotos ({formData.photos.length}/{MAX_PHOTOS})</label>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                style={{ display: 'none' }}
+                onChange={handleAddPhotos}
+              />
+              <div className="photos-row">
+                {formData.photos.map((photo, i) => (
+                  <div key={i} className="photo-thumb">
+                    <img src={photo} alt={`Foto ${i + 1}`} />
+                    <button
+                      type="button"
+                      className="photo-remove"
+                      onClick={() => removePhoto(i)}
+                      title="Quitar foto"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                {formData.photos.length < MAX_PHOTOS && (
+                  <button
+                    type="button"
+                    className="photo-add"
+                    onClick={() => photoInputRef.current?.click()}
+                    disabled={loading}
+                  >
+                    📷<br />Agregar
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div className="form-actions">
               <button type="submit" className="btn-primary" disabled={loading}>
                 {loading ? '⏳ Guardando...' : (editingId ? '✓ Actualizar' : '✓ Crear Combo')}
@@ -284,12 +388,20 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete }) 
             return (
               <div key={combo.id} className="combo-card">
                 <div className="combo-card-header">
-                  <div>
-                    <div className="combo-name">🎁 {combo.name}</div>
-                    <div className="combo-meta">
-                      {combo.code && <span>Código: {combo.code} · </span>}
-                      {combo.price ? `$${Number(combo.price).toFixed(2)}` : 'Sin precio'}
-                      {combo.location && <span> · 📍 {combo.location}</span>}
+                  <div className="combo-title-row">
+                    {combo.photos?.length > 0 && (
+                      <img className="combo-photo" src={combo.photos[0]} alt={combo.name} />
+                    )}
+                    <div>
+                      <div className="combo-name">🎁 {combo.name}</div>
+                      <div className="combo-meta">
+                        {combo.code && <span>Código: {combo.code} · </span>}
+                        {combo.price ? `$${Number(combo.price).toFixed(2)}` : 'Sin precio'}
+                        {combo.location && <span> · 📍 {combo.location}</span>}
+                        {combo.stockType && (
+                          <span className={`badge-st ${combo.stockType.toLowerCase()}`}> {combo.stockType}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <span className={`badge ${available > 0 ? 'ok' : 'warn'}`}>
