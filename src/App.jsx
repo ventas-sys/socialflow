@@ -12,6 +12,8 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  getDoc,
+  setDoc,
   query,
   where,
   Timestamp,
@@ -32,6 +34,7 @@ export default function App() {
   const [products, setProducts] = useState([])
   const [combos, setCombos] = useState([])
   const [movements, setMovements] = useState([])
+  const [depositMap, setDepositMap] = useState(null)
   const [loadingData, setLoadingData] = useState(false)
 
   useEffect(() => {
@@ -51,11 +54,14 @@ export default function App() {
       // Se ordena en el cliente para no requerir índices compuestos en Firestore
       const toMillis = (t) => (t?.toMillis ? t.toMillis() : new Date(t || 0).getTime())
 
-      const [productsSnap, combosSnap, movementsSnap] = await Promise.all([
+      const [productsSnap, combosSnap, movementsSnap, settingsSnap] = await Promise.all([
         getDocs(query(collection(db, 'products'), where('userId', '==', userId))),
         getDocs(query(collection(db, 'combos'), where('userId', '==', userId))),
         getDocs(query(collection(db, 'movements'), where('userId', '==', userId))),
+        getDoc(doc(db, 'settings', userId)),
       ])
+
+      setDepositMap(settingsSnap.exists() ? settingsSnap.data().depositMapPhoto || null : null)
 
       setProducts(
         productsSnap.docs
@@ -167,6 +173,16 @@ export default function App() {
     }
     await deleteDoc(doc(db, 'products', productId))
     setProducts(products.filter(p => p.id !== productId))
+  }
+
+  const saveDepositMap = async (photoDataUrl) => {
+    if (!user) return
+    await setDoc(
+      doc(db, 'settings', user.uid),
+      { depositMapPhoto: photoDataUrl, userId: user.uid },
+      { merge: true }
+    )
+    setDepositMap(photoDataUrl)
   }
 
   const addCombo = async (comboData) => {
@@ -334,7 +350,14 @@ export default function App() {
           </div>
         ) : (
           <>
-            {currentTab === 'dashboard' && <Dashboard products={products} movements={movements} />}
+            {currentTab === 'dashboard' && (
+              <Dashboard
+                products={products}
+                movements={movements}
+                depositMap={depositMap}
+                onSaveMap={saveDepositMap}
+              />
+            )}
             {currentTab === 'inventory' && (
               <Inventory
                 products={products}

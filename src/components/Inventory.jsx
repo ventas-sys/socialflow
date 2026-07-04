@@ -10,6 +10,7 @@ const EMPTY_FORM = {
   price: '',
   minStock: '5',
   quantity: '0',
+  location: '',
   description: '',
   photos: [],
 }
@@ -22,6 +23,7 @@ const COLUMN_MAP = {
   precio: 'price', price: 'price', 'precio venta': 'price',
   cantidad: 'quantity', stock: 'quantity', qty: 'quantity', unidades: 'quantity', existencia: 'quantity',
   'stock minimo': 'minStock', minimo: 'minStock', 'min stock': 'minStock',
+  ubicacion: 'location', location: 'location', deposito: 'location', estante: 'location', posicion: 'location', pasillo: 'location',
   descripcion: 'description', description: 'description', detalle: 'description',
 }
 
@@ -59,7 +61,8 @@ export default function Inventory({ products, onAdd, onUpdate, onDelete, onImpor
       category: product.category || '',
       price: product.price || '',
       minStock: product.minStock || '5',
-      quantity: product.quantity || '0',
+      quantity: product.quantity ?? '0',
+      location: product.location || '',
       description: product.description || '',
       photos: product.photos || [],
     })
@@ -174,6 +177,7 @@ export default function Inventory({ products, onAdd, onUpdate, onDelete, onImpor
             price: parseNumber(p.price),
             quantity: Math.round(parseNumber(p.quantity)),
             minStock: p.minStock !== undefined ? Math.round(parseNumber(p.minStock)) : 5,
+            location: p.location !== undefined ? String(p.location).trim() : '',
             description: p.description !== undefined ? String(p.description).trim() : '',
             photos: [],
           }
@@ -203,8 +207,8 @@ export default function Inventory({ products, onAdd, onUpdate, onDelete, onImpor
 
   const downloadTemplate = () => {
     const ws = XLSX.utils.aoa_to_sheet([
-      ['Nombre', 'Código', 'Categoría', 'Precio', 'Cantidad', 'Stock Mínimo', 'Descripción'],
-      ['Producto de ejemplo', 'SKU-001', 'General', 1500, 10, 5, 'Descripción opcional'],
+      ['Nombre', 'Código', 'Categoría', 'Precio', 'Cantidad', 'Stock Mínimo', 'Ubicación', 'Descripción'],
+      ['Producto de ejemplo', 'SKU-001', 'General', 1500, 10, 5, 'Estante A3', 'Descripción opcional'],
     ])
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Productos')
@@ -213,7 +217,8 @@ export default function Inventory({ products, onAdd, onUpdate, onDelete, onImpor
 
   const filteredProducts = products.filter(p =>
     p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.code?.toLowerCase().includes(searchTerm.toLowerCase())
+    p.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.location?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   return (
@@ -315,10 +320,9 @@ export default function Inventory({ products, onAdd, onUpdate, onDelete, onImpor
               </div>
 
               <div className="form-group">
-                <label>Cantidad Actual</label>
+                <label>Cantidad Actual (puede ser negativa)</label>
                 <input
                   type="number"
-                  min="0"
                   value={formData.quantity}
                   onChange={e => setFormData({ ...formData, quantity: e.target.value })}
                   placeholder="0"
@@ -334,6 +338,17 @@ export default function Inventory({ products, onAdd, onUpdate, onDelete, onImpor
                   value={formData.minStock}
                   onChange={e => setFormData({ ...formData, minStock: e.target.value })}
                   placeholder="5"
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>📍 Ubicación en el depósito</label>
+                <input
+                  type="text"
+                  value={formData.location}
+                  onChange={e => setFormData({ ...formData, location: e.target.value })}
+                  placeholder="Ej: Estante A3, Pasillo 2"
                   disabled={loading}
                 />
               </div>
@@ -438,6 +453,7 @@ export default function Inventory({ products, onAdd, onUpdate, onDelete, onImpor
                 <th>Precio</th>
                 <th>Stock</th>
                 <th>Mín.</th>
+                <th>📍 Ubicación</th>
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
@@ -458,6 +474,7 @@ export default function Inventory({ products, onAdd, onUpdate, onDelete, onImpor
                   <td>${product.price ? Number(product.price).toFixed(2) : '0.00'}</td>
                   <td className="stock">{product.quantity || 0}</td>
                   <td>{product.minStock || 5}</td>
+                  <td>{product.location || '-'}</td>
                   <td>
                     <span className={`badge ${product.quantity >= product.minStock ? 'ok' : 'warn'}`}>
                       {product.quantity >= product.minStock ? '✓ OK' : '⚠ Bajo'}

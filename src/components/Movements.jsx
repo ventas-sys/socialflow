@@ -48,20 +48,12 @@ export default function Movements({ products, combos, movements, onAdd }) {
           return
         }
 
-        if (formData.type === 'salida') {
-          // Validar stock de cada componente
-          for (const item of combo.items) {
-            const p = products.find(pp => pp.id === item.productId)
-            const needed = item.quantity * quantity
-            if (!p) {
-              setError('Un producto del combo fue eliminado. Editá el combo primero.')
-              return
-            }
-            if ((p.quantity || 0) < needed) {
-              setError(`Stock insuficiente de "${p.name}": necesitás ${needed} y hay ${p.quantity || 0}.`)
-              return
-            }
-          }
+        // El stock puede quedar negativo: no se bloquea la salida,
+        // solo se verifica que los productos del combo existan
+        const missing = combo.items.find(item => !products.some(p => p.id === item.productId))
+        if (missing) {
+          setError('Un producto del combo fue eliminado. Editá el combo primero.')
+          return
         }
 
         await onAdd({
@@ -87,10 +79,7 @@ export default function Movements({ products, combos, movements, onAdd }) {
           setError('Producto no encontrado')
           return
         }
-        if (formData.type === 'salida' && (product.quantity || 0) < quantity) {
-          setError(`Stock insuficiente. Disponible: ${product.quantity || 0}`)
-          return
-        }
+        // El stock puede quedar negativo: no se bloquea la salida
         await onAdd({
           productId: product.id,
           productName: product.name,

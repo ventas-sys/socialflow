@@ -1,7 +1,45 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState, useRef } from 'react'
+import { compressImage } from '../utils/images'
 import './Dashboard.css'
 
-export default function Dashboard({ products, movements }) {
+export default function Dashboard({ products, movements, depositMap, onSaveMap }) {
+  const [savingMap, setSavingMap] = useState(false)
+  const [mapError, setMapError] = useState('')
+  const [mapExpanded, setMapExpanded] = useState(false)
+  const mapInputRef = useRef(null)
+
+  const handleMapUpload = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setMapError('')
+    setSavingMap(true)
+    try {
+      // Más resolución que las fotos de producto para que el plano se lea bien
+      const photo = await compressImage(file, 1400, 0.72)
+      if (photo.length > 900_000) {
+        setMapError('La imagen es muy pesada. Probá con una foto más chica.')
+        return
+      }
+      await onSaveMap(photo)
+    } catch (err) {
+      setMapError('Error al subir la imagen: ' + err.message)
+    } finally {
+      setSavingMap(false)
+    }
+  }
+
+  const handleMapRemove = async () => {
+    if (!window.confirm('¿Quitar la imagen del depósito?')) return
+    setSavingMap(true)
+    try {
+      await onSaveMap(null)
+    } catch (err) {
+      setMapError('Error: ' + err.message)
+    } finally {
+      setSavingMap(false)
+    }
+  }
   const stats = useMemo(() => {
     const totalProducts = products.length
     const totalStock = products.reduce((sum, p) => sum + (p.quantity || 0), 0)
@@ -75,6 +113,48 @@ export default function Dashboard({ products, movements }) {
         </div>
       </div>
 
+      <div className="dashboard-panel map-panel">
+        <div className="map-header">
+          <h2>🗺️ Mapa del Depósito</h2>
+          <div className="map-actions">
+            <input
+              ref={mapInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={handleMapUpload}
+            />
+            <button
+              className="btn-map"
+              onClick={() => mapInputRef.current?.click()}
+              disabled={savingMap}
+            >
+              {savingMap ? '⏳ Guardando...' : (depositMap ? '🔄 Cambiar imagen' : '📤 Subir imagen')}
+            </button>
+            {depositMap && (
+              <button className="btn-map-remove" onClick={handleMapRemove} disabled={savingMap}>
+                🗑️ Quitar
+              </button>
+            )}
+          </div>
+        </div>
+        {mapError && <div className="map-error">{mapError}</div>}
+        {depositMap ? (
+          <img
+            src={depositMap}
+            alt="Mapa del depósito"
+            className={`deposit-map ${mapExpanded ? 'expanded' : ''}`}
+            onClick={() => setMapExpanded(!mapExpanded)}
+            title={mapExpanded ? 'Clic para achicar' : 'Clic para agrandar'}
+          />
+        ) : (
+          <p className="map-empty">
+            Subí una foto o plano de tu depósito para ubicar rápido los productos.
+            Cada producto y combo tiene su campo 📍 Ubicación (ej: "Estante A3").
+          </p>
+        )}
+      </div>
+
       <div className="dashboard-grid">
         <div className="dashboard-panel">
           <h2>Movimientos Recientes</h2>
@@ -113,7 +193,10 @@ export default function Dashboard({ products, movements }) {
                   <div key={p.id} className="low-stock-item">
                     <div>
                       <div className="product-name">{p.name}</div>
-                      <div className="product-code">Código: {p.code || '-'}</div>
+                      <div className="product-code">
+                        Código: {p.code || '-'}
+                        {p.location ? ` · 📍 ${p.location}` : ''}
+                      </div>
                     </div>
                     <div className="stock-badge">
                       {p.quantity || 0} / {p.minStock || 5}

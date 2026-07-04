@@ -5,10 +5,12 @@ const EMPTY_FORM = {
   name: '',
   code: '',
   price: '',
+  location: '',
   items: [{ productId: '', quantity: '1' }],
 }
 
-// Cuántos combos completos se pueden armar con el stock actual
+// Cuántos combos completos se pueden armar con el stock actual (solo informativo,
+// no bloquea nada: el stock puede quedar negativo)
 export function comboAvailable(combo, products) {
   if (!combo.items?.length) return 0
   let available = Infinity
@@ -17,7 +19,7 @@ export function comboAvailable(combo, products) {
     if (!p) return 0
     available = Math.min(available, Math.floor((p.quantity || 0) / item.quantity))
   }
-  return available === Infinity ? 0 : available
+  return available === Infinity ? 0 : Math.max(0, available)
 }
 
 export default function Combos({ combos, products, onAdd, onUpdate, onDelete }) {
@@ -38,6 +40,7 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete }) 
       name: combo.name || '',
       code: combo.code || '',
       price: combo.price || '',
+      location: combo.location || '',
       items: combo.items?.length
         ? combo.items.map(i => ({ productId: i.productId, quantity: String(i.quantity) }))
         : [{ productId: '', quantity: '1' }],
@@ -99,6 +102,7 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete }) 
         name: formData.name.trim(),
         code: formData.code.trim(),
         price: formData.price ? parseFloat(formData.price) : 0,
+        location: formData.location.trim(),
         items,
       }
       if (editingId) {
@@ -180,6 +184,16 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete }) 
                   value={formData.price}
                   onChange={e => setFormData({ ...formData, price: e.target.value })}
                   placeholder="0.00"
+                  disabled={loading}
+                />
+              </div>
+              <div className="form-group">
+                <label>📍 Ubicación en el depósito</label>
+                <input
+                  type="text"
+                  value={formData.location}
+                  onChange={e => setFormData({ ...formData, location: e.target.value })}
+                  placeholder="Ej: Estante B1, Zona armado"
                   disabled={loading}
                 />
               </div>
@@ -275,6 +289,7 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete }) 
                     <div className="combo-meta">
                       {combo.code && <span>Código: {combo.code} · </span>}
                       {combo.price ? `$${Number(combo.price).toFixed(2)}` : 'Sin precio'}
+                      {combo.location && <span> · 📍 {combo.location}</span>}
                     </div>
                   </div>
                   <span className={`badge ${available > 0 ? 'ok' : 'warn'}`}>
