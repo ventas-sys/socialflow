@@ -189,27 +189,29 @@ export default function Dashboard({
       <div className="dashboard-panel map-panel">
         <div className="map-header">
           <h2>🗺️ Mapa del Depósito</h2>
-          <div className="map-actions">
-            <input
-              ref={mapInputRef}
-              type="file"
-              accept="image/*"
-              style={{ display: 'none' }}
-              onChange={handleMapUpload}
-            />
-            <button
-              className="btn-map"
-              onClick={() => mapInputRef.current?.click()}
-              disabled={savingMap}
-            >
-              {savingMap ? '⏳ Guardando...' : (depositMap ? '🔄 Cambiar imagen' : '📤 Subir imagen')}
-            </button>
-            {depositMap && (
-              <button className="btn-map-remove" onClick={handleMapRemove} disabled={savingMap}>
-                🗑️ Quitar
+          {isAdmin && (
+            <div className="map-actions">
+              <input
+                ref={mapInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={handleMapUpload}
+              />
+              <button
+                className="btn-map"
+                onClick={() => mapInputRef.current?.click()}
+                disabled={savingMap}
+              >
+                {savingMap ? '⏳ Guardando...' : (depositMap ? '🔄 Cambiar imagen' : '📤 Subir imagen')}
               </button>
-            )}
-          </div>
+              {depositMap && (
+                <button className="btn-map-remove" onClick={handleMapRemove} disabled={savingMap}>
+                  🗑️ Quitar
+                </button>
+              )}
+            </div>
+          )}
         </div>
         {mapError && <div className="map-error">{mapError}</div>}
         {depositMap ? (
@@ -222,8 +224,9 @@ export default function Dashboard({
           />
         ) : (
           <p className="map-empty">
-            Subí una foto o plano de tu depósito para ubicar rápido los productos.
-            Cada producto y combo tiene su campo 📍 Ubicación (ej: "Estante A3").
+            {isAdmin
+              ? 'Subí una foto o plano de tu depósito para ubicar rápido los productos. Cada producto y combo tiene su campo 📍 Ubicación (ej: "Estante A3").'
+              : 'El administrador todavía no subió el mapa del depósito.'}
           </p>
         )}
       </div>

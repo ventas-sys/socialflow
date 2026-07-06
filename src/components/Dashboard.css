@@ -218,12 +218,19 @@
 
 .deposit-map {
   width: 100%;
-  max-height: 260px;
+  max-height: 520px;
   object-fit: contain;
   border-radius: 0.5rem;
   background: #f3f4f6;
   cursor: zoom-in;
   transition: max-height 0.25s;
+}
+
+/* En celulares el mapa ocupa la mayor parte de la pantalla para leerse bien */
+@media (max-width: 768px) {
+  .deposit-map {
+    max-height: 75vh;
+  }
 }
 
 .deposit-map.expanded {
