@@ -181,12 +181,32 @@ export default function App() {
     return docRef.id
   }
 
-  // Importación masiva desde Excel (lotes de hasta 400 por límite de Firestore)
+  // Importación masiva desde Excel (lotes de hasta 400 por límite de Firestore).
+  // Las filas con existingId actualizan el producto en vez de crear uno nuevo,
+  // lo que permite exportar → modificar → volver a importar sin duplicados.
   const importProducts = async (rows) => {
-    if (!user) return 0
+    if (!user) return { created: 0, updated: 0 }
+
+    const toCreate = rows.filter(r => !r.existingId)
+    const toUpdate = rows.filter(r => r.existingId)
+
+    for (let i = 0; i < toUpdate.length; i += 400) {
+      const batch = writeBatch(db)
+      toUpdate.slice(i, i + 400).forEach(r => {
+        const { existingId, ...data } = r
+        // Si el Excel no trae fotos, se conservan las que ya tenía el producto
+        if (!data.photos || data.photos.length === 0) delete data.photos
+        batch.update(doc(db, 'products', existingId), {
+          ...data,
+          updatedAt: Timestamp.now(),
+        })
+      })
+      await batch.commit()
+    }
+
     const created = []
-    for (let i = 0; i < rows.length; i += 400) {
-      const chunk = rows.slice(i, i + 400)
+    for (let i = 0; i < toCreate.length; i += 400) {
+      const chunk = toCreate.slice(i, i + 400)
       const batch = writeBatch(db)
       const refs = chunk.map(r => {
         const ref = doc(collection(db, 'products'))
@@ -203,8 +223,19 @@ export default function App() {
         created.push({ id: refs[idx].id, ...r, userId: ORG_ID, createdAt: new Date() })
       })
     }
-    setProducts([...created.reverse(), ...products])
-    return created.length
+
+    const updatedById = new Map(toUpdate.map(r => [r.existingId, r]))
+    setProducts([
+      ...created.reverse(),
+      ...products.map(p => {
+        const r = updatedById.get(p.id)
+        if (!r) return p
+        const { existingId, ...data } = r
+        if (!data.photos || data.photos.length === 0) delete data.photos
+        return { ...p, ...data, updatedAt: new Date() }
+      }),
+    ])
+    return { created: created.length, updated: toUpdate.length }
   }
 
   const updateProduct = async (productId, productData) => {

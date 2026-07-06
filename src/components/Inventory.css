@@ -66,6 +66,36 @@
   cursor: not-allowed;
 }
 
+.btn-outline {
+  background: white;
+  color: #1f2937;
+  border: 1px solid #d1d5db;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.btn-outline:hover:not(:disabled) {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.btn-outline:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn-outline {
+    background: #1e293b;
+    color: #f1f5f9;
+    border-color: #334155;
+  }
+}
+
 .import-ok,
 .import-warn {
   padding: 1rem;
@@ -560,9 +590,9 @@
 }
 
 .found-photo {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
+  width: 88px;
+  height: 88px;
+  border-radius: 0.5rem;
   object-fit: cover;
   flex-shrink: 0;
   border: 1px solid #e5e7eb;

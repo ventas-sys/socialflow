@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react'
 import * as XLSX from 'xlsx'
 import { compressImage, MAX_PHOTOS, MAX_PHOTOS_BYTES, photosSize } from '../utils/images'
+import { extractImagesByRow } from '../utils/excelImages'
 import { comboAvailable, STOCK_TYPES } from './Combos'
 import Scanner from './Scanner'
 import './Inventory.css'
@@ -181,6 +182,9 @@ export default function Inventory({
         return
       }
 
+      // Fotos pegadas en el Excel, agrupadas por fila de la hoja
+      const photosByRow = await extractImagesByRow(buffer)
+
       const rows = rawRows
         .map(raw => {
           const p = {}
@@ -189,6 +193,8 @@ export default function Inventory({
             if (field) p[field] = value
           })
           if (!p.name || !String(p.name).trim()) return null
+          // __rowNum__ es la fila real (base 0) en la hoja, para mapear las fotos
+          const sheetRow = raw.__rowNum__
           return {
             name: String(p.name).trim(),
             code: p.code !== undefined ? String(p.code).trim() : '',
@@ -200,7 +206,7 @@ export default function Inventory({
             location: p.location !== undefined ? String(p.location).trim() : '',
             stockType: p.stockType !== undefined ? String(p.stockType).trim().toUpperCase() : '',
             description: p.description !== undefined ? String(p.description).trim() : '',
-            photos: [],
+            photos: photosByRow.get(sheetRow) || [],
           }
         })
         .filter(Boolean)
@@ -208,15 +214,33 @@ export default function Inventory({
       if (!rows.length) {
         setImportResult(
           '⚠️ No se encontró la columna "Nombre". El Excel debe tener encabezados en la primera fila: ' +
-          'Nombre (obligatorio), Código, Categoría, Precio, Cantidad, Stock Mínimo, Descripción.'
+          'Nombre (obligatorio), SKU, Código de Barras, Categoría, Precio, Cantidad, Stock Mínimo, Ubicación, Tipo, Descripción. ' +
+          'Descargá la plantilla de ejemplo para ver el formato.'
         )
         return
       }
 
-      const count = await onImport(rows)
+      // Si el SKU o el código de barras ya existen, se ACTUALIZA el producto
+      // en vez de duplicarlo (permite exportar → modificar → volver a importar)
+      const byCode = new Map()
+      const byBarcode = new Map()
+      products.forEach(p => {
+        if (p.code) byCode.set(p.code.toLowerCase(), p)
+        if (p.barcode) byBarcode.set(p.barcode.toLowerCase(), p)
+      })
+      rows.forEach(r => {
+        const existing =
+          (r.code && byCode.get(r.code.toLowerCase())) ||
+          (r.barcode && byBarcode.get(r.barcode.toLowerCase()))
+        if (existing) r.existingId = existing.id
+      })
+
+      const result = await onImport(rows)
       const skipped = rawRows.length - rows.length
+      const withPhotos = rows.filter(r => r.photos.length > 0).length
       setImportResult(
-        `✅ Se importaron ${count} productos.` +
+        `✅ ${result.created} productos nuevos, ${result.updated} actualizados.` +
+        (withPhotos > 0 ? ` ${withPhotos} con fotos del Excel.` : '') +
         (skipped > 0 ? ` Se saltearon ${skipped} filas sin nombre.` : '')
       )
     } catch (err) {
@@ -224,6 +248,27 @@ export default function Inventory({
     } finally {
       setImporting(false)
     }
+  }
+
+  const exportExcel = () => {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['Nombre', 'SKU', 'Código de Barras', 'Categoría', 'Precio', 'Cantidad', 'Stock Mínimo', 'Ubicación', 'Tipo', 'Descripción'],
+      ...products.map(p => [
+        p.name || '',
+        p.code || '',
+        p.barcode || '',
+        p.category || '',
+        p.price || 0,
+        p.quantity || 0,
+        p.minStock || 5,
+        p.location || '',
+        p.stockType || '',
+        p.description || '',
+      ]),
+    ])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Productos')
+    XLSX.writeFile(wb, 'inventario.xlsx')
   }
 
   const downloadTemplate = () => {
@@ -296,6 +341,17 @@ export default function Inventory({
             style={{ display: 'none' }}
             onChange={handleImportFile}
           />
+          <button onClick={downloadTemplate} className="btn-outline" title="Excel de ejemplo con el formato correcto">
+            📄 Plantilla
+          </button>
+          <button
+            onClick={exportExcel}
+            className="btn-outline"
+            disabled={products.length === 0}
+            title="Descargar el inventario para modificarlo masivamente y volver a importarlo"
+          >
+            ⬆️ Exportar
+          </button>
           <button
             onClick={() => fileInputRef.current?.click()}
             className="btn-import"
