@@ -2,11 +2,46 @@ import React, { useMemo, useState, useRef } from 'react'
 import { compressImage } from '../utils/images'
 import './Dashboard.css'
 
-export default function Dashboard({ products, movements, depositMap, onSaveMap }) {
+export default function Dashboard({
+  products,
+  movements,
+  depositMap,
+  onSaveMap,
+  isAdmin,
+  members = [],
+  onAddMember,
+  onRemoveMember,
+}) {
   const [savingMap, setSavingMap] = useState(false)
   const [mapError, setMapError] = useState('')
   const [mapExpanded, setMapExpanded] = useState(false)
   const mapInputRef = useRef(null)
+  const [newMemberEmail, setNewMemberEmail] = useState('')
+  const [memberError, setMemberError] = useState('')
+  const [addingMember, setAddingMember] = useState(false)
+
+  const handleAddMember = async (e) => {
+    e.preventDefault()
+    setMemberError('')
+    setAddingMember(true)
+    try {
+      await onAddMember(newMemberEmail)
+      setNewMemberEmail('')
+    } catch (err) {
+      setMemberError(err.message)
+    } finally {
+      setAddingMember(false)
+    }
+  }
+
+  const handleRemoveMember = async (email) => {
+    if (!window.confirm(`¿Quitar el acceso de ${email}?`)) return
+    try {
+      await onRemoveMember(email)
+    } catch (err) {
+      alert(err.message)
+    }
+  }
 
   const handleMapUpload = async (e) => {
     const file = e.target.files?.[0]
@@ -112,6 +147,44 @@ export default function Dashboard({ products, movements, depositMap, onSaveMap }
           </div>
         </div>
       </div>
+
+      {isAdmin && (
+        <div className="dashboard-panel team-panel">
+          <h2>👥 Equipo — acceso compartido</h2>
+          <p className="team-hint">
+            Las cuentas de Google que agregues acá van a ver y modificar
+            <strong> el mismo inventario</strong>. Cada movimiento queda
+            registrado con el nombre de quien lo hizo.
+          </p>
+          <form onSubmit={handleAddMember} className="team-form">
+            <input
+              type="email"
+              placeholder="email@gmail.com del empleado"
+              value={newMemberEmail}
+              onChange={e => setNewMemberEmail(e.target.value)}
+              disabled={addingMember}
+            />
+            <button type="submit" className="btn-map" disabled={addingMember || !newMemberEmail.trim()}>
+              {addingMember ? '⏳' : '+ Agregar'}
+            </button>
+          </form>
+          {memberError && <div className="map-error">{memberError}</div>}
+          {members.length === 0 ? (
+            <p className="team-empty">Todavía no agregaste a nadie. Solo tu cuenta tiene acceso.</p>
+          ) : (
+            <ul className="team-list">
+              {members.map(m => (
+                <li key={m.email}>
+                  <span>👤 {m.email}</span>
+                  <button onClick={() => handleRemoveMember(m.email)} title="Quitar acceso">
+                    🗑️
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       <div className="dashboard-panel map-panel">
         <div className="map-header">

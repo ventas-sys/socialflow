@@ -19,6 +19,7 @@ import {
   Timestamp,
   writeBatch,
 } from 'firebase/firestore'
+import { ORG_ID, ADMIN_EMAIL } from './config'
 import Dashboard from './components/Dashboard'
 import Inventory from './components/Inventory'
 import Combos from './components/Combos'
@@ -36,31 +37,62 @@ export default function App() {
   const [movements, setMovements] = useState([])
   const [depositMap, setDepositMap] = useState(null)
   const [loadingData, setLoadingData] = useState(false)
+  const [accessDenied, setAccessDenied] = useState(false)
+  const [members, setMembers] = useState([])
   // Pedido de edición de un combo desde la pestaña Inventario
   const [comboEditRequest, setComboEditRequest] = useState(null)
+
+  const isAdmin = user?.email === ADMIN_EMAIL
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser)
       setLoading(false)
       if (currentUser) {
-        loadUserData(currentUser.uid)
+        loadUserData(currentUser)
       }
     })
     return unsubscribe
   }, [])
 
-  const loadUserData = async (userId) => {
+  // Migra los datos viejos (guardados por usuario) al espacio compartido.
+  // Solo la corre el administrador y solo si encuentra documentos viejos.
+  const migrateOldData = async (uid) => {
+    for (const collName of ['products', 'combos', 'movements']) {
+      const snap = await getDocs(
+        query(collection(db, collName), where('userId', '==', uid))
+      )
+      for (let i = 0; i < snap.docs.length; i += 400) {
+        const batch = writeBatch(db)
+        snap.docs.slice(i, i + 400).forEach(d => batch.update(d.ref, { userId: ORG_ID }))
+        await batch.commit()
+      }
+    }
+    const oldSettings = await getDoc(doc(db, 'settings', uid))
+    if (oldSettings.exists()) {
+      const orgSettings = await getDoc(doc(db, 'settings', ORG_ID))
+      if (!orgSettings.exists()) {
+        await setDoc(doc(db, 'settings', ORG_ID), { ...oldSettings.data(), userId: ORG_ID })
+      }
+    }
+  }
+
+  const loadUserData = async (currentUser) => {
     setLoadingData(true)
+    setAccessDenied(false)
     try {
+      if (currentUser.email === ADMIN_EMAIL) {
+        await migrateOldData(currentUser.uid)
+      }
+
       // Se ordena en el cliente para no requerir índices compuestos en Firestore
       const toMillis = (t) => (t?.toMillis ? t.toMillis() : new Date(t || 0).getTime())
 
       const [productsSnap, combosSnap, movementsSnap, settingsSnap] = await Promise.all([
-        getDocs(query(collection(db, 'products'), where('userId', '==', userId))),
-        getDocs(query(collection(db, 'combos'), where('userId', '==', userId))),
-        getDocs(query(collection(db, 'movements'), where('userId', '==', userId))),
-        getDoc(doc(db, 'settings', userId)),
+        getDocs(query(collection(db, 'products'), where('userId', '==', ORG_ID))),
+        getDocs(query(collection(db, 'combos'), where('userId', '==', ORG_ID))),
+        getDocs(query(collection(db, 'movements'), where('userId', '==', ORG_ID))),
+        getDoc(doc(db, 'settings', ORG_ID)),
       ])
 
       setDepositMap(settingsSnap.exists() ? settingsSnap.data().depositMapPhoto || null : null)
@@ -80,18 +112,41 @@ export default function App() {
           .map(d => ({ id: d.id, ...d.data() }))
           .sort((a, b) => toMillis(b.date) - toMillis(a.date))
       )
+
+      if (currentUser.email === ADMIN_EMAIL) {
+        const membersSnap = await getDocs(collection(db, 'members'))
+        setMembers(membersSnap.docs.map(d => ({ email: d.id, ...d.data() })))
+      }
     } catch (error) {
       console.error('Error loading data:', error)
+      if (error.code === 'permission-denied') {
+        setAccessDenied(true)
+      }
     } finally {
       setLoadingData(false)
     }
+  }
+
+  const addMember = async (email) => {
+    const clean = email.trim().toLowerCase()
+    if (!clean || !clean.includes('@')) throw new Error('Ingresá un email válido')
+    await setDoc(doc(db, 'members', clean), {
+      addedBy: user.email,
+      addedAt: Timestamp.now(),
+    })
+    setMembers([...members.filter(m => m.email !== clean), { email: clean, addedBy: user.email }])
+  }
+
+  const removeMember = async (email) => {
+    await deleteDoc(doc(db, 'members', email))
+    setMembers(members.filter(m => m.email !== email))
   }
 
   const handleLogin = async () => {
     try {
       const result = await signInWithPopup(auth, googleProvider)
       setUser(result.user)
-      loadUserData(result.user.uid)
+      loadUserData(result.user)
     } catch (error) {
       console.error('Login error:', error)
       alert('Error al iniciar sesión: ' + error.message)
@@ -115,12 +170,12 @@ export default function App() {
     if (!user) return
     const docRef = await addDoc(collection(db, 'products'), {
       ...productData,
-      userId: user.uid,
+      userId: ORG_ID,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     })
     setProducts([
-      { id: docRef.id, ...productData, userId: user.uid, createdAt: new Date() },
+      { id: docRef.id, ...productData, userId: ORG_ID, createdAt: new Date() },
       ...products,
     ])
     return docRef.id
@@ -137,7 +192,7 @@ export default function App() {
         const ref = doc(collection(db, 'products'))
         batch.set(ref, {
           ...r,
-          userId: user.uid,
+          userId: ORG_ID,
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
         })
@@ -145,7 +200,7 @@ export default function App() {
       })
       await batch.commit()
       chunk.forEach((r, idx) => {
-        created.push({ id: refs[idx].id, ...r, userId: user.uid, createdAt: new Date() })
+        created.push({ id: refs[idx].id, ...r, userId: ORG_ID, createdAt: new Date() })
       })
     }
     setProducts([...created.reverse(), ...products])
@@ -180,8 +235,8 @@ export default function App() {
   const saveDepositMap = async (photoDataUrl) => {
     if (!user) return
     await setDoc(
-      doc(db, 'settings', user.uid),
-      { depositMapPhoto: photoDataUrl, userId: user.uid },
+      doc(db, 'settings', ORG_ID),
+      { depositMapPhoto: photoDataUrl, userId: ORG_ID },
       { merge: true }
     )
     setDepositMap(photoDataUrl)
@@ -191,12 +246,12 @@ export default function App() {
     if (!user) return
     const docRef = await addDoc(collection(db, 'combos'), {
       ...comboData,
-      userId: user.uid,
+      userId: ORG_ID,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     })
     setCombos([
-      { id: docRef.id, ...comboData, userId: user.uid, createdAt: new Date() },
+      { id: docRef.id, ...comboData, userId: ORG_ID, createdAt: new Date() },
       ...combos,
     ])
     return docRef.id
@@ -223,9 +278,10 @@ export default function App() {
     if (!user) return
     const movementDoc = {
       ...movementData,
-      userId: user.uid,
+      userId: ORG_ID,
       date: Timestamp.now(),
       userName: user.displayName || user.email,
+      userEmail: user.email,
     }
     const factor = movementData.type === 'entrada' ? 1 : -1
 
@@ -288,6 +344,23 @@ export default function App() {
 
   if (!user) {
     return <Auth onLogin={handleLogin} />
+  }
+
+  if (accessDenied) {
+    return (
+      <div className="app-loading">
+        <div style={{ fontSize: '3rem' }}>🔒</div>
+        <h2 style={{ margin: '0.5rem 0' }}>Sin acceso al inventario</h2>
+        <p style={{ maxWidth: 420, textAlign: 'center', color: '#6b7280' }}>
+          Tu cuenta <strong>{user.email}</strong> todavía no fue autorizada.
+          Pedile al administrador que la agregue desde el Dashboard
+          (panel "Equipo") y volvé a entrar.
+        </p>
+        <button onClick={handleLogout} className="btn-logout" style={{ marginTop: '1rem' }}>
+          Salir y probar con otra cuenta
+        </button>
+      </div>
+    )
   }
 
   return (
@@ -358,6 +431,10 @@ export default function App() {
                 movements={movements}
                 depositMap={depositMap}
                 onSaveMap={saveDepositMap}
+                isAdmin={isAdmin}
+                members={members}
+                onAddMember={addMember}
+                onRemoveMember={removeMember}
               />
             )}
             {currentTab === 'inventory' && (

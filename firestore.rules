@@ -1,22 +1,30 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Cada usuario solo puede leer y escribir sus propios datos
-    match /products/{id} {
-      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    // Administrador: puede todo y gestiona el equipo desde el Dashboard
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email == 'ventas@distribuidorauniverso.com';
     }
-    match /movements/{id} {
-      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+
+    // Miembro: el administrador o cualquier email agregado a la colección "members"
+    function isMember() {
+      return isAdmin() || (
+        request.auth != null
+        && exists(/databases/$(database)/documents/members/$(request.auth.token.email))
+      );
     }
-    match /combos/{id} {
-      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-    }
-    // Configuración del usuario (ej: foto del mapa del depósito)
-    match /settings/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+    // Inventario compartido: todos los miembros ven y modifican lo mismo
+    match /products/{id}  { allow read, write: if isMember(); }
+    match /combos/{id}    { allow read, write: if isMember(); }
+    match /movements/{id} { allow read, write: if isMember(); }
+    match /settings/{id}  { allow read, write: if isMember(); }
+
+    // Solo el administrador agrega o quita miembros
+    match /members/{email} {
+      allow read: if isMember();
+      allow write: if isAdmin();
     }
   }
 }
