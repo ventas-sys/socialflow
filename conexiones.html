@@ -256,7 +256,10 @@ function oauthMeta(){
     return;
   }
   const redirectUri = location.origin + '/meta-callback';
-  const scope = 'pages_manage_posts,pages_read_engagement,pages_show_list,instagram_basic,instagram_content_publish,business_management';
+  // Solo permisos que el admin ya tiene "listos para la prueba" (sin revisión).
+  // business_management se quitó: requiere App Review y bloqueaba toda la tanda.
+  // Las páginas se obtienen igual con pages_show_list vía /me/accounts.
+  const scope = 'pages_show_list,pages_read_engagement,pages_manage_posts,instagram_basic,instagram_content_publish';
   const authUrl = 'https://www.facebook.com/v21.0/dialog/oauth?response_type=code'
     + '&client_id='+encodeURIComponent(c.clientId)
     + '&redirect_uri='+encodeURIComponent(redirectUri)
