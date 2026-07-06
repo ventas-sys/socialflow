@@ -26,6 +26,11 @@ export default defineConfig({
         ]
       },
       workbox: {
+        // La versión nueva del service worker toma control de inmediato,
+        // sin esperar a que se cierren todas las pestañas
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/firestore\.googleapis\.com\/.*/,
