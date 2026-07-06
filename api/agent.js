@@ -82,6 +82,27 @@ Generá una ficha SEO completa para Tienda Nube. Respondé EXCLUSIVAMENTE con un
 }`;
   }
 
+  if (agent === 'youtube') {
+    return `Sos guionista de videos cortos de venta (YouTube Shorts) para Uniproveedores.com.ar, distribuidora argentina que vende en Mercado Libre. Los videos los narra un avatar IA (un "ferretero del mostrador") y sirven para vender un producto puntual mandando al link de compra.
+
+Producto: ${input.name}
+Precio ARS: ${input.price || 'no especificado'}
+Diferencial: ${input.diff || 'envío y garantía de Mercado Libre'}
+Link de compra: ${input.link || 'no especificado'}
+Público: ${input.target || 'consumidor general argentino'}
+
+Escribí todo en español rioplatense (Argentina), tono cercano, directo y vendedor, con gancho fuerte en los primeros 3 segundos. Respondé EXCLUSIVAMENTE con un JSON válido (sin markdown, sin texto extra) con esta estructura exacta:
+
+{
+  "guion": "Guion hablado de 38-45 segundos, máximo 110 palabras, para que el avatar lo diga tal cual. Estructura: gancho (pregunta o dolor) → qué es el producto → 2-3 beneficios concretos → precio + garantía Mercado Libre → llamado a la acción al link. SIN emojis, SIN acotaciones de escena, SIN nombres de secciones. Escribí el precio en números (ej: 73.140 pesos).",
+  "captions": ["Frases cortas de 3 a 6 palabras que son el MISMO guion partido para subtítulos, en orden. 10-16 items. Sin emojis."],
+  "titles": ["3 títulos para el Short, cada uno máximo 60 caracteres, con 1 emoji, con gancho y beneficio"],
+  "description": "Descripción lista para pegar en YouTube. Primera línea: 🛒 Comprá [producto] acá 👉 ${input.link || '[link de Mercado Libre]'} . Después 2-3 líneas de beneficios con ✅ y la garantía de Mercado Libre. Cerrá con 'Más ofertas de Uniproveedores en cada video'. NO incluyas los hashtags acá.",
+  "hashtags": ["7-9 hashtags relevantes en minúscula sin espacios, incluyendo #uniproveedores #mercadolibre #argentina y otros según el producto"],
+  "comment": "Comentario para fijar: 👉 Link de compra: ${input.link || '[link de Mercado Libre]'}"
+}`;
+  }
+
   if (agent === 'verification') {
     return `Sos consultor senior en verificacion de cuentas, reputacion digital y trust signals para empresas argentinas. Trabajas para Uniproveedores.com.ar.
 
@@ -162,7 +183,7 @@ export default async function handler(req, res) {
   const prompt = buildPrompt(agent, input);
   if (!prompt) return res.status(400).json({ error: 'Agente desconocido: ' + agent });
 
-  const isJsonAgent = agent === 'ml' || agent === 'tiendanube';
+  const isJsonAgent = agent === 'ml' || agent === 'tiendanube' || agent === 'youtube';
   const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GK}`;
 
   try {
