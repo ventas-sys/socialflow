@@ -554,6 +554,38 @@ export default function Inventory({
         />
       )}
 
+      {searchTerm.trim() && allRows.length > 0 && (
+        <div className="found-list">
+          {allRows.slice(0, 5).map(row => (
+            <div key={`found-${row.kind}-${row.id}`} className="found-card">
+              {row.photos?.length ? (
+                <img className="found-photo" src={row.photos[0]} alt={row.name} />
+              ) : (
+                <div className="found-photo placeholder">{row.kind === 'combo' ? '🎁' : '📦'}</div>
+              )}
+              <div className="found-info">
+                <div className="found-name">{row.name}</div>
+                {row.barcode && <div className="found-code">|||| {row.barcode}</div>}
+                {row.code && <div className="found-code sku">{row.code}</div>}
+                <div className="found-stock">
+                  Stock: {row.kind === 'combo' ? `${comboAvailable(row, products)} armables` : (row.quantity || 0)}
+                </div>
+              </div>
+              <div className={`found-location ${row.location ? '' : 'empty'}`}>
+                {row.location ? (
+                  <>
+                    <span className="pin">📍</span>
+                    {row.location}
+                  </>
+                ) : (
+                  'Sin ubicación'
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {allRows.length === 0 ? (
         <div className="empty-state">
           <p>📦</p>

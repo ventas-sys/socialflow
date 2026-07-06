@@ -2,6 +2,25 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Html5Qrcode } from 'html5-qrcode'
 import './Scanner.css'
 
+// Pitido de confirmación al leer un código (como un lector de supermercado)
+function beep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.type = 'square'
+    osc.frequency.value = 1500
+    gain.gain.setValueAtTime(0.35, ctx.currentTime)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.18)
+    osc.onended = () => ctx.close()
+  } catch {
+    // sin audio disponible, seguimos igual
+  }
+}
+
 export default function Scanner({ onScan, onClose }) {
   const scannerRef = useRef(null)
   const [error, setError] = useState('')
@@ -19,6 +38,7 @@ export default function Scanner({ onScan, onClose }) {
         (decodedText) => {
           if (stopped) return
           stopped = true
+          beep()
           scanner
             .stop()
             .catch(() => {})
