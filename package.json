@@ -12,6 +12,7 @@
         "preview": "vite preview"
     },
     "dependencies": {
+        "exceljs": "^4.4.0",
         "firebase": "^10.7.0",
         "html5-qrcode": "^2.3.8",
         "jszip": "^3.10.1",

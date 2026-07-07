@@ -64,6 +64,7 @@ export default function Inventory({
   const [kindFilter, setKindFilter] = useState('all') // all | products | combos
   const [showSearchScanner, setShowSearchScanner] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [importResult, setImportResult] = useState('')
   const fileInputRef = useRef(null)
   const photoInputRef = useRef(null)
@@ -270,34 +271,82 @@ export default function Inventory({
     }
   }
 
-  const exportExcel = () => {
-    const ws = XLSX.utils.aoa_to_sheet([
-      ['Nombre', 'SKU', 'Código de Barras', 'Categoría', 'Precio', 'Cantidad', 'Stock Mínimo', 'Ubicación', 'Tipo', 'Descripción'],
-      ...products.map(p => [
-        p.name || '',
-        p.code || '',
-        p.barcode || '',
-        p.category || '',
-        p.price || 0,
-        p.quantity || 0,
-        p.minStock || 5,
-        p.location || '',
-        p.stockType || '',
-        p.description || '',
-      ]),
-    ])
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Productos')
-    XLSX.writeFile(wb, 'inventario.xlsx')
+  // Exporta el inventario con la FOTO pegada en su columna (usa ExcelJS, que
+  // sí soporta imágenes). Carga las fotos on-demand de los que tengan.
+  const exportExcel = async () => {
+    setExporting(true)
+    try {
+      const ExcelJS = (await import('exceljs')).default
+      const wb = new ExcelJS.Workbook()
+      const ws = wb.addWorksheet('Productos')
+      ws.columns = [
+        { header: 'FOTO', key: 'foto', width: 12 },
+        { header: 'Nombre', key: 'name', width: 26 },
+        { header: 'SKU', key: 'code', width: 12 },
+        { header: 'Código de Barras', key: 'barcode', width: 18 },
+        { header: 'Categoría', key: 'category', width: 14 },
+        { header: 'Precio', key: 'price', width: 10 },
+        { header: 'Cantidad', key: 'quantity', width: 10 },
+        { header: 'Stock Mínimo', key: 'minStock', width: 12 },
+        { header: 'Ubicación', key: 'location', width: 14 },
+        { header: 'Tipo', key: 'tipo', width: 8 },
+        { header: 'Descripción', key: 'description', width: 26 },
+      ]
+      ws.getRow(1).font = { bold: true }
+
+      for (let i = 0; i < products.length; i++) {
+        const p = products[i]
+        ws.addRow({
+          name: p.name || '',
+          code: p.code || '',
+          barcode: p.barcode || '',
+          category: p.category || '',
+          price: p.price || 0,
+          quantity: p.quantity || 0,
+          minStock: p.minStock || 5,
+          location: p.location || '',
+          tipo: p.stockType || '',
+          description: p.description || '',
+        })
+        if (p.hasPhotos && loadPhotos) {
+          const photos = await loadPhotos(p.id)
+          if (photos && photos[0]) {
+            const rowIdx = i + 1 // 0-indexed: encabezado = 0, 1er producto = 1
+            ws.getRow(rowIdx + 1).height = 60
+            const b64 = photos[0].split(',')[1]
+            const imgId = wb.addImage({ base64: b64, extension: 'jpeg' })
+            ws.addImage(imgId, {
+              tl: { col: 0.15, row: rowIdx + 0.15 },
+              ext: { width: 72, height: 72 },
+            })
+          }
+        }
+      }
+
+      const buffer = await wb.xlsx.writeBuffer()
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'inventario.xlsx'
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      alert('Error al exportar: ' + err.message)
+    } finally {
+      setExporting(false)
+    }
   }
 
   const downloadTemplate = () => {
     const ws = XLSX.utils.aoa_to_sheet([
-      ['Nombre', 'SKU', 'Código de Barras', 'Categoría', 'Precio', 'Cantidad', 'Stock Mínimo', 'Ubicación', 'Tipo', 'Descripción'],
-      ['Martillo carpintero', 'SKU-001', '7790001001234', 'Herramientas', 1500, 10, 5, 'Estante A3', 'FERRE', 'Mango de madera'],
-      ['Destornillador Phillips', 'SKU-002', '7790001005678', 'Herramientas', 800, 25, 5, 'Estante A4', 'BASE', ''],
+      ['FOTO', 'Nombre', 'SKU', 'Código de Barras', 'Categoría', 'Precio', 'Cantidad', 'Stock Mínimo', 'Ubicación', 'Tipo', 'Descripción'],
+      ['', 'Martillo carpintero', 'SKU-001', '7790001001234', 'Herramientas', 1500, 10, 5, 'Estante A3', 'FERRE', 'Mango de madera'],
+      ['', 'Destornillador Phillips', 'SKU-002', '7790001005678', 'Herramientas', 800, 25, 5, 'Estante A4', 'BASE', ''],
     ])
-    ws['!cols'] = [{ wch: 24 }, { wch: 12 }, { wch: 16 }, { wch: 14 }, { wch: 9 }, { wch: 9 }, { wch: 11 }, { wch: 14 }, { wch: 8 }, { wch: 24 }]
+    ws['!cols'] = [{ wch: 12 }, { wch: 24 }, { wch: 12 }, { wch: 16 }, { wch: 14 }, { wch: 9 }, { wch: 9 }, { wch: 11 }, { wch: 14 }, { wch: 8 }, { wch: 24 }]
 
     // Hoja de instrucciones (incluye cómo cargar las fotos)
     const info = XLSX.utils.aoa_to_sheet([
@@ -310,20 +359,18 @@ export default function Inventory({
       [''],
       ['3) Columna "Ubicación": dónde está en el depósito (ej: Estante A3).'],
       [''],
-      ['4) FOTOS  —  ¡OJO, no van en ninguna columna!'],
-      ['   Las fotos se PEGAN como imagen sobre la fila del producto:'],
-      ['   • En Excel: menú Insertar → Imágenes → elegí la foto.'],
-      ['   • Arrastrá la imagen para que quede ENCIMA de la fila del producto'],
-      ['     (que su esquina de arriba a la izquierda caiga dentro de esa fila).'],
-      ['   • Podés poner hasta 5 fotos por producto (una al lado de la otra).'],
-      ['   • Al importar, la app detecta cada foto y la asigna a ese producto.'],
+      ['4) FOTO: pegá la imagen del producto en la columna "FOTO" (la primera),'],
+      ['   en la MISMA FILA del producto:'],
+      ['   • En Excel: hacé clic en la celda FOTO de esa fila.'],
+      ['   • Menú Insertar → Imágenes → elegí la foto.'],
+      ['   • Ajustá la imagen para que quede dentro de la fila del producto.'],
+      ['   • Al importar, la app toma esa foto y la asigna a ese producto.'],
+      ['   • También podés cargarla después desde la app (Editar ✏️ → 📷).'],
       [''],
-      ['5) Si no ponés fotos acá, igual las podés cargar después desde la app'],
-      ['   (botón Editar ✏️ en cada producto → Agregar foto 📷).'],
-      [''],
-      ['6) Para MODIFICAR productos ya cargados: usá el botón "Exportar",'],
+      ['5) Para MODIFICAR productos ya cargados: usá el botón "Exportar",'],
       ['   cambiá lo que quieras y volvé a Importar el mismo archivo.'],
       ['   La app reconoce el SKU o el código de barras y actualiza sin duplicar.'],
+      ['   Al exportar, las fotos vienen pegadas en la columna FOTO.'],
     ])
     info['!cols'] = [{ wch: 70 }]
 
@@ -399,10 +446,10 @@ export default function Inventory({
           <button
             onClick={exportExcel}
             className="btn-outline"
-            disabled={products.length === 0}
-            title="Descargar el inventario para modificarlo masivamente y volver a importarlo"
+            disabled={products.length === 0 || exporting}
+            title="Descargar el inventario (con fotos) para modificarlo masivamente y volver a importarlo"
           >
-            ⬆️ Exportar
+            {exporting ? '⏳ Exportando...' : '⬆️ Exportar'}
           </button>
           <button
             onClick={() => fileInputRef.current?.click()}
