@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clips de Mercado Libre · Uniproveedores</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a16;color:#e0d8cc;min-height:100vh;}
+.header{background:rgba(255,255,255,0.03);border-bottom:1px solid rgba(198,222,0,0.15);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.back{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;}
+.back-ic{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#c6de00,#87a800);display:flex;align-items:center;justify-content:center;color:#161a00;font-size:18px;font-weight:800;}
+.b-title{font-size:15px;font-weight:700;color:#c6de00;}
+.b-sub{font-size:9px;color:#666;letter-spacing:2px;text-transform:uppercase;}
+.ia-badge{font-size:11px;color:#fff159;background:rgba(255,241,89,0.1);border:1px solid rgba(255,241,89,0.25);padding:4px 10px;border-radius:20px;}
+.main{max-width:900px;margin:0 auto;padding:20px 16px 60px;}
+.tip{background:rgba(198,222,0,0.06);border:1px solid rgba(198,222,0,0.18);border-radius:10px;padding:12px 16px;font-size:12px;color:#c6de00;margin-bottom:16px;line-height:1.5;}
+.btn{background:linear-gradient(135deg,#c6de00,#87a800);border:none;border-radius:9px;padding:11px 18px;color:#161a00;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;}
+.btn:disabled{background:rgba(100,100,100,0.2);color:#555;cursor:not-allowed;}
+.status{font-size:12px;color:#888;margin:12px 0;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-top:16px;}
+.clip{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;}
+.clip .thumb{width:100%;aspect-ratio:1;object-fit:cover;background:#000;}
+.clip .info{padding:10px 12px;flex:1;display:flex;flex-direction:column;gap:8px;}
+.clip .t{font-size:12px;color:#ddd;line-height:1.35;font-weight:600;min-height:32px;}
+.clip .src{font-size:9px;letter-spacing:1px;text-transform:uppercase;}
+.clip .src.yt{color:#ff5252;}
+.clip .src.ml{color:#c6de00;}
+.clip .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;}
+.clip a.dl{flex:1;text-align:center;background:linear-gradient(135deg,#c6de00,#87a800);color:#161a00;padding:8px;border-radius:7px;text-decoration:none;font-size:12px;font-weight:700;}
+.clip a.view{flex:1;text-align:center;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:#aaa;padding:8px;border-radius:7px;text-decoration:none;font-size:12px;}
+.empty{text-align:center;color:#666;padding:40px 20px;font-size:13px;}
+.raw{margin-top:20px;font-size:10px;color:#666;}
+.raw pre{background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:12px;overflow:auto;max-height:280px;color:#8a8;white-space:pre-wrap;word-break:break-all;}
+.raw summary{cursor:pointer;color:#888;margin-bottom:6px;}
+</style>
+</head>
+<body>
+<div class="header">
+  <a class="back" href="/"><div class="back-ic">←</div><div><div class="b-title">Clips de Mercado Libre</div><div class="b-sub">UNIPROVEEDORES · AGENCIA</div></div></a>
+  <div class="ia-badge">🎬 Descargar videos</div>
+</div>
+
+<div class="main">
+  <div class="tip">
+    🎬 Trae los videos/clips de tus publicaciones de Mercado Libre para descargarlos.<br>
+    ⚠️ Necesitás tener <b>Mercado Libre conectado</b> en <a href="/conexiones" style="color:#c6de00;">🔌 Conexiones</a>. Los clips propios de ML se bajan directo; los que están en YouTube se abren en YouTube (se bajan con un descargador de YT).
+  </div>
+
+  <button class="btn" id="load-btn" onclick="cargar()">🎬 Buscar mis clips</button>
+  <div class="status" id="status"></div>
+
+  <div class="grid" id="grid"></div>
+  <div class="raw" id="raw"></div>
+</div>
+
+<script>
+function loadState(){ try{ return JSON.parse(localStorage.getItem('up_state')||'{}'); }catch(e){ return {}; } }
+
+async function cargar(){
+  const s = loadState();
+  const ml = s.connections?.ml;
+  const st = document.getElementById('status');
+  const grid = document.getElementById('grid');
+  const raw = document.getElementById('raw');
+  grid.innerHTML=''; raw.innerHTML='';
+
+  if(!ml?.token){
+    st.innerHTML = '❌ No hay Mercado Libre conectado. Andá a <a href="/conexiones" style="color:#c6de00;">Conexiones</a> y autorizá ML primero.';
+    return;
+  }
+  const btn = document.getElementById('load-btn');
+  btn.disabled = true; btn.textContent = '⏳ Buscando en tus publicaciones...';
+  st.textContent = 'Consultando la API de Mercado Libre (puede tardar unos segundos si tenés muchas publicaciones)...';
+
+  try {
+    const r = await fetch('/api/ml/exchange?action=videos', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ token: ml.token })
+    });
+    const d = await r.json();
+    if(!d.ok){ st.textContent = '❌ '+(d.error||'Error'); btn.disabled=false; btn.textContent='🎬 Buscar mis clips'; return; }
+
+    st.innerHTML = `📦 ${d.totalItems} publicaciones revisadas · <b style="color:#c6de00">${d.withVideo}</b> con video/clip`;
+
+    if(!d.items.length){
+      grid.innerHTML = '<div class="empty">No encontré videos en tus publicaciones con este método.<br>Puede que los clips estén en un campo distinto — mirá los "datos crudos" abajo y avisale a Claude qué aparece.</div>';
+    } else {
+      grid.innerHTML = d.items.map(it=>{
+        const esYt = !!it.videoId;
+        const clipUrl = it.clips && it.clips[0] && (it.clips[0].url || it.clips[0].source || it.clips[0].src || '');
+        let acts = '';
+        if(clipUrl){
+          acts = `<a class="dl" href="${clipUrl}" target="_blank" download>⬇️ Descargar</a>`;
+        } else if(esYt){
+          acts = `<a class="view" href="${it.youtubeUrl}" target="_blank">▶️ Ver en YouTube</a>`;
+        }
+        acts += `<a class="view" href="${it.permalink}" target="_blank">🔗 Publicación</a>`;
+        return `<div class="clip">
+          <img class="thumb" src="${(it.thumbnail||'').replace('http:','https:')}" alt="" onerror="this.style.opacity=.2">
+          <div class="info">
+            <div class="t">${(it.title||'').replace(/</g,'&lt;').slice(0,70)}</div>
+            <div class="src ${esYt&&!clipUrl?'yt':'ml'}">${clipUrl?'CLIP ML':(esYt?'VIDEO YOUTUBE':'VIDEO')}</div>
+            <div class="acts">${acts}</div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // Datos crudos para diagnosticar el formato exacto de los clips
+    raw.innerHTML = '<details><summary>🔎 Ver datos crudos (para ajustar si algo no baja)</summary><pre>'+JSON.stringify(d.items.slice(0,5),null,2).replace(/</g,'&lt;')+'</pre></details>';
+  } catch(e){
+    st.textContent = '❌ '+e.message;
+  }
+  btn.disabled = false; btn.textContent = '🔄 Buscar de nuevo';
+}
+</script>
+</body>
+</html>

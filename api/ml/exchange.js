@@ -14,10 +14,65 @@ export default async function handler(req, res) {
   try {
     if (action === 'refresh') return await refresh(req, res);
     if (action === 'test') return await test(req, res);
+    if (action === 'videos') return await videos(req, res);
     return await exchange(req, res);
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message });
   }
+}
+
+// Lista las publicaciones del vendedor y devuelve los datos de video/clip de
+// cada una para poder descargarlos. Body: { token }
+async function videos(req, res) {
+  const { token } = req.body || {};
+  if (!token) return res.status(400).json({ ok: false, error: 'Falta access_token' });
+  const auth = { 'Authorization': 'Bearer ' + token };
+
+  // 1) quién soy
+  const me = await httpRequest('GET', 'https://api.mercadolibre.com/users/me', auth);
+  if (me.status !== 200) {
+    return res.status(200).json({ ok: false, error: me.body?.message || ('HTTP ' + me.status) });
+  }
+  const sellerId = me.body.id;
+
+  // 2) IDs de mis items (hasta 100; se pagina con scan si hace falta)
+  const search = await httpRequest('GET', `https://api.mercadolibre.com/users/${sellerId}/items/search?limit=100`, auth);
+  if (search.status !== 200) {
+    return res.status(200).json({ ok: false, error: search.body?.message || ('HTTP ' + search.status) });
+  }
+  const ids = search.body?.results || [];
+
+  // 3) detalle de cada item en lotes de 20 (multiget), pidiendo campos de video
+  const attrs = 'id,title,permalink,thumbnail,video_id,videos,catalog_product_id';
+  const items = [];
+  for (let i = 0; i < ids.length; i += 20) {
+    const batch = ids.slice(i, i + 20).join(',');
+    const r = await httpRequest('GET', `https://api.mercadolibre.com/items?ids=${batch}&attributes=${attrs}`, auth);
+    for (const entry of (r.body || [])) {
+      const b = entry?.body;
+      if (!b) continue;
+      const videoId = b.video_id || null;
+      const clips = b.videos || null; // clips propios de ML si existen
+      if (!videoId && !(clips && clips.length)) continue; // solo los que tienen video
+      items.push({
+        id: b.id,
+        title: b.title,
+        permalink: b.permalink,
+        thumbnail: b.thumbnail,
+        videoId,
+        youtubeUrl: videoId ? `https://www.youtube.com/watch?v=${videoId}` : null,
+        clips: clips || null,
+      });
+    }
+  }
+
+  return res.status(200).json({
+    ok: true,
+    sellerId,
+    totalItems: ids.length,
+    withVideo: items.length,
+    items,
+  });
 }
 
 async function exchange(req, res) {
