@@ -10,16 +10,20 @@ export const STOCK_TYPES = ['FULL', 'FERRE', 'BASE']
 const normalize = (s) =>
   String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
 
-// Mapea encabezados del Excel de combos a campos
+// Mapea encabezados del Excel de combos a campos.
+// Formato multi-fila: cada combo ocupa varias filas (una por producto que lo
+// compone). El SKU y el nombre del combo se repiten en cada fila del combo.
 const COMBO_COLS = {
-  nombre: 'name', combo: 'name', name: 'name',
-  sku: 'code', codigo: 'code', code: 'code',
-  'codigo de barras': 'barcode', barcode: 'barcode', ean: 'barcode', upc: 'barcode',
+  'sku combo': 'comboCode', 'sku del combo': 'comboCode', 'codigo combo': 'comboCode',
+  'codigo del combo': 'comboCode', sku: 'comboCode', codigo: 'comboCode', combo: 'comboCode',
+  'nombre combo': 'comboName', 'nombre del combo': 'comboName', nombre: 'comboName',
+  'codigo de barras': 'barcode', 'codigo de barras combo': 'barcode', barcode: 'barcode',
   precio: 'price', price: 'price',
   ubicacion: 'location', location: 'location', deposito: 'location',
   tipo: 'stockType', 'tipo de stock': 'stockType', canal: 'stockType',
-  productos: 'itemsText', items: 'itemsText', componentes: 'itemsText',
-  contenido: 'itemsText', 'productos (sku x cantidad)': 'itemsText',
+  producto: 'itemRef', 'producto (sku)': 'itemRef', 'sku producto': 'itemRef',
+  'producto sku': 'itemRef', componente: 'itemRef', item: 'itemRef', articulo: 'itemRef',
+  cantidad: 'itemQty', cant: 'itemQty', qty: 'itemQty', unidades: 'itemQty',
 }
 
 const parseNumber = (v) => {
@@ -64,36 +68,15 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
   const photoInputRef = useRef(null)
   const fileInputRef = useRef(null)
 
-  // Busca un producto por SKU o código de barras (para resolver los items del Excel)
-  const findProduct = (codeStr) => {
-    const q = String(codeStr).trim().toLowerCase()
+  // Busca un producto por SKU, código de barras o nombre exacto
+  const findProduct = (ref) => {
+    const q = String(ref).trim().toLowerCase()
     if (!q) return null
     return products.find(p =>
       (p.code && p.code.toLowerCase() === q) ||
-      (p.barcode && p.barcode.toLowerCase() === q)
+      (p.barcode && p.barcode.toLowerCase() === q) ||
+      (p.name && p.name.toLowerCase() === q)
     )
-  }
-
-  // Parsea "SKU-001 x2 ; SKU-002 x1" → items + lista de códigos no encontrados
-  const parseItems = (text) => {
-    const items = []
-    const notFound = []
-    const seen = new Set()
-    let chunks = String(text).split(/[;\n]+/).map(s => s.trim()).filter(Boolean)
-    if (chunks.length <= 1) chunks = String(text).split(',').map(s => s.trim()).filter(Boolean)
-    for (const chunk of chunks) {
-      const m = chunk.match(/^(.*?)\s*[x×:*]\s*(\d+)\s*$/i) || chunk.match(/^(\d+)\s*[x×:*]\s*(.*?)$/i)
-      let codeStr, qty
-      if (m && /^\d+$/.test(m[2])) { codeStr = m[1]; qty = parseInt(m[2]) }
-      else if (m) { codeStr = m[2]; qty = parseInt(m[1]) }
-      else { codeStr = chunk; qty = 1 }
-      const p = findProduct(codeStr)
-      if (!p) { notFound.push(codeStr); continue }
-      if (seen.has(p.id)) continue
-      seen.add(p.id)
-      items.push({ productId: p.id, quantity: Math.max(1, qty || 1) })
-    }
-    return { items, notFound }
   }
 
   // Abre el formulario cuando se pide editar un combo desde Inventario
@@ -276,41 +259,76 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
       }
       const photosByRow = await extractImagesByRow(buffer)
 
-      const allNotFound = new Set()
-      const rows = rawRows.map(raw => {
+      // Agrupar filas por combo (mismo SKU de combo; si no hay SKU, por nombre).
+      // Cada fila aporta un producto componente.
+      const groups = new Map()
+      rawRows.forEach(raw => {
         const c = {}
         Object.entries(raw).forEach(([key, value]) => {
           const field = COMBO_COLS[normalize(key)]
           if (field) c[field] = value
         })
-        if (!c.name || !String(c.name).trim()) return null
-        const { items, notFound } = parseItems(c.itemsText || '')
-        notFound.forEach(n => allNotFound.add(n))
-        if (!items.length) return { __noItems: String(c.name).trim() }
+        const code = String(c.comboCode || '').trim()
+        const name = String(c.comboName || '').trim()
+        const key = (code || name).toLowerCase()
+        if (!key) return
+        if (!groups.has(key)) {
+          groups.set(key, {
+            code, name, barcode: '', price: 0, location: '', stockType: '',
+            rows: [], firstRowNum: raw.__rowNum__,
+          })
+        }
+        const g = groups.get(key)
+        if (!g.name && name) g.name = name
+        if (!g.code && code) g.code = code
+        if (c.barcode) g.barcode = String(c.barcode).trim()
+        if (c.price) g.price = parseNumber(c.price)
+        if (c.location) g.location = String(c.location).trim()
+        if (c.stockType) g.stockType = String(c.stockType).trim().toUpperCase()
+        if (c.itemRef !== undefined && String(c.itemRef).trim()) {
+          g.rows.push({
+            ref: String(c.itemRef).trim(),
+            qty: c.itemQty !== undefined && String(c.itemQty).trim()
+              ? Math.max(1, Math.round(parseNumber(c.itemQty)) || 1)
+              : 1,
+          })
+        }
+      })
+
+      const allNotFound = new Set()
+      const noItems = []
+      const valid = []
+      for (const g of groups.values()) {
+        const items = []
+        for (const r of g.rows) {
+          const p = findProduct(r.ref)
+          if (!p) { allNotFound.add(r.ref); continue }
+          const ex = items.find(it => it.productId === p.id)
+          if (ex) { ex.quantity += r.qty; continue }
+          items.push({ productId: p.id, quantity: r.qty })
+        }
+        if (!items.length) { noItems.push(g.name || g.code); continue }
         const itemBarcodes = items.flatMap(item => {
           const p = products.find(pp => pp.id === item.productId)
           return [p?.barcode, p?.code].filter(Boolean)
         })
-        return {
-          name: String(c.name).trim(),
-          code: c.code !== undefined ? String(c.code).trim() : '',
-          barcode: c.barcode !== undefined ? String(c.barcode).trim() : '',
-          price: parseNumber(c.price),
-          location: c.location !== undefined ? String(c.location).trim() : '',
-          stockType: c.stockType !== undefined ? String(c.stockType).trim().toUpperCase() : '',
+        valid.push({
+          name: g.name || g.code,
+          code: g.code,
+          barcode: g.barcode,
+          price: g.price,
+          location: g.location,
+          stockType: g.stockType,
           items,
           itemBarcodes,
-          photos: photosByRow.get(raw.__rowNum__) || [],
-        }
-      }).filter(Boolean)
-
-      const noItems = rows.filter(r => r.__noItems).map(r => r.__noItems)
-      const valid = rows.filter(r => !r.__noItems)
+          photos: photosByRow.get(g.firstRowNum) || [],
+        })
+      }
 
       if (!valid.length) {
         setImportResult(
-          '⚠️ No se pudo armar ningún combo. Revisá que la columna "Productos" tenga ' +
-          'los SKU o códigos de barras de productos que ya existan en tu inventario. ' +
+          '⚠️ No se pudo armar ningún combo. Revisá que la columna "Producto" tenga el ' +
+          'SKU, código de barras o nombre exacto de productos que ya existan en tu inventario. ' +
           'Descargá la plantilla de ejemplo para ver el formato.'
         )
         return
@@ -341,41 +359,44 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
   }
 
   const downloadTemplate = () => {
-    const ejemploSku = products[0]?.code || products[0]?.barcode || 'SKU-001'
-    const ejemploSku2 = products[1]?.code || products[1]?.barcode || 'SKU-002'
+    const sku1 = products[0]?.code || products[0]?.barcode || products[0]?.name || 'SKU-001'
+    const sku2 = products[1]?.code || products[1]?.barcode || products[1]?.name || 'SKU-002'
+    // Una fila por producto que compone el combo; el SKU y nombre del combo se repiten
     const ws = XLSX.utils.aoa_to_sheet([
-      ['FOTO', 'Nombre', 'SKU', 'Código de Barras', 'Precio', 'Ubicación', 'Tipo', 'Productos (SKU x Cantidad)'],
-      ['', 'Combo limpieza x3', 'COMBO-001', '', 5000, 'Estante B1', 'FULL', `${ejemploSku} x2 ; ${ejemploSku2} x1`],
+      ['FOTO', 'SKU Combo', 'Nombre Combo', 'Precio', 'Ubicación', 'Tipo', 'Producto (SKU)', 'Cantidad'],
+      ['', 'COMBO-001', 'Combo Amoladora + accesorios', 5000, 'Estante B1', 'FULL', sku1, 2],
+      ['', 'COMBO-001', 'Combo Amoladora + accesorios', '', '', '', sku2, 1],
+      ['', 'COMBO-002', 'Combo Pintura', 3000, 'Estante B2', 'BASE', sku1, 1],
     ])
-    ws['!cols'] = [{ wch: 12 }, { wch: 24 }, { wch: 12 }, { wch: 16 }, { wch: 9 }, { wch: 14 }, { wch: 8 }, { wch: 34 }]
+    ws['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 28 }, { wch: 9 }, { wch: 14 }, { wch: 8 }, { wch: 20 }, { wch: 10 }]
 
     const info = XLSX.utils.aoa_to_sheet([
       ['CÓMO CARGAR COMBOS POR EXCEL'],
       [''],
-      ['1) Una fila por combo en la hoja "Combos". Solo "Nombre" es obligatorio.'],
+      ['Cada combo ocupa VARIAS FILAS: una fila por cada producto que lo compone.'],
+      ['El "SKU Combo" y el "Nombre Combo" se REPITEN en cada fila del mismo combo.'],
       [''],
-      ['2) Columna "Productos (SKU x Cantidad)": acá indicás qué productos'],
-      ['   componen el combo y cuántas unidades de cada uno. Formato:'],
+      ['Ejemplo (el combo COMBO-001 tiene 2 productos):'],
       [''],
-      ['        SKU-001 x2 ; SKU-002 x1 ; SKU-003 x4'],
+      ['   SKU Combo | Nombre Combo    | Producto (SKU) | Cantidad'],
+      ['   COMBO-001 | Combo Amoladora | 0505           | 2'],
+      ['   COMBO-001 | Combo Amoladora | 0201           | 1'],
       [''],
-      ['   • Separá cada producto con punto y coma (;).'],
-      ['   • Después del SKU poné "x" y la cantidad (x2 = dos unidades).'],
-      ['   • Podés usar el SKU o el código de barras del producto.'],
-      ['   • Los productos TIENEN que existir ya en tu inventario.'],
+      ['COLUMNAS:'],
+      ['• SKU Combo (obligatorio): el código del combo. Debe repetirse igual en'],
+      ['  todas las filas de ese combo. Sirve también para actualizarlo después.'],
+      ['• Nombre Combo: el nombre del combo (repetido en cada fila).'],
+      ['• Producto (SKU): el SKU, código de barras o nombre exacto de un producto'],
+      ['  que YA EXISTE en tu inventario.'],
+      ['• Cantidad: cuántas unidades de ese producto lleva el combo (si la dejás'],
+      ['  vacía se toma 1).'],
+      ['• Precio / Ubicación / Tipo: se leen de la primera fila del combo (opcional).'],
+      ['• FOTO: pegala como imagen en la columna FOTO, en la primera fila del combo.'],
       [''],
-      ['3) Columna "Tipo": FULL, FERRE o BASE (o vacía).'],
-      [''],
-      ['4) FOTO del combo: pegala como imagen en la columna FOTO de esa fila'],
-      ['   (Insertar → Imágenes). También podés cargarla luego desde la app.'],
-      [''],
-      ['5) Al vender/mover un combo se descuenta el stock de cada producto que'],
-      ['   lo compone, multiplicado por la cantidad del combo.'],
-      [''],
-      ['6) Para modificar combos ya cargados: poné el mismo SKU del combo y'],
-      ['   se actualizan en vez de duplicarse.'],
+      ['Al mover un combo se descuenta el stock de cada producto que lo compone,'],
+      ['multiplicado por su cantidad y por la cantidad de combos.'],
     ])
-    info['!cols'] = [{ wch: 72 }]
+    info['!cols'] = [{ wch: 74 }]
 
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, info, 'Instrucciones')
@@ -391,39 +412,41 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
       const ws = wb.addWorksheet('Combos')
       ws.columns = [
         { header: 'FOTO', key: 'foto', width: 12 },
-        { header: 'Nombre', key: 'name', width: 26 },
-        { header: 'SKU', key: 'code', width: 12 },
-        { header: 'Código de Barras', key: 'barcode', width: 18 },
+        { header: 'SKU Combo', key: 'code', width: 14 },
+        { header: 'Nombre Combo', key: 'name', width: 28 },
         { header: 'Precio', key: 'price', width: 10 },
         { header: 'Ubicación', key: 'location', width: 14 },
         { header: 'Tipo', key: 'tipo', width: 8 },
-        { header: 'Productos (SKU x Cantidad)', key: 'items', width: 40 },
+        { header: 'Producto (SKU)', key: 'item', width: 20 },
+        { header: 'Cantidad', key: 'qty', width: 10 },
       ]
       ws.getRow(1).font = { bold: true }
 
-      for (let i = 0; i < combos.length; i++) {
-        const c = combos[i]
-        const itemsText = (c.items || []).map(it => {
-          const p = products.find(pp => pp.id === it.productId)
-          const code = p?.code || p?.barcode || '(?)'
-          return `${code} x${it.quantity}`
-        }).join(' ; ')
-        ws.addRow({
-          name: c.name || '',
-          code: c.code || '',
-          barcode: c.barcode || '',
-          price: c.price || 0,
-          location: c.location || '',
-          tipo: c.stockType || '',
-          items: itemsText,
+      // Una fila por producto de cada combo (multi-fila). La foto va en la
+      // primera fila de cada combo.
+      let excelRow = 1 // 0-indexed: encabezado = 0
+      for (const c of combos) {
+        const items = c.items?.length ? c.items : [null]
+        const firstRowIdx = excelRow
+        items.forEach((it, idx) => {
+          const p = it ? products.find(pp => pp.id === it.productId) : null
+          ws.addRow({
+            code: idx === 0 ? (c.code || '') : (c.code || ''),
+            name: idx === 0 ? (c.name || '') : (c.name || ''),
+            price: idx === 0 ? (c.price || 0) : '',
+            location: idx === 0 ? (c.location || '') : '',
+            tipo: idx === 0 ? (c.stockType || '') : '',
+            item: p ? (p.code || p.barcode || p.name) : '',
+            qty: it ? it.quantity : '',
+          })
+          excelRow++
         })
         if (c.hasPhotos && loadPhotos) {
           const photos = await loadPhotos(c.id)
           if (photos && photos[0]) {
-            const rowIdx = i + 1
-            ws.getRow(rowIdx + 1).height = 60
+            ws.getRow(firstRowIdx + 1).height = 60
             const imgId = wb.addImage({ base64: photos[0].split(',')[1], extension: 'jpeg' })
-            ws.addImage(imgId, { tl: { col: 0.15, row: rowIdx + 0.15 }, ext: { width: 72, height: 72 } })
+            ws.addImage(imgId, { tl: { col: 0.15, row: firstRowIdx + 0.15 }, ext: { width: 72, height: 72 } })
           }
         }
       }
