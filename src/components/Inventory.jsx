@@ -4,6 +4,7 @@ import { compressImage, MAX_PHOTOS, MAX_PHOTOS_BYTES, photosSize } from '../util
 import { extractImagesByRow } from '../utils/excelImages'
 import { comboAvailable, STOCK_TYPES } from './Combos'
 import Scanner from './Scanner'
+import LazyThumb from './LazyThumb'
 import './Inventory.css'
 
 const EMPTY_FORM = {
@@ -52,6 +53,7 @@ export default function Inventory({
   onImport,
   onDeleteCombo,
   onEditCombo,
+  loadPhotos,
 }) {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
@@ -72,7 +74,7 @@ export default function Inventory({
     setError('')
   }
 
-  const handleEdit = (product) => {
+  const handleEdit = async (product) => {
     setFormData({
       name: product.name || '',
       code: product.code || '',
@@ -84,11 +86,16 @@ export default function Inventory({
       location: product.location || '',
       stockType: product.stockType || '',
       description: product.description || '',
-      photos: product.photos || [],
+      photos: [],
     })
     setEditingId(product.id)
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+    // Las fotos se cargan on-demand (no vienen en el listado)
+    if (product.hasPhotos && loadPhotos) {
+      const photos = await loadPhotos(product.id)
+      setFormData(f => ({ ...f, photos }))
+    }
   }
 
   const handleAddPhotos = async (e) => {
@@ -174,7 +181,20 @@ export default function Inventory({
     try {
       const buffer = await file.arrayBuffer()
       const workbook = XLSX.read(buffer)
-      const sheet = workbook.Sheets[workbook.SheetNames[0]]
+      // Elegir la hoja de datos: preferir "Productos", si no la primera que
+      // tenga una columna reconocible como Nombre (ignora "Instrucciones")
+      const pickSheet = () => {
+        const named = workbook.SheetNames.find(n => normalize(n) === 'productos')
+        if (named) return workbook.Sheets[named]
+        for (const n of workbook.SheetNames) {
+          const rows = XLSX.utils.sheet_to_json(workbook.Sheets[n], { defval: '' })
+          if (rows.length && Object.keys(rows[0]).some(k => COLUMN_MAP[normalize(k)] === 'name')) {
+            return workbook.Sheets[n]
+          }
+        }
+        return workbook.Sheets[workbook.SheetNames[0]]
+      }
+      const sheet = pickSheet()
       const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '' })
 
       if (!rawRows.length) {
@@ -274,9 +294,41 @@ export default function Inventory({
   const downloadTemplate = () => {
     const ws = XLSX.utils.aoa_to_sheet([
       ['Nombre', 'SKU', 'Código de Barras', 'Categoría', 'Precio', 'Cantidad', 'Stock Mínimo', 'Ubicación', 'Tipo', 'Descripción'],
-      ['Producto de ejemplo', 'SKU-001', '7790001001234', 'General', 1500, 10, 5, 'Estante A3', 'FULL', 'Descripción opcional'],
+      ['Martillo carpintero', 'SKU-001', '7790001001234', 'Herramientas', 1500, 10, 5, 'Estante A3', 'FERRE', 'Mango de madera'],
+      ['Destornillador Phillips', 'SKU-002', '7790001005678', 'Herramientas', 800, 25, 5, 'Estante A4', 'BASE', ''],
     ])
+    ws['!cols'] = [{ wch: 24 }, { wch: 12 }, { wch: 16 }, { wch: 14 }, { wch: 9 }, { wch: 9 }, { wch: 11 }, { wch: 14 }, { wch: 8 }, { wch: 24 }]
+
+    // Hoja de instrucciones (incluye cómo cargar las fotos)
+    const info = XLSX.utils.aoa_to_sheet([
+      ['CÓMO USAR ESTA PLANTILLA'],
+      [''],
+      ['1) Completá una fila por producto en la hoja "Productos".'],
+      ['   Solo "Nombre" es obligatorio; el resto es opcional.'],
+      [''],
+      ['2) Columna "Tipo": poné FULL, FERRE o BASE (o dejala vacía).'],
+      [''],
+      ['3) Columna "Ubicación": dónde está en el depósito (ej: Estante A3).'],
+      [''],
+      ['4) FOTOS  —  ¡OJO, no van en ninguna columna!'],
+      ['   Las fotos se PEGAN como imagen sobre la fila del producto:'],
+      ['   • En Excel: menú Insertar → Imágenes → elegí la foto.'],
+      ['   • Arrastrá la imagen para que quede ENCIMA de la fila del producto'],
+      ['     (que su esquina de arriba a la izquierda caiga dentro de esa fila).'],
+      ['   • Podés poner hasta 5 fotos por producto (una al lado de la otra).'],
+      ['   • Al importar, la app detecta cada foto y la asigna a ese producto.'],
+      [''],
+      ['5) Si no ponés fotos acá, igual las podés cargar después desde la app'],
+      ['   (botón Editar ✏️ en cada producto → Agregar foto 📷).'],
+      [''],
+      ['6) Para MODIFICAR productos ya cargados: usá el botón "Exportar",'],
+      ['   cambiá lo que quieras y volvé a Importar el mismo archivo.'],
+      ['   La app reconoce el SKU o el código de barras y actualiza sin duplicar.'],
+    ])
+    info['!cols'] = [{ wch: 70 }]
+
     const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, info, 'Instrucciones')
     XLSX.utils.book_append_sheet(wb, ws, 'Productos')
     XLSX.writeFile(wb, 'plantilla-productos.xlsx')
   }
@@ -614,11 +666,13 @@ export default function Inventory({
         <div className="found-list">
           {allRows.slice(0, 5).map(row => (
             <div key={`found-${row.kind}-${row.id}`} className="found-card">
-              {row.photos?.length ? (
-                <img className="found-photo" src={row.photos[0]} alt={row.name} />
-              ) : (
-                <div className="found-photo placeholder">{row.kind === 'combo' ? '🎁' : '📦'}</div>
-              )}
+              <LazyThumb
+                id={row.id}
+                hasPhotos={row.hasPhotos}
+                kind={row.kind}
+                loadPhotos={loadPhotos}
+                className="found-photo"
+              />
               <div className="found-info">
                 <div className="found-name">{row.name}</div>
                 {row.barcode && <div className="found-code">|||| {row.barcode}</div>}
@@ -694,11 +748,12 @@ export default function Inventory({
                 return (
                   <tr key={`${row.kind}-${row.id}`} className={isLow ? 'low-stock' : ''}>
                     <td>
-                      {row.photos?.length ? (
-                        <img className="row-thumb" src={row.photos[0]} alt={row.name} />
-                      ) : (
-                        <div className="row-thumb placeholder">{isCombo ? '🎁' : '📦'}</div>
-                      )}
+                      <LazyThumb
+                        id={row.id}
+                        hasPhotos={row.hasPhotos}
+                        kind={row.kind}
+                        loadPhotos={loadPhotos}
+                      />
                     </td>
                     <td>
                       <span className={`kind-badge ${row.kind}`}>

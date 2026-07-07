@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { auth, googleProvider, db } from './firebase'
 import {
   signInWithPopup,
@@ -14,6 +14,7 @@ import {
   getDocs,
   getDoc,
   setDoc,
+  deleteField,
   query,
   where,
   Timestamp,
@@ -41,8 +42,36 @@ export default function App() {
   const [members, setMembers] = useState([])
   // Pedido de edición de un combo desde la pestaña Inventario
   const [comboEditRequest, setComboEditRequest] = useState(null)
+  // Cache en memoria de las fotos ya cargadas (se leen on-demand, no al inicio)
+  const photoCache = useRef(new Map())
 
   const isAdmin = user?.email === ADMIN_EMAIL
+
+  // Lee las fotos de un producto/combo solo cuando se necesitan (búsqueda, edición,
+  // miniatura visible). Así abrir la app no descarga miles de fotos de golpe.
+  const loadPhotos = useCallback(async (id) => {
+    if (!id) return []
+    if (photoCache.current.has(id)) return photoCache.current.get(id)
+    try {
+      const snap = await getDoc(doc(db, 'photos', id))
+      const photos = snap.exists() ? (snap.data().photos || []) : []
+      photoCache.current.set(id, photos)
+      return photos
+    } catch {
+      return []
+    }
+  }, [])
+
+  // Guarda (o borra) las fotos de un producto/combo en la colección "photos"
+  const savePhotos = async (id, photos) => {
+    if (photos && photos.length) {
+      await setDoc(doc(db, 'photos', id), { photos, userId: ORG_ID })
+      photoCache.current.set(id, photos)
+    } else {
+      await deleteDoc(doc(db, 'photos', id)).catch(() => {})
+      photoCache.current.set(id, [])
+    }
+  }
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -77,16 +106,37 @@ export default function App() {
     }
   }
 
+  // Mueve las fotos que estén guardadas DENTRO de products/combos a la
+  // colección "photos" aparte, para que el listado principal cargue liviano.
+  // Se ejecuta una sola vez cuando quedan fotos inline por migrar.
+  const migrateInlinePhotos = async () => {
+    for (const collName of ['products', 'combos']) {
+      const snap = await getDocs(
+        query(collection(db, collName), where('userId', '==', ORG_ID))
+      )
+      const withPhotos = snap.docs.filter(d => Array.isArray(d.data().photos) && d.data().photos.length)
+      for (const d of withPhotos) {
+        const photos = d.data().photos
+        await setDoc(doc(db, 'photos', d.id), { photos, userId: ORG_ID })
+        await updateDoc(d.ref, { photos: deleteField(), hasPhotos: true })
+        photoCache.current.set(d.id, photos)
+      }
+    }
+  }
+
   const loadUserData = async (currentUser) => {
     setLoadingData(true)
     setAccessDenied(false)
     try {
       if (currentUser.email === ADMIN_EMAIL) {
         await migrateOldData(currentUser.uid)
+        await migrateInlinePhotos()
       }
 
       // Se ordena en el cliente para no requerir índices compuestos en Firestore
       const toMillis = (t) => (t?.toMillis ? t.toMillis() : new Date(t || 0).getTime())
+      // Nunca guardamos las fotos en el listado (se cargan on-demand); solo el flag
+      const strip = ({ photos, ...rest }) => ({ ...rest, hasPhotos: rest.hasPhotos || (photos?.length > 0) })
 
       const [productsSnap, combosSnap, movementsSnap, settingsSnap] = await Promise.all([
         getDocs(query(collection(db, 'products'), where('userId', '==', ORG_ID))),
@@ -99,12 +149,12 @@ export default function App() {
 
       setProducts(
         productsSnap.docs
-          .map(d => ({ id: d.id, ...d.data() }))
+          .map(d => ({ id: d.id, ...strip(d.data()) }))
           .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
       )
       setCombos(
         combosSnap.docs
-          .map(d => ({ id: d.id, ...d.data() }))
+          .map(d => ({ id: d.id, ...strip(d.data()) }))
           .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
       )
       setMovements(
@@ -168,14 +218,18 @@ export default function App() {
 
   const addProduct = async (productData) => {
     if (!user) return
+    const { photos = [], ...data } = productData
+    const hasPhotos = photos.length > 0
     const docRef = await addDoc(collection(db, 'products'), {
-      ...productData,
+      ...data,
+      hasPhotos,
       userId: ORG_ID,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     })
+    if (hasPhotos) await savePhotos(docRef.id, photos)
     setProducts([
-      { id: docRef.id, ...productData, userId: ORG_ID, createdAt: new Date() },
+      { id: docRef.id, ...data, hasPhotos, userId: ORG_ID, createdAt: new Date() },
       ...products,
     ])
     return docRef.id
@@ -189,15 +243,17 @@ export default function App() {
 
     const toCreate = rows.filter(r => !r.existingId)
     const toUpdate = rows.filter(r => r.existingId)
+    const photoWrites = [] // { id, photos } para guardar aparte
 
     for (let i = 0; i < toUpdate.length; i += 400) {
       const batch = writeBatch(db)
       toUpdate.slice(i, i + 400).forEach(r => {
-        const { existingId, ...data } = r
-        // Si el Excel no trae fotos, se conservan las que ya tenía el producto
-        if (!data.photos || data.photos.length === 0) delete data.photos
+        const { existingId, photos, ...data } = r
+        const hasNewPhotos = photos && photos.length > 0
+        if (hasNewPhotos) photoWrites.push({ id: existingId, photos })
         batch.update(doc(db, 'products', existingId), {
           ...data,
+          ...(hasNewPhotos ? { hasPhotos: true } : {}),
           updatedAt: Timestamp.now(),
         })
       })
@@ -209,9 +265,13 @@ export default function App() {
       const chunk = toCreate.slice(i, i + 400)
       const batch = writeBatch(db)
       const refs = chunk.map(r => {
+        const { photos, ...data } = r
+        const hasPhotos = photos && photos.length > 0
         const ref = doc(collection(db, 'products'))
+        if (hasPhotos) photoWrites.push({ id: ref.id, photos })
         batch.set(ref, {
-          ...r,
+          ...data,
+          hasPhotos,
           userId: ORG_ID,
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
@@ -220,8 +280,14 @@ export default function App() {
       })
       await batch.commit()
       chunk.forEach((r, idx) => {
-        created.push({ id: refs[idx].id, ...r, userId: ORG_ID, createdAt: new Date() })
+        const { photos, ...data } = r
+        created.push({ id: refs[idx].id, ...data, hasPhotos: !!(photos && photos.length), userId: ORG_ID, createdAt: new Date() })
       })
+    }
+
+    // Guardar las fotos (de celdas del Excel) en la colección aparte
+    for (const { id, photos } of photoWrites) {
+      await savePhotos(id, photos)
     }
 
     const updatedById = new Map(toUpdate.map(r => [r.existingId, r]))
@@ -230,9 +296,9 @@ export default function App() {
       ...products.map(p => {
         const r = updatedById.get(p.id)
         if (!r) return p
-        const { existingId, ...data } = r
-        if (!data.photos || data.photos.length === 0) delete data.photos
-        return { ...p, ...data, updatedAt: new Date() }
+        const { existingId, photos, ...data } = r
+        const hasNewPhotos = photos && photos.length > 0
+        return { ...p, ...data, ...(hasNewPhotos ? { hasPhotos: true } : {}), updatedAt: new Date() }
       }),
     ])
     return { created: created.length, updated: toUpdate.length }
@@ -240,12 +306,18 @@ export default function App() {
 
   const updateProduct = async (productId, productData) => {
     if (!user) return
+    const { photos, ...data } = productData
+    const hasPhotos = photos !== undefined ? photos.length > 0 : undefined
     await updateDoc(doc(db, 'products', productId), {
-      ...productData,
+      ...data,
+      ...(hasPhotos !== undefined ? { hasPhotos } : {}),
       updatedAt: Timestamp.now(),
     })
+    if (photos !== undefined) await savePhotos(productId, photos)
     setProducts(products.map(p =>
-      p.id === productId ? { ...p, ...productData, updatedAt: new Date() } : p
+      p.id === productId
+        ? { ...p, ...data, ...(hasPhotos !== undefined ? { hasPhotos } : {}), updatedAt: new Date() }
+        : p
     ))
   }
 
@@ -260,6 +332,8 @@ export default function App() {
       )
     }
     await deleteDoc(doc(db, 'products', productId))
+    await deleteDoc(doc(db, 'photos', productId)).catch(() => {})
+    photoCache.current.delete(productId)
     setProducts(products.filter(p => p.id !== productId))
   }
 
@@ -275,14 +349,18 @@ export default function App() {
 
   const addCombo = async (comboData) => {
     if (!user) return
+    const { photos = [], ...data } = comboData
+    const hasPhotos = photos.length > 0
     const docRef = await addDoc(collection(db, 'combos'), {
-      ...comboData,
+      ...data,
+      hasPhotos,
       userId: ORG_ID,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     })
+    if (hasPhotos) await savePhotos(docRef.id, photos)
     setCombos([
-      { id: docRef.id, ...comboData, userId: ORG_ID, createdAt: new Date() },
+      { id: docRef.id, ...data, hasPhotos, userId: ORG_ID, createdAt: new Date() },
       ...combos,
     ])
     return docRef.id
@@ -290,18 +368,26 @@ export default function App() {
 
   const updateCombo = async (comboId, comboData) => {
     if (!user) return
+    const { photos, ...data } = comboData
+    const hasPhotos = photos !== undefined ? photos.length > 0 : undefined
     await updateDoc(doc(db, 'combos', comboId), {
-      ...comboData,
+      ...data,
+      ...(hasPhotos !== undefined ? { hasPhotos } : {}),
       updatedAt: Timestamp.now(),
     })
+    if (photos !== undefined) await savePhotos(comboId, photos)
     setCombos(combos.map(c =>
-      c.id === comboId ? { ...c, ...comboData, updatedAt: new Date() } : c
+      c.id === comboId
+        ? { ...c, ...data, ...(hasPhotos !== undefined ? { hasPhotos } : {}), updatedAt: new Date() }
+        : c
     ))
   }
 
   const deleteCombo = async (comboId) => {
     if (!user) return
     await deleteDoc(doc(db, 'combos', comboId))
+    await deleteDoc(doc(db, 'photos', comboId)).catch(() => {})
+    photoCache.current.delete(comboId)
     setCombos(combos.filter(c => c.id !== comboId))
   }
 
@@ -477,6 +563,7 @@ export default function App() {
                 onDelete={deleteProduct}
                 onImport={importProducts}
                 onDeleteCombo={deleteCombo}
+                loadPhotos={loadPhotos}
                 onEditCombo={(combo) => {
                   setComboEditRequest({ combo, ts: Date.now() })
                   setCurrentTab('combos')
@@ -491,6 +578,7 @@ export default function App() {
                 onUpdate={updateCombo}
                 onDelete={deleteCombo}
                 editRequest={comboEditRequest}
+                loadPhotos={loadPhotos}
               />
             )}
             {currentTab === 'movements' && (

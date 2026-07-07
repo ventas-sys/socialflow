@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { compressImage, MAX_PHOTOS, MAX_PHOTOS_BYTES, photosSize } from '../utils/images'
+import LazyThumb from './LazyThumb'
 import './Combos.css'
 
 export const STOCK_TYPES = ['FULL', 'FERRE', 'BASE']
@@ -28,7 +29,7 @@ export function comboAvailable(combo, products) {
   return available === Infinity ? 0 : Math.max(0, available)
 }
 
-export default function Combos({ combos, products, onAdd, onUpdate, onDelete, editRequest }) {
+export default function Combos({ combos, products, onAdd, onUpdate, onDelete, editRequest, loadPhotos }) {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [formData, setFormData] = useState(EMPTY_FORM)
@@ -50,7 +51,7 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, ed
     setError('')
   }
 
-  const handleEdit = (combo) => {
+  const handleEdit = async (combo) => {
     setFormData({
       name: combo.name || '',
       code: combo.code || '',
@@ -61,11 +62,15 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, ed
       items: combo.items?.length
         ? combo.items.map(i => ({ productId: i.productId, quantity: String(i.quantity) }))
         : [{ productId: '', quantity: '1' }],
-      photos: combo.photos || [],
+      photos: [],
     })
     setEditingId(combo.id)
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+    if (combo.hasPhotos && loadPhotos) {
+      const photos = await loadPhotos(combo.id)
+      setFormData(f => ({ ...f, photos }))
+    }
   }
 
   const handleAddPhotos = async (e) => {
@@ -411,9 +416,13 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, ed
               <div key={combo.id} className="combo-card">
                 <div className="combo-card-header">
                   <div className="combo-title-row">
-                    {combo.photos?.length > 0 && (
-                      <img className="combo-photo" src={combo.photos[0]} alt={combo.name} />
-                    )}
+                    <LazyThumb
+                      id={combo.id}
+                      hasPhotos={combo.hasPhotos}
+                      kind="combo"
+                      loadPhotos={loadPhotos}
+                      className="combo-photo"
+                    />
                     <div>
                       <div className="combo-name">🎁 {combo.name}</div>
                       <div className="combo-meta">
