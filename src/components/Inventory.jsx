@@ -720,39 +720,42 @@ export default function Inventory({
                 loadPhotos={loadPhotos}
                 className="found-photo"
               />
-              <div className="found-info">
-                <div className="found-name">{row.name}</div>
-                {row.barcode && <div className="found-code">|||| {row.barcode}</div>}
-                {row.code && <div className="found-code sku">{row.code}</div>}
-                <div className="found-stock">
-                  Stock: {row.kind === 'combo' ? `${comboAvailable(row, products)} armables` : (row.quantity || 0)}
+              <div className="found-body">
+                <div className="found-top">
+                  <div className="found-name">
+                    {row.kind === 'combo' ? '🎁 ' : ''}{row.name}
+                  </div>
+                  <div className={`found-location ${row.location ? '' : 'empty'}`}>
+                    {row.location ? (
+                      <><span className="pin">📍</span>{row.location}</>
+                    ) : (
+                      'Sin ubicación'
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className={`found-location ${row.location ? '' : 'empty'}`}>
-                {row.location ? (
-                  <>
-                    <span className="pin">📍</span>
-                    {row.location}
-                  </>
-                ) : (
-                  'Sin ubicación'
-                )}
-              </div>
-              <div className="found-actions">
-                <button
-                  onClick={() => (row.kind === 'combo' ? onEditCombo(row) : handleEdit(row))}
-                  className="btn-edit"
-                  title="Editar"
-                >
-                  ✏️
-                </button>
-                <button
-                  onClick={() => (row.kind === 'combo' ? handleDeleteCombo(row.id) : handleDelete(row.id))}
-                  className="btn-del"
-                  title="Eliminar"
-                >
-                  🗑️
-                </button>
+                <div className="found-meta">
+                  {row.code && <span className="fm-sku">SKU: {row.code}</span>}
+                  {row.barcode && <span className="fm-bar">|||| {row.barcode}</span>}
+                  <span className="fm-stock">
+                    Stock: {row.kind === 'combo' ? `${comboAvailable(row, products)} armables` : (row.quantity || 0)}
+                  </span>
+                </div>
+                <div className="found-actions">
+                  <button
+                    onClick={() => (row.kind === 'combo' ? onEditCombo(row) : handleEdit(row))}
+                    className="btn-edit"
+                    title="Editar"
+                  >
+                    ✏️ Editar
+                  </button>
+                  <button
+                    onClick={() => (row.kind === 'combo' ? handleDeleteCombo(row.id) : handleDelete(row.id))}
+                    className="btn-del"
+                    title="Eliminar"
+                  >
+                    🗑️
+                  </button>
+                </div>
               </div>
             </div>
           ))}
