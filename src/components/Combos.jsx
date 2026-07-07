@@ -1,9 +1,32 @@
 import React, { useState, useEffect, useRef } from 'react'
+import * as XLSX from 'xlsx'
 import { compressImage, MAX_PHOTOS, MAX_PHOTOS_BYTES, photosSize } from '../utils/images'
+import { extractImagesByRow } from '../utils/excelImages'
 import LazyThumb from './LazyThumb'
 import './Combos.css'
 
 export const STOCK_TYPES = ['FULL', 'FERRE', 'BASE']
+
+const normalize = (s) =>
+  String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+
+// Mapea encabezados del Excel de combos a campos
+const COMBO_COLS = {
+  nombre: 'name', combo: 'name', name: 'name',
+  sku: 'code', codigo: 'code', code: 'code',
+  'codigo de barras': 'barcode', barcode: 'barcode', ean: 'barcode', upc: 'barcode',
+  precio: 'price', price: 'price',
+  ubicacion: 'location', location: 'location', deposito: 'location',
+  tipo: 'stockType', 'tipo de stock': 'stockType', canal: 'stockType',
+  productos: 'itemsText', items: 'itemsText', componentes: 'itemsText',
+  contenido: 'itemsText', 'productos (sku x cantidad)': 'itemsText',
+}
+
+const parseNumber = (v) => {
+  if (typeof v === 'number') return v
+  const n = parseFloat(String(v).replace(',', '.'))
+  return isNaN(n) ? 0 : n
+}
 
 const EMPTY_FORM = {
   name: '',
@@ -29,13 +52,49 @@ export function comboAvailable(combo, products) {
   return available === Infinity ? 0 : Math.max(0, available)
 }
 
-export default function Combos({ combos, products, onAdd, onUpdate, onDelete, editRequest, loadPhotos }) {
+export default function Combos({ combos, products, onAdd, onUpdate, onDelete, onImport, editRequest, loadPhotos }) {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [formData, setFormData] = useState(EMPTY_FORM)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [importResult, setImportResult] = useState('')
   const photoInputRef = useRef(null)
+  const fileInputRef = useRef(null)
+
+  // Busca un producto por SKU o código de barras (para resolver los items del Excel)
+  const findProduct = (codeStr) => {
+    const q = String(codeStr).trim().toLowerCase()
+    if (!q) return null
+    return products.find(p =>
+      (p.code && p.code.toLowerCase() === q) ||
+      (p.barcode && p.barcode.toLowerCase() === q)
+    )
+  }
+
+  // Parsea "SKU-001 x2 ; SKU-002 x1" → items + lista de códigos no encontrados
+  const parseItems = (text) => {
+    const items = []
+    const notFound = []
+    const seen = new Set()
+    let chunks = String(text).split(/[;\n]+/).map(s => s.trim()).filter(Boolean)
+    if (chunks.length <= 1) chunks = String(text).split(',').map(s => s.trim()).filter(Boolean)
+    for (const chunk of chunks) {
+      const m = chunk.match(/^(.*?)\s*[x×:*]\s*(\d+)\s*$/i) || chunk.match(/^(\d+)\s*[x×:*]\s*(.*?)$/i)
+      let codeStr, qty
+      if (m && /^\d+$/.test(m[2])) { codeStr = m[1]; qty = parseInt(m[2]) }
+      else if (m) { codeStr = m[2]; qty = parseInt(m[1]) }
+      else { codeStr = chunk; qty = 1 }
+      const p = findProduct(codeStr)
+      if (!p) { notFound.push(codeStr); continue }
+      if (seen.has(p.id)) continue
+      seen.add(p.id)
+      items.push({ productId: p.id, quantity: Math.max(1, qty || 1) })
+    }
+    return { items, notFound }
+  }
 
   // Abre el formulario cuando se pide editar un combo desde Inventario
   useEffect(() => {
@@ -199,6 +258,191 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, ed
     }
   }
 
+  const handleImportFile = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setImporting(true)
+    setImportResult('')
+    try {
+      const buffer = await file.arrayBuffer()
+      const workbook = XLSX.read(buffer)
+      const named = workbook.SheetNames.find(n => normalize(n) === 'combos')
+      const sheet = named ? workbook.Sheets[named] : workbook.Sheets[workbook.SheetNames[0]]
+      const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '' })
+      if (!rawRows.length) {
+        setImportResult('⚠️ El archivo está vacío.')
+        return
+      }
+      const photosByRow = await extractImagesByRow(buffer)
+
+      const allNotFound = new Set()
+      const rows = rawRows.map(raw => {
+        const c = {}
+        Object.entries(raw).forEach(([key, value]) => {
+          const field = COMBO_COLS[normalize(key)]
+          if (field) c[field] = value
+        })
+        if (!c.name || !String(c.name).trim()) return null
+        const { items, notFound } = parseItems(c.itemsText || '')
+        notFound.forEach(n => allNotFound.add(n))
+        if (!items.length) return { __noItems: String(c.name).trim() }
+        const itemBarcodes = items.flatMap(item => {
+          const p = products.find(pp => pp.id === item.productId)
+          return [p?.barcode, p?.code].filter(Boolean)
+        })
+        return {
+          name: String(c.name).trim(),
+          code: c.code !== undefined ? String(c.code).trim() : '',
+          barcode: c.barcode !== undefined ? String(c.barcode).trim() : '',
+          price: parseNumber(c.price),
+          location: c.location !== undefined ? String(c.location).trim() : '',
+          stockType: c.stockType !== undefined ? String(c.stockType).trim().toUpperCase() : '',
+          items,
+          itemBarcodes,
+          photos: photosByRow.get(raw.__rowNum__) || [],
+        }
+      }).filter(Boolean)
+
+      const noItems = rows.filter(r => r.__noItems).map(r => r.__noItems)
+      const valid = rows.filter(r => !r.__noItems)
+
+      if (!valid.length) {
+        setImportResult(
+          '⚠️ No se pudo armar ningún combo. Revisá que la columna "Productos" tenga ' +
+          'los SKU o códigos de barras de productos que ya existan en tu inventario. ' +
+          'Descargá la plantilla de ejemplo para ver el formato.'
+        )
+        return
+      }
+
+      // Reconocer combos existentes por SKU o código de barras → actualizar
+      const byCode = new Map(), byBarcode = new Map()
+      combos.forEach(c => {
+        if (c.code) byCode.set(c.code.toLowerCase(), c)
+        if (c.barcode) byBarcode.set(c.barcode.toLowerCase(), c)
+      })
+      valid.forEach(r => {
+        const ex = (r.code && byCode.get(r.code.toLowerCase())) ||
+                   (r.barcode && byBarcode.get(r.barcode.toLowerCase()))
+        if (ex) r.existingId = ex.id
+      })
+
+      const result = await onImport(valid)
+      let msg = `✅ ${result.created} combos nuevos, ${result.updated} actualizados.`
+      if (noItems.length) msg += ` ⚠️ ${noItems.length} sin productos válidos (${noItems.slice(0, 3).join(', ')}${noItems.length > 3 ? '…' : ''}).`
+      if (allNotFound.size) msg += ` No se encontraron estos códigos: ${[...allNotFound].slice(0, 5).join(', ')}${allNotFound.size > 5 ? '…' : ''}.`
+      setImportResult(msg)
+    } catch (err) {
+      setImportResult('❌ Error al importar: ' + err.message)
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  const downloadTemplate = () => {
+    const ejemploSku = products[0]?.code || products[0]?.barcode || 'SKU-001'
+    const ejemploSku2 = products[1]?.code || products[1]?.barcode || 'SKU-002'
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['FOTO', 'Nombre', 'SKU', 'Código de Barras', 'Precio', 'Ubicación', 'Tipo', 'Productos (SKU x Cantidad)'],
+      ['', 'Combo limpieza x3', 'COMBO-001', '', 5000, 'Estante B1', 'FULL', `${ejemploSku} x2 ; ${ejemploSku2} x1`],
+    ])
+    ws['!cols'] = [{ wch: 12 }, { wch: 24 }, { wch: 12 }, { wch: 16 }, { wch: 9 }, { wch: 14 }, { wch: 8 }, { wch: 34 }]
+
+    const info = XLSX.utils.aoa_to_sheet([
+      ['CÓMO CARGAR COMBOS POR EXCEL'],
+      [''],
+      ['1) Una fila por combo en la hoja "Combos". Solo "Nombre" es obligatorio.'],
+      [''],
+      ['2) Columna "Productos (SKU x Cantidad)": acá indicás qué productos'],
+      ['   componen el combo y cuántas unidades de cada uno. Formato:'],
+      [''],
+      ['        SKU-001 x2 ; SKU-002 x1 ; SKU-003 x4'],
+      [''],
+      ['   • Separá cada producto con punto y coma (;).'],
+      ['   • Después del SKU poné "x" y la cantidad (x2 = dos unidades).'],
+      ['   • Podés usar el SKU o el código de barras del producto.'],
+      ['   • Los productos TIENEN que existir ya en tu inventario.'],
+      [''],
+      ['3) Columna "Tipo": FULL, FERRE o BASE (o vacía).'],
+      [''],
+      ['4) FOTO del combo: pegala como imagen en la columna FOTO de esa fila'],
+      ['   (Insertar → Imágenes). También podés cargarla luego desde la app.'],
+      [''],
+      ['5) Al vender/mover un combo se descuenta el stock de cada producto que'],
+      ['   lo compone, multiplicado por la cantidad del combo.'],
+      [''],
+      ['6) Para modificar combos ya cargados: poné el mismo SKU del combo y'],
+      ['   se actualizan en vez de duplicarse.'],
+    ])
+    info['!cols'] = [{ wch: 72 }]
+
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, info, 'Instrucciones')
+    XLSX.utils.book_append_sheet(wb, ws, 'Combos')
+    XLSX.writeFile(wb, 'plantilla-combos.xlsx')
+  }
+
+  const exportCombos = async () => {
+    setExporting(true)
+    try {
+      const ExcelJS = (await import('exceljs')).default
+      const wb = new ExcelJS.Workbook()
+      const ws = wb.addWorksheet('Combos')
+      ws.columns = [
+        { header: 'FOTO', key: 'foto', width: 12 },
+        { header: 'Nombre', key: 'name', width: 26 },
+        { header: 'SKU', key: 'code', width: 12 },
+        { header: 'Código de Barras', key: 'barcode', width: 18 },
+        { header: 'Precio', key: 'price', width: 10 },
+        { header: 'Ubicación', key: 'location', width: 14 },
+        { header: 'Tipo', key: 'tipo', width: 8 },
+        { header: 'Productos (SKU x Cantidad)', key: 'items', width: 40 },
+      ]
+      ws.getRow(1).font = { bold: true }
+
+      for (let i = 0; i < combos.length; i++) {
+        const c = combos[i]
+        const itemsText = (c.items || []).map(it => {
+          const p = products.find(pp => pp.id === it.productId)
+          const code = p?.code || p?.barcode || '(?)'
+          return `${code} x${it.quantity}`
+        }).join(' ; ')
+        ws.addRow({
+          name: c.name || '',
+          code: c.code || '',
+          barcode: c.barcode || '',
+          price: c.price || 0,
+          location: c.location || '',
+          tipo: c.stockType || '',
+          items: itemsText,
+        })
+        if (c.hasPhotos && loadPhotos) {
+          const photos = await loadPhotos(c.id)
+          if (photos && photos[0]) {
+            const rowIdx = i + 1
+            ws.getRow(rowIdx + 1).height = 60
+            const imgId = wb.addImage({ base64: photos[0].split(',')[1], extension: 'jpeg' })
+            ws.addImage(imgId, { tl: { col: 0.15, row: rowIdx + 0.15 }, ext: { width: 72, height: 72 } })
+          }
+        }
+      }
+
+      const buffer = await wb.xlsx.writeBuffer()
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'combos.xlsx'
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      alert('Error al exportar: ' + err.message)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const productName = (id) => products.find(p => p.id === id)?.name || '(producto eliminado)'
 
   return (
@@ -208,16 +452,54 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, ed
           <h1>🎁 Combos</h1>
           <p>Armá paquetes de varios productos. Al vender un combo se descuenta el stock de cada producto que lo compone.</p>
         </div>
-        <button
-          onClick={() => {
-            resetForm()
-            setShowForm(!showForm)
-          }}
-          className="btn-add"
-        >
-          {showForm ? '✕ Cancelar' : '+ Nuevo Combo'}
-        </button>
+        <div className="header-buttons">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            style={{ display: 'none' }}
+            onChange={handleImportFile}
+          />
+          <button onClick={downloadTemplate} className="btn-outline" title="Excel de ejemplo para cargar combos">
+            📄 Plantilla
+          </button>
+          <button
+            onClick={exportCombos}
+            className="btn-outline"
+            disabled={combos.length === 0 || exporting}
+            title="Descargar los combos para modificarlos y reimportarlos"
+          >
+            {exporting ? '⏳ Exportando...' : '⬆️ Exportar'}
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="btn-import"
+            disabled={importing}
+          >
+            {importing ? '⏳ Importando...' : '📥 Importar Excel'}
+          </button>
+          <button
+            onClick={() => {
+              resetForm()
+              setShowForm(!showForm)
+            }}
+            className="btn-add"
+          >
+            {showForm ? '✕ Cancelar' : '+ Nuevo Combo'}
+          </button>
+        </div>
       </div>
+
+      {importResult && (
+        <div className={importResult.startsWith('✅') ? 'import-ok' : 'import-warn'}>
+          {importResult}
+          {!importResult.startsWith('✅') && (
+            <button className="btn-template" onClick={downloadTemplate}>
+              ⬇️ Descargar plantilla de combos
+            </button>
+          )}
+        </div>
+      )}
 
       {showForm && (
         <div className="form-panel">

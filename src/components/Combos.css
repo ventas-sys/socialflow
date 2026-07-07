@@ -49,6 +49,112 @@
   background: #6d28d9;
 }
 
+.combos-container .header-buttons {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.combos-container .btn-outline {
+  background: white;
+  color: #1f2937;
+  border: 1px solid #d1d5db;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.combos-container .btn-outline:hover:not(:disabled) {
+  border-color: #7c3aed;
+  color: #7c3aed;
+}
+
+.combos-container .btn-outline:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.combos-container .btn-import {
+  background: #059669;
+  color: white;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.combos-container .btn-import:hover:not(:disabled) {
+  background: #047857;
+}
+
+.combos-container .btn-import:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.combos-container .import-ok,
+.combos-container .import-warn {
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.combos-container .import-ok {
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  color: #166534;
+}
+
+.combos-container .import-warn {
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+}
+
+.combos-container .btn-template {
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #1f2937;
+  font-size: 0.875rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .combos-container .btn-outline {
+    background: #1e293b;
+    color: #f1f5f9;
+    border-color: #334155;
+  }
+  .combos-container .import-ok {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: #6ee7b7;
+    color: #6ee7b7;
+  }
+  .combos-container .import-warn {
+    background: rgba(251, 191, 36, 0.1);
+    border-color: #d97706;
+    color: #fcd34d;
+  }
+  .combos-container .btn-template {
+    background: #334155;
+    border-color: #475569;
+    color: #f1f5f9;
+  }
+}
+
 .combos-container .form-panel {
   background: white;
   border: 1px solid #e5e7eb;

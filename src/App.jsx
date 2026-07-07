@@ -391,6 +391,58 @@ export default function App() {
     setCombos(combos.filter(c => c.id !== comboId))
   }
 
+  // Importación masiva de combos desde Excel. Cada row ya viene con los items
+  // resueltos (productId+quantity) y opcionalmente existingId para actualizar.
+  const importCombos = async (rows) => {
+    if (!user) return { created: 0, updated: 0 }
+    const toCreate = rows.filter(r => !r.existingId)
+    const toUpdate = rows.filter(r => r.existingId)
+    const photoWrites = []
+    const newCombos = []
+
+    for (const r of toCreate) {
+      const { photos, ...data } = r
+      const hasPhotos = photos && photos.length > 0
+      const ref = await addDoc(collection(db, 'combos'), {
+        ...data,
+        hasPhotos,
+        userId: ORG_ID,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      })
+      if (hasPhotos) photoWrites.push({ id: ref.id, photos })
+      newCombos.push({ id: ref.id, ...data, hasPhotos, userId: ORG_ID, createdAt: new Date() })
+    }
+
+    for (const r of toUpdate) {
+      const { existingId, photos, ...data } = r
+      const hasNewPhotos = photos && photos.length > 0
+      await updateDoc(doc(db, 'combos', existingId), {
+        ...data,
+        ...(hasNewPhotos ? { hasPhotos: true } : {}),
+        updatedAt: Timestamp.now(),
+      })
+      if (hasNewPhotos) photoWrites.push({ id: existingId, photos })
+    }
+
+    for (const { id, photos } of photoWrites) {
+      await savePhotos(id, photos)
+    }
+
+    const updatedById = new Map(toUpdate.map(r => [r.existingId, r]))
+    setCombos([
+      ...newCombos.reverse(),
+      ...combos.map(c => {
+        const r = updatedById.get(c.id)
+        if (!r) return c
+        const { existingId, photos, ...data } = r
+        const hasNewPhotos = photos && photos.length > 0
+        return { ...c, ...data, ...(hasNewPhotos ? { hasPhotos: true } : {}), updatedAt: new Date() }
+      }),
+    ])
+    return { created: newCombos.length, updated: toUpdate.length }
+  }
+
   const addMovement = async (movementData) => {
     if (!user) return
     const movementDoc = {
@@ -577,6 +629,7 @@ export default function App() {
                 onAdd={addCombo}
                 onUpdate={updateCombo}
                 onDelete={deleteCombo}
+                onImport={importCombos}
                 editRequest={comboEditRequest}
                 loadPhotos={loadPhotos}
               />
