@@ -658,6 +658,32 @@
   font-weight: 500;
 }
 
+.found-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.found-actions button {
+  background: #f3f4f6;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  font-size: 1.15rem;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.found-actions button:hover {
+  transform: scale(1.15);
+}
+
+@media (prefers-color-scheme: dark) {
+  .found-actions button {
+    background: #334155;
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   .found-card {
     background: #1e293b;

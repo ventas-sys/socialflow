@@ -637,6 +637,22 @@ export default function Inventory({
                   'Sin ubicación'
                 )}
               </div>
+              <div className="found-actions">
+                <button
+                  onClick={() => (row.kind === 'combo' ? onEditCombo(row) : handleEdit(row))}
+                  className="btn-edit"
+                  title="Editar"
+                >
+                  ✏️
+                </button>
+                <button
+                  onClick={() => (row.kind === 'combo' ? handleDeleteCombo(row.id) : handleDelete(row.id))}
+                  className="btn-del"
+                  title="Eliminar"
+                >
+                  🗑️
+                </button>
+              </div>
             </div>
           ))}
         </div>
