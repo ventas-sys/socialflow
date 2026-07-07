@@ -47,6 +47,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     ⚠️ Necesitás tener <b>Mercado Libre conectado</b> en <a href="/conexiones" style="color:#c6de00;">🔌 Conexiones</a>. Los clips propios de ML se bajan directo; los que están en YouTube se abren en YouTube (se bajan con un descargador de YT).
   </div>
 
+  <div style="background:rgba(198,222,0,0.06);border:1px solid rgba(198,222,0,0.2);border-radius:12px;padding:14px;margin-bottom:16px;">
+    <div style="font-size:13px;color:#c6de00;font-weight:700;margin-bottom:8px;">🎯 Bajar un clip de ML Video Creator (recomendado)</div>
+    <div style="font-size:12px;color:#999;margin-bottom:10px;line-height:1.5;">
+      En <b>Mis Clips</b> de ML → ⋮ de un clip → <b>Compartir</b> → copiá el link y pegalo acá.
+    </div>
+    <input id="clip-url" type="text" placeholder="https://www.mercadolibre.com.ar/clips?...short_id=..."
+      style="width:100%;background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:10px 12px;color:#e0d8cc;font-size:12px;font-family:monospace;margin-bottom:8px;">
+    <button class="btn" id="clip-btn" onclick="bajarClip()">⬇️ Traer el video de este clip</button>
+    <div class="status" id="clip-status"></div>
+    <div id="clip-result" style="margin-top:10px;"></div>
+  </div>
+
+  <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:2px;margin:18px 0 10px;">o buscar en todas las publicaciones</div>
   <button class="btn" id="load-btn" onclick="cargar()">🎬 Buscar mis clips</button>
   <div class="status" id="status"></div>
 
@@ -56,6 +69,37 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <script>
 function loadState(){ try{ return JSON.parse(localStorage.getItem('up_state')||'{}'); }catch(e){ return {}; } }
+
+async function bajarClip(){
+  const url = document.getElementById('clip-url').value.trim();
+  const st = document.getElementById('clip-status');
+  const out = document.getElementById('clip-result');
+  const btn = document.getElementById('clip-btn');
+  out.innerHTML='';
+  if(!/^https?:\/\//.test(url)){ st.textContent='Pegá el link de "Compartir" del clip 🙏'; return; }
+  btn.disabled=true; btn.textContent='⏳ Buscando el video...';
+  st.textContent='Abriendo el clip del lado del servidor y buscando el archivo...';
+  try{
+    const r = await fetch('/api/ml/exchange?action=clip',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ url })
+    });
+    const d = await r.json();
+    if(d.ok && d.videos?.length){
+      st.innerHTML = '✅ ¡Video encontrado!';
+      out.innerHTML = d.videos.map((v,i)=>`
+        <div style="margin-bottom:8px;">
+          <video src="${v}" controls style="width:100%;max-width:280px;border-radius:10px;display:block;margin-bottom:6px;" onerror="this.style.display='none'"></video>
+          <a href="${v}" target="_blank" download style="display:inline-block;background:linear-gradient(135deg,#c6de00,#87a800);color:#161a00;padding:8px 14px;border-radius:8px;text-decoration:none;font-size:12px;font-weight:700;">⬇️ Descargar video ${d.videos.length>1?('#'+(i+1)):''}</a>
+          <div style="font-size:9px;color:#555;margin-top:4px;word-break:break-all;">${v}</div>
+        </div>`).join('');
+    } else {
+      st.innerHTML = '⚠️ No pude sacar el video directo de este link. Copiá lo de abajo y pasámelo a Claude para ajustar el extractor.';
+      out.innerHTML = '<pre style="background:rgba(0,0,0,0.3);padding:10px;border-radius:8px;font-size:10px;color:#999;overflow:auto;max-height:260px;white-space:pre-wrap;">'+JSON.stringify(d,null,2).replace(/</g,'&lt;')+'</pre>';
+    }
+  }catch(e){ st.textContent='❌ '+e.message; }
+  btn.disabled=false; btn.textContent='⬇️ Traer el video de este clip';
+}
 
 async function cargar(){
   const s = loadState();

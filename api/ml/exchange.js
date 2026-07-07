@@ -1,4 +1,55 @@
+import https from 'node:https';
 import { httpRequest, cors } from '../_http.js';
+
+// GET que devuelve el CUERPO COMPLETO (texto), siguiendo redirects, con
+// User-Agent de navegador. Sirve para "scrapear" una página propia (ej. la
+// del clip de ML) y sacar la URL real del video.
+function fetchText(url, redirects = 5) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const req = https.request({
+      hostname: u.hostname,
+      path: u.pathname + (u.search || ''),
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+        'Accept': 'text/html,application/json,*/*',
+        'Accept-Language': 'es-AR,es;q=0.9',
+      },
+    }, (r) => {
+      if ([301, 302, 303, 307, 308].includes(r.statusCode) && r.headers.location && redirects > 0) {
+        const next = new URL(r.headers.location, url).href;
+        r.resume();
+        return resolve(fetchText(next, redirects - 1));
+      }
+      let data = '';
+      r.on('data', c => data += c);
+      r.on('end', () => resolve({ status: r.statusCode, url, body: data }));
+    });
+    req.on('error', reject);
+    req.setTimeout(20000, () => { req.destroy(); reject(new Error('Timeout 20s')); });
+    req.end();
+  });
+}
+
+// Extrae URLs de video (.mp4 / .m3u8) del HTML/JSON de una página.
+function extractVideoUrls(html) {
+  const urls = new Set();
+  const patterns = [
+    /<meta[^>]+property=["']og:video(?::secure_url|:url)?["'][^>]+content=["']([^"']+)["']/gi,
+    /"(?:video_url|videoUrl|contentUrl|hls|mp4|url)"\s*:\s*"(https?:\/\/[^"']+?\.(?:mp4|m3u8)[^"']*)"/gi,
+    /(https?:\/\/[^"'\s)]+?\.mp4[^"'\s)]*)/gi,
+    /(https?:\/\/[^"'\s)]+?\.m3u8[^"'\s)]*)/gi,
+  ];
+  for (const re of patterns) {
+    let m;
+    while ((m = re.exec(html)) !== null) {
+      const cand = (m[1] || '').replace(/\\u002F/g, '/').replace(/\\\//g, '/');
+      if (cand.startsWith('http')) urls.add(cand);
+    }
+  }
+  return Array.from(urls);
+}
 
 // OAuth de Mercado Libre, consolidado en una función para no exceder el
 // límite de funciones serverless de Vercel.
@@ -15,6 +66,7 @@ export default async function handler(req, res) {
     if (action === 'refresh') return await refresh(req, res);
     if (action === 'test') return await test(req, res);
     if (action === 'videos') return await videos(req, res);
+    if (action === 'clip') return await clip(req, res);
     return await exchange(req, res);
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message });
@@ -72,6 +124,56 @@ async function videos(req, res) {
     totalItems: ids.length,
     withVideo: items.length,
     items,
+  });
+}
+
+// Resuelve la URL real del video de un clip/short de ML a partir del link
+// que da "Compartir" (o del link del producto). Body: { url }
+async function clip(req, res) {
+  const { url } = req.body || {};
+  if (!url || !/^https?:\/\//.test(url)) {
+    return res.status(400).json({ ok: false, error: 'Pegá el link del clip (el de "Compartir")' });
+  }
+
+  // short_id del link de compartir, si viene.
+  let shortId = null;
+  try { shortId = new URL(url).searchParams.get('short_id'); } catch {}
+
+  const tried = [];
+  const found = new Set();
+  let rawSnippet = '';
+
+  // Candidatos a consultar: la propia página + posibles endpoints internos.
+  const candidates = [url];
+  if (shortId) {
+    candidates.push(`https://www.mercadolibre.com.ar/clips/api/reproductions/${shortId}`);
+    candidates.push(`https://www.mercadolibre.com.ar/clips/api/shorts/${shortId}`);
+    candidates.push(`https://frontend.mercadolibre.com/clips/${shortId}`);
+  }
+
+  for (const c of candidates) {
+    try {
+      const r = await fetchText(c);
+      tried.push({ url: c, status: r.status, len: (r.body || '').length });
+      for (const v of extractVideoUrls(r.body || '')) found.add(v);
+      if (found.size) break;
+      // guardo un pedazo alrededor de la 1ª mención de video/mp4/short para diagnóstico
+      if (!rawSnippet) {
+        const body = r.body || '';
+        const idx = body.search(/mp4|m3u8|video_url|videoUrl|"video"|short_id/i);
+        if (idx >= 0) rawSnippet = body.slice(Math.max(0, idx - 200), idx + 800);
+      }
+    } catch (e) {
+      tried.push({ url: c, error: e.message });
+    }
+  }
+
+  return res.status(200).json({
+    ok: found.size > 0,
+    shortId,
+    videos: Array.from(found),
+    tried,
+    rawSnippet: found.size ? undefined : (rawSnippet || '(sin pistas de video en el HTML)'),
   });
 }
 
