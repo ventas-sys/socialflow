@@ -49,6 +49,10 @@ const lastIncomingAt = new Map();
 const botSentRecent = [];
 const sentIds = new Set(); // IDs de mensajes enviados por el BOT: reconocimiento infalible
 const followupSent = new Map();
+// Anti-loop: si el bot manda la MISMA respuesta varias veces seguidas al mismo
+// chat (típico cuando del otro lado hay otro bot/IA), corta y deriva a un humano.
+const botReplyStreak = new Map();  // chatId -> { fp, count }
+const MAX_IDENTICAL_REPLIES = 3;   // a la 3ra respuesta idéntica: parar + esperar humano
 
 // Candado anti-carrera: mientras el bot está enviando a un chat, cualquier
 // evento fromMe de ese chat es del bot. El evento message_create se dispara
@@ -462,6 +466,7 @@ function motivoHumano(reason) {
   if (reason === 'ia_reclamo_ml' || reason === 'ia_reclamo_datos') return 'Reclamo de compra ML 📦';
   if (reason === 'ia_mayorista') return 'Consulta mayorista 🧾';
   if (reason === 'ia_escalate_human') return 'Pidió hablar con una persona 🧑';
+  if (reason === 'loop_repetido') return 'Posible loop: el bot repitió la misma respuesta 🔁 (¿otro bot del otro lado?)';
   return 'Necesita atención';
 }
 
@@ -569,6 +574,26 @@ async function handleIncoming(client, msg) {
       recordHistory(from, 'user', text);
     }
     states.set(from, result.state);
+
+    // --- ANTI-LOOP: no mandar la MISMA respuesta 3 veces seguidas ---------
+    // Si del otro lado hay otro bot/IA, el nuestro puede quedar contestando lo
+    // mismo en bucle. A la 3ra respuesta idéntica: NO la mandamos, marcamos el
+    // chat para humano, silenciamos el bot y avisamos al supervisor.
+    const replyBodies = (result.messages || []).map(m => m.body).join(' ');
+    const replyFp = textFingerprint(replyBodies);
+    if (replyFp) {
+      const prev = botReplyStreak.get(from);
+      const count = (prev && prev.fp === replyFp) ? prev.count + 1 : 1;
+      if (count >= MAX_IDENTICAL_REPLIES) {
+        console.log(`[${from}] 🔁 respuesta idéntica x${count} — posible loop con otro bot. Corto y derivo a humano (sin enviar).`);
+        botReplyStreak.delete(from);
+        await markChatForHuman(client, from);
+        markAsesorActive(from);   // silencia el bot: no vuelve a responder hasta que un humano intervenga
+        await notifySupervisor(client, from, 'loop_repetido', text);
+        return;                   // NO enviamos el mensaje repetido
+      }
+      botReplyStreak.set(from, { fp: replyFp, count });
+    }
 
     for (const m of (result.messages || [])) {
       if (m.delaySec) await new Promise(r => setTimeout(r, m.delaySec * 1000));
