@@ -1,9 +1,20 @@
 import https from 'https';
 
-// Genera la foto publicitaria del producto.
-// CLAVE: usa la FOTO REAL subida (photoB64) con un modelo imagen->imagen
-// (gemini-2.5-flash-image, "Nano Banana"), que mejora la foto manteniendo el
-// producto idéntico. Si no hay foto, cae a texto->imagen (Imagen 4) como respaldo.
+// Genera el CARTEL PUBLICITARIO del producto.
+//
+// Estrategia en 2 pasos (la que pidió el cliente: "usar otra IA para el prompt"):
+//   1) Gemini (texto) mira la FOTO REAL y saca 3 virtudes cortas del producto.
+//   2) Un modelo de imagen arma el cartel con el producto REAL, el logo
+//      UNIPROVEEDORES, los colores de marca y esas 3 virtudes, en el formato
+//      de cada red social.
+//
+// Motor de imagen:
+//   - Si hay OPENAI_API_KEY -> gpt-image-1 (el motor de ChatGPT). EDITA la foto
+//     real, respeta el producto y escribe bien el logo/textos. RECOMENDADO.
+//   - Si no, cae a Gemini (gemini-2.5-flash-image) con el mismo prompt.
+//   - Sin foto -> Imagen 4 (texto->imagen) como último respaldo.
+export const config = { maxDuration: 60 };
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -11,108 +22,227 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { platform, productName, price, badge, photoDesc, scenePrompt, photoB64, photoMime } = req.body || {};
+  const { platform, productName, price, badge, photoDesc, photoB64, photoMime } = req.body || {};
+  const OK = (process.env.OPENAI_API_KEY || '').trim();
   const GK = (process.env.GEMINI_API_KEY || '').trim();
-  if (!GK) return res.status(500).json({ error: 'API key no configurada' });
+  if (!OK && !GK) return res.status(500).json({ error: 'Falta OPENAI_API_KEY o GEMINI_API_KEY' });
 
-  const isSquare = (platform === 'ig' || platform === 'wa' || platform === 'tk' || platform === 'yt');
-  const ar = isSquare ? '1:1' : '16:9';
-
-  // --- CAMINO A: hay foto real -> armar un CARTEL PUBLICITARIO cinematográfico ---
-  // usando el producto REAL de la foto como protagonista (imagen->imagen).
-  if (photoB64) {
-    const editPrompt = scenePrompt || buildAdPrompt({ productName, price, badge, photoDesc, ar });
-
-    const body = JSON.stringify({
-      contents: [{
-        parts: [
-          { inline_data: { mime_type: photoMime || 'image/jpeg', data: photoB64 } },
-          { text: editPrompt },
-        ],
-      }],
-      generationConfig: { responseModalities: ['IMAGE'], temperature: 0.9 },
-    });
-
-    return callGemini(res, GK,
-      '/v1beta/models/gemini-2.5-flash-image:generateContent?key=' + GK,
-      body, 'gemini');
+  // --- PASO 1: 3 virtudes reales del producto (Gemini texto) --------------
+  let virtues = [];
+  let prodLabel = (productName || '').trim();
+  if (GK) {
+    try {
+      const copy = await geminiCopy(GK, { productName, price, photoDesc, photoB64, photoMime });
+      if (Array.isArray(copy.virtues)) virtues = copy.virtues.filter(Boolean).slice(0, 3);
+      if (!prodLabel && copy.product) prodLabel = copy.product;
+    } catch (_) { /* si falla, seguimos con virtudes genéricas */ }
+  }
+  if (virtues.length < 3) {
+    virtues = ['Calidad garantizada', 'Envío rápido', 'Mejor precio'].slice(0, 3);
   }
 
-  // --- CAMINO B: sin foto -> texto->imagen (respaldo con Imagen 4) ----------
-  const prompt =
+  const prompt = buildAdPrompt({ productName: prodLabel, price, badge, virtues });
+
+  // --- PASO 2: generar la imagen -----------------------------------------
+  if (photoB64) {
+    if (OK) {
+      return openaiEdit(res, OK, { photoB64, photoMime, prompt, size: openaiSize(platform) });
+    }
+    return geminiImage(res, GK, {
+      photoB64, photoMime,
+      prompt: prompt + ' Encuadre ' + geminiAr(platform) + '.',
+    });
+  }
+
+  // Sin foto -> texto->imagen (respaldo)
+  if (!GK) return res.status(500).json({ error: 'Subí la foto del producto para generar el cartel' });
+  const tprompt =
     `Professional cinematic advertising poster for a hardware/ecommerce product, ` +
-    `high visual impact, dramatic premium lighting, photorealistic, high detail. ` +
-    `Product: ${productName || 'producto'}${photoDesc ? ' (' + photoDesc + ')' : ''}, ` +
-    `shown large in the foreground within a realistic scene matching its real-world use. ` +
-    `Ready for social media advertising, no watermark.`;
+    `high visual impact, dramatic premium lighting, photorealistic. ` +
+    `Product: ${prodLabel || 'producto'}${photoDesc ? ' (' + photoDesc + ')' : ''}, ` +
+    `shown large in a realistic scene matching its real-world use. ` +
+    `Text "UNIPROVEEDORES" logo top-left, brand colors lime green #C6DE00, white, gray, black. ` +
+    `Ready for social media, no watermark.`;
   const body = JSON.stringify({
-    instances: [{ prompt }],
-    parameters: { sampleCount: 1, aspectRatio: ar, safetyFilterLevel: 'block_some', personGeneration: 'allow_adult' },
+    instances: [{ prompt: tprompt }],
+    parameters: { sampleCount: 1, aspectRatio: geminiAr(platform), safetyFilterLevel: 'block_some', personGeneration: 'allow_adult' },
   });
-  return callGemini(res, GK,
-    '/v1beta/models/imagen-4.0-fast-generate-001:predict?key=' + GK,
-    body, 'imagen');
+  return callGeminiPredict(res, GK, body);
 }
 
-// Arma el prompt del CARTEL PUBLICITARIO cinematográfico, al estilo de lo que
-// genera ChatGPT: escena dramática, producto REAL de la foto como protagonista,
-// iluminación premium y el logo UNIPROVEEDORES. El modelo infiere el ambiente
-// (taller, obra, exterior, cocina, etc.) según el producto de la foto.
-function buildAdPrompt({ productName, price, badge, photoDesc, ar }) {
-  const prod = (productName || 'el producto de la foto').trim();
-  const desc = photoDesc ? ` (${photoDesc.trim()})` : '';
+// ---- Formatos por red social ------------------------------------------------
+// gpt-image-1 acepta: 1024x1024, 1536x1024 (horizontal), 1024x1536 (vertical).
+function openaiSize(p) {
+  if (p === 'fb' || p === 'yt') return '1536x1024';  // horizontal
+  if (p === 'tk') return '1024x1536';                // vertical (TikTok/Reels)
+  return '1024x1024';                                // ig / wa / cuadrado
+}
+function geminiAr(p) {
+  if (p === 'fb' || p === 'yt') return '16:9';
+  if (p === 'tk') return '9:16';
+  return '1:1';
+}
 
-  // Chapa/etiqueta promocional: solo si hay oferta y precio.
-  let promo = '';
+// ---- Prompt del cartel ------------------------------------------------------
+function buildAdPrompt({ productName, price, badge, virtues }) {
+  const v = (virtues || []).slice(0, 3);
   const badgeTxt = (badge || '').trim();
   const priceTxt = (price || '').trim();
+  let promo = '';
   if (badgeTxt && badgeTxt.toUpperCase() !== 'NINGUNO') {
-    promo =
-      ` Agregá una chapa/etiqueta promocional integrada al diseño (esquina inferior o superior derecha) ` +
-      `con la palabra "${badgeTxt}"` + (priceTxt ? ` y el precio "${priceTxt}"` : '') +
-      ` en tipografía moderna, bien legible, sin tapar el producto.`;
+    promo = ` Incluí un sello/chapa promocional con la palabra "${badgeTxt}"` +
+      (priceTxt ? ` y el precio "${priceTxt}"` : '') +
+      `, integrado al diseño y sin tapar el producto.`;
+  } else if (priceTxt) {
+    promo = ` Mostrá el precio "${priceTxt}" de forma clara.`;
   }
 
   return (
-    `Diseño de cartel publicitario profesional para producto de ferretería/ecommerce, ` +
-    `estilo moderno, cinematográfico y de alto impacto visual. ` +
-    `PRODUCTO PRINCIPAL: usá EXACTAMENTE el producto de la foto adjunta — "${prod}"${desc} — ` +
-    `mismísima forma, color, marca, textos y detalles reales, NO lo inventes ni lo cambies, ` +
-    `mostralo grande en primer plano, hiperrealista, con reflejos y materiales realistas. ` +
-    `AMBIENTE: creá un fondo/escena dramática y creíble acorde al USO real de ese producto ` +
-    `(taller, obra, exterior, hogar, aventura, según corresponda), con profundidad, ` +
-    `iluminación cinematográfica premium y contraste de alto impacto. ` +
-    `Podés incluir a una persona usando el producto de forma natural si le suma realismo. ` +
-    `LOGO: en la parte superior izquierda, colocá el texto "UNIPROVEEDORES" como logo estilo ` +
-    `ferretería, con la paleta verde manzana (#c6de00), blanco, gris y negro. ` +
+    `Diseñá un cartel publicitario profesional para redes sociales usando EXACTAMENTE ` +
+    `el producto de la imagen adjunta como protagonista${productName ? ' ("' + productName + '")' : ''}: ` +
+    `mantené su forma, color, marca y detalles reales, IDÉNTICO, sin inventarlo, deformarlo ` +
+    `ni pegarle textos falsos encima del producto. ` +
+    `Escena moderna, limpia y de alto impacto, con iluminación premium y un fondo acorde ` +
+    `al uso real del producto. ` +
+    `Arriba a la izquierda colocá el logo de texto "UNIPROVEEDORES" estilo ferretería. ` +
+    `Paleta de marca OBLIGATORIA: verde manzana #C6DE00, blanco, gris y negro. ` +
+    `Destacá estas 3 virtudes como textos cortos, prolijos y bien legibles: ` +
+    v.map(x => '"' + x + '"').join(', ') + '.' +
     promo +
-    ` Estética premium y realista, lista para publicar en Mercado Libre, WhatsApp e Instagram. ` +
-    `Encuadre ${ar}. Nada de marcas de agua ni texto de relleno; que se vea profesional y limpio.`
+    ` Todo el texto correctamente escrito en español, tipografía moderna y legible. ` +
+    `Resultado premium, realista, listo para publicar.`
   );
 }
 
-// Llama a la API de Google y devuelve la imagen como data URL. Soporta las dos
-// formas de respuesta: generateContent (parts.inlineData) y predict (predictions).
-function callGemini(res, GK, path, body, kind) {
-  return new Promise(function (resolve) {
+// ---- PASO 1: Gemini texto -> {product, virtues[3]} --------------------------
+function geminiCopy(GK, { productName, price, photoDesc, photoB64, photoMime }) {
+  return new Promise((resolve, reject) => {
+    const parts = [];
+    if (photoB64) parts.push({ inline_data: { mime_type: photoMime || 'image/jpeg', data: photoB64 } });
+    parts.push({
+      text:
+        `Sos redactor publicitario de una ferretería/distribuidora. ` +
+        `Producto: "${productName || '(mirá la foto)'}"${price ? ', precio ' + price : ''}. ` +
+        `Devolvé SOLO un JSON: {"product":"nombre corto del producto","virtues":["v1","v2","v3"]}. ` +
+        `Las 3 virtudes: beneficios/atributos reales del producto, MUY cortos (máx 3 palabras c/u), en español, para destacar en un cartel.`,
+    });
+    const body = JSON.stringify({
+      contents: [{ parts }],
+      generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 400, temperature: 0.7, thinkingConfig: { thinkingBudget: 0 } },
+    });
+    const opts = {
+      hostname: 'generativelanguage.googleapis.com',
+      path: '/v1beta/models/gemini-2.5-flash:generateContent?key=' + GK,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+    };
+    const r = https.request(opts, (resp) => {
+      let data = '';
+      resp.on('data', c => data += c);
+      resp.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          const txt = parsed?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
+          const obj = JSON.parse(txt);
+          resolve({ product: obj.product || '', virtues: obj.virtues || [] });
+        } catch (e) { reject(e); }
+      });
+    });
+    r.on('error', reject);
+    r.setTimeout(20000, () => { r.destroy(); reject(new Error('Timeout copy')); });
+    r.write(body); r.end();
+  });
+}
+
+// ---- PASO 2a: gpt-image-1 (OpenAI) edita la foto real -----------------------
+function openaiEdit(res, key, { photoB64, photoMime, prompt, size }) {
+  return new Promise((resolve) => {
+    const boundary = '----socialflow' + Math.random().toString(16).slice(2);
+    const CRLF = '\r\n';
+    const mime = photoMime || 'image/jpeg';
+    const ext = mime.includes('png') ? 'png' : (mime.includes('webp') ? 'webp' : 'jpg');
+    const field = (name, val) =>
+      Buffer.from(`--${boundary}${CRLF}Content-Disposition: form-data; name="${name}"${CRLF}${CRLF}${val}${CRLF}`);
+    const chunks = [
+      field('model', 'gpt-image-1'),
+      field('prompt', prompt),
+      field('size', size),
+      field('quality', 'medium'),
+      field('n', '1'),
+      Buffer.from(`--${boundary}${CRLF}Content-Disposition: form-data; name="image"; filename="product.${ext}"${CRLF}Content-Type: ${mime}${CRLF}${CRLF}`),
+      Buffer.from(photoB64, 'base64'),
+      Buffer.from(CRLF),
+      Buffer.from(`--${boundary}--${CRLF}`),
+    ];
+    const body = Buffer.concat(chunks);
+    const opts = {
+      hostname: 'api.openai.com',
+      path: '/v1/images/edits',
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + key,
+        'Content-Type': 'multipart/form-data; boundary=' + boundary,
+        'Content-Length': body.length,
+      },
+    };
+    const r = https.request(opts, (resp) => {
+      let data = '';
+      resp.on('data', c => data += c);
+      resp.on('end', () => {
+        try {
+          const j = JSON.parse(data);
+          if (j.error) { res.status(500).json({ error: 'OpenAI: ' + (j.error.message || 'error') }); return resolve(); }
+          const b64 = j?.data?.[0]?.b64_json;
+          if (!b64) { res.status(500).json({ error: 'OpenAI sin imagen: ' + data.substring(0, 200) }); return resolve(); }
+          res.status(200).json({ url: 'data:image/png;base64,' + b64, engine: 'gpt-image-1' });
+          resolve();
+        } catch (e) { res.status(500).json({ error: 'Parse OpenAI: ' + e.message }); resolve(); }
+      });
+    });
+    r.on('error', (e) => { res.status(500).json({ error: 'OpenAI request: ' + e.message }); resolve(); });
+    r.setTimeout(115000, () => { r.destroy(); res.status(500).json({ error: 'Timeout generando imagen (OpenAI)' }); resolve(); });
+    r.write(body); r.end();
+  });
+}
+
+// ---- PASO 2b: Gemini imagen (respaldo, edita la foto real) ------------------
+function geminiImage(res, GK, { photoB64, photoMime, prompt }) {
+  const body = JSON.stringify({
+    contents: [{
+      parts: [
+        { inline_data: { mime_type: photoMime || 'image/jpeg', data: photoB64 } },
+        { text: prompt },
+      ],
+    }],
+    generationConfig: { responseModalities: ['IMAGE'], temperature: 0.9 },
+  });
+  return callGeminiContent(res, GK, body);
+}
+
+// ---- Helpers de respuesta de Gemini ----------------------------------------
+function callGeminiContent(res, GK, body) {
+  return geminiCall(res, GK, '/v1beta/models/gemini-2.5-flash-image:generateContent?key=' + GK, body, 'content');
+}
+function callGeminiPredict(res, GK, body) {
+  return geminiCall(res, GK, '/v1beta/models/imagen-4.0-fast-generate-001:predict?key=' + GK, body, 'predict');
+}
+function geminiCall(res, GK, path, body, kind) {
+  return new Promise((resolve) => {
     const opts = {
       hostname: 'generativelanguage.googleapis.com',
       path,
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
     };
-    const req2 = https.request(opts, function (r) {
+    const r = https.request(opts, (resp) => {
       let data = '';
-      r.on('data', function (c) { data += c; });
-      r.on('end', function () {
+      resp.on('data', c => data += c);
+      resp.on('end', () => {
         try {
           const parsed = JSON.parse(data);
-          if (parsed.error) {
-            res.status(500).json({ error: parsed.error.message || 'Image API error' });
-            return resolve();
-          }
+          if (parsed.error) { res.status(500).json({ error: parsed.error.message || 'Image API error' }); return resolve(); }
           let b64 = '', mime = 'image/png';
-          if (kind === 'gemini') {
+          if (kind === 'content') {
             const parts = parsed?.candidates?.[0]?.content?.parts || [];
             const imgPart = parts.find(p => p.inline_data?.data || p.inlineData?.data);
             const inl = imgPart?.inline_data || imgPart?.inlineData;
@@ -121,21 +251,14 @@ function callGemini(res, GK, path, body, kind) {
           } else {
             b64 = parsed?.predictions?.[0]?.bytesBase64Encoded || '';
           }
-          if (!b64) {
-            res.status(500).json({ error: 'No image: ' + data.substring(0, 200) });
-            return resolve();
-          }
-          res.status(200).json({ url: 'data:' + mime + ';base64,' + b64 });
+          if (!b64) { res.status(500).json({ error: 'No image: ' + data.substring(0, 200) }); return resolve(); }
+          res.status(200).json({ url: 'data:' + mime + ';base64,' + b64, engine: 'gemini' });
           resolve();
-        } catch (e) {
-          res.status(500).json({ error: 'Parse error: ' + e.message });
-          resolve();
-        }
+        } catch (e) { res.status(500).json({ error: 'Parse error: ' + e.message }); resolve(); }
       });
     });
-    req2.on('error', function (e) { res.status(500).json({ error: 'Request error: ' + e.message }); resolve(); });
-    req2.setTimeout(60000, function () { req2.destroy(); res.status(500).json({ error: 'Timeout 60s generando imagen' }); resolve(); });
-    req2.write(body);
-    req2.end();
+    r.on('error', (e) => { res.status(500).json({ error: 'Request error: ' + e.message }); resolve(); });
+    r.setTimeout(60000, () => { r.destroy(); res.status(500).json({ error: 'Timeout 60s generando imagen' }); resolve(); });
+    r.write(body); r.end();
   });
 }
