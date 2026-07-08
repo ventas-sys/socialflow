@@ -76,7 +76,7 @@ textarea{resize:vertical;min-height:60px;}
     <div class="logo-icon">←</div>
     <div><div class="logo-title">Agente Redes</div><div class="logo-sub">UNIPROVEEDORES · AGENCIA</div></div>
   </a>
-  <div class="ia-badge">✅ Gemini 2.5 + Imagen 4</div>
+  <div class="ia-badge">✅ Gemini 2.5 · foto real mejorada</div>
 </div>
 <div class="main">
   <div class="tip">✅ Subí la foto, completá el producto y generá copies + imágenes IA.</div>
@@ -299,7 +299,7 @@ async function generate(){
       s.outputs.social = {copies:{...copies}, photoDesc, generatedAt:new Date().toISOString()};
       localStorage.setItem('up_state', JSON.stringify(s));
     } catch(e){}
-    notify('✅ Copies listos. Clic en 🎨 para generar imagen con Imagen 4.');
+    notify('✅ Copies listos. Clic en 🎨 para mejorar tu foto con IA.');
   }catch(e){
     res.innerHTML='<div style="background:rgba(255,80,80,0.08);border:1px solid rgba(255,80,80,0.25);border-radius:12px;padding:20px;color:#ff8080;font-size:13px;text-align:center">❌ '+e.message+'</div>';
   }
@@ -313,12 +313,12 @@ async function genImg(id){
   if(!btn||!resultDiv)return;
   btn.disabled=true;btn.innerHTML='⏳ Generando...';
   resultDiv.style.display='block';
-  resultDiv.innerHTML='<div style="text-align:center;padding:30px;color:#c4b5fd;font-size:13px"><div style="font-size:28px;margin-bottom:10px">🎨</div>DALL·E 3 generando imagen HD...<br><small style="color:#666;margin-top:6px;display:block">15-20 segundos</small></div>';
+  resultDiv.innerHTML='<div style="text-align:center;padding:30px;color:#c4b5fd;font-size:13px"><div style="font-size:28px;margin-bottom:10px">🎨</div>Mejorando tu foto real con IA...<br><small style="color:#666;margin-top:6px;display:block">10-20 segundos</small></div>';
   try{
     const r=await fetch('/api/image',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({platform:id,productName:pName,price:pPrice,badge,photoDesc})
+      body:JSON.stringify({platform:id,productName:pName,price:pPrice,badge,photoDesc,photoB64:photoB64||null,photoMime:'image/jpeg'})
     });
     const d=await r.json();
     if(d.error)throw new Error(d.error);
