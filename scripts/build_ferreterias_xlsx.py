@@ -296,6 +296,131 @@ c.value = ("REGLAS PARA TODAS: (1) Mismo @uniproveedoresok y logo. (2) Grabás 1
 c.font = Font(bold=True, color="FFFFFF"); c.fill = PatternFill("solid", fgColor=NEGRO); c.alignment = wrap
 ws4.row_dimensions[r+1].height = 52
 
+# =====================================================================
+# HOJA 5 - MENSAJES DE CONTACTO (plantillas para el Anillo 1)
+# =====================================================================
+ws5 = wb.create_sheet("Mensajes de contacto")
+ws5.column_dimensions["A"].width = 3
+ws5.column_dimensions["B"].width = 112
+
+def block5(ws, rows):
+    r = 1
+    for kind, text in rows:
+        cell = ws.cell(row=r, column=2, value=text)
+        if kind == "h1":
+            cell.font = title_font; cell.fill = title_fill; ws.row_dimensions[r].height = 24
+        elif kind == "h2":
+            cell.font = Font(bold=True, color="0D0D0D", size=12); cell.fill = PatternFill("solid", fgColor=VERDE)
+        elif kind == "msg":
+            cell.font = Font(size=10); cell.alignment = wrap
+            cell.fill = PatternFill("solid", fgColor="F3F7E6")
+            ws.row_dimensions[r].height = 92
+        elif kind == "b":
+            cell.font = Font(bold=True, size=10); cell.alignment = wrap
+        else:
+            cell.font = Font(size=10); cell.alignment = wrap
+        r += 1
+
+block5(ws5, [
+ ("h1", "  Plantillas de contacto — Anillo 1 (Comuna 10)"),
+ ("n", "Personalizá lo que está entre [corchetes]. Regla: mensaje corto, valor claro, una sola pregunta y CTA. No mandar catálogo entero en el primer mensaje."),
+ ("n", ""),
+ ("h2", "  1) WhatsApp — primer mensaje (frío)"),
+ ("msg", "Hola, ¿cómo va? Te escribo de UNIPROVEEDORES 🛠️, distribuidora mayorista de herramientas y artículos de ferretería. "
+         "Estamos trabajando con ferreterías de [barrio/zona] con precio mayorista, envío y garantía. "
+         "¿Con quién puedo hablar por las compras? Te acerco la lista y las ofertas de la semana, sin compromiso. ¡Gracias!"),
+ ("h2", "  2) WhatsApp — seguimiento (48-72 hs después, si no respondió)"),
+ ("msg", "Hola [nombre]! Te escribí hace unos días de Uniproveedores (mayorista de ferretería). ¿Pudiste ver? "
+         "Si querés te paso la lista de precios actualizada de esta semana. Si hay algún producto puntual que más vendés, "
+         "decime cuál y te coto al toque 👍"),
+ ("h2", "  3) WhatsApp — con oferta gancho (si sabés qué vende)"),
+ ("msg", "Hola [nombre]! Esta semana tenemos [producto] a $[precio] mayorista (con envío y garantía). "
+         "Es de lo que más rota en ferretería. ¿Te preparo una cotización con cantidades para [nombre de la ferretería]?"),
+ ("h2", "  4) Email — presentación"),
+ ("b", "  Asunto:  Uniproveedores — precios mayoristas para tu ferretería (envío y garantía)"),
+ ("msg", "Hola, ¿cómo estás?\n\nSoy [tu nombre], de UNIPROVEEDORES, distribuidora mayorista de herramientas y artículos de ferretería. "
+         "Trabajamos con ferreterías de Capital con precio mayorista, envío y garantía por Mercado Libre.\n\n"
+         "Me gustaría acercarte nuestra lista de precios y las ofertas de la semana, sin compromiso. "
+         "¿A quién le puedo enviar la información de compras?\n\n"
+         "Quedo a disposición.\n[tu nombre] — Uniproveedores\nWhatsApp: 011-3551-0715  ·  ventas@distribuidorauniverso.com\n"
+         "uniproveedores.com.ar  ·  Mercado Libre: /tienda/uniproveedores"),
+ ("h2", "  5) Guion visita / llamada (para conseguir el nombre del encargado)"),
+ ("msg", "Buenas, ¿el encargado de compras se encuentra? Soy de Uniproveedores, distribuidora mayorista de ferretería. "
+         "Le quería dejar la lista de precios y ver qué productos le interesan para cotizarle con envío. "
+         "¿Con quién tengo el gusto? (→ anotar el nombre en la columna 'Encargado')."),
+ ("n", ""),
+ ("b", "  Tips de cierre:"),
+ ("n", "  • Guardá cada número que contactás como contacto → así ven tu foto/estado de empresa y da confianza."),
+ ("n", "  • Después del primer 'sí', mandá SIEMPRE una cotización concreta con cantidades, no una lista genérica."),
+ ("n", "  • Invitá a cada contacto a tu Canal de WhatsApp (ofertas) aunque todavía no te compre."),
+])
+
+# =====================================================================
+# HOJA 6 - TABLERO / RESULTADOS (se actualiza solo con la columna Estado)
+# =====================================================================
+ws6 = wb.create_sheet("Tablero y Resultados")
+ws6.sheet_view.tabColor = VERDE
+for col, w in zip("ABCD", [4, 26, 12, 60]):
+    ws6.column_dimensions[col].width = w
+ws6.merge_cells("A1:D1")
+c = ws6["A1"]; c.value = "UNIPROVEEDORES · Tablero de resultados (se actualiza al cargar la columna 'Estado')"
+c.font = title_font; c.fill = title_fill; ws6.row_dimensions[1].height = 24
+
+est_range = f"'Ferreterías CABA'!$M$4:$M${len(D)+3}"
+pri_range = f"'Ferreterías CABA'!$N$4:$N${len(D)+3}"
+ani_range = f"'Ferreterías CABA'!$B$4:$B${len(D)+3}"
+
+ws6.cell(row=3, column=2, value="Embudo de prospección").font = Font(bold=True, size=12)
+funnel = ["Sin contactar", "Contactado", "Interesado", "Cotización enviada", "Cliente", "Descartado"]
+r = 4
+for est in funnel:
+    ws6.cell(row=r, column=2, value=est).font = Font(size=10)
+    cell = ws6.cell(row=r, column=3, value=f'=COUNTIF({est_range},"{est}")')
+    cell.font = Font(bold=True); cell.alignment = center
+    cell.fill = PatternFill("solid", fgColor="F3F7E6")
+    r += 1
+ws6.cell(row=r, column=2, value="TOTAL en la lista").font = Font(bold=True)
+ws6.cell(row=r, column=3, value=f'=COUNTA({est_range})').font = Font(bold=True)
+ws6.cell(row=r, column=3).alignment = center
+
+# Tasa de conversión
+r += 2
+ws6.cell(row=r, column=2, value="Tasa de cierre (Cliente / Contactadas+)").font = Font(bold=True, size=11)
+# contactadas+ = todo lo que no está 'Sin contactar'
+formula_cierre = (f'=IFERROR(COUNTIF({est_range},"Cliente")/'
+                  f'(COUNTA({est_range})-COUNTIF({est_range},"Sin contactar")-COUNTIF({est_range},"")),0)')
+cc = ws6.cell(row=r, column=3, value=formula_cierre)
+cc.number_format = "0%"; cc.font = Font(bold=True); cc.alignment = center
+
+# Por prioridad
+r += 2
+ws6.cell(row=r, column=2, value="Por prioridad").font = Font(bold=True, size=12); r += 1
+for pri in ["Alta", "Media", "Baja"]:
+    ws6.cell(row=r, column=2, value=pri).font = Font(size=10)
+    ws6.cell(row=r, column=3, value=f'=COUNTIF({pri_range},"{pri}")').alignment = center
+    r += 1
+
+# Por anillo
+r += 1
+ws6.cell(row=r, column=2, value="Por anillo (cercanía al depósito)").font = Font(bold=True, size=12); r += 1
+for a in ["Anillo 1", "Anillo 2", "Anillo 3"]:
+    ws6.cell(row=r, column=2, value=a).font = Font(size=10)
+    ws6.cell(row=r, column=3, value=f'=COUNTIF({ani_range},"{a}")').alignment = center
+    r += 1
+
+# Bitácora manual
+r += 2
+ws6.cell(row=r, column=2, value="Bitácora semanal (anotá a mano)").font = Font(bold=True, size=12); r += 1
+for j, h in enumerate(["Semana", "Contactadas", "Notas / aprendizajes"], start=2):
+    cell = ws6.cell(row=r, column=j, value=h)
+    cell.font = hdr_font; cell.fill = hdr_fill; cell.alignment = center; cell.border = border
+r += 1
+for wk in range(1, 9):
+    ws6.cell(row=r, column=2, value=f"Semana {wk}").border = border
+    ws6.cell(row=r, column=3).border = border
+    ws6.cell(row=r, column=4).border = border
+    r += 1
+
 out = "/home/user/socialflow/data/Ferreterias-CABA-Uniproveedores.xlsx"
 wb.save(out)
 print("OK ->", out, "| filas:", len(D))
