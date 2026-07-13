@@ -363,12 +363,12 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
     const sku2 = products[1]?.code || products[1]?.barcode || products[1]?.name || 'SKU-002'
     // Una fila por producto que compone el combo; el SKU y nombre del combo se repiten
     const ws = XLSX.utils.aoa_to_sheet([
-      ['FOTO', 'SKU Combo', 'Nombre Combo', 'Precio', 'Ubicación', 'Tipo', 'Producto (SKU)', 'Cantidad'],
-      ['', 'COMBO-001', 'Combo Amoladora + accesorios', 5000, 'Estante B1', 'FULL', sku1, 2],
-      ['', 'COMBO-001', 'Combo Amoladora + accesorios', '', '', '', sku2, 1],
-      ['', 'COMBO-002', 'Combo Pintura', 3000, 'Estante B2', 'BASE', sku1, 1],
+      ['FOTO', 'SKU Combo', 'Código de Barras', 'Nombre Combo', 'Precio', 'Ubicación', 'Tipo', 'Producto (SKU)', 'Cantidad'],
+      ['', 'COMBO-001', '7790000000011', 'Combo Amoladora + accesorios', 5000, 'Estante B1', 'FULL', sku1, 2],
+      ['', 'COMBO-001', '', 'Combo Amoladora + accesorios', '', '', '', sku2, 1],
+      ['', 'COMBO-002', '7790000000028', 'Combo Pintura', 3000, 'Estante B2', 'BASE', sku1, 1],
     ])
-    ws['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 28 }, { wch: 9 }, { wch: 14 }, { wch: 8 }, { wch: 20 }, { wch: 10 }]
+    ws['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 16 }, { wch: 28 }, { wch: 9 }, { wch: 14 }, { wch: 8 }, { wch: 20 }, { wch: 10 }]
 
     const info = XLSX.utils.aoa_to_sheet([
       ['CÓMO CARGAR COMBOS POR EXCEL'],
@@ -386,6 +386,8 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
       ['• SKU Combo (obligatorio): el código del combo. Debe repetirse igual en'],
       ['  todas las filas de ese combo. Sirve también para actualizarlo después.'],
       ['• Nombre Combo: el nombre del combo (repetido en cada fila).'],
+      ['• Código de Barras: el código de barras propio del combo (opcional, va en'],
+      ['  la primera fila del combo). Sirve para buscar/escanear el combo.'],
       ['• Producto (SKU): el SKU, código de barras o nombre exacto de un producto'],
       ['  que YA EXISTE en tu inventario.'],
       ['• Cantidad: cuántas unidades de ese producto lleva el combo (si la dejás'],
@@ -413,6 +415,7 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
       ws.columns = [
         { header: 'FOTO', key: 'foto', width: 12 },
         { header: 'SKU Combo', key: 'code', width: 14 },
+        { header: 'Código de Barras', key: 'barcode', width: 16 },
         { header: 'Nombre Combo', key: 'name', width: 28 },
         { header: 'Precio', key: 'price', width: 10 },
         { header: 'Ubicación', key: 'location', width: 14 },
@@ -431,8 +434,9 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
         items.forEach((it, idx) => {
           const p = it ? products.find(pp => pp.id === it.productId) : null
           ws.addRow({
-            code: idx === 0 ? (c.code || '') : (c.code || ''),
-            name: idx === 0 ? (c.name || '') : (c.name || ''),
+            code: c.code || '',
+            barcode: idx === 0 ? (c.barcode || '') : '',
+            name: c.name || '',
             price: idx === 0 ? (c.price || 0) : '',
             location: idx === 0 ? (c.location || '') : '',
             tipo: idx === 0 ? (c.stockType || '') : '',
