@@ -313,7 +313,7 @@ async function genImg(id){
   if(!btn||!resultDiv)return;
   btn.disabled=true;btn.innerHTML='⏳ Generando...';
   resultDiv.style.display='block';
-  resultDiv.innerHTML='<div style="text-align:center;padding:30px;color:#c4b5fd;font-size:13px"><div style="font-size:28px;margin-bottom:10px">🎨</div>Mejorando tu foto real con IA...<br><small style="color:#666;margin-top:6px;display:block">10-20 segundos</small></div>';
+  resultDiv.innerHTML='<div style="text-align:center;padding:30px;color:#c4b5fd;font-size:13px"><div style="font-size:28px;margin-bottom:10px">🎨</div>Armando el cartel con tu foto real, logo y 3 virtudes...<br><small style="color:#666;margin-top:6px;display:block">puede tardar 20-50 segundos</small></div>';
   try{
     const r=await fetch('/api/image',{
       method:'POST',
@@ -329,7 +329,7 @@ async function genImg(id){
         <a href="${d.url}" target="_blank" download style="flex:1;text-align:center;background:linear-gradient(135deg,rgba(139,92,246,0.3),rgba(59,130,246,0.3));border:1px solid rgba(139,92,246,0.4);border-radius:8px;padding:8px;color:#c4b5fd;font-size:12px;text-decoration:none;display:block">⬇️ Descargar</a>
         <button onclick="genImg('${id}')" style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px;color:#aaa;font-size:12px;cursor:pointer;font-family:inherit">🔄 Nueva versión</button>
       </div>`;
-    notify('🎨 Imagen generada para '+PN[id]);
+    notify('🎨 Cartel generado para '+PN[id]+(d.engine==='gpt-image-1'?' (ChatGPT)':''));
   }catch(e){
     resultDiv.innerHTML='<div style="color:#ff8080;font-size:12px;padding:10px;text-align:center">❌ '+e.message+'</div>';
   }
