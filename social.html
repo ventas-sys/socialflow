@@ -76,7 +76,7 @@ textarea{resize:vertical;min-height:60px;}
     <div class="logo-icon">←</div>
     <div><div class="logo-title">Agente Redes</div><div class="logo-sub">UNIPROVEEDORES · AGENCIA</div></div>
   </a>
-  <div class="ia-badge">✅ Gemini 2.5 · foto real mejorada</div>
+  <div class="ia-badge">✅ Cartel IA v3 · gpt-image-1</div>
 </div>
 <div class="main">
   <div class="tip">✅ Subí la foto, completá el producto y generá copies + imágenes IA.</div>
@@ -323,7 +323,12 @@ async function genImg(id){
     const d=await r.json();
     if(d.error)throw new Error(d.error);
     genImages[id]=d.url;
+    const engOk=d.engine==='gpt-image-1';
+    const engTag=engOk
+      ?'<div style="font-size:11px;color:#00c864;background:rgba(0,200,100,0.1);border:1px solid rgba(0,200,100,0.25);border-radius:8px;padding:6px 10px;margin-bottom:8px">🟢 Motor: ChatGPT (gpt-image-1)</div>'
+      :'<div style="font-size:11px;color:#ffb020;background:rgba(255,176,32,0.1);border:1px solid rgba(255,176,32,0.3);border-radius:8px;padding:6px 10px;margin-bottom:8px">🟡 Motor: Gemini (respaldo)'+(d.note?' — '+d.note:'')+'</div>';
     resultDiv.innerHTML=`
+      ${engTag}
       <img src="${d.url}" style="width:100%;border-radius:10px;display:block" alt="Imagen IA">
       <div class="img-actions">
         <a href="${d.url}" target="_blank" download style="flex:1;text-align:center;background:linear-gradient(135deg,rgba(139,92,246,0.3),rgba(59,130,246,0.3));border:1px solid rgba(139,92,246,0.4);border-radius:8px;padding:8px;color:#c4b5fd;font-size:12px;text-decoration:none;display:block">⬇️ Descargar</a>

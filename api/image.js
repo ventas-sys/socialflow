@@ -51,6 +51,7 @@ export default async function handler(req, res) {
     return geminiImage(res, GK, {
       photoB64, photoMime,
       prompt: prompt + ' Encuadre ' + geminiAr(platform) + '.',
+      note: 'Falta OPENAI_API_KEY en Vercel (Production) o falta redeploy — usando Gemini (respaldo)',
     });
   }
 
@@ -206,7 +207,7 @@ function openaiEdit(res, key, { photoB64, photoMime, prompt, size }) {
 }
 
 // ---- PASO 2b: Gemini imagen (respaldo, edita la foto real) ------------------
-function geminiImage(res, GK, { photoB64, photoMime, prompt }) {
+function geminiImage(res, GK, { photoB64, photoMime, prompt, note }) {
   const body = JSON.stringify({
     contents: [{
       parts: [
@@ -216,17 +217,17 @@ function geminiImage(res, GK, { photoB64, photoMime, prompt }) {
     }],
     generationConfig: { responseModalities: ['IMAGE'], temperature: 0.9 },
   });
-  return callGeminiContent(res, GK, body);
+  return callGeminiContent(res, GK, body, note);
 }
 
 // ---- Helpers de respuesta de Gemini ----------------------------------------
-function callGeminiContent(res, GK, body) {
-  return geminiCall(res, GK, '/v1beta/models/gemini-2.5-flash-image:generateContent?key=' + GK, body, 'content');
+function callGeminiContent(res, GK, body, note) {
+  return geminiCall(res, GK, '/v1beta/models/gemini-2.5-flash-image:generateContent?key=' + GK, body, 'content', note);
 }
-function callGeminiPredict(res, GK, body) {
-  return geminiCall(res, GK, '/v1beta/models/imagen-4.0-fast-generate-001:predict?key=' + GK, body, 'predict');
+function callGeminiPredict(res, GK, body, note) {
+  return geminiCall(res, GK, '/v1beta/models/imagen-4.0-fast-generate-001:predict?key=' + GK, body, 'predict', note);
 }
-function geminiCall(res, GK, path, body, kind) {
+function geminiCall(res, GK, path, body, kind, note) {
   return new Promise((resolve) => {
     const opts = {
       hostname: 'generativelanguage.googleapis.com',
@@ -252,7 +253,7 @@ function geminiCall(res, GK, path, body, kind) {
             b64 = parsed?.predictions?.[0]?.bytesBase64Encoded || '';
           }
           if (!b64) { res.status(500).json({ error: 'No image: ' + data.substring(0, 200) }); return resolve(); }
-          res.status(200).json({ url: 'data:' + mime + ';base64,' + b64, engine: 'gemini' });
+          res.status(200).json({ url: 'data:' + mime + ';base64,' + b64, engine: 'gemini', note: note || undefined });
           resolve();
         } catch (e) { res.status(500).json({ error: 'Parse error: ' + e.message }); resolve(); }
       });
