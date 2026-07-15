@@ -144,7 +144,7 @@ textarea{resize:vertical;min-height:60px;}
 <script>
 const PN={ig:'Instagram',fb:'Facebook',wa:'WhatsApp',li:'LinkedIn',tw:'X/Twitter',tk:'TikTok',yt:'YouTube Shorts'};
 const PC={ig:'#E1306C',fb:'#1877F2',wa:'#25D366',li:'#0A66C2',tw:'#555',tk:'#ff0050',yt:'#FF0000'};
-let tone='energico',badge='OFERTA',copies={},photoB64='',photoDesc='',pName='',pPrice='';
+let tone='energico',badge='OFERTA',copies={},photoB64='',photoDesc='',pName='',pPrice='',pDesc='';
 let genImages={}; // id -> data URL de la imagen generada (para publicar)
 
 function metaConn(){ try{ return (JSON.parse(localStorage.getItem('up_state')||'{}').connections||{}).meta; }catch(e){ return null; } }
@@ -241,7 +241,7 @@ async function generate(){
   const sel=['ig','fb','wa','li','tw','tk','yt'].filter(id=>document.getElementById('chk-'+id)?.checked);
   if(!name||!sel.length)return;
 
-  pName=name;pPrice=price;
+  pName=name;pPrice=price;pDesc=(desc||'')+(link?(' '+link):'');
 
   const btn=document.getElementById('gen-btn');
   const res=document.getElementById('results');
@@ -318,7 +318,7 @@ async function genImg(id){
     const r=await fetch('/api/image',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({platform:id,productName:pName,price:pPrice,badge,photoDesc,photoB64:photoB64||null,photoMime:'image/jpeg'})
+      body:JSON.stringify({platform:id,productName:pName,price:pPrice,badge,photoDesc,mlDesc:pDesc||'',photoB64:photoB64||null,photoMime:'image/jpeg'})
     });
     const d=await r.json();
     if(d.error)throw new Error(d.error);
