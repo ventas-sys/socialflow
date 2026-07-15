@@ -58,6 +58,23 @@ ChatGPT del mismo producto.
 - 4ª (ACTUAL): 2 pasos + gpt-image-1 editando la foto real. A la espera de que
   el cliente cargue `OPENAI_API_KEY` y valide el resultado.
 
+## Estado 2026-07-15 (funcionando en producción)
+- Motor **gpt-image-1** activo (OPENAI_API_KEY cargada en Vercel Production).
+- **Logo real** de UNIPROVEEDORES incrustado en `lib/brand-logo.js` (PNG base64,
+  256 KB, subido por el cliente a Drive). Se pasa a gpt-image-1 como 2ª imagen
+  (`image[]`) para copiarlo exacto arriba a la izquierda.
+- Colores oficiales (#A4D72B verde manzana, #9AA0A6 gris, #0D0D0D negro, blanco).
+- 3 virtudes del producto siempre.
+- El panel muestra el motor usado (🟢 ChatGPT / 🟡 Gemini) y badge de versión
+  "Cartel IA v3" en el header (para descartar caché del navegador).
+- Diagnóstico clave que costó tiempo: el cliente probaba con la **página vieja
+  en caché** (texto de carga viejo) tras cada deploy → usar `?v=algo` o
+  Ctrl+Shift+R.
+- **Animación de video (10s)**: pedida por el cliente; DEFERIDA por decisión de
+  él ("sigamos solo con foto por el momento"). Opciones evaluadas: Google Veo
+  (video, ~8s extendible), Higgsfield/HeyGen (imagen→video, ya conectados).
+  Idea: botón "🎬 Animar 10s" que convierte el cartel en clip para Reels/Shorts.
+
 ## Próximo paso
 Cuando el cliente cargue la clave y pruebe: ajustar el prompt de `buildAdPrompt`
 si hace falta (balance de fondo, posición del logo, tamaño de las virtudes) para
