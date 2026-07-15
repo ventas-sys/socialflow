@@ -37,6 +37,14 @@ const COLUMN_MAP = {
   descripcion: 'description', description: 'description', detalle: 'description',
 }
 
+// Columnas del Excel de compra (identifica el producto + cantidad comprada)
+const PURCHASE_COLS = {
+  sku: 'ref', codigo: 'ref', code: 'ref', producto: 'ref',
+  'codigo de barras': 'ref', barcode: 'ref', ean: 'ref', 'codigo (armado p)': 'ref',
+  cantidad: 'qty', 'cantidad comprada': 'qty', qty: 'qty', unidades: 'qty', comprado: 'qty', cant: 'qty',
+  factura: 'reference', remito: 'reference', referencia: 'reference', comprobante: 'reference', 'nro factura': 'reference',
+}
+
 const normalize = (s) =>
   String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
 
@@ -55,6 +63,7 @@ export default function Inventory({
   onImport,
   onDeleteCombo,
   onEditCombo,
+  onPurchase,
   loadPhotos,
 }) {
   const [showForm, setShowForm] = useState(false)
@@ -68,7 +77,10 @@ export default function Inventory({
   const [importing, setImporting] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [importResult, setImportResult] = useState('')
+  const [purchasing, setPurchasing] = useState(false)
+  const [purchaseResult, setPurchaseResult] = useState('')
   const fileInputRef = useRef(null)
+  const purchaseInputRef = useRef(null)
   const photoInputRef = useRef(null)
 
   const resetForm = () => {
@@ -379,6 +391,98 @@ export default function Inventory({
     }
   }
 
+  // Carga de compra: suma stock a productos existentes (por SKU o código de barras)
+  const findByRef = (ref) => {
+    const q = String(ref).trim().toLowerCase()
+    if (!q) return null
+    return products.find(p =>
+      (p.code && p.code.toLowerCase() === q) ||
+      (p.barcodes?.length ? p.barcodes : (p.barcode ? [p.barcode] : []))
+        .some(b => String(b).toLowerCase() === q)
+    )
+  }
+
+  const handlePurchaseFile = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setPurchasing(true)
+    setPurchaseResult('')
+    try {
+      const buffer = await file.arrayBuffer()
+      const wb = XLSX.read(buffer)
+      const sheetName = wb.SheetNames.find(n => normalize(n) === 'compra') || wb.SheetNames[0]
+      const raw = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: '' })
+      if (!raw.length) {
+        setPurchaseResult('⚠️ El archivo está vacío.')
+        return
+      }
+      const rows = []
+      const notFound = new Set()
+      let reference = ''
+      raw.forEach(r => {
+        const o = {}
+        Object.entries(r).forEach(([k, v]) => {
+          const f = PURCHASE_COLS[normalize(k)]
+          if (f) o[f] = v
+        })
+        if (o.reference && !reference) reference = String(o.reference).trim()
+        const refCode = o.ref !== undefined ? String(o.ref).trim() : ''
+        const qty = Math.round(parseNumber(o.qty))
+        if (!refCode || qty <= 0) return
+        const p = findByRef(refCode)
+        if (!p) { notFound.add(refCode); return }
+        rows.push({ productId: p.id, productName: p.name, quantity: qty })
+      })
+      if (!rows.length) {
+        setPurchaseResult(
+          '⚠️ No se pudo cargar la compra. El archivo debe tener una columna con el ' +
+          'SKU o código de barras del producto y otra con la Cantidad comprada. ' +
+          'Descargá la plantilla de compra para ver el formato.'
+        )
+        return
+      }
+      const result = await onPurchase(rows, { reason: 'Compra', reference })
+      setPurchaseResult(
+        `✅ Compra cargada: se sumó stock a ${result.updated} productos (${result.movements} renglones).` +
+        (notFound.size ? ` No se encontraron: ${[...notFound].slice(0, 5).join(', ')}${notFound.size > 5 ? '…' : ''}.` : '')
+      )
+    } catch (err) {
+      setPurchaseResult('❌ Error al cargar la compra: ' + err.message)
+    } finally {
+      setPurchasing(false)
+    }
+  }
+
+  const downloadPurchaseTemplate = () => {
+    const sku = products[0]?.code || products[0]?.barcode || 'SKU-001'
+    const sku2 = products[1]?.code || products[1]?.barcode || 'SKU-002'
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['SKU o Código', 'Cantidad', 'Factura'],
+      [sku, 12, 'FAC-A-0001'],
+      [sku2, 5, 'FAC-A-0001'],
+    ])
+    ws['!cols'] = [{ wch: 22 }, { wch: 10 }, { wch: 16 }]
+    const info = XLSX.utils.aoa_to_sheet([
+      ['CÓMO CARGAR UNA COMPRA (SUMA STOCK)'],
+      [''],
+      ['1) Una fila por producto comprado, en la hoja "Compra".'],
+      ['2) Columna "SKU o Código": el SKU o el código de barras del producto'],
+      ['   (tiene que existir ya en tu inventario).'],
+      ['3) Columna "Cantidad": cuántas unidades comprás. Se SUMAN al stock actual.'],
+      ['4) Columna "Factura" (opcional): número de factura/remito. Queda registrado'],
+      ['   en cada movimiento de entrada para la auditoría.'],
+      [''],
+      ['Ojo: esto NO crea productos nuevos ni cambia precios. Solo SUMA stock a'],
+      ['productos que ya existen. Para crear productos usá "Importar Excel".'],
+    ])
+    info['!cols'] = [{ wch: 72 }]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, info, 'Instrucciones')
+    XLSX.utils.book_append_sheet(wb, ws, 'Compra')
+    XLSX.writeFile(wb, 'plantilla-compra.xlsx')
+  }
+
   const downloadTemplate = () => {
     const ws = XLSX.utils.aoa_to_sheet([
       ['FOTO', 'Nombre', 'SKU', 'Código de Barras', 'Categoría', 'Precio', 'Cantidad', 'Stock Mínimo', 'Ubicación', 'Tipo', 'Descripción'],
@@ -482,8 +586,23 @@ export default function Inventory({
             style={{ display: 'none' }}
             onChange={handleImportFile}
           />
+          <input
+            ref={purchaseInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            style={{ display: 'none' }}
+            onChange={handlePurchaseFile}
+          />
           <button onClick={downloadTemplate} className="btn-outline" title="Excel de ejemplo con el formato correcto">
             📄 Plantilla
+          </button>
+          <button
+            onClick={() => purchaseInputRef.current?.click()}
+            className="btn-purchase"
+            disabled={purchasing}
+            title="Subir un Excel de compra para SUMAR stock (SKU + cantidad)"
+          >
+            {purchasing ? '⏳ Cargando...' : '🧾 Cargar compra'}
           </button>
           <button
             onClick={exportExcel}
@@ -518,6 +637,17 @@ export default function Inventory({
           {!importResult.startsWith('✅') && (
             <button className="btn-template" onClick={downloadTemplate}>
               ⬇️ Descargar plantilla de ejemplo
+            </button>
+          )}
+        </div>
+      )}
+
+      {purchaseResult && (
+        <div className={purchaseResult.startsWith('✅') ? 'import-ok' : 'import-warn'}>
+          {purchaseResult}
+          {!purchaseResult.startsWith('✅') && (
+            <button className="btn-template" onClick={downloadPurchaseTemplate}>
+              ⬇️ Descargar plantilla de compra
             </button>
           )}
         </div>

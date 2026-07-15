@@ -66,6 +66,27 @@
   cursor: not-allowed;
 }
 
+.btn-purchase {
+  background: #7c3aed;
+  color: white;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.btn-purchase:hover:not(:disabled) {
+  background: #6d28d9;
+}
+
+.btn-purchase:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
 .btn-outline {
   background: white;
   color: #1f2937;

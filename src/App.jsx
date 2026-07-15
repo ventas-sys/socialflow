@@ -304,6 +304,61 @@ export default function App() {
     return { created: created.length, updated: toUpdate.length }
   }
 
+  // Carga de compra: SUMA stock a productos existentes y registra un
+  // movimiento de entrada por cada renglón (para la auditoría de la factura).
+  const registerPurchase = async (rows, meta = {}) => {
+    if (!user) return { updated: 0, movements: 0, notFound: [] }
+    const now = Timestamp.now()
+    const userName = user.displayName || user.email
+
+    // Sumar por producto (varias filas del mismo producto se acumulan)
+    const deltas = new Map()
+    rows.forEach(r => deltas.set(r.productId, (deltas.get(r.productId) || 0) + r.quantity))
+    const newQty = new Map()
+    deltas.forEach((delta, pid) => {
+      const p = products.find(pp => pp.id === pid)
+      newQty.set(pid, (p?.quantity || 0) + delta)
+    })
+
+    // Actualizar stock de los productos (en lotes)
+    const affected = [...deltas.keys()]
+    for (let i = 0; i < affected.length; i += 400) {
+      const batch = writeBatch(db)
+      affected.slice(i, i + 400).forEach(pid => {
+        batch.update(doc(db, 'products', pid), { quantity: newQty.get(pid), updatedAt: now })
+      })
+      await batch.commit()
+    }
+
+    // Registrar un movimiento de entrada por renglón
+    const allMovements = []
+    for (let i = 0; i < rows.length; i += 400) {
+      const batch = writeBatch(db)
+      rows.slice(i, i + 400).forEach(r => {
+        const mRef = doc(collection(db, 'movements'))
+        const mDoc = {
+          productId: r.productId,
+          productName: r.productName,
+          type: 'entrada',
+          quantity: r.quantity,
+          reason: meta.reason || 'Compra',
+          reference: meta.reference || '',
+          userId: ORG_ID,
+          date: now,
+          userName,
+          userEmail: user.email,
+        }
+        batch.set(mRef, mDoc)
+        allMovements.push({ id: mRef.id, ...mDoc, date: new Date() })
+      })
+      await batch.commit()
+    }
+
+    setProducts(products.map(p => (newQty.has(p.id) ? { ...p, quantity: newQty.get(p.id) } : p)))
+    setMovements([...allMovements.reverse(), ...movements])
+    return { updated: affected.length, movements: rows.length }
+  }
+
   const updateProduct = async (productId, productData) => {
     if (!user) return
     const { photos, ...data } = productData
@@ -614,6 +669,7 @@ export default function App() {
                 onUpdate={updateProduct}
                 onDelete={deleteProduct}
                 onImport={importProducts}
+                onPurchase={registerPurchase}
                 onDeleteCombo={deleteCombo}
                 loadPhotos={loadPhotos}
                 onEditCombo={(combo) => {
