@@ -53,8 +53,9 @@ export default async function handler(req, res) {
 
   const logo = (LOGO_B64 && LOGO_B64.length > 100) ? { b64: LOGO_B64, mime: LOGO_MIME || 'image/png' } : null;
   const prompt = buildAdPrompt({
-    productName: prodLabel, price, badge, hasLogo: !!logo,
-    spec: brief.spec || '', tagline: brief.tagline || '', features, usos,
+    productName: prodLabel, titulo: brief.titulo || '', price, badge, hasLogo: !!logo,
+    spec: brief.spec || '', tagline: brief.tagline || '',
+    contexto: brief.contexto || '', sello: brief.sello || '', virtudes: brief.virtudes || [], usos,
   });
 
   // --- PASO 2: generar la imagen -----------------------------------------
@@ -98,56 +99,53 @@ function geminiAr(p) {
   return '9:16';
 }
 
-// ---- Prompt del cartel (INFOGRAFÍA publicitaria) ---------------------------
-function buildAdPrompt({ productName, price, badge, hasLogo, spec, tagline, features, usos }) {
-  const f = (features || []).slice(0, 4);
-  const u = (usos || []).slice(0, 6);
+// ---- Prompt del cartel (plantilla GANADORA del cliente, estilo ChatGPT) -----
+function buildAdPrompt({ productName, titulo: tituloIn, price, badge, hasLogo, spec, tagline, contexto, sello, virtudes, usos }) {
+  const prod = (productName || 'el producto de la foto').trim();
+  const titulo = ((tituloIn && tituloIn.trim()) || productName || 'PRODUCTO').toUpperCase();
+  const subtitulo = (spec || '').trim();
+  const gancho = (tagline || '').trim();
+  const ctx = (contexto || 'uso diario, taller y hogar').trim();
+  const usosTxt = (usos || []).slice(0, 5).join(', ');
+
+  // 3 virtudes con descripción (título — descripción).
+  const v = (virtudes || []).slice(0, 3);
+  while (v.length < 3) v.push({ t: ['Resistente', 'Práctico', 'Calidad'][v.length], d: '' });
+  const virtudesTxt = v.map(x => `${(x.t || '').toUpperCase()}${x.d ? ' — ' + x.d : ''}.`).join(' ');
+
+  // Sello comercial: el badge elegido, o "CALIDAD PREMIUM" por defecto.
   const badgeTxt = (badge || '').trim();
   const priceTxt = (price || '').trim();
+  let selloTxt = (sello || '').trim() || 'CALIDAD PREMIUM';
+  if (badgeTxt && !/sin|ninguno/i.test(badgeTxt)) selloTxt = badgeTxt.toUpperCase() + (priceTxt ? ' $' + priceTxt.replace(/^\$/, '') : '');
 
-  let promo = '';
-  if (badgeTxt && badgeTxt.toUpperCase() !== 'NINGUNO') {
-    promo = ` Poné una cápsula/sello promocional verde manzana con "${badgeTxt}"` +
-      (priceTxt ? ` y el precio "${priceTxt}"` : '') + `, sin tapar el producto.`;
-  } else if (priceTxt) {
-    promo = ` Mostrá el precio "${priceTxt}" en una cápsula verde manzana.`;
-  }
-
-  // Logo real como 2ª imagen -> copiar exacto. Si no, describirlo.
   const logoInstr = hasLogo
-    ? `IMPORTANTE: hay DOS imágenes adjuntas — la 1ª es el PRODUCTO y la 2ª es el LOGO ` +
-      `OFICIAL de UNIPROVEEDORES. OBLIGATORIO incluir ESE logo (copialo TAL CUAL: engranaje, ` +
-      `rayo, colores y tipografía, sin redibujarlo ni deformarlo) como REMATE ABAJO, centrado, ` +
-      `grande y bien visible. NO omitas el logo bajo ninguna circunstancia. `
-    : `OBLIGATORIO: abajo, centrado y grande, el logo de UNIPROVEEDORES (engranaje metálico ` +
-      `con rayo verde manzana, "UNI" verde + "PROVEEDORES" gris, industrial bold, contorno negro). `;
+    ? `Hay DOS imágenes adjuntas: la 1ª es el PRODUCTO y la 2ª es el LOGO OFICIAL de ` +
+      `UNIPROVEEDORES. Incorporá EXACTAMENTE ese logo (2ª imagen) perfectamente legible y ` +
+      `SIN modificaciones, arriba, sobre una barra oscura.`
+    : `Incorporá el logo original de UNIPROVEEDORES perfectamente legible y sin modificaciones, arriba.`;
 
-  const specTxt = (spec || '').trim();
-  const tagTxt = (tagline || '').trim();
-
+  // Plantilla textual provista por el cliente (la que le dio el mejor resultado).
   return (
-    `Diseñá una PLACA PUBLICITARIA tipo INFOGRAFÍA de ecommerce, profesional, moderna, ` +
-    `estilo folleto de ferretería, alto impacto comercial y muy vendedora. ` +
-    `PRODUCTO: usá EXACTAMENTE el de la PRIMERA imagen adjunta como protagonista central, ` +
-    `grande y nítido${productName ? ' ("' + productName + '")' : ''} — mismísima forma, color, ` +
-    `marca y detalles reales, IDÉNTICO, sin inventarlo, deformarlo ni pegarle textos encima. ` +
-    `MAQUETA (de arriba hacia abajo): ` +
-    `1) Título grande en tipografía industrial extra-bold: "${(productName || 'PRODUCTO').toUpperCase()}"` +
-    (specTxt ? `, con un subtítulo/medalla destacando "${specTxt}". ` : `. `) +
-    (tagTxt ? `2) Frase gancho llamativa: "${tagTxt}". ` : ``) +
-    `3) El producto en el centro, protagonista. ` +
-    `4) Una BANDA con 3 palabras clave separadas por puntos (ej: "RESISTENTE · SEGURO · FÁCIL DE USAR"). ` +
-    `5) Fila de ${f.length} FEATURES, cada una con un ícono lineal simple en círculo verde manzana y su texto corto: ` +
-    f.map(x => '"' + x + '"').join(', ') + '. ' +
-    (u.length ? `6) Sección "IDEAL PARA:" con ${u.length} íconos y etiquetas: ` + u.map(x => '"' + x + '"').join(', ') + '. ' : ``) +
-    logoInstr +
-    `ESTILO: fondo oscuro/negro con toques gris metálico; paleta de marca OBLIGATORIA ` +
-    `verde manzana #A4D72B (estrella), gris metálico #9AA0A6, negro #0D0D0D y blanco; ` +
-    `el verde brilla sobre el negro; detalles industriales (hexágonos, brochazos). ` +
-    promo +
-    ` TODO el texto correctamente escrito en español, ortografía perfecta, tipografía ` +
-    `industrial bold, prolijo y legible, bien alineado y con jerarquía visual clara. ` +
-    `Resultado nivel agencia, listo para publicar en Mercado Libre y redes.`
+    `Crear un cartel publicitario profesional vertical para e-commerce y redes sociales del ` +
+    `producto "${prod}", marca UNIPROVEEDORES. Usá EXACTAMENTE el producto de la PRIMERA imagen ` +
+    `adjunta (misma forma, color y detalles reales, sin inventarlo ni cambiarlo): mostralo grande, ` +
+    `en primer plano, hiperrealista, con proporciones y detalles exactos. Fondo industrial ` +
+    `relacionado con ${ctx}, oscuro y cinematográfico, con texturas metálicas, profundidad, ` +
+    `reflejos, partículas y desenfoque sutil. ` +
+    `Usar la identidad visual de UNIPROVEEDORES: verde manzana #A4D72B, negro, blanco y gris ` +
+    `metálico. ${logoInstr} ` +
+    `Título principal grande: "${titulo}". ` +
+    (subtitulo ? `Subtítulo: "${subtitulo}". ` : ``) +
+    (gancho ? `Gancho comercial destacado: "${gancho}". ` : ``) +
+    `Mostrar tres virtudes con iconos profesionales (hexagonales): ${virtudesTxt} ` +
+    (usosTxt ? `Incluir una fila de íconos de usos: ${usosTxt}. ` : ``) +
+    `Agregar una imagen secundaria pequeña del producto colocado o en funcionamiento y un sello ` +
+    `que diga "${selloTxt}". ` +
+    `Tipografía industrial, gruesa, condensada y en MAYÚSCULAS. Diseño ordenado, potente, comercial, ` +
+    `moderno y fácil de leer desde un teléfono. Fotografía Ultra HD, iluminación cinematográfica, ` +
+    `hiperrealismo, alto contraste y postproducción profesional. ` +
+    `TODO el texto perfectamente escrito en español, sin errores de ortografía.`
   );
 }
 
@@ -163,16 +161,20 @@ function geminiBrief(GK, { productName, price, photoDesc, mlDesc, photoB64, phot
         (photoDesc ? `Notas: ${photoDesc}. ` : ``) +
         (mlDesc ? `Descripción de Mercado Libre (usala para specs y usos reales): """${String(mlDesc).slice(0, 1500)}""" ` : ``) +
         `Devolvé SOLO un JSON con esta forma exacta: ` +
-        `{"product":"nombre corto y comercial","spec":"la MEDIDA o cantidad estrella REAL del producto ` +
-        `sacada del nombre o la descripción (ej '1.5 metros','x4 unidades','18 mm','50 kg'); NO la inventes; ` +
-        `si no hay dato claro, usá la cantidad del nombre; si no hay nada, ''",` +
-        `"tagline":"frase gancho corta con signos de exclamación","features":["4 beneficios cortos, máx 3 palabras c/u, bien escritos"],` +
-        `"usos":["4 a 6 usos/ideal para, 1 palabra c/u (ej Motos, Autos, Bicicletas, Equipaje)"]}. ` +
+        `{"product":"nombre corto y comercial",` +
+        `"titulo":"título publicitario corto y potente en MAYÚSCULAS (ej PULPOS ELÁSTICOS MULTIUSO)",` +
+        `"spec":"subtítulo con MODELO/MEDIDA/COMPATIBILIDAD real (ej '1.5 metros','SET x4 con ganchos','18 mm'); NO inventes; si no hay, ''",` +
+        `"tagline":"gancho comercial corto con signos de exclamación (ej ¡Asegurá tu carga en segundos!)",` +
+        `"contexto":"contexto de uso real para el fondo (ej 'auto, moto y camping', 'obra y taller')",` +
+        `"sello":"sello comercial corto (ej CALIDAD PREMIUM, OFERTA)",` +
+        `"virtudes":[{"t":"VIRTUD 1 corta","d":"descripción breve"},{"t":"VIRTUD 2","d":"..."},{"t":"VIRTUD 3","d":"..."}],` +
+        `"features":["3 a 4 beneficios cortos, máx 3 palabras c/u"],` +
+        `"usos":["4 a 6 usos/ideal para, 1 palabra c/u (ej Moto, Auto, Bici, Camping, Carga)"]}. ` +
         `Todo real y coherente con el producto, ortografía perfecta en español de Argentina. Nada fuera del JSON.`,
     });
     const body = JSON.stringify({
       contents: [{ parts }],
-      generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 600, temperature: 0.7, thinkingConfig: { thinkingBudget: 0 } },
+      generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 900, temperature: 0.7, thinkingConfig: { thinkingBudget: 0 } },
     });
     const opts = {
       hostname: 'generativelanguage.googleapis.com',
@@ -188,11 +190,18 @@ function geminiBrief(GK, { productName, price, photoDesc, mlDesc, photoB64, phot
           const parsed = JSON.parse(data);
           const txt = parsed?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
           const obj = JSON.parse(txt);
+          const virt = Array.isArray(obj.virtudes) ? obj.virtudes.map(x => ({ t: x.t || x.title || '', d: x.d || x.desc || '' })).filter(x => x.t) : [];
+          let feats = Array.isArray(obj.features) ? obj.features.filter(Boolean) : [];
+          if (!feats.length && virt.length) feats = virt.map(x => x.t);
           resolve({
             product: obj.product || '',
+            titulo: obj.titulo || '',
             spec: obj.spec || '',
             tagline: obj.tagline || '',
-            features: Array.isArray(obj.features) ? obj.features : [],
+            contexto: obj.contexto || '',
+            sello: obj.sello || '',
+            virtudes: virt,
+            features: feats,
             usos: Array.isArray(obj.usos) ? obj.usos : [],
           });
         } catch (e) { reject(e); }
