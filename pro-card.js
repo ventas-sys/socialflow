@@ -9,25 +9,101 @@
 (function () {
   const GREEN = '#A4D72B', GRAY = '#9AA0A6', BLACK = '#0D0D0D', WHITE = '#FFFFFF';
 
+  // Cada palabra clave -> nombre de un ícono VECTORIAL (dibujado, no emoji).
   const USO_ICON = [
-    [/(hogar|casa|jard)/i, '🏠'], [/(trabajo|taller|obra|laburo)/i, '🛠️'],
-    [/(exterior|outdoor|aire|intemperie|jardin|jardín)/i, '🌳'],
-    [/(transport|carga|mudanz|flete|reparto)/i, '🚚'],
-    [/(almacen|guardar|organiz|deposit|estib)/i, '📦'],
-    [/(moto|scooter)/i, '🏍️'], [/(auto|coche|carro|vehic)/i, '🚗'],
-    [/(bici|ciclis)/i, '🚲'], [/(camion|camión|trailer|tráiler|acoplad)/i, '🚛'],
-    [/(equipaj|mochila|bolso|valija|viaj)/i, '🎒'],
-    [/(camping|carpa|acampe|aventur)/i, '⛺'], [/(barco|nautic|náutic|lancha|pesca)/i, '⛵'],
-    [/(deporte|gimnasio|gym|fitness)/i, '🏋️'], [/(caja|paquete|encomiend)/i, '📦'],
+    [/(hogar|casa|jard)/i, 'home'], [/(trabajo|taller|obra|laburo|bricolaj|reparac)/i, 'gear'],
+    [/(exterior|outdoor|aire|intemperie)/i, 'tree'],
+    [/(transport|camion|camión|trailer|tráiler|acoplad|flete|reparto|mudanz)/i, 'truck'],
+    [/(almacen|guardar|organiz|deposit|estib|caja|paquete|carga)/i, 'box'],
+    [/(moto|scooter)/i, 'moto'], [/(auto|coche|carro|vehic)/i, 'car'],
+    [/(bici|ciclis)/i, 'bike'], [/(equipaj|mochila|bolso|valija|viaj)/i, 'backpack'],
+    [/(camping|carpa|acampe|aventur)/i, 'tent'], [/(barco|nautic|náutic|lancha|pesca)/i, 'boat'],
+    [/(deporte|gimnasio|gym|fitness)/i, 'star'],
   ];
   const FEAT_ICON = [
-    [/(resist|durad|fuerte|robust|tenaz)/i, '💪'], [/(gancho|hook|broche|traba)/i, '🪝'],
-    [/(elast|flex|estir|adaptab)/i, '🔗'], [/(segur|sujec|fij|firme|confiab)/i, '🛡️'],
-    [/(color|variad|surtid)/i, '🎨'], [/(facil|fácil|practic|práctic|instal|rapid|rápid)/i, '👍'],
-    [/(organiz|orden|acomod)/i, '📦'], [/(liviano|ligero|compact|portat)/i, '🪶'],
-    [/(calidad|premium|garant|profesional)/i, '⭐'], [/(versat|versát|multiuso|todo)/i, '🔧'],
+    [/(resist|durad|fuerte|robust|tenaz)/i, 'shield'], [/(gancho|hook|broche|traba)/i, 'hook'],
+    [/(elast|flex|estir|adaptab)/i, 'link'], [/(segur|sujec|fij|firme|confiab)/i, 'shield'],
+    [/(color|variad|surtid)/i, 'palette'], [/(facil|fácil|practic|práctic|instal|rapid|rápid)/i, 'check'],
+    [/(organiz|orden|acomod)/i, 'box'], [/(liviano|ligero|compact|portat)/i, 'feather'],
+    [/(calidad|premium|garant|profesional)/i, 'star'], [/(versat|versát|multiuso|todo)/i, 'gear'],
   ];
   const pick = (table, txt, def) => { for (const [re, ic] of table) if (re.test(txt)) return ic; return def; };
+
+  // Dibuja un ícono monolínea (estilo agencia) centrado en (x,y), radio r.
+  function drawIcon(ctx, name, x, y, r, color) {
+    ctx.save();
+    ctx.strokeStyle = color; ctx.fillStyle = color;
+    ctx.lineWidth = Math.max(3, r * 0.15);
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    const u = r * 0.62; const L = (ax, ay, bx, by) => { ctx.beginPath(); ctx.moveTo(x + ax, y + ay); ctx.lineTo(x + bx, y + by); ctx.stroke(); };
+    const circle = (cxo, cyo, rr, fill) => { ctx.beginPath(); ctx.arc(x + cxo, y + cyo, rr, 0, Math.PI * 2); fill ? ctx.fill() : ctx.stroke(); };
+    switch (name) {
+      case 'check':
+        ctx.beginPath(); ctx.moveTo(x - u * 0.8, y); ctx.lineTo(x - u * 0.15, y + u * 0.65); ctx.lineTo(x + u * 0.9, y - u * 0.7); ctx.stroke(); break;
+      case 'shield':
+        ctx.beginPath(); ctx.moveTo(x, y - u); ctx.lineTo(x + u * 0.85, y - u * 0.55);
+        ctx.lineTo(x + u * 0.85, y + u * 0.15); ctx.quadraticCurveTo(x + u * 0.8, y + u * 0.8, x, y + u);
+        ctx.quadraticCurveTo(x - u * 0.8, y + u * 0.8, x - u * 0.85, y + u * 0.15);
+        ctx.lineTo(x - u * 0.85, y - u * 0.55); ctx.closePath(); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x - u * 0.35, y + u * 0.02); ctx.lineTo(x - u * 0.05, y + u * 0.32); ctx.lineTo(x + u * 0.45, y - u * 0.35); ctx.stroke(); break;
+      case 'hook':
+        ctx.beginPath(); ctx.arc(x, y - u * 0.35, u * 0.55, Math.PI * 0.9, Math.PI * 2.15); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x + u * 0.5, y - u * 0.35); ctx.lineTo(x + u * 0.5, y + u * 0.35);
+        ctx.arc(x + u * 0.15, y + u * 0.35, u * 0.35, 0, Math.PI); ctx.stroke(); break;
+      case 'link':
+        ctx.save(); ctx.translate(x, y); ctx.rotate(-Math.PI / 4);
+        ctx.beginPath(); ctx.ellipse(-u * 0.35, 0, u * 0.5, u * 0.32, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(u * 0.35, 0, u * 0.5, u * 0.32, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); break;
+      case 'palette':
+        ctx.beginPath(); ctx.arc(x, y, u * 0.9, 0, Math.PI * 2); ctx.stroke();
+        circle(-u * 0.4, -u * 0.35, u * 0.14, true); circle(u * 0.35, -u * 0.35, u * 0.14, true);
+        circle(u * 0.5, u * 0.2, u * 0.14, true); circle(-u * 0.1, u * 0.45, u * 0.14, true); break;
+      case 'feather':
+        ctx.beginPath(); ctx.moveTo(x + u * 0.7, y - u * 0.7); ctx.quadraticCurveTo(x - u * 0.9, y - u * 0.4, x - u * 0.5, y + u * 0.8);
+        ctx.quadraticCurveTo(x + u * 0.6, y + u * 0.4, x + u * 0.7, y - u * 0.7); ctx.closePath(); ctx.stroke();
+        L(0.1 * u, 0.6 * u, 0.5 * u, -0.4 * u); break;
+      case 'gear':
+        ctx.beginPath(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; const r1 = u * 0.95, r2 = u * 0.62; ctx.lineTo(x + Math.cos(a) * r1, y + Math.sin(a) * r1); ctx.lineTo(x + Math.cos(a + 0.35) * r2, y + Math.sin(a + 0.35) * r2); } ctx.closePath(); ctx.stroke(); circle(0, 0, u * 0.3, false); break;
+      case 'star':
+        ctx.beginPath(); for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * 2 * Math.PI / 5; const a2 = a + Math.PI / 5; ctx.lineTo(x + Math.cos(a) * u, y + Math.sin(a) * u); ctx.lineTo(x + Math.cos(a2) * u * 0.45, y + Math.sin(a2) * u * 0.45); } ctx.closePath(); ctx.fill(); break;
+      case 'box':
+        ctx.beginPath(); ctx.moveTo(x - u * 0.8, y - u * 0.35); ctx.lineTo(x, y - u * 0.75); ctx.lineTo(x + u * 0.8, y - u * 0.35);
+        ctx.lineTo(x + u * 0.8, y + u * 0.55); ctx.lineTo(x, y + u * 0.95); ctx.lineTo(x - u * 0.8, y + u * 0.55); ctx.closePath(); ctx.stroke();
+        L(-0.8 * u, -0.35 * u, 0, 0.05 * u); L(0.8 * u, -0.35 * u, 0, 0.05 * u); L(0, 0.05 * u, 0, 0.95 * u); break;
+      case 'home':
+        ctx.beginPath(); ctx.moveTo(x - u * 0.9, y - u * 0.05); ctx.lineTo(x, y - u * 0.85); ctx.lineTo(x + u * 0.9, y - u * 0.05); ctx.stroke();
+        ctx.strokeRect(x - u * 0.6, y - u * 0.05, u * 1.2, u * 0.9);
+        ctx.strokeRect(x - u * 0.18, y + u * 0.35, u * 0.36, u * 0.5); break;
+      case 'truck':
+        ctx.strokeRect(x - u * 0.9, y - u * 0.45, u * 1.15, u * 0.8);
+        ctx.beginPath(); ctx.moveTo(x + u * 0.25, y - u * 0.1); ctx.lineTo(x + u * 0.6, y - u * 0.1); ctx.lineTo(x + u * 0.9, y + u * 0.15); ctx.lineTo(x + u * 0.9, y + u * 0.35); ctx.lineTo(x + u * 0.25, y + u * 0.35); ctx.stroke();
+        circle(-u * 0.45, u * 0.5, u * 0.22, false); circle(u * 0.55, u * 0.5, u * 0.22, false); break;
+      case 'car':
+        ctx.beginPath(); ctx.moveTo(x - u * 0.95, y + u * 0.25); ctx.lineTo(x - u * 0.7, y - u * 0.15); ctx.lineTo(x - u * 0.3, y - u * 0.15); ctx.lineTo(x - u * 0.05, y - u * 0.5); ctx.lineTo(x + u * 0.5, y - u * 0.5); ctx.lineTo(x + u * 0.75, y - u * 0.15); ctx.lineTo(x + u * 0.95, y + u * 0.05); ctx.lineTo(x + u * 0.95, y + u * 0.25); ctx.stroke();
+        circle(-u * 0.5, u * 0.3, u * 0.22, false); circle(u * 0.5, u * 0.3, u * 0.22, false); break;
+      case 'bike':
+        circle(-u * 0.55, u * 0.25, u * 0.42, false); circle(u * 0.55, u * 0.25, u * 0.42, false);
+        ctx.beginPath(); ctx.moveTo(x - u * 0.55, y + u * 0.25); ctx.lineTo(x - u * 0.05, y + u * 0.25); ctx.lineTo(x + u * 0.25, y - u * 0.4); ctx.lineTo(x + u * 0.55, y + u * 0.25); ctx.moveTo(x - u * 0.05, y + u * 0.25); ctx.lineTo(x + u * 0.1, y - u * 0.4); ctx.lineTo(x + u * 0.45, y - u * 0.4); ctx.stroke(); break;
+      case 'backpack':
+        ctx.beginPath(); ctx.moveTo(x - u * 0.6, y + u * 0.9); ctx.lineTo(x - u * 0.6, y - u * 0.2); ctx.quadraticCurveTo(x, y - u, x + u * 0.6, y - u * 0.2); ctx.lineTo(x + u * 0.6, y + u * 0.9); ctx.closePath(); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x - u * 0.25, y - u * 0.55); ctx.quadraticCurveTo(x, y - u * 0.35, x + u * 0.25, y - u * 0.55); ctx.stroke();
+        ctx.strokeRect(x - u * 0.35, y + u * 0.15, u * 0.7, u * 0.5); break;
+      case 'tree':
+        ctx.beginPath(); ctx.arc(x, y - u * 0.2, u * 0.7, 0, Math.PI * 2); ctx.stroke(); L(0, 0.4 * u, 0, 0.95 * u); break;
+      case 'tent':
+        ctx.beginPath(); ctx.moveTo(x - u * 0.9, y + u * 0.7); ctx.lineTo(x, y - u * 0.8); ctx.lineTo(x + u * 0.9, y + u * 0.7); ctx.closePath(); ctx.stroke(); L(0, -0.8 * u, 0, 0.7 * u); break;
+      case 'boat':
+        ctx.beginPath(); ctx.moveTo(x - u * 0.9, y + u * 0.2); ctx.lineTo(x + u * 0.9, y + u * 0.2); ctx.lineTo(x + u * 0.5, y + u * 0.75); ctx.lineTo(x - u * 0.5, y + u * 0.75); ctx.closePath(); ctx.stroke();
+        L(0, -0.8 * u, 0, 0.2 * u); ctx.beginPath(); ctx.moveTo(x, y - u * 0.8); ctx.lineTo(x + u * 0.6, y - u * 0.05); ctx.lineTo(x, y - u * 0.05); ctx.stroke(); break;
+      case 'tools':
+        ctx.beginPath(); ctx.moveTo(x - u * 0.7, y - u * 0.7); ctx.lineTo(x + u * 0.4, y + u * 0.4); ctx.stroke();
+        ctx.beginPath(); ctx.arc(x - u * 0.6, y - u * 0.6, u * 0.28, Math.PI * 0.6, Math.PI * 2.1); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x + u * 0.15, y + u * 0.7); ctx.lineTo(x + u * 0.75, y + u * 0.1); ctx.lineTo(x + u * 0.55, y - u * 0.1); ctx.lineTo(x - u * 0.05, y + u * 0.5); ctx.stroke(); break;
+      default:
+        circle(0, 0, u * 0.5, true);
+    }
+    ctx.restore();
+  }
 
   function loadImg(src) {
     return new Promise((resolve, reject) => {
@@ -176,8 +252,11 @@
       roundRect(ctx, pad, prodTop, contentW, prodH, 24); ctx.stroke();
     }
 
-    // Badge de MEDIDA (caja redondeada arriba-derecha del producto).
-    const spec = (brief.spec || '').trim();
+    // Badge de MEDIDA: solo si es una medida REAL (número + unidad).
+    // Evita cosas feas como "x4 unidades" (que ya está en el título).
+    const specRaw = (brief.spec || '').trim();
+    const isMeasure = /\d/.test(specRaw) && /(m|mm|cm|mts?|metros?|kg|grs?|gramos?|lt?s?|litros?|ml|"|''|pulg|w|kw|v|amp|ah|mah|pcs?|piez)\b/i.test(specRaw);
+    const spec = isMeasure ? specRaw : '';
     if (spec) {
       const parts = spec.split(/\s+/); const big = parts.shift(); const unit = parts.join(' ').toUpperCase();
       setFont(ctx, 'normal', Math.round(W * 0.075), 'anton');
@@ -236,9 +315,8 @@
         const fxc = pad + colW * i + colW / 2;
         if (i > 0) { ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(pad + colW * i, featTop + 6); ctx.lineTo(pad + colW * i, featTop + featH - 6); ctx.stroke(); }
         ctx.beginPath(); ctx.arc(fxc, icY, rr, 0, Math.PI * 2); ctx.fillStyle = GREEN; ctx.fill();
+        drawIcon(ctx, pick(FEAT_ICON, f, 'check'), fxc, icY, rr * 0.6, BLACK);
         ctx.textAlign = 'center';
-        ctx.font = `${Math.round(rr * 1.05)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
-        ctx.fillText(pick(FEAT_ICON, f, '✅'), fxc, icY + rr * 0.36);
         ctx.fillStyle = WHITE; setFont(ctx, '700', Math.round(W * 0.028), 'inter');
         const fl = wrap(ctx, String(f), colW - 18).slice(0, 2);
         let ty = icY + rr + Math.round(W * 0.045);
@@ -252,14 +330,13 @@
       ctx.textAlign = 'left';
       setFont(ctx, 'normal', Math.round(W * 0.045), 'anton');
       const lblW = ctx.measureText('IDEAL PARA:').width;
-      brush(ctx, pad - 6, usosLabelY - Math.round(W * 0.036), lblW + 34, Math.round(W * 0.05), GREEN);
-      ctx.fillStyle = BLACK; ctx.fillText('IDEAL PARA:', pad + 10, usosLabelY);
+      brush(ctx, pad, usosLabelY - Math.round(W * 0.038), lblW + 52, Math.round(W * 0.052), GREEN);
+      ctx.fillStyle = BLACK; ctx.fillText('IDEAL PARA:', pad + 28, usosLabelY);
       const colW = contentW / usos.length; const emY = usosTop + Math.round(W * 0.055);
       usos.forEach((u, i) => {
         const ux = pad + colW * i + colW / 2;
+        drawIcon(ctx, pick(USO_ICON, u, 'box'), ux, emY - Math.round(W * 0.02), Math.round(W * 0.036), GREEN);
         ctx.textAlign = 'center';
-        ctx.font = `${Math.round(W * 0.062)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
-        ctx.fillText(pick(USO_ICON, u, '✅'), ux, emY);
         ctx.fillStyle = WHITE; setFont(ctx, '700', Math.round(W * 0.023), 'inter');
         const ul = wrap(ctx, String(u), colW - 8).slice(0, 1);
         ctx.fillText(ul[0] || String(u), ux, emY + Math.round(W * 0.045));
