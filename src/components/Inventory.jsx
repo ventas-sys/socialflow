@@ -10,7 +10,7 @@ import './Inventory.css'
 const EMPTY_FORM = {
   name: '',
   code: '',
-  barcode: '',
+  barcodes: '', // uno por línea (un producto puede tener varios)
   category: '',
   price: '',
   minStock: '5',
@@ -29,9 +29,11 @@ const COLUMN_MAP = {
   categoria: 'category', category: 'category', rubro: 'category',
   precio: 'price', price: 'price', 'precio venta': 'price',
   cantidad: 'quantity', stock: 'quantity', qty: 'quantity', unidades: 'quantity', existencia: 'quantity',
+  'armado s': 'quantity', armado: 'quantity',
   'stock minimo': 'minStock', minimo: 'minStock', 'min stock': 'minStock',
   ubicacion: 'location', location: 'location', deposito: 'location', estante: 'location', posicion: 'location', pasillo: 'location',
   tipo: 'stockType', 'tipo de stock': 'stockType', 'tipo stock': 'stockType', canal: 'stockType', 'full ferre base': 'stockType',
+  'codigo (armado p)': 'code2', 'armado p': 'code2', 'codigo armado': 'code2', 'codigo interno': 'code2',
   descripcion: 'description', description: 'description', detalle: 'description',
 }
 
@@ -76,10 +78,11 @@ export default function Inventory({
   }
 
   const handleEdit = async (product) => {
+    const bcs = product.barcodes?.length ? product.barcodes : (product.barcode ? [product.barcode] : [])
     setFormData({
       name: product.name || '',
       code: product.code || '',
-      barcode: product.barcode || '',
+      barcodes: bcs.join('\n'),
       category: product.category || '',
       price: product.price || '',
       minStock: product.minStock || '5',
@@ -144,8 +147,18 @@ export default function Inventory({
     }
     setLoading(true)
     try {
+      // El textarea de códigos de barras → array (uno por línea o separados por coma)
+      const barcodes = [...new Set(
+        String(formData.barcodes)
+          .split(/[\n,;]+/)
+          .map(s => s.trim())
+          .filter(Boolean)
+      )]
+      const { barcodes: _bc, ...rest } = formData
       const data = {
-        ...formData,
+        ...rest,
+        barcodes,
+        barcode: barcodes[0] || '',
         price: formData.price ? parseFloat(formData.price) : 0,
         minStock: parseInt(formData.minStock) || 5,
         quantity: parseInt(formData.quantity) || 0,
@@ -206,20 +219,25 @@ export default function Inventory({
       // Fotos pegadas en el Excel, agrupadas por fila de la hoja
       const photosByRow = await extractImagesByRow(buffer)
 
-      const rows = rawRows
-        .map(raw => {
-          const p = {}
-          Object.entries(raw).forEach(([key, value]) => {
-            const field = COLUMN_MAP[normalize(key)]
-            if (field) p[field] = value
-          })
-          if (!p.name || !String(p.name).trim()) return null
-          // __rowNum__ es la fila real (base 0) en la hoja, para mapear las fotos
-          const sheetRow = raw.__rowNum__
-          return {
+      // Agrupar por SKU: varias filas con el MISMO SKU son el mismo producto
+      // con varios códigos de barras. Sin SKU, cada fila es un producto aparte.
+      const groups = new Map()
+      let anon = 0
+      let skippedNoName = 0
+      for (const raw of rawRows) {
+        const p = {}
+        Object.entries(raw).forEach(([key, value]) => {
+          const field = COLUMN_MAP[normalize(key)]
+          if (field) p[field] = value
+        })
+        if (!p.name || !String(p.name).trim()) { skippedNoName++; continue }
+        const code = p.code !== undefined ? String(p.code).trim() : ''
+        const key = code ? 's:' + code.toLowerCase() : 'r:' + (anon++)
+        if (!groups.has(key)) {
+          groups.set(key, {
             name: String(p.name).trim(),
-            code: p.code !== undefined ? String(p.code).trim() : '',
-            barcode: p.barcode !== undefined ? String(p.barcode).trim() : '',
+            code,
+            barcodes: [],
             category: p.category !== undefined ? String(p.category).trim() : '',
             price: parseNumber(p.price),
             quantity: Math.round(parseNumber(p.quantity)),
@@ -227,42 +245,62 @@ export default function Inventory({
             location: p.location !== undefined ? String(p.location).trim() : '',
             stockType: p.stockType !== undefined ? String(p.stockType).trim().toUpperCase() : '',
             description: p.description !== undefined ? String(p.description).trim() : '',
-            photos: photosByRow.get(sheetRow) || [],
-          }
-        })
-        .filter(Boolean)
+            photos: photosByRow.get(raw.__rowNum__) || [],
+          })
+        }
+        const g = groups.get(key)
+        // juntar códigos de barras (columna código de barras + código interno);
+        // acepta varias filas con el mismo SKU y también varios por celda
+        const addBc = (v) => {
+          if (v === undefined) return
+          String(v).split(/[\n,;]+/).forEach(part => {
+            const s = part.trim()
+            if (s && !g.barcodes.some(b => b.toLowerCase() === s.toLowerCase())) g.barcodes.push(s)
+          })
+        }
+        addBc(p.barcode)
+        addBc(p.code2)
+        // completar datos que hayan quedado vacíos en la primera fila del grupo
+        if (!g.location && p.location) g.location = String(p.location).trim()
+        if (!g.price && p.price) g.price = parseNumber(p.price)
+        if (!g.quantity && p.quantity) g.quantity = Math.round(parseNumber(p.quantity))
+        if (!g.stockType && p.stockType) g.stockType = String(p.stockType).trim().toUpperCase()
+        if (!g.photos.length) { const ph = photosByRow.get(raw.__rowNum__); if (ph) g.photos = ph }
+      }
+
+      const rows = [...groups.values()].map(g => ({ ...g, barcode: g.barcodes[0] || '' }))
 
       if (!rows.length) {
         setImportResult(
           '⚠️ No se encontró la columna "Nombre". El Excel debe tener encabezados en la primera fila: ' +
-          'Nombre (obligatorio), SKU, Código de Barras, Categoría, Precio, Cantidad, Stock Mínimo, Ubicación, Tipo, Descripción. ' +
+          'Nombre (obligatorio), SKU, Código de Barras, Precio, Cantidad, Ubicación, Tipo, Descripción. ' +
           'Descargá la plantilla de ejemplo para ver el formato.'
         )
         return
       }
 
-      // Si el SKU o el código de barras ya existen, se ACTUALIZA el producto
-      // en vez de duplicarlo (permite exportar → modificar → volver a importar)
+      // Reconocer productos existentes por SKU o por cualquier código de barras
       const byCode = new Map()
       const byBarcode = new Map()
       products.forEach(p => {
         if (p.code) byCode.set(p.code.toLowerCase(), p)
-        if (p.barcode) byBarcode.set(p.barcode.toLowerCase(), p)
+        const bcs = p.barcodes?.length ? p.barcodes : (p.barcode ? [p.barcode] : [])
+        bcs.forEach(b => byBarcode.set(String(b).toLowerCase(), p))
       })
       rows.forEach(r => {
-        const existing =
-          (r.code && byCode.get(r.code.toLowerCase())) ||
-          (r.barcode && byBarcode.get(r.barcode.toLowerCase()))
-        if (existing) r.existingId = existing.id
+        let ex = r.code && byCode.get(r.code.toLowerCase())
+        if (!ex) ex = r.barcodes.map(b => byBarcode.get(b.toLowerCase())).find(Boolean)
+        if (ex) r.existingId = ex.id
       })
 
       const result = await onImport(rows)
-      const skipped = rawRows.length - rows.length
       const withPhotos = rows.filter(r => r.photos.length > 0).length
+      const totalBarcodes = rows.reduce((s, r) => s + r.barcodes.length, 0)
       setImportResult(
-        `✅ ${result.created} productos nuevos, ${result.updated} actualizados.` +
+        `✅ ${result.created} productos nuevos, ${result.updated} actualizados ` +
+        `(${totalBarcodes} códigos de barras en total).` +
         (withPhotos > 0 ? ` ${withPhotos} con fotos del Excel.` : '') +
-        (skipped > 0 ? ` Se saltearon ${skipped} filas sin nombre.` : '')
+        (skippedNoName > 0 ? ` Se saltearon ${skippedNoName} filas sin nombre.` : '')
       )
     } catch (err) {
       setImportResult('❌ Error al importar: ' + err.message)
@@ -296,10 +334,11 @@ export default function Inventory({
 
       for (let i = 0; i < products.length; i++) {
         const p = products[i]
+        const bcs = p.barcodes?.length ? p.barcodes : (p.barcode ? [p.barcode] : [])
         ws.addRow({
           name: p.name || '',
           code: p.code || '',
-          barcode: p.barcode || '',
+          barcode: bcs.join(', '),
           category: p.category || '',
           price: p.price || 0,
           quantity: p.quantity || 0,
@@ -397,10 +436,13 @@ export default function Inventory({
   const comboComponentCodes = (combo) => {
     const live = (combo.items || []).flatMap(item => {
       const p = products.find(pp => pp.id === item.productId)
-      return [p?.barcode, p?.code].filter(Boolean)
+      return [...(p?.barcodes || (p?.barcode ? [p.barcode] : [])), p?.code].filter(Boolean)
     })
     return [...live, ...(combo.itemBarcodes || [])]
   }
+
+  // Todos los códigos de barras de un producto (soporta varios por producto)
+  const allBarcodes = (item) => item.barcodes?.length ? item.barcodes : (item.barcode ? [item.barcode] : [])
 
   const matchesSearch = (item) => {
     if (!searchTerm.trim()) return true
@@ -408,9 +450,9 @@ export default function Inventory({
     if (
       item.name?.toLowerCase().includes(q) ||
       item.code?.toLowerCase().includes(q) ||
-      item.barcode?.toLowerCase().includes(q) ||
       item.location?.toLowerCase().includes(q) ||
-      item.stockType?.toLowerCase().includes(q)
+      item.stockType?.toLowerCase().includes(q) ||
+      allBarcodes(item).some(b => String(b).toLowerCase().includes(q))
     ) return true
     if (item.kind === 'combo') {
       return comboComponentCodes(item).some(c => c.toLowerCase().includes(q))
@@ -511,12 +553,12 @@ export default function Inventory({
               </div>
 
               <div className="form-group">
-                <label>|||| Código de barras</label>
-                <input
-                  type="text"
-                  value={formData.barcode}
-                  onChange={e => setFormData({ ...formData, barcode: e.target.value })}
-                  placeholder="EAN / UPC (ej: 7790001001234)"
+                <label>|||| Códigos de barras (uno por línea)</label>
+                <textarea
+                  value={formData.barcodes}
+                  onChange={e => setFormData({ ...formData, barcodes: e.target.value })}
+                  placeholder={'Un producto puede tener varios.\n7790001001234\nESVG88396'}
+                  rows="2"
                   disabled={loading}
                 />
               </div>
@@ -735,7 +777,12 @@ export default function Inventory({
                 </div>
                 <div className="found-meta">
                   {row.code && <span className="fm-sku">SKU: {row.code}</span>}
-                  {row.barcode && <span className="fm-bar">|||| {row.barcode}</span>}
+                  {row.barcode && (
+                    <span className="fm-bar">
+                      |||| {row.barcode}
+                      {row.barcodes?.length > 1 ? ` +${row.barcodes.length - 1}` : ''}
+                    </span>
+                  )}
                   <span className="fm-stock">
                     Stock: {row.kind === 'combo' ? `${comboAvailable(row, products)} armables` : (row.quantity || 0)}
                   </span>
@@ -812,7 +859,12 @@ export default function Inventory({
                     </td>
                     <td className="bold">{row.name}</td>
                     <td>{row.code || '-'}</td>
-                    <td className="barcode-cell">{row.barcode || '-'}</td>
+                    <td className="barcode-cell">
+                      {row.barcode || '-'}
+                      {row.barcodes?.length > 1 && (
+                        <span className="bc-more"> +{row.barcodes.length - 1}</span>
+                      )}
+                    </td>
                     <td>
                       {row.stockType ? (
                         <span className={`badge-st ${row.stockType.toLowerCase()}`}>{row.stockType}</span>

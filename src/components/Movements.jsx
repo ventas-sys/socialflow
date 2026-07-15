@@ -106,9 +106,10 @@ export default function Movements({ products, combos, movements, onAdd }) {
   const handleScan = useCallback((code) => {
     setShowScanner(false)
     const matches = (value) => value && (value === code || code.includes(value))
+    const productBarcodes = (p) => p.barcodes?.length ? p.barcodes : (p.barcode ? [p.barcode] : [])
 
-    // Producto: por código de barras o SKU
-    const product = products.find(p => matches(p.barcode) || matches(p.code))
+    // Producto: por SKU o cualquiera de sus códigos de barras
+    const product = products.find(p => matches(p.code) || productBarcodes(p).some(matches))
 
     // Combo: por su código de barras, su SKU, o el código de barras/SKU
     // de cualquier producto que lo compone
@@ -119,7 +120,7 @@ export default function Movements({ products, combos, movements, onAdd }) {
           (c.itemBarcodes || []).some(matches) ||
           c.items?.some(item => {
             const p = products.find(pp => pp.id === item.productId)
-            return matches(p?.barcode) || matches(p?.code)
+            return p && (matches(p.code) || productBarcodes(p).some(matches))
           })
         )
       : null

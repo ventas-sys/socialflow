@@ -310,7 +310,7 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
         if (!items.length) { noItems.push(g.name || g.code); continue }
         const itemBarcodes = items.flatMap(item => {
           const p = products.find(pp => pp.id === item.productId)
-          return [p?.barcode, p?.code].filter(Boolean)
+          return [...(p?.barcodes || (p?.barcode ? [p.barcode] : [])), p?.code].filter(Boolean)
         })
         valid.push({
           name: g.name || g.code,

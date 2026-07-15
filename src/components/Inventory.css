@@ -570,6 +570,25 @@
   white-space: nowrap;
 }
 
+.bc-more {
+  display: inline-block;
+  background: #dbeafe;
+  color: #1e40af;
+  font-family: -apple-system, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.05rem 0.35rem;
+  border-radius: 0.35rem;
+  margin-left: 0.25rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .bc-more {
+    background: rgba(59, 130, 246, 0.2);
+    color: #93c5fd;
+  }
+}
+
 /* Resultado de búsqueda/escaneo bien visible, con la ubicación en color */
 .found-list {
   display: flex;
