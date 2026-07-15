@@ -23,7 +23,9 @@ const COMBO_COLS = {
   tipo: 'stockType', 'tipo de stock': 'stockType', canal: 'stockType',
   producto: 'itemRef', 'producto (sku)': 'itemRef', 'sku producto': 'itemRef',
   'producto sku': 'itemRef', componente: 'itemRef', item: 'itemRef', articulo: 'itemRef',
+  'codigo (armado p)': 'itemRef', 'armado p': 'itemRef', 'codigo armado': 'itemRef',
   cantidad: 'itemQty', cant: 'itemQty', qty: 'itemQty', unidades: 'itemQty',
+  'armado s': 'itemQty', armado: 'itemQty',
 }
 
 const parseNumber = (v) => {
@@ -35,7 +37,7 @@ const parseNumber = (v) => {
 const EMPTY_FORM = {
   name: '',
   code: '',
-  barcode: '',
+  barcodes: '', // uno por línea (el combo puede tener varios)
   price: '',
   location: '',
   stockType: '',
@@ -94,10 +96,11 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
   }
 
   const handleEdit = async (combo) => {
+    const bcs = combo.barcodes?.length ? combo.barcodes : (combo.barcode ? [combo.barcode] : [])
     setFormData({
       name: combo.name || '',
       code: combo.code || '',
-      barcode: combo.barcode || '',
+      barcodes: bcs.join('\n'),
       price: combo.price || '',
       location: combo.location || '',
       stockType: combo.stockType || '',
@@ -204,13 +207,18 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
       // escaneando cualquiera de sus productos
       const itemBarcodes = items.flatMap(item => {
         const p = products.find(pp => pp.id === item.productId)
-        return [p?.barcode, p?.code].filter(Boolean)
+        return [...(p?.barcodes || (p?.barcode ? [p.barcode] : [])), p?.code].filter(Boolean)
       })
+
+      const barcodes = [...new Set(
+        String(formData.barcodes).split(/[\n,;]+/).map(s => s.trim()).filter(Boolean)
+      )]
 
       const data = {
         name: formData.name.trim(),
         code: formData.code.trim(),
-        barcode: formData.barcode.trim(),
+        barcodes,
+        barcode: barcodes[0] || '',
         price: formData.price ? parseFloat(formData.price) : 0,
         location: formData.location.trim(),
         stockType: formData.stockType,
@@ -274,17 +282,23 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
         if (!key) return
         if (!groups.has(key)) {
           groups.set(key, {
-            code, name, barcode: '', price: 0, location: '', stockType: '',
+            code, name, barcodes: [], price: 0, location: '', stockType: '',
             rows: [], firstRowNum: raw.__rowNum__,
           })
         }
         const g = groups.get(key)
         if (!g.name && name) g.name = name
         if (!g.code && code) g.code = code
-        if (c.barcode) g.barcode = String(c.barcode).trim()
+        // Varias filas del mismo combo aportan sus códigos de barras (del combo)
+        if (c.barcode) {
+          String(c.barcode).split(/[\n,;]+/).forEach(part => {
+            const s = part.trim()
+            if (s && !g.barcodes.some(b => b.toLowerCase() === s.toLowerCase())) g.barcodes.push(s)
+          })
+        }
         if (c.price) g.price = parseNumber(c.price)
-        if (c.location) g.location = String(c.location).trim()
-        if (c.stockType) g.stockType = String(c.stockType).trim().toUpperCase()
+        if (c.location && !g.location) g.location = String(c.location).trim()
+        if (c.stockType && !g.stockType) g.stockType = String(c.stockType).trim().toUpperCase()
         if (c.itemRef !== undefined && String(c.itemRef).trim()) {
           g.rows.push({
             ref: String(c.itemRef).trim(),
@@ -299,12 +313,13 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
       const noItems = []
       const valid = []
       for (const g of groups.values()) {
+        // Deduplicar componentes por producto: filas repetidas del mismo producto
+        // son por los distintos códigos de barras del combo, NO cantidades a sumar
         const items = []
         for (const r of g.rows) {
           const p = findProduct(r.ref)
           if (!p) { allNotFound.add(r.ref); continue }
-          const ex = items.find(it => it.productId === p.id)
-          if (ex) { ex.quantity += r.qty; continue }
+          if (items.some(it => it.productId === p.id)) continue
           items.push({ productId: p.id, quantity: r.qty })
         }
         if (!items.length) { noItems.push(g.name || g.code); continue }
@@ -315,7 +330,8 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
         valid.push({
           name: g.name || g.code,
           code: g.code,
-          barcode: g.barcode,
+          barcodes: g.barcodes,
+          barcode: g.barcodes[0] || '',
           price: g.price,
           location: g.location,
           stockType: g.stockType,
@@ -327,22 +343,24 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
 
       if (!valid.length) {
         setImportResult(
-          '⚠️ No se pudo armar ningún combo. Revisá que la columna "Producto" tenga el ' +
-          'SKU, código de barras o nombre exacto de productos que ya existan en tu inventario. ' +
+          '⚠️ No se pudo armar ningún combo. Revisá que el producto de cada combo ' +
+          '(columna "Producto" o "Codigo (ARMADO P)") coincida con el SKU o código de ' +
+          'barras de productos que ya existan en tu inventario. ' +
           'Descargá la plantilla de ejemplo para ver el formato.'
         )
         return
       }
 
-      // Reconocer combos existentes por SKU o código de barras → actualizar
+      // Reconocer combos existentes por SKU o cualquier código de barras → actualizar
       const byCode = new Map(), byBarcode = new Map()
       combos.forEach(c => {
         if (c.code) byCode.set(c.code.toLowerCase(), c)
-        if (c.barcode) byBarcode.set(c.barcode.toLowerCase(), c)
+        const bcs = c.barcodes?.length ? c.barcodes : (c.barcode ? [c.barcode] : [])
+        bcs.forEach(b => byBarcode.set(String(b).toLowerCase(), c))
       })
       valid.forEach(r => {
-        const ex = (r.code && byCode.get(r.code.toLowerCase())) ||
-                   (r.barcode && byBarcode.get(r.barcode.toLowerCase()))
+        let ex = r.code && byCode.get(r.code.toLowerCase())
+        if (!ex) ex = r.barcodes.map(b => byBarcode.get(b.toLowerCase())).find(Boolean)
         if (ex) r.existingId = ex.id
       })
 
@@ -556,12 +574,12 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
                 />
               </div>
               <div className="form-group">
-                <label>|||| Código de barras del combo</label>
-                <input
-                  type="text"
-                  value={formData.barcode}
-                  onChange={e => setFormData({ ...formData, barcode: e.target.value })}
-                  placeholder="EAN / UPC del combo"
+                <label>|||| Códigos de barras del combo (uno por línea)</label>
+                <textarea
+                  value={formData.barcodes}
+                  onChange={e => setFormData({ ...formData, barcodes: e.target.value })}
+                  placeholder={'El combo puede tener varios.\nESVG88396\nGBOB95228'}
+                  rows="2"
                   disabled={loading}
                 />
               </div>
@@ -736,7 +754,9 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
                       <div className="combo-name">🎁 {combo.name}</div>
                       <div className="combo-meta">
                         {combo.code && <span>SKU: {combo.code} · </span>}
-                        {combo.barcode && <span>|||| {combo.barcode} · </span>}
+                        {combo.barcode && (
+                          <span>|||| {combo.barcode}{combo.barcodes?.length > 1 ? ` +${combo.barcodes.length - 1}` : ''} · </span>
+                        )}
                         {combo.price ? `$${Number(combo.price).toFixed(2)}` : 'Sin precio'}
                         {combo.location && <span> · 📍 {combo.location}</span>}
                         {combo.stockType && (

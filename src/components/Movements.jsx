@@ -115,8 +115,8 @@ export default function Movements({ products, combos, movements, onAdd }) {
     // de cualquier producto que lo compone
     const combo = !product
       ? combos.find(c =>
-          matches(c.barcode) ||
           matches(c.code) ||
+          productBarcodes(c).some(matches) ||
           (c.itemBarcodes || []).some(matches) ||
           c.items?.some(item => {
             const p = products.find(pp => pp.id === item.productId)
