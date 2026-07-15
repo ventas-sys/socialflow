@@ -106,12 +106,12 @@ function buildAdPrompt({ productName, price, badge, hasLogo, spec, tagline, feat
 
   // Logo real como 2ª imagen -> copiar exacto. Si no, describirlo.
   const logoInstr = hasLogo
-    ? `Hay DOS imágenes adjuntas: la 1ª es el PRODUCTO y la 2ª es el LOGO OFICIAL de ` +
-      `UNIPROVEEDORES. Usá EXACTAMENTE ese logo (copialo tal cual: engranaje, rayo, ` +
-      `colores y tipografía), sin redibujarlo ni deformarlo, ubicado como remate ABAJO ` +
-      `centrado (o como banda superior), bien visible. `
-    : `Poné el logo de UNIPROVEEDORES (engranaje metálico con rayo verde manzana, "UNI" ` +
-      `verde + "PROVEEDORES" gris, industrial bold con contorno negro) abajo centrado. `;
+    ? `IMPORTANTE: hay DOS imágenes adjuntas — la 1ª es el PRODUCTO y la 2ª es el LOGO ` +
+      `OFICIAL de UNIPROVEEDORES. OBLIGATORIO incluir ESE logo (copialo TAL CUAL: engranaje, ` +
+      `rayo, colores y tipografía, sin redibujarlo ni deformarlo) como REMATE ABAJO, centrado, ` +
+      `grande y bien visible. NO omitas el logo bajo ninguna circunstancia. `
+    : `OBLIGATORIO: abajo, centrado y grande, el logo de UNIPROVEEDORES (engranaje metálico ` +
+      `con rayo verde manzana, "UNI" verde + "PROVEEDORES" gris, industrial bold, contorno negro). `;
 
   const specTxt = (spec || '').trim();
   const tagTxt = (tagline || '').trim();
@@ -154,10 +154,12 @@ function geminiBrief(GK, { productName, price, photoDesc, mlDesc, photoB64, phot
         (photoDesc ? `Notas: ${photoDesc}. ` : ``) +
         (mlDesc ? `Descripción de Mercado Libre (usala para specs y usos reales): """${String(mlDesc).slice(0, 1500)}""" ` : ``) +
         `Devolvé SOLO un JSON con esta forma exacta: ` +
-        `{"product":"nombre corto y comercial","spec":"medida o atributo estrella corto (ej '1.5 metros','x4','18mm') o ''",` +
-        `"tagline":"frase gancho corta con signos de exclamación","features":["4 beneficios cortos, máx 3 palabras c/u"],` +
+        `{"product":"nombre corto y comercial","spec":"la MEDIDA o cantidad estrella REAL del producto ` +
+        `sacada del nombre o la descripción (ej '1.5 metros','x4 unidades','18 mm','50 kg'); NO la inventes; ` +
+        `si no hay dato claro, usá la cantidad del nombre; si no hay nada, ''",` +
+        `"tagline":"frase gancho corta con signos de exclamación","features":["4 beneficios cortos, máx 3 palabras c/u, bien escritos"],` +
         `"usos":["4 a 6 usos/ideal para, 1 palabra c/u (ej Motos, Autos, Bicicletas, Equipaje)"]}. ` +
-        `Todo real y coherente con el producto, en español de Argentina. Nada fuera del JSON.`,
+        `Todo real y coherente con el producto, ortografía perfecta en español de Argentina. Nada fuera del JSON.`,
     });
     const body = JSON.stringify({
       contents: [{ parts }],
