@@ -1,4 +1,5 @@
 import https from 'https';
+import { LOGO_B64, LOGO_MIME } from '../lib/brand-logo.js';
 
 // Genera el CARTEL PUBLICITARIO del producto.
 //
@@ -41,12 +42,13 @@ export default async function handler(req, res) {
     virtues = ['Calidad garantizada', 'Envío rápido', 'Mejor precio'].slice(0, 3);
   }
 
-  const prompt = buildAdPrompt({ productName: prodLabel, price, badge, virtues });
+  const logo = (LOGO_B64 && LOGO_B64.length > 100) ? { b64: LOGO_B64, mime: LOGO_MIME || 'image/png' } : null;
+  const prompt = buildAdPrompt({ productName: prodLabel, price, badge, virtues, hasLogo: !!logo });
 
   // --- PASO 2: generar la imagen -----------------------------------------
   if (photoB64) {
     if (OK) {
-      return openaiEdit(res, OK, { photoB64, photoMime, prompt, size: openaiSize(platform) });
+      return openaiEdit(res, OK, { photoB64, photoMime, prompt, size: openaiSize(platform), logo });
     }
     return geminiImage(res, GK, {
       photoB64, photoMime,
@@ -85,32 +87,46 @@ function geminiAr(p) {
 }
 
 // ---- Prompt del cartel ------------------------------------------------------
-function buildAdPrompt({ productName, price, badge, virtues }) {
+function buildAdPrompt({ productName, price, badge, virtues, hasLogo }) {
   const v = (virtues || []).slice(0, 3);
   const badgeTxt = (badge || '').trim();
   const priceTxt = (price || '').trim();
   let promo = '';
   if (badgeTxt && badgeTxt.toUpperCase() !== 'NINGUNO') {
-    promo = ` Incluí un sello/chapa promocional con la palabra "${badgeTxt}"` +
+    promo = ` Incluí una cápsula/sello promocional verde manzana con la palabra "${badgeTxt}"` +
       (priceTxt ? ` y el precio "${priceTxt}"` : '') +
-      `, integrado al diseño y sin tapar el producto.`;
+      `, integrada al diseño y sin tapar el producto.`;
   } else if (priceTxt) {
-    promo = ` Mostrá el precio "${priceTxt}" de forma clara.`;
+    promo = ` Mostrá el precio "${priceTxt}" en una cápsula verde manzana, bien claro.`;
   }
+
+  // Con logo real: la 2ª imagen ES el logo -> copiarlo exacto.
+  // Sin logo: describirlo lo más fiel posible a la marca.
+  const logoInstr = hasLogo
+    ? `Hay DOS imágenes adjuntas: la 1ª es el PRODUCTO y la 2ª es el LOGO OFICIAL de ` +
+      `UNIPROVEEDORES. Colocá ESE logo de la 2ª imagen arriba a la izquierda, COPIÁNDOLO ` +
+      `EXACTO (mismos colores, engranaje, rayo y tipografía), sin redibujarlo, sin ` +
+      `deformarlo y sin cambiarle los colores, con aire alrededor. `
+    : `Arriba a la izquierda poné el logo de UNIPROVEEDORES estilo ferretería industrial: ` +
+      `un engranaje metálico con un rayo verde manzana en el centro, y el texto con "UNI" ` +
+      `en verde manzana y "PROVEEDORES" en gris metálico, en tipografía industrial bold con ` +
+      `contorno negro. `;
 
   return (
     `Diseñá un cartel publicitario profesional para redes sociales usando EXACTAMENTE ` +
-    `el producto de la imagen adjunta como protagonista${productName ? ' ("' + productName + '")' : ''}: ` +
+    `el producto de la PRIMERA imagen adjunta como protagonista${productName ? ' ("' + productName + '")' : ''}: ` +
     `mantené su forma, color, marca y detalles reales, IDÉNTICO, sin inventarlo, deformarlo ` +
     `ni pegarle textos falsos encima del producto. ` +
-    `Escena moderna, limpia y de alto impacto, con iluminación premium y un fondo acorde ` +
-    `al uso real del producto. ` +
-    `Arriba a la izquierda colocá el logo de texto "UNIPROVEEDORES" estilo ferretería. ` +
-    `Paleta de marca OBLIGATORIA: verde manzana #C6DE00, blanco, gris y negro. ` +
-    `Destacá estas 3 virtudes como textos cortos, prolijos y bien legibles: ` +
+    `Escena moderna sobre fondo oscuro/negro, de alto impacto, con iluminación premium ` +
+    `y un ambiente acorde al uso real del producto. ` +
+    logoInstr +
+    `Paleta de marca OBLIGATORIA: verde manzana #A4D72B (color estrella), gris metálico #9AA0A6, ` +
+    `negro #0D0D0D y blanco. El verde manzana brilla sobre el negro. ` +
+    `Destacá SIEMPRE estas 3 virtudes del producto como 3 textos cortos, prolijos y bien ` +
+    `legibles (una debajo de la otra): ` +
     v.map(x => '"' + x + '"').join(', ') + '.' +
     promo +
-    ` Todo el texto correctamente escrito en español, tipografía moderna y legible. ` +
+    ` Todo el texto correctamente escrito en español, tipografía industrial bold y legible. ` +
     `Resultado premium, realista, listo para publicar.`
   );
 }
@@ -156,7 +172,8 @@ function geminiCopy(GK, { productName, price, photoDesc, photoB64, photoMime }) 
 }
 
 // ---- PASO 2a: gpt-image-1 (OpenAI) edita la foto real -----------------------
-function openaiEdit(res, key, { photoB64, photoMime, prompt, size }) {
+// Si viene `logo`, se manda como 2ª imagen (image[]) para que copie el logo real.
+function openaiEdit(res, key, { photoB64, photoMime, prompt, size, logo }) {
   return new Promise((resolve) => {
     const boundary = '----socialflow' + Math.random().toString(16).slice(2);
     const CRLF = '\r\n';
@@ -164,17 +181,27 @@ function openaiEdit(res, key, { photoB64, photoMime, prompt, size }) {
     const ext = mime.includes('png') ? 'png' : (mime.includes('webp') ? 'webp' : 'jpg');
     const field = (name, val) =>
       Buffer.from(`--${boundary}${CRLF}Content-Disposition: form-data; name="${name}"${CRLF}${CRLF}${val}${CRLF}`);
+    // Con logo -> field name "image[]" (múltiples imágenes). Sin logo -> "image".
+    const imgField = logo ? 'image[]' : 'image';
+    const imagePart = (fname, fmime, b64) => [
+      Buffer.from(`--${boundary}${CRLF}Content-Disposition: form-data; name="${imgField}"; filename="${fname}"${CRLF}Content-Type: ${fmime}${CRLF}${CRLF}`),
+      Buffer.from(b64, 'base64'),
+      Buffer.from(CRLF),
+    ];
     const chunks = [
       field('model', 'gpt-image-1'),
       field('prompt', prompt),
       field('size', size),
       field('quality', 'medium'),
       field('n', '1'),
-      Buffer.from(`--${boundary}${CRLF}Content-Disposition: form-data; name="image"; filename="product.${ext}"${CRLF}Content-Type: ${mime}${CRLF}${CRLF}`),
-      Buffer.from(photoB64, 'base64'),
-      Buffer.from(CRLF),
-      Buffer.from(`--${boundary}--${CRLF}`),
+      ...imagePart(`product.${ext}`, mime, photoB64),
     ];
+    if (logo) {
+      const lmime = logo.mime || 'image/png';
+      const lext = lmime.includes('png') ? 'png' : (lmime.includes('webp') ? 'webp' : 'jpg');
+      chunks.push(...imagePart(`logo.${lext}`, lmime, logo.b64));
+    }
+    chunks.push(Buffer.from(`--${boundary}--${CRLF}`));
     const body = Buffer.concat(chunks);
     const opts = {
       hostname: 'api.openai.com',
