@@ -125,7 +125,12 @@
 
     // ===== Anclas de abajo hacia arriba (evita superposiciones) =====
     const logoLW = Math.min(contentW, Math.round(W * 0.60));
-    const logoLH = logoImg ? logoLW * (logoImg.height / logoImg.width) : Math.round(W * 0.12);
+    // Tope de seguridad: aunque el PNG venga con márgenes raros, el logo nunca
+    // ocupa más del 13% del alto (evita que se rompa la maqueta).
+    const logoLH = Math.min(
+      logoImg ? logoLW * (logoImg.height / logoImg.width) : Math.round(W * 0.12),
+      Math.round(H * 0.13)
+    );
     const logoTop = H - pad - logoLH;
     const usosH = Math.round(H * 0.11);
     const usosTop = logoTop - usosH - Math.round(H * 0.02);
@@ -261,8 +266,13 @@
       });
     }
 
-    // ===== Logo real (abajo, centrado, reservado) =====
-    if (logoImg) ctx.drawImage(logoImg, cx - logoLW / 2, logoTop, logoLW, logoLH);
+    // ===== Logo real (abajo, centrado, sin deformar) =====
+    if (logoImg) {
+      const ar = logoImg.width / logoImg.height;
+      let dw = logoLW, dh = dw / ar;
+      if (dh > logoLH) { dh = logoLH; dw = dh * ar; }
+      ctx.drawImage(logoImg, cx - dw / 2, logoTop + (logoLH - dh) / 2, dw, dh);
+    }
 
     return cv.toDataURL('image/png');
   };
