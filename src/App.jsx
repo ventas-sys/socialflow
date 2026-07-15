@@ -336,12 +336,14 @@ export default function App() {
       const batch = writeBatch(db)
       rows.slice(i, i + 400).forEach(r => {
         const mRef = doc(collection(db, 'movements'))
+        // Cantidad positiva = entrada (compra); negativa = salida (descuento/ajuste)
+        const isEntrada = r.quantity >= 0
         const mDoc = {
           productId: r.productId,
           productName: r.productName,
-          type: 'entrada',
-          quantity: r.quantity,
-          reason: meta.reason || 'Compra',
+          type: isEntrada ? 'entrada' : 'salida',
+          quantity: Math.abs(r.quantity),
+          reason: meta.reason || (isEntrada ? 'Compra' : 'Ajuste (Excel)'),
           reference: meta.reference || '',
           userId: ORG_ID,
           date: now,
@@ -356,7 +358,12 @@ export default function App() {
 
     setProducts(products.map(p => (newQty.has(p.id) ? { ...p, quantity: newQty.get(p.id) } : p)))
     setMovements([...allMovements.reverse(), ...movements])
-    return { updated: affected.length, movements: rows.length }
+    return {
+      updated: affected.length,
+      movements: rows.length,
+      entradas: rows.filter(r => r.quantity > 0).length,
+      salidas: rows.filter(r => r.quantity < 0).length,
+    }
   }
 
   const updateProduct = async (productId, productData) => {

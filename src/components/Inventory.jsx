@@ -429,7 +429,8 @@ export default function Inventory({
         if (o.reference && !reference) reference = String(o.reference).trim()
         const refCode = o.ref !== undefined ? String(o.ref).trim() : ''
         const qty = Math.round(parseNumber(o.qty))
-        if (!refCode || qty <= 0) return
+        // positivo = suma stock (compra); negativo = descuenta (ajuste). 0 se ignora.
+        if (!refCode || qty === 0) return
         const p = findByRef(refCode)
         if (!p) { notFound.add(refCode); return }
         rows.push({ productId: p.id, productName: p.name, quantity: qty })
@@ -442,9 +443,10 @@ export default function Inventory({
         )
         return
       }
-      const result = await onPurchase(rows, { reason: 'Compra', reference })
+      const result = await onPurchase(rows, { reference })
       setPurchaseResult(
-        `✅ Compra cargada: se sumó stock a ${result.updated} productos (${result.movements} renglones).` +
+        `✅ Listo: ${result.entradas} entradas (+) y ${result.salidas} salidas (−) ` +
+        `sobre ${result.updated} productos.` +
         (notFound.size ? ` No se encontraron: ${[...notFound].slice(0, 5).join(', ')}${notFound.size > 5 ? '…' : ''}.` : '')
       )
     } catch (err) {
@@ -460,21 +462,24 @@ export default function Inventory({
     const ws = XLSX.utils.aoa_to_sheet([
       ['SKU o Código', 'Cantidad', 'Factura'],
       [sku, 12, 'FAC-A-0001'],
-      [sku2, 5, 'FAC-A-0001'],
+      [sku2, -3, 'AJUSTE'],
     ])
     ws['!cols'] = [{ wch: 22 }, { wch: 10 }, { wch: 16 }]
     const info = XLSX.utils.aoa_to_sheet([
-      ['CÓMO CARGAR UNA COMPRA (SUMA STOCK)'],
+      ['CÓMO CARGAR STOCK POR EXCEL (SUMA o RESTA)'],
       [''],
-      ['1) Una fila por producto comprado, en la hoja "Compra".'],
+      ['1) Una fila por producto, en la hoja "Compra".'],
       ['2) Columna "SKU o Código": el SKU o el código de barras del producto'],
       ['   (tiene que existir ya en tu inventario).'],
-      ['3) Columna "Cantidad": cuántas unidades comprás. Se SUMAN al stock actual.'],
-      ['4) Columna "Factura" (opcional): número de factura/remito. Queda registrado'],
-      ['   en cada movimiento de entrada para la auditoría.'],
+      ['3) Columna "Cantidad":'],
+      ['   • Número POSITIVO (ej: 12) → SUMA stock (compra/entrada).'],
+      ['   • Número NEGATIVO (ej: -3) → RESTA stock (descuento/salida).'],
+      ['   El stock puede quedar negativo.'],
+      ['4) Columna "Factura" (opcional): número de factura/remito/ajuste. Queda'],
+      ['   registrado en cada movimiento para la auditoría.'],
       [''],
-      ['Ojo: esto NO crea productos nuevos ni cambia precios. Solo SUMA stock a'],
-      ['productos que ya existen. Para crear productos usá "Importar Excel".'],
+      ['Ojo: esto NO crea productos nuevos ni cambia precios. Solo suma/resta stock'],
+      ['a productos que ya existen. Para crear productos usá "Importar Excel".'],
     ])
     info['!cols'] = [{ wch: 72 }]
     const wb = XLSX.utils.book_new()
@@ -600,9 +605,9 @@ export default function Inventory({
             onClick={() => purchaseInputRef.current?.click()}
             className="btn-purchase"
             disabled={purchasing}
-            title="Subir un Excel de compra para SUMAR stock (SKU + cantidad)"
+            title="Subir un Excel para sumar (+) o restar (−) stock por SKU/código"
           >
-            {purchasing ? '⏳ Cargando...' : '🧾 Cargar compra'}
+            {purchasing ? '⏳ Cargando...' : '🧾 Compra / Ajuste'}
           </button>
           <button
             onClick={exportExcel}
