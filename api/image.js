@@ -23,10 +23,11 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { platform, productName, price, badge, photoDesc, mlDesc, photoB64, photoMime } = req.body || {};
+  const { platform, productName, price, badge, photoDesc, mlDesc, briefOnly, photoB64, photoMime } = req.body || {};
   const OK = (process.env.OPENAI_API_KEY || '').trim();
   const GK = (process.env.GEMINI_API_KEY || '').trim();
-  if (!OK && !GK) return res.status(500).json({ error: 'Falta OPENAI_API_KEY o GEMINI_API_KEY' });
+  if (!briefOnly && !OK && !GK) return res.status(500).json({ error: 'Falta OPENAI_API_KEY o GEMINI_API_KEY' });
+  if (briefOnly && !GK) return res.status(500).json({ error: 'Falta GEMINI_API_KEY' });
 
   // --- PASO 1: brief del producto (Gemini texto lee la foto + desc ML) -----
   // Devuelve: producto, spec (medida estrella), tagline, features[4], usos[].
@@ -41,6 +42,14 @@ export default async function handler(req, res) {
   const features = (Array.isArray(brief.features) ? brief.features.filter(Boolean) : []).slice(0, 4);
   while (features.length < 3) features.push(['Calidad garantizada', 'Resistente', 'Fácil de usar'][features.length]);
   const usos = (Array.isArray(brief.usos) ? brief.usos.filter(Boolean) : []).slice(0, 6);
+
+  // Modo BRIEF: devolver solo el texto para que el front arme la plantilla (Plan B).
+  if (briefOnly) {
+    return res.status(200).json({
+      ok: true,
+      brief: { product: prodLabel, spec: brief.spec || '', tagline: brief.tagline || '', features, usos },
+    });
+  }
 
   const logo = (LOGO_B64 && LOGO_B64.length > 100) ? { b64: LOGO_B64, mime: LOGO_MIME || 'image/png' } : null;
   const prompt = buildAdPrompt({
