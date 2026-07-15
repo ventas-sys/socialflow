@@ -23,27 +23,30 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { platform, productName, price, badge, photoDesc, photoB64, photoMime } = req.body || {};
+  const { platform, productName, price, badge, photoDesc, mlDesc, photoB64, photoMime } = req.body || {};
   const OK = (process.env.OPENAI_API_KEY || '').trim();
   const GK = (process.env.GEMINI_API_KEY || '').trim();
   if (!OK && !GK) return res.status(500).json({ error: 'Falta OPENAI_API_KEY o GEMINI_API_KEY' });
 
-  // --- PASO 1: 3 virtudes reales del producto (Gemini texto) --------------
-  let virtues = [];
+  // --- PASO 1: brief del producto (Gemini texto lee la foto + desc ML) -----
+  // Devuelve: producto, spec (medida estrella), tagline, features[4], usos[].
+  let brief = {};
   let prodLabel = (productName || '').trim();
   if (GK) {
     try {
-      const copy = await geminiCopy(GK, { productName, price, photoDesc, photoB64, photoMime });
-      if (Array.isArray(copy.virtues)) virtues = copy.virtues.filter(Boolean).slice(0, 3);
-      if (!prodLabel && copy.product) prodLabel = copy.product;
-    } catch (_) { /* si falla, seguimos con virtudes genéricas */ }
+      brief = await geminiBrief(GK, { productName, price, photoDesc, mlDesc, photoB64, photoMime });
+      if (!prodLabel && brief.product) prodLabel = brief.product;
+    } catch (_) { /* si falla, seguimos con defaults */ }
   }
-  if (virtues.length < 3) {
-    virtues = ['Calidad garantizada', 'Envío rápido', 'Mejor precio'].slice(0, 3);
-  }
+  const features = (Array.isArray(brief.features) ? brief.features.filter(Boolean) : []).slice(0, 4);
+  while (features.length < 3) features.push(['Calidad garantizada', 'Resistente', 'Fácil de usar'][features.length]);
+  const usos = (Array.isArray(brief.usos) ? brief.usos.filter(Boolean) : []).slice(0, 6);
 
   const logo = (LOGO_B64 && LOGO_B64.length > 100) ? { b64: LOGO_B64, mime: LOGO_MIME || 'image/png' } : null;
-  const prompt = buildAdPrompt({ productName: prodLabel, price, badge, virtues, hasLogo: !!logo });
+  const prompt = buildAdPrompt({
+    productName: prodLabel, price, badge, hasLogo: !!logo,
+    spec: brief.spec || '', tagline: brief.tagline || '', features, usos,
+  });
 
   // --- PASO 2: generar la imagen -----------------------------------------
   if (photoB64) {
@@ -76,76 +79,89 @@ export default async function handler(req, res) {
 // ---- Formatos por red social ------------------------------------------------
 // gpt-image-1 acepta: 1024x1024, 1536x1024 (horizontal), 1024x1536 (vertical).
 function openaiSize(p) {
-  if (p === 'fb' || p === 'yt') return '1536x1024';  // horizontal
-  if (p === 'tk') return '1024x1536';                // vertical (TikTok/Reels)
-  return '1024x1024';                                // ig / wa / cuadrado
+  if (p === 'yt') return '1536x1024';  // horizontal (miniatura YouTube)
+  if (p === 'fb') return '1024x1024';  // cuadrado (feed Facebook)
+  return '1024x1536';                  // ig / wa / tk -> infografía vertical
 }
 function geminiAr(p) {
-  if (p === 'fb' || p === 'yt') return '16:9';
-  if (p === 'tk') return '9:16';
-  return '1:1';
+  if (p === 'yt') return '16:9';
+  if (p === 'fb') return '1:1';
+  return '9:16';
 }
 
-// ---- Prompt del cartel ------------------------------------------------------
-function buildAdPrompt({ productName, price, badge, virtues, hasLogo }) {
-  const v = (virtues || []).slice(0, 3);
+// ---- Prompt del cartel (INFOGRAFÍA publicitaria) ---------------------------
+function buildAdPrompt({ productName, price, badge, hasLogo, spec, tagline, features, usos }) {
+  const f = (features || []).slice(0, 4);
+  const u = (usos || []).slice(0, 6);
   const badgeTxt = (badge || '').trim();
   const priceTxt = (price || '').trim();
+
   let promo = '';
   if (badgeTxt && badgeTxt.toUpperCase() !== 'NINGUNO') {
-    promo = ` Incluí una cápsula/sello promocional verde manzana con la palabra "${badgeTxt}"` +
-      (priceTxt ? ` y el precio "${priceTxt}"` : '') +
-      `, integrada al diseño y sin tapar el producto.`;
+    promo = ` Poné una cápsula/sello promocional verde manzana con "${badgeTxt}"` +
+      (priceTxt ? ` y el precio "${priceTxt}"` : '') + `, sin tapar el producto.`;
   } else if (priceTxt) {
-    promo = ` Mostrá el precio "${priceTxt}" en una cápsula verde manzana, bien claro.`;
+    promo = ` Mostrá el precio "${priceTxt}" en una cápsula verde manzana.`;
   }
 
-  // Con logo real: la 2ª imagen ES el logo -> copiarlo exacto.
-  // Sin logo: describirlo lo más fiel posible a la marca.
+  // Logo real como 2ª imagen -> copiar exacto. Si no, describirlo.
   const logoInstr = hasLogo
     ? `Hay DOS imágenes adjuntas: la 1ª es el PRODUCTO y la 2ª es el LOGO OFICIAL de ` +
-      `UNIPROVEEDORES. Colocá ESE logo de la 2ª imagen arriba a la izquierda, COPIÁNDOLO ` +
-      `EXACTO (mismos colores, engranaje, rayo y tipografía), sin redibujarlo, sin ` +
-      `deformarlo y sin cambiarle los colores, con aire alrededor. `
-    : `Arriba a la izquierda poné el logo de UNIPROVEEDORES estilo ferretería industrial: ` +
-      `un engranaje metálico con un rayo verde manzana en el centro, y el texto con "UNI" ` +
-      `en verde manzana y "PROVEEDORES" en gris metálico, en tipografía industrial bold con ` +
-      `contorno negro. `;
+      `UNIPROVEEDORES. Usá EXACTAMENTE ese logo (copialo tal cual: engranaje, rayo, ` +
+      `colores y tipografía), sin redibujarlo ni deformarlo, ubicado como remate ABAJO ` +
+      `centrado (o como banda superior), bien visible. `
+    : `Poné el logo de UNIPROVEEDORES (engranaje metálico con rayo verde manzana, "UNI" ` +
+      `verde + "PROVEEDORES" gris, industrial bold con contorno negro) abajo centrado. `;
+
+  const specTxt = (spec || '').trim();
+  const tagTxt = (tagline || '').trim();
 
   return (
-    `Diseñá un cartel publicitario profesional para redes sociales usando EXACTAMENTE ` +
-    `el producto de la PRIMERA imagen adjunta como protagonista${productName ? ' ("' + productName + '")' : ''}: ` +
-    `mantené su forma, color, marca y detalles reales, IDÉNTICO, sin inventarlo, deformarlo ` +
-    `ni pegarle textos falsos encima del producto. ` +
-    `Escena moderna sobre fondo oscuro/negro, de alto impacto, con iluminación premium ` +
-    `y un ambiente acorde al uso real del producto. ` +
+    `Diseñá una PLACA PUBLICITARIA tipo INFOGRAFÍA de ecommerce, profesional, moderna, ` +
+    `estilo folleto de ferretería, alto impacto comercial y muy vendedora. ` +
+    `PRODUCTO: usá EXACTAMENTE el de la PRIMERA imagen adjunta como protagonista central, ` +
+    `grande y nítido${productName ? ' ("' + productName + '")' : ''} — mismísima forma, color, ` +
+    `marca y detalles reales, IDÉNTICO, sin inventarlo, deformarlo ni pegarle textos encima. ` +
+    `MAQUETA (de arriba hacia abajo): ` +
+    `1) Título grande en tipografía industrial extra-bold: "${(productName || 'PRODUCTO').toUpperCase()}"` +
+    (specTxt ? `, con un subtítulo/medalla destacando "${specTxt}". ` : `. `) +
+    (tagTxt ? `2) Frase gancho llamativa: "${tagTxt}". ` : ``) +
+    `3) El producto en el centro, protagonista. ` +
+    `4) Una BANDA con 3 palabras clave separadas por puntos (ej: "RESISTENTE · SEGURO · FÁCIL DE USAR"). ` +
+    `5) Fila de ${f.length} FEATURES, cada una con un ícono lineal simple en círculo verde manzana y su texto corto: ` +
+    f.map(x => '"' + x + '"').join(', ') + '. ' +
+    (u.length ? `6) Sección "IDEAL PARA:" con ${u.length} íconos y etiquetas: ` + u.map(x => '"' + x + '"').join(', ') + '. ' : ``) +
     logoInstr +
-    `Paleta de marca OBLIGATORIA: verde manzana #A4D72B (color estrella), gris metálico #9AA0A6, ` +
-    `negro #0D0D0D y blanco. El verde manzana brilla sobre el negro. ` +
-    `Destacá SIEMPRE estas 3 virtudes del producto como 3 textos cortos, prolijos y bien ` +
-    `legibles (una debajo de la otra): ` +
-    v.map(x => '"' + x + '"').join(', ') + '.' +
+    `ESTILO: fondo oscuro/negro con toques gris metálico; paleta de marca OBLIGATORIA ` +
+    `verde manzana #A4D72B (estrella), gris metálico #9AA0A6, negro #0D0D0D y blanco; ` +
+    `el verde brilla sobre el negro; detalles industriales (hexágonos, brochazos). ` +
     promo +
-    ` Todo el texto correctamente escrito en español, tipografía industrial bold y legible. ` +
-    `Resultado premium, realista, listo para publicar.`
+    ` TODO el texto correctamente escrito en español, ortografía perfecta, tipografía ` +
+    `industrial bold, prolijo y legible, bien alineado y con jerarquía visual clara. ` +
+    `Resultado nivel agencia, listo para publicar en Mercado Libre y redes.`
   );
 }
 
-// ---- PASO 1: Gemini texto -> {product, virtues[3]} --------------------------
-function geminiCopy(GK, { productName, price, photoDesc, photoB64, photoMime }) {
+// ---- PASO 1: Gemini texto -> brief {product, spec, tagline, features[4], usos[]} ----
+function geminiBrief(GK, { productName, price, photoDesc, mlDesc, photoB64, photoMime }) {
   return new Promise((resolve, reject) => {
     const parts = [];
     if (photoB64) parts.push({ inline_data: { mime_type: photoMime || 'image/jpeg', data: photoB64 } });
     parts.push({
       text:
-        `Sos redactor publicitario de una ferretería/distribuidora. ` +
+        `Sos redactor publicitario de una ferretería/distribuidora argentina. ` +
         `Producto: "${productName || '(mirá la foto)'}"${price ? ', precio ' + price : ''}. ` +
-        `Devolvé SOLO un JSON: {"product":"nombre corto del producto","virtues":["v1","v2","v3"]}. ` +
-        `Las 3 virtudes: beneficios/atributos reales del producto, MUY cortos (máx 3 palabras c/u), en español, para destacar en un cartel.`,
+        (photoDesc ? `Notas: ${photoDesc}. ` : ``) +
+        (mlDesc ? `Descripción de Mercado Libre (usala para specs y usos reales): """${String(mlDesc).slice(0, 1500)}""" ` : ``) +
+        `Devolvé SOLO un JSON con esta forma exacta: ` +
+        `{"product":"nombre corto y comercial","spec":"medida o atributo estrella corto (ej '1.5 metros','x4','18mm') o ''",` +
+        `"tagline":"frase gancho corta con signos de exclamación","features":["4 beneficios cortos, máx 3 palabras c/u"],` +
+        `"usos":["4 a 6 usos/ideal para, 1 palabra c/u (ej Motos, Autos, Bicicletas, Equipaje)"]}. ` +
+        `Todo real y coherente con el producto, en español de Argentina. Nada fuera del JSON.`,
     });
     const body = JSON.stringify({
       contents: [{ parts }],
-      generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 400, temperature: 0.7, thinkingConfig: { thinkingBudget: 0 } },
+      generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 600, temperature: 0.7, thinkingConfig: { thinkingBudget: 0 } },
     });
     const opts = {
       hostname: 'generativelanguage.googleapis.com',
@@ -161,12 +177,18 @@ function geminiCopy(GK, { productName, price, photoDesc, photoB64, photoMime }) 
           const parsed = JSON.parse(data);
           const txt = parsed?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
           const obj = JSON.parse(txt);
-          resolve({ product: obj.product || '', virtues: obj.virtues || [] });
+          resolve({
+            product: obj.product || '',
+            spec: obj.spec || '',
+            tagline: obj.tagline || '',
+            features: Array.isArray(obj.features) ? obj.features : [],
+            usos: Array.isArray(obj.usos) ? obj.usos : [],
+          });
         } catch (e) { reject(e); }
       });
     });
     r.on('error', reject);
-    r.setTimeout(20000, () => { r.destroy(); reject(new Error('Timeout copy')); });
+    r.setTimeout(20000, () => { r.destroy(); reject(new Error('Timeout brief')); });
     r.write(body); r.end();
   });
 }
