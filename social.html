@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Agente Redes Sociales · Uniproveedores</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a16;color:#e0d8cc;min-height:100vh;}
@@ -278,7 +281,8 @@ async function generate(){
           <div><span class="card-title" style="color:${PC[id]}">${PN[id]}</span><span class="card-chars">${copies[id].length} chars</span></div>
           <div class="card-btns">
             <button class="btn-sm" id="cp-${id}" onclick="cpTxt('${id}')">📋 Copiar</button>
-                        <button class="btn-img" id="img-btn-${id}" onclick="genImg('${id}')">🎨 Imagen IA</button>
+                        <button class="btn-img" id="pro-btn-${id}" style="background:linear-gradient(135deg,rgba(164,215,43,0.28),rgba(138,168,0,0.28));border-color:rgba(164,215,43,0.5);color:#c6de00" onclick="genPro('${id}')">🏆 Cartel Pro</button>
+            <button class="btn-img" id="img-btn-${id}" onclick="genImg('${id}')">🎨 Imagen IA</button>
             ${(id==='fb'||id==='ig') ? `<button class="btn-pub" id="pub-btn-${id}" style="background:${PC[id]}" onclick="publishMeta('${id}')">🚀 Publicar</button>` : ''}
             <button class="btn-pub" style="background:${(id==='fb'||id==='ig')?'rgba(255,255,255,0.12)':PC[id]};${(id==='fb'||id==='ig')?'color:#aaa':''}" onclick="pub('${id}')">🔗 Abrir</button>
           </div>
@@ -305,6 +309,41 @@ async function generate(){
   }
   btn.disabled=false;btn.innerHTML='✨ Generar copies';
   setTimeout(()=>{pw.style.display='none';setProgress(0);},1500);
+}
+
+// Plan B: cartel PROFESIONAL dibujado por código (texto perfecto + logo real).
+async function genPro(id){
+  const btn=document.getElementById('pro-btn-'+id);
+  const resultDiv=document.getElementById('img-result-'+id);
+  if(!btn||!resultDiv)return;
+  if(!photoB64){ notify('📸 Subí primero la foto del producto'); return; }
+  btn.disabled=true;btn.innerHTML='⏳ Armando...';
+  resultDiv.style.display='block';
+  resultDiv.innerHTML='<div style="text-align:center;padding:30px;color:#c6de00;font-size:13px"><div style="font-size:28px;margin-bottom:10px">🏆</div>Armando el cartel profesional (texto perfecto + tu logo)...<br><small style="color:#666;margin-top:6px;display:block">unos segundos</small></div>';
+  try{
+    // 1) brief de texto (Gemini): producto, medida, tagline, virtudes, usos.
+    const r=await fetch('/api/image',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({briefOnly:true,platform:id,productName:pName,price:pPrice,badge,photoDesc,mlDesc:pDesc||'',photoB64:photoB64||null,photoMime:'image/jpeg'})
+    });
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    const brief=d.brief||{product:pName};
+    // 2) dibujar la plantilla en canvas.
+    const url=await window.renderProCard({platform:id,brief,price:pPrice,badge,photoB64});
+    genImages[id]=url;
+    resultDiv.innerHTML=`
+      <div style="font-size:11px;color:#00c864;background:rgba(0,200,100,0.1);border:1px solid rgba(0,200,100,0.25);border-radius:8px;padding:6px 10px;margin-bottom:8px">🏆 Cartel Pro (plantilla · texto perfecto)</div>
+      <img src="${url}" style="width:100%;border-radius:10px;display:block" alt="Cartel Pro">
+      <div class="img-actions">
+        <a href="${url}" target="_blank" download="cartel-${id}.png" style="flex:1;text-align:center;background:linear-gradient(135deg,rgba(164,215,43,0.3),rgba(138,168,0,0.3));border:1px solid rgba(164,215,43,0.4);border-radius:8px;padding:8px;color:#c6de00;font-size:12px;text-decoration:none;display:block">⬇️ Descargar</a>
+        <button onclick="genPro('${id}')" style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px;color:#aaa;font-size:12px;cursor:pointer;font-family:inherit">🔄 Rehacer</button>
+      </div>`;
+    notify('🏆 Cartel Pro listo para '+PN[id]);
+  }catch(e){
+    resultDiv.innerHTML='<div style="color:#ff8080;font-size:12px;padding:10px;text-align:center">❌ '+e.message+'</div>';
+  }
+  btn.disabled=false;btn.innerHTML='🏆 Cartel Pro';
 }
 
 async function genImg(id){
@@ -392,5 +431,6 @@ async function publishMeta(id){
   }
 }
 </script>
+<script src="/pro-card.js"></script>
 </body>
 </html>
