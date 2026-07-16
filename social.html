@@ -361,6 +361,10 @@ async function genImg(id){
     });
     const d=await r.json();
     if(d.error)throw new Error(d.error);
+    // Estampar el logo real por código (gpt-image-1 no lo pone bien).
+    let finalUrl=d.url;
+    try{ if(window.stampBrandLogo) finalUrl=await window.stampBrandLogo(d.url); }catch(_){}
+    d.url=finalUrl;
     genImages[id]=d.url;
     const engOk=d.engine==='gpt-image-1';
     const engTag=engOk

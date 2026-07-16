@@ -59,9 +59,10 @@ export default async function handler(req, res) {
   });
 
   // --- PASO 2: generar la imagen -----------------------------------------
+  // Nota: NO mandamos el logo a la IA (lo estampa el front por código, exacto).
   if (photoB64) {
     if (OK) {
-      return openaiEdit(res, OK, { photoB64, photoMime, prompt, size: openaiSize(platform), logo });
+      return openaiEdit(res, OK, { photoB64, photoMime, prompt, size: openaiSize(platform) });
     }
     return geminiImage(res, GK, {
       photoB64, photoMime,
@@ -119,11 +120,12 @@ function buildAdPrompt({ productName, titulo: tituloIn, price, badge, hasLogo, s
   let selloTxt = (sello || '').trim() || 'CALIDAD PREMIUM';
   if (badgeTxt && !/sin|ninguno/i.test(badgeTxt)) selloTxt = badgeTxt.toUpperCase() + (priceTxt ? ' $' + priceTxt.replace(/^\$/, '') : '');
 
-  const logoInstr = hasLogo
-    ? `Hay DOS imágenes adjuntas: la 1ª es el PRODUCTO y la 2ª es el LOGO OFICIAL de ` +
-      `UNIPROVEEDORES. Incorporá EXACTAMENTE ese logo (2ª imagen) perfectamente legible y ` +
-      `SIN modificaciones, arriba, sobre una barra oscura.`
-    : `Incorporá el logo original de UNIPROVEEDORES perfectamente legible y sin modificaciones, arriba.`;
+  // El logo REAL se estampa después por código (siempre exacto). Por eso pedimos
+  // dejar la franja superior LIBRE y NO dibujar ningún logo/marca ahí.
+  const logoInstr =
+    `Reservá una FRANJA SUPERIOR oscura y despejada (aprox. el 12% de arriba), SIN dibujar ` +
+    `ningún logo, isotipo, nombre de marca ni texto en esa franja: ese espacio queda para ` +
+    `colocar el logo aparte.`;
 
   // Plantilla textual provista por el cliente (la que le dio el mejor resultado).
   return (

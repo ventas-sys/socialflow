@@ -6,6 +6,40 @@
    Marca UNIPROVEEDORES: verde #A4D72B, gris #9AA0A6, negro #0D0D0D, blanco.
    window.renderProCard(cfg) -> Promise<dataURL PNG>
    ============================================================================ */
+// Estampa el logo REAL de UNIPROVEEDORES sobre una imagen (la del Cartel IA),
+// arriba y centrado sobre una barra oscura. gpt-image-1 suele "fundir" o
+// descartar el logo; así queda SIEMPRE exacto y legible.
+window.stampBrandLogo = function (imgUrl) {
+  return new Promise((resolve) => {
+    const base = new Image(); base.crossOrigin = 'anonymous';
+    base.onload = () => {
+      const logo = new Image(); logo.crossOrigin = 'anonymous';
+      logo.onload = () => {
+        const W = base.width, H = base.height;
+        const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        const ctx = cv.getContext('2d');
+        ctx.drawImage(base, 0, 0, W, H);
+        // barra oscura superior para que el logo se lea sobre cualquier fondo
+        const barH = Math.round(H * 0.12);
+        const g = ctx.createLinearGradient(0, 0, 0, barH);
+        g.addColorStop(0, 'rgba(8,8,8,0.9)'); g.addColorStop(1, 'rgba(8,8,8,0)');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, barH);
+        // logo centrado dentro de la barra, sin deformar
+        const maxW = Math.round(W * 0.58), maxH = Math.round(barH * 0.72);
+        const ar = logo.width / logo.height;
+        let lw = maxW, lh = lw / ar;
+        if (lh > maxH) { lh = maxH; lw = lh * ar; }
+        ctx.drawImage(logo, (W - lw) / 2, Math.round(barH * 0.14), lw, lh);
+        resolve(cv.toDataURL('image/png'));
+      };
+      logo.onerror = () => resolve(imgUrl);
+      logo.src = '/logo-uniproveedores.png';
+    };
+    base.onerror = () => resolve(imgUrl);
+    base.src = imgUrl;
+  });
+};
+
 (function () {
   const GREEN = '#A4D72B', GRAY = '#9AA0A6', BLACK = '#0D0D0D', WHITE = '#FFFFFF';
 
