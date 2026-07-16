@@ -133,8 +133,9 @@ function buildAdPrompt({ productName, titulo: tituloIn, price, badge, hasLogo, s
     `en primer plano, hiperrealista, con proporciones y detalles exactos. Fondo industrial ` +
     `relacionado con ${ctx}, oscuro y cinematográfico, con texturas metálicas, profundidad, ` +
     `reflejos, partículas y desenfoque sutil. ` +
-    `Usar la identidad visual de UNIPROVEEDORES: verde manzana #A4D72B, negro, blanco y gris ` +
-    `metálico. ${logoInstr} ` +
+    `Usar la identidad visual de UNIPROVEEDORES: los textos destacados, sellos, íconos y acentos ` +
+    `en VERDE MANZANA LIMA brillante #A4D72B (importante: verde lima, NO amarillo ni dorado), ` +
+    `combinado con negro, blanco y gris metálico. ${logoInstr} ` +
     `Título principal grande: "${titulo}". ` +
     (subtitulo ? `Subtítulo: "${subtitulo}". ` : ``) +
     (gancho ? `Gancho comercial destacado: "${gancho}". ` : ``) +
@@ -234,7 +235,7 @@ function openaiEdit(res, key, { photoB64, photoMime, prompt, size, logo }) {
       field('model', 'gpt-image-1'),
       field('prompt', prompt),
       field('size', size),
-      field('quality', 'medium'),
+      field('quality', 'high'),
       field('n', '1'),
       ...imagePart(`product.${ext}`, mime, photoB64),
     ];
@@ -270,7 +271,7 @@ function openaiEdit(res, key, { photoB64, photoMime, prompt, size, logo }) {
       });
     });
     r.on('error', (e) => { res.status(500).json({ error: 'OpenAI request: ' + e.message }); resolve(); });
-    r.setTimeout(115000, () => { r.destroy(); res.status(500).json({ error: 'Timeout generando imagen (OpenAI)' }); resolve(); });
+    r.setTimeout(56000, () => { r.destroy(); res.status(500).json({ error: 'La imagen en calidad alta tardó demasiado (límite de Vercel). Probá de nuevo o usá el Cartel Pro.' }); resolve(); });
     r.write(body); r.end();
   });
 }
