@@ -40,6 +40,43 @@ window.stampBrandLogo = function (imgUrl) {
   });
 };
 
+// Medidas EXACTAS recomendadas por red social.
+window.PLATFORM_SIZE = {
+  ig: [1080, 1350],  // Instagram feed 4:5
+  fb: [1080, 1350],  // Facebook feed 4:5
+  wa: [1080, 1920],  // WhatsApp estado 9:16
+  tk: [1080, 1920],  // TikTok 9:16
+  li: [1080, 1080],  // LinkedIn 1:1
+  tw: [1600, 900],   // X/Twitter 16:9
+  yt: [1280, 720],   // YouTube miniatura 16:9
+};
+
+// Reformatea una imagen al tamaño EXACTO de la red SIN cortar el diseño:
+// dibuja el diseño completo (contain) centrado, y rellena los bordes con una
+// copia desenfocada de la misma imagen (nada de barras negras).
+window.formatForPlatform = function (url, platform) {
+  const [TW, TH] = window.PLATFORM_SIZE[platform] || [1080, 1350];
+  return new Promise((resolve) => {
+    const im = new Image(); im.crossOrigin = 'anonymous';
+    im.onload = () => {
+      const cv = document.createElement('canvas'); cv.width = TW; cv.height = TH;
+      const ctx = cv.getContext('2d');
+      const ar = im.width / im.height, tr = TW / TH;
+      // Fondo: COVER (llena y recorta) + desenfoque -> tapa los bordes.
+      let cw, ch; if (ar > tr) { ch = TH; cw = TH * ar; } else { cw = TW; ch = TW / ar; }
+      ctx.filter = 'blur(30px) brightness(0.55)';
+      ctx.drawImage(im, (TW - cw) / 2, (TH - ch) / 2, cw, ch);
+      ctx.filter = 'none';
+      // Diseño completo: CONTAIN (entra entero) centrado y nítido.
+      let dw, dh; if (ar > tr) { dw = TW; dh = TW / ar; } else { dh = TH; dw = TH * ar; }
+      ctx.drawImage(im, (TW - dw) / 2, (TH - dh) / 2, dw, dh);
+      resolve(cv.toDataURL('image/png'));
+    };
+    im.onerror = () => resolve(url);
+    im.src = url;
+  });
+};
+
 (function () {
   const GREEN = '#A4D72B', GRAY = '#9AA0A6', BLACK = '#0D0D0D', WHITE = '#FFFFFF';
 

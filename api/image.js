@@ -89,10 +89,13 @@ export default async function handler(req, res) {
 
 // ---- Formatos por red social ------------------------------------------------
 // gpt-image-1 acepta: 1024x1024, 1536x1024 (horizontal), 1024x1536 (vertical).
+// Tamaño de GENERACIÓN de gpt-image-1 (solo admite 1024x1024, 1024x1536, 1536x1024).
+// Elegimos el más cercano a la orientación de cada red; el front reformatea
+// después al tamaño EXACTO de la red (con relleno desenfocado, sin cortar).
 function openaiSize(p) {
-  if (p === 'yt') return '1536x1024';  // horizontal (miniatura YouTube)
-  if (p === 'fb') return '1024x1024';  // cuadrado (feed Facebook)
-  return '1024x1536';                  // ig / wa / tk -> infografía vertical
+  if (p === 'yt' || p === 'tw') return '1536x1024';  // horizontal
+  if (p === 'li') return '1024x1024';                // cuadrado
+  return '1024x1536';                                // ig / fb / wa / tk -> vertical
 }
 function geminiAr(p) {
   if (p === 'yt') return '16:9';
