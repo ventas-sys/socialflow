@@ -123,12 +123,13 @@ function buildAdPrompt({ productName, titulo: tituloIn, price, badge, hasLogo, s
   let selloTxt = (sello || '').trim() || 'CALIDAD PREMIUM';
   if (badgeTxt && !/sin|ninguno/i.test(badgeTxt)) selloTxt = badgeTxt.toUpperCase() + (priceTxt ? ' $' + priceTxt.replace(/^\$/, '') : '');
 
-  // El logo REAL se estampa después por código (siempre exacto). Por eso pedimos
-  // dejar la franja superior LIBRE y NO dibujar ningún logo/marca ahí.
+  // El logo REAL se agrega después en una barra superior propia (por código).
+  // Por eso la IA NO debe dibujar ningún logo/marca, y conviene dejar un poco de
+  // aire arriba para que el título no quede pegado al borde.
   const logoInstr =
-    `Reservá una FRANJA SUPERIOR oscura y despejada (aprox. el 12% de arriba), SIN dibujar ` +
-    `ningún logo, isotipo, nombre de marca ni texto en esa franja: ese espacio queda para ` +
-    `colocar el logo aparte.`;
+    `NO dibujes ningún logo, isotipo ni nombre de marca en la imagen (el logo se agrega ` +
+    `aparte en una barra superior). Dejá un poco de aire/margen arriba para que el título ` +
+    `no quede pegado al borde superior.`;
 
   // Plantilla textual provista por el cliente (la que le dio el mejor resultado).
   return (
