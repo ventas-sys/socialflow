@@ -6,9 +6,9 @@
    Marca UNIPROVEEDORES: verde #A4D72B, gris #9AA0A6, negro #0D0D0D, blanco.
    window.renderProCard(cfg) -> Promise<dataURL PNG>
    ============================================================================ */
-// Estampa el logo REAL de UNIPROVEEDORES sobre una imagen (la del Cartel IA),
-// arriba y centrado sobre una barra oscura. gpt-image-1 suele "fundir" o
-// descartar el logo; así queda SIEMPRE exacto y legible.
+// Agrega el logo REAL de UNIPROVEEDORES en una BARRA SUPERIOR propia (extiende
+// el alto de la imagen), separada del diseño para que NO se superponga con el
+// título. gpt-image-1 no dibuja el logo; se agrega acá, exacto y prolijo.
 window.stampBrandLogo = function (imgUrl) {
   return new Promise((resolve) => {
     const base = new Image(); base.crossOrigin = 'anonymous';
@@ -16,20 +16,22 @@ window.stampBrandLogo = function (imgUrl) {
       const logo = new Image(); logo.crossOrigin = 'anonymous';
       logo.onload = () => {
         const W = base.width, H = base.height;
-        const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        const barH = Math.round(W * 0.14);         // barra propia arriba
+        const cv = document.createElement('canvas'); cv.width = W; cv.height = H + barH;
         const ctx = cv.getContext('2d');
-        ctx.drawImage(base, 0, 0, W, H);
-        // barra oscura superior para que el logo se lea sobre cualquier fondo
-        const barH = Math.round(H * 0.12);
+        // barra: negro de marca con leve degradé + línea verde de acento
         const g = ctx.createLinearGradient(0, 0, 0, barH);
-        g.addColorStop(0, 'rgba(8,8,8,0.9)'); g.addColorStop(1, 'rgba(8,8,8,0)');
+        g.addColorStop(0, '#0d0d0d'); g.addColorStop(1, '#151515');
         ctx.fillStyle = g; ctx.fillRect(0, 0, W, barH);
-        // logo centrado dentro de la barra, sin deformar
-        const maxW = Math.round(W * 0.58), maxH = Math.round(barH * 0.72);
+        ctx.fillStyle = '#A4D72B'; ctx.fillRect(0, barH - Math.round(barH * 0.05), W, Math.round(barH * 0.05));
+        // logo centrado en la barra, sin deformar
+        const maxW = Math.round(W * 0.52), maxH = Math.round(barH * 0.6);
         const ar = logo.width / logo.height;
         let lw = maxW, lh = lw / ar;
         if (lh > maxH) { lh = maxH; lw = lh * ar; }
-        ctx.drawImage(logo, (W - lw) / 2, Math.round(barH * 0.14), lw, lh);
+        ctx.drawImage(logo, (W - lw) / 2, Math.round((barH - lh) / 2), lw, lh);
+        // el diseño de la IA, debajo de la barra
+        ctx.drawImage(base, 0, barH, W, H);
         resolve(cv.toDataURL('image/png'));
       };
       logo.onerror = () => resolve(imgUrl);
