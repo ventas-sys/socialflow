@@ -23,7 +23,8 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { platform, productName, price, badge, photoDesc, mlDesc, briefOnly, photoB64, photoMime } = req.body || {};
+  const { platform, productName, price, badge, photoDesc, mlDesc, briefOnly, quality, photoB64, photoMime } = req.body || {};
+  const q = (['high', 'medium', 'low'].includes(quality)) ? quality : 'high';
   const OK = (process.env.OPENAI_API_KEY || '').trim();
   const GK = (process.env.GEMINI_API_KEY || '').trim();
   if (!briefOnly && !OK && !GK) return res.status(500).json({ error: 'Falta OPENAI_API_KEY o GEMINI_API_KEY' });
@@ -62,7 +63,7 @@ export default async function handler(req, res) {
   // Nota: NO mandamos el logo a la IA (lo estampa el front por código, exacto).
   if (photoB64) {
     if (OK) {
-      return openaiEdit(res, OK, { photoB64, photoMime, prompt, size: openaiSize(platform) });
+      return openaiEdit(res, OK, { photoB64, photoMime, prompt, size: openaiSize(platform), quality: q });
     }
     return geminiImage(res, GK, {
       photoB64, photoMime,
@@ -222,7 +223,7 @@ function geminiBrief(GK, { productName, price, photoDesc, mlDesc, photoB64, phot
 
 // ---- PASO 2a: gpt-image-1 (OpenAI) edita la foto real -----------------------
 // Si viene `logo`, se manda como 2ª imagen (image[]) para que copie el logo real.
-function openaiEdit(res, key, { photoB64, photoMime, prompt, size, logo }) {
+function openaiEdit(res, key, { photoB64, photoMime, prompt, size, logo, quality }) {
   return new Promise((resolve) => {
     const boundary = '----socialflow' + Math.random().toString(16).slice(2);
     const CRLF = '\r\n';
@@ -241,7 +242,7 @@ function openaiEdit(res, key, { photoB64, photoMime, prompt, size, logo }) {
       field('model', 'gpt-image-1'),
       field('prompt', prompt),
       field('size', size),
-      field('quality', 'high'),
+      field('quality', quality || 'high'),
       field('n', '1'),
       ...imagePart(`product.${ext}`, mime, photoB64),
     ];

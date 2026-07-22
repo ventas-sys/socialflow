@@ -354,12 +354,20 @@ async function genImg(id){
   resultDiv.style.display='block';
   resultDiv.innerHTML='<div style="text-align:center;padding:30px;color:#c4b5fd;font-size:13px"><div style="font-size:28px;margin-bottom:10px">🎨</div>Armando el cartel con tu foto real, logo y 3 virtudes...<br><small style="color:#666;margin-top:6px;display:block">puede tardar 20-50 segundos</small></div>';
   try{
-    const r=await fetch('/api/image',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({platform:id,productName:pName,price:pPrice,badge,photoDesc,mlDesc:pDesc||'',photoB64:photoB64||null,photoMime:'image/jpeg'})
-    });
-    const d=await r.json();
+    const callImg=async(quality)=>{
+      const r=await fetch('/api/image',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({platform:id,productName:pName,price:pPrice,badge,photoDesc,mlDesc:pDesc||'',quality,photoB64:photoB64||null,photoMime:'image/jpeg'})
+      });
+      return await r.json();
+    };
+    // 1º intento en calidad ALTA; si Vercel la corta por tiempo, reintenta en MEDIA.
+    let d=await callImg('high');
+    if(d&&d.error&&/tard.*demasiado|timeout|l[íi]mite de vercel/i.test(d.error)){
+      resultDiv.innerHTML='<div style="text-align:center;padding:30px;color:#ffb020;font-size:13px"><div style="font-size:28px;margin-bottom:10px">⏱️</div>La calidad alta tardó demasiado, reintentando en calidad media...<br><small style="color:#666;margin-top:6px;display:block">unos segundos</small></div>';
+      d=await callImg('medium');
+    }
     if(d.error)throw new Error(d.error);
     // 1) estampar el logo real; 2) reformatear al tamaño EXACTO de la red.
     let finalUrl=d.url;
