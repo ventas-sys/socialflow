@@ -56,7 +56,8 @@ export default async function handler(req, res) {
   const prompt = buildAdPrompt({
     productName: prodLabel, titulo: brief.titulo || '', price, badge, hasLogo: !!logo,
     spec: brief.spec || '', tagline: brief.tagline || '',
-    contexto: brief.contexto || '', sello: brief.sello || '', virtudes: brief.virtudes || [], usos,
+    contexto: brief.contexto || '', sello: brief.sello || '', tipo: brief.tipo || '',
+    materiales: brief.materiales || [], virtudes: brief.virtudes || [], usos,
   });
 
   // --- PASO 2: generar la imagen -----------------------------------------
@@ -104,56 +105,57 @@ function geminiAr(p) {
   return '9:16';
 }
 
-// ---- Prompt del cartel (plantilla GANADORA del cliente, estilo ChatGPT) -----
-function buildAdPrompt({ productName, titulo: tituloIn, price, badge, hasLogo, spec, tagline, contexto, sello, virtudes, usos }) {
+// ---- Prompt del cartel (estructura tipo REFERENCIA PH2 del cliente) ---------
+function buildAdPrompt({ productName, titulo: tituloIn, price, badge, hasLogo, spec, tagline, contexto, sello, tipo, materiales, virtudes, usos }) {
   const prod = (productName || 'el producto de la foto').trim();
   const titulo = ((tituloIn && tituloIn.trim()) || productName || 'PRODUCTO').toUpperCase();
-  const subtitulo = (spec || '').trim();
+  const subtitulo = (spec || '').trim();          // cinta subtítulo (modelo/uso)
   const gancho = (tagline || '').trim();
   const ctx = (contexto || 'uso diario, taller y hogar').trim();
+  const tipoTxt = (tipo || '').trim();            // hexágono de tipo/modelo (ej PH2)
+  const mats = (materiales || []).filter(Boolean).slice(0, 2);
   const usosTxt = (usos || []).slice(0, 5).join(', ');
 
-  // 3 virtudes con descripción (título — descripción).
-  const v = (virtudes || []).slice(0, 3);
-  while (v.length < 3) v.push({ t: ['Resistente', 'Práctico', 'Calidad'][v.length], d: '' });
-  const virtudesTxt = v.map(x => `${(x.t || '').toUpperCase()}${x.d ? ' — ' + x.d : ''}.`).join(' ');
+  // Virtudes como lista de viñetas con tilde (✔), estilo PH2.
+  const v = (virtudes || []).slice(0, 4);
+  while (v.length < 3) v.push({ t: ['Calce preciso', 'Alta resistencia', 'Mayor durabilidad'][v.length], d: '' });
+  const checklist = v.map(x => `✔ ${x.t}${x.d ? ' (' + x.d + ')' : ''}`).join('  ');
 
-  // Sello comercial: el badge elegido, o "CALIDAD PREMIUM" por defecto.
   const badgeTxt = (badge || '').trim();
   const priceTxt = (price || '').trim();
   let selloTxt = (sello || '').trim() || 'CALIDAD PREMIUM';
   if (badgeTxt && !/sin|ninguno/i.test(badgeTxt)) selloTxt = badgeTxt.toUpperCase() + (priceTxt ? ' $' + priceTxt.replace(/^\$/, '') : '');
 
-  // El logo REAL se agrega después en una barra superior propia (por código).
-  // Por eso la IA NO debe dibujar ningún logo/marca, y conviene dejar un poco de
-  // aire arriba para que el título no quede pegado al borde.
+  // El logo real se agrega por código en una barra superior aparte.
   const logoInstr =
-    `NO dibujes ningún logo, isotipo ni nombre de marca en la imagen (el logo se agrega ` +
-    `aparte en una barra superior). Dejá un poco de aire/margen arriba para que el título ` +
-    `no quede pegado al borde superior.`;
+    `NO dibujes ningún logo, isotipo ni nombre de marca (el logo se agrega aparte en una barra ` +
+    `superior). Dejá aire/margen arriba para que el título no quede pegado al borde.`;
 
-  // Plantilla textual provista por el cliente (la que le dio el mejor resultado).
+  // Estructura calcada de la referencia PH2 (folleto profesional de ecommerce).
   return (
-    `Crear un cartel publicitario profesional vertical para e-commerce y redes sociales del ` +
-    `producto "${prod}", marca UNIPROVEEDORES. Usá EXACTAMENTE el producto de la PRIMERA imagen ` +
-    `adjunta (misma forma, color y detalles reales, sin inventarlo ni cambiarlo): mostralo grande, ` +
-    `en primer plano, hiperrealista, con proporciones y detalles exactos. Fondo industrial ` +
-    `relacionado con ${ctx}, oscuro y cinematográfico, con texturas metálicas, profundidad, ` +
-    `reflejos, partículas y desenfoque sutil. ` +
-    `Usar la identidad visual de UNIPROVEEDORES: los textos destacados, sellos, íconos y acentos ` +
-    `en VERDE MANZANA LIMA brillante #A4D72B (importante: verde lima, NO amarillo ni dorado), ` +
-    `combinado con negro, blanco y gris metálico. ${logoInstr} ` +
-    `Título principal grande: "${titulo}". ` +
-    (subtitulo ? `Subtítulo: "${subtitulo}". ` : ``) +
-    (gancho ? `Gancho comercial destacado: "${gancho}". ` : ``) +
-    `Mostrar tres virtudes con iconos profesionales (hexagonales): ${virtudesTxt} ` +
-    (usosTxt ? `Incluir una fila de íconos de usos: ${usosTxt}. ` : ``) +
-    `Agregar una imagen secundaria pequeña del producto colocado o en funcionamiento y un sello ` +
-    `que diga "${selloTxt}". ` +
-    `Tipografía industrial, gruesa, condensada y en MAYÚSCULAS. Diseño ordenado, potente, comercial, ` +
-    `moderno y fácil de leer desde un teléfono. Fotografía Ultra HD, iluminación cinematográfica, ` +
-    `hiperrealismo, alto contraste y postproducción profesional. ` +
-    `TODO el texto perfectamente escrito en español, sin errores de ortografía.`
+    `Diseñá un CARTEL PUBLICITARIO PROFESIONAL VERTICAL para ecommerce/ferretería, marca ` +
+    `UNIPROVEEDORES, estilo folleto premium de alto impacto (nivel agencia). ` +
+    `PRODUCTO: usá EXACTAMENTE el de la PRIMERA imagen adjunta (misma forma, color y detalles ` +
+    `reales, sin inventarlo): protagonista grande y nítido en el centro, hiperrealista. ` +
+    `FONDO industrial oscuro y cinematográfico (relacionado con ${ctx}), texturas metálicas, ` +
+    `profundidad, reflejos, partículas y textura sutil de hexágonos. ` +
+    `PALETA de marca obligatoria: VERDE MANZANA LIMA #A4D72B (verde lima, NO amarillo ni dorado), ` +
+    `negro, blanco y gris metálico. ${logoInstr} ` +
+    `MAQUETA (como un folleto ordenado): ` +
+    `• Arriba: TÍTULO enorme en 2 colores (blanco + verde lima), en tipografía industrial ` +
+    `condensada MAYÚSCULAS: "${titulo}". ` +
+    (subtitulo ? `Debajo, una CINTA/PASTILLA con el subtítulo "${subtitulo}". ` : ``) +
+    (gancho ? `Un gancho comercial: "${gancho}". ` : ``) +
+    `• A un costado, una LISTA de beneficios con TILDES verdes (✔), bien legible: ${checklist}. ` +
+    (tipoTxt ? `• Un HEXÁGONO verde grande con el tipo/modelo "${tipoTxt}". ` : ``) +
+    (subtitulo ? `• Un BADGE circular con la medida destacada. ` : ``) +
+    `• Un RECUADRO/callout con un PRIMER PLANO del producto y una característica destacada. ` +
+    (mats.length ? `• Al pie, ${mats.length} BADGES técnicos con íconos (escudo, hexágono): ` + mats.map(m => '"' + m + '"').join(' y ') + '. ' : ``) +
+    (usosTxt ? `• Opcional: una fila de íconos de usos (${usosTxt}). ` : ``) +
+    `• Un SELLO comercial que diga "${selloTxt}". ` +
+    `Tipografía industrial gruesa condensada en MAYÚSCULAS, jerarquía clara, muy legible desde el ` +
+    `teléfono. Ultra HD, iluminación cinematográfica, hiperrealismo, alto contraste, postproducción ` +
+    `profesional. TODO el texto perfectamente escrito en español, SIN errores de ortografía.`
   );
 }
 
@@ -175,6 +177,8 @@ function geminiBrief(GK, { productName, price, photoDesc, mlDesc, photoB64, phot
         `"tagline":"gancho comercial corto con signos de exclamación (ej ¡Asegurá tu carga en segundos!)",` +
         `"contexto":"contexto de uso real para el fondo (ej 'auto, moto y camping', 'obra y taller')",` +
         `"sello":"sello comercial corto (ej CALIDAD PREMIUM, OFERTA)",` +
+        `"tipo":"tipo/modelo corto para un hexágono si aplica (ej 'PH2','1/4\\"','M8'); si no aplica, ''",` +
+        `"materiales":["1 o 2 specs técnicas cortas del material/encastre (ej 'ACERO S2 TEMPLADO','ENCASTRE HEX 1/4\\"'); si no hay, []"],` +
         `"virtudes":[{"t":"VIRTUD 1 corta","d":"descripción breve"},{"t":"VIRTUD 2","d":"..."},{"t":"VIRTUD 3","d":"..."}],` +
         `"features":["3 a 4 beneficios cortos, máx 3 palabras c/u"],` +
         `"usos":["4 a 6 usos/ideal para, 1 palabra c/u (ej Moto, Auto, Bici, Camping, Carga)"]}. ` +
@@ -208,6 +212,8 @@ function geminiBrief(GK, { productName, price, photoDesc, mlDesc, photoB64, phot
             tagline: obj.tagline || '',
             contexto: obj.contexto || '',
             sello: obj.sello || '',
+            tipo: obj.tipo || '',
+            materiales: Array.isArray(obj.materiales) ? obj.materiales.filter(Boolean) : [],
             virtudes: virt,
             features: feats,
             usos: Array.isArray(obj.usos) ? obj.usos : [],
