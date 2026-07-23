@@ -124,8 +124,9 @@ function buildScenePrompt({ productName, contexto }) {
     `Fondo industrial OSCURO y cinematográfico relacionado con ${ctx}: texturas metálicas, ` +
     `profundidad, reflejos, chispas/partículas y desenfoque sutil; tonos negros y grises con un ` +
     `leve acento verde lima. ` +
-    `COMPOSICIÓN IMPORTANTE: dejá el TERCIO SUPERIOR y el TERCIO INFERIOR más oscuros y bastante ` +
-    `despejados (espacio para poner textos después), con el producto en el centro. ` +
+    `COMPOSICIÓN OBLIGATORIA: ubicá el producto en la MITAD INFERIOR de la imagen (centrado, abajo). ` +
+    `La MITAD SUPERIOR (40% de arriba) debe quedar OSCURA y COMPLETAMENTE VACÍA, sin el producto y ` +
+    `sin objetos, para poder colocar el título después. No cortes el producto: que entre entero abajo. ` +
     `PROHIBIDO: NO pongas NINGÚN texto, palabra, letra, número, cartel, etiqueta ni logo en la ` +
     `imagen. SOLO el producto y la escena. Ultra HD, alto contraste, calidad de estudio.`
   );
