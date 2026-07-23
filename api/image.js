@@ -52,19 +52,27 @@ export default async function handler(req, res) {
     });
   }
 
-  const logo = (LOGO_B64 && LOGO_B64.length > 100) ? { b64: LOGO_B64, mime: LOGO_MIME || 'image/png' } : null;
-  const prompt = buildAdPrompt({
-    productName: prodLabel, titulo: brief.titulo || '', price, badge, hasLogo: !!logo,
-    spec: brief.spec || '', tagline: brief.tagline || '',
-    contexto: brief.contexto || '', sello: brief.sello || '', tipo: brief.tipo || '',
-    materiales: brief.materiales || [], virtudes: brief.virtudes || [], usos,
-  });
+  // HÍBRIDO: la IA hace SOLO el producto + escena (sin texto ni logo). El front
+  // dibuja por código el texto (perfecto) + logo + badges ENCIMA de la escena.
+  const prompt = buildScenePrompt({ productName: prodLabel, contexto: brief.contexto || '' });
+  // Todo el texto para el overlay del front:
+  const overlay = {
+    titulo: (brief.titulo || prodLabel || '').trim(),
+    subtitulo: (brief.spec || '').trim(),
+    tagline: (brief.tagline || '').trim(),
+    tipo: (brief.tipo || '').trim(),
+    materiales: brief.materiales || [],
+    sello: (brief.sello || '').trim(),
+    virtudes: brief.virtudes || [],
+    features, usos,
+    price: (price || '').trim(),
+    badge: (badge || '').trim(),
+  };
 
   // --- PASO 2: generar la imagen -----------------------------------------
-  // Nota: NO mandamos el logo a la IA (lo estampa el front por código, exacto).
   if (photoB64) {
     if (OK) {
-      return openaiEdit(res, OK, { photoB64, photoMime, prompt, size: openaiSize(platform), quality: q });
+      return openaiEdit(res, OK, { photoB64, photoMime, prompt, size: openaiSize(platform), quality: q, brief: overlay });
     }
     return geminiImage(res, GK, {
       photoB64, photoMime,
@@ -103,6 +111,24 @@ function geminiAr(p) {
   if (p === 'yt') return '16:9';
   if (p === 'fb') return '1:1';
   return '9:16';
+}
+
+// ---- Prompt de ESCENA (híbrido): solo producto + fondo, SIN texto ni logo ---
+function buildScenePrompt({ productName, contexto }) {
+  const prod = (productName || 'el producto de la foto').trim();
+  const ctx = (contexto || 'taller, obra y hogar').trim();
+  return (
+    `Fotografía publicitaria HIPERREALISTA de producto. Usá EXACTAMENTE el producto de la ` +
+    `PRIMERA imagen adjunta ("${prod}"): misma forma, color y detalles reales, sin inventarlo ` +
+    `ni cambiarlo; protagonista grande, nítido y bien iluminado. ` +
+    `Fondo industrial OSCURO y cinematográfico relacionado con ${ctx}: texturas metálicas, ` +
+    `profundidad, reflejos, chispas/partículas y desenfoque sutil; tonos negros y grises con un ` +
+    `leve acento verde lima. ` +
+    `COMPOSICIÓN IMPORTANTE: dejá el TERCIO SUPERIOR y el TERCIO INFERIOR más oscuros y bastante ` +
+    `despejados (espacio para poner textos después), con el producto en el centro. ` +
+    `PROHIBIDO: NO pongas NINGÚN texto, palabra, letra, número, cartel, etiqueta ni logo en la ` +
+    `imagen. SOLO el producto y la escena. Ultra HD, alto contraste, calidad de estudio.`
+  );
 }
 
 // ---- Prompt del cartel (estructura tipo REFERENCIA PH2 del cliente) ---------
@@ -229,7 +255,7 @@ function geminiBrief(GK, { productName, price, photoDesc, mlDesc, photoB64, phot
 
 // ---- PASO 2a: gpt-image-1 (OpenAI) edita la foto real -----------------------
 // Si viene `logo`, se manda como 2ª imagen (image[]) para que copie el logo real.
-function openaiEdit(res, key, { photoB64, photoMime, prompt, size, logo, quality }) {
+function openaiEdit(res, key, { photoB64, photoMime, prompt, size, logo, quality, brief }) {
   return new Promise((resolve) => {
     const boundary = '----socialflow' + Math.random().toString(16).slice(2);
     const CRLF = '\r\n';
@@ -278,7 +304,7 @@ function openaiEdit(res, key, { photoB64, photoMime, prompt, size, logo, quality
           if (j.error) { res.status(500).json({ error: 'OpenAI: ' + (j.error.message || 'error') }); return resolve(); }
           const b64 = j?.data?.[0]?.b64_json;
           if (!b64) { res.status(500).json({ error: 'OpenAI sin imagen: ' + data.substring(0, 200) }); return resolve(); }
-          res.status(200).json({ url: 'data:image/png;base64,' + b64, engine: 'gpt-image-1' });
+          res.status(200).json({ url: 'data:image/png;base64,' + b64, engine: 'gpt-image-1', brief: brief || null });
           resolve();
         } catch (e) { res.status(500).json({ error: 'Parse OpenAI: ' + e.message }); resolve(); }
       });

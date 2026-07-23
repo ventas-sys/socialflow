@@ -369,9 +369,9 @@ async function genImg(id){
       d=await callImg('medium');
     }
     if(d.error)throw new Error(d.error);
-    // 1) estampar el logo real; 2) reformatear al tamaño EXACTO de la red.
+    // HÍBRIDO: 1) overlay de texto+logo por código; 2) tamaño EXACTO de la red.
     let finalUrl=d.url;
-    try{ if(window.stampBrandLogo) finalUrl=await window.stampBrandLogo(finalUrl); }catch(_){}
+    try{ if(window.composeAdOverlay) finalUrl=await window.composeAdOverlay(finalUrl,d.brief||{price:pPrice,badge},{}); }catch(_){}
     try{ if(window.formatForPlatform) finalUrl=await window.formatForPlatform(finalUrl,id); }catch(_){}
     d.url=finalUrl;
     genImages[id]=d.url;
