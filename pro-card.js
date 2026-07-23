@@ -426,4 +426,102 @@ window.formatForPlatform = function (url, platform) {
 
     return cv.toDataURL('image/png');
   };
+
+  // ===== HÍBRIDO: overlay de texto+logo por CÓDIGO sobre la escena de la IA ====
+  // La IA entrega solo producto+fondo (sin texto). Acá dibujamos, integrado:
+  // logo arriba, título 2 colores, subtítulo, y abajo checklist + sello + badges.
+  // Texto SIEMPRE perfecto (castellano AR), tipografía y colores de marca.
+  window.composeAdOverlay = async function (aiUrl, brief, opts) {
+    brief = brief || {}; opts = opts || {};
+    if (document.fonts && document.fonts.load) {
+      try { await Promise.all([document.fonts.load('normal 90px Anton'), document.fonts.load('700 30px Inter'), document.fonts.load('800 30px Inter')]); await document.fonts.ready; } catch (_) {}
+    }
+    const base = await loadImgSafe(aiUrl); if (!base) return aiUrl;
+    const logoImg = await loadImgSafe('/logo-uniproveedores.png');
+    const W = base.width, H = base.height, cx = W / 2, pad = Math.round(W * 0.055);
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d'); ctx.textBaseline = 'alphabetic';
+    ctx.drawImage(base, 0, 0, W, H);
+
+    // Scrims (degradés) arriba y abajo para que el texto se lea sobre cualquier fondo.
+    let g = ctx.createLinearGradient(0, 0, 0, H * 0.40);
+    g.addColorStop(0, 'rgba(6,6,6,0.94)'); g.addColorStop(1, 'rgba(6,6,6,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H * 0.40);
+    g = ctx.createLinearGradient(0, H * 0.52, 0, H);
+    g.addColorStop(0, 'rgba(6,6,6,0)'); g.addColorStop(1, 'rgba(6,6,6,0.96)');
+    ctx.fillStyle = g; ctx.fillRect(0, H * 0.52, W, H * 0.48);
+
+    // ---- LOGO integrado arriba-izquierda ----
+    let y = pad;
+    if (logoImg) {
+      const lw = Math.min(W * 0.46, W - pad * 2), lh = lw * (logoImg.height / logoImg.width);
+      ctx.drawImage(logoImg, pad, y, lw, lh); y += lh + Math.round(H * 0.012);
+    }
+
+    // ---- TÍTULO (2 colores, blanco/verde) ----
+    const tl = titleLines((brief.titulo || 'PRODUCTO').toUpperCase().split(/\s+/));
+    let tpx = Math.round(W * 0.11);
+    for (const ln of tl) tpx = Math.min(tpx, fitPx(ctx, ln, 'normal', 'anton', W - pad * 2, tpx, 34));
+    ctx.textAlign = 'left';
+    ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 2;
+    tl.forEach((ln, i) => {
+      setFont(ctx, 'normal', tpx, 'anton');
+      ctx.fillStyle = (tl.length === 2 && i === 1) ? GREEN : WHITE;
+      y += tpx; ctx.fillText(ln, pad, y); y += Math.round(tpx * 0.05);
+    });
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+
+    // ---- Cinta de subtítulo (pastilla verde) ----
+    const sub = (brief.subtitulo || '').trim();
+    if (sub) {
+      setFont(ctx, '800', Math.round(W * 0.032), 'inter');
+      const tw = ctx.measureText(sub.toUpperCase()).width, ph = Math.round(W * 0.055);
+      y += Math.round(H * 0.005);
+      roundRect(ctx, pad, y, tw + Math.round(W * 0.06), ph, 10); ctx.fillStyle = GREEN; ctx.fill();
+      ctx.fillStyle = BLACK; ctx.textAlign = 'left';
+      ctx.fillText(sub.toUpperCase(), pad + Math.round(W * 0.03), y + ph * 0.68);
+      y += ph;
+    }
+
+    // ================= ZONA INFERIOR =================
+    // Checklist (virtudes) con tilde verde, sobre el scrim de abajo.
+    const virt = (Array.isArray(brief.virtudes) && brief.virtudes.length ? brief.virtudes.map(v => v.t || v) : (brief.features || [])).filter(Boolean).slice(0, 4);
+    const priceTxt = (brief.price || '').trim();
+    const badgeTxt = (brief.badge || '').trim();
+    const showSello = badgeTxt && !/sin|ninguno/i.test(badgeTxt);
+
+    // Sello circular abajo-derecha.
+    let listRight = W - pad;
+    if (showSello) {
+      const rr = Math.round(W * 0.13);
+      const bcx = W - pad - rr, bcy = H - pad - rr;
+      ctx.beginPath(); ctx.arc(bcx, bcy, rr, 0, Math.PI * 2);
+      ctx.fillStyle = GREEN; ctx.save(); ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 20; ctx.fill(); ctx.restore();
+      ctx.beginPath(); ctx.arc(bcx, bcy, rr, 0, Math.PI * 2); ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.stroke();
+      ctx.fillStyle = BLACK; ctx.textAlign = 'center';
+      setFont(ctx, '800', Math.round(rr * 0.34), 'inter'); ctx.fillText(badgeTxt.toUpperCase(), bcx, bcy - rr * 0.2);
+      if (priceTxt) { const pt = '$' + priceTxt.replace(/^\$/, ''); let ppx = fitPx(ctx, pt, 'normal', 'anton', rr * 1.5, Math.round(rr * 0.62), 20); setFont(ctx, 'normal', ppx, 'anton'); ctx.fillText(pt, bcx, bcy + rr * 0.42); }
+      listRight = bcx - rr - Math.round(W * 0.03);
+    }
+
+    // Dibujar checklist de abajo hacia arriba.
+    let ly = H - pad - Math.round(H * 0.02);
+    const rowH = Math.round(H * 0.055), icoR = Math.round(W * 0.03);
+    for (let i = virt.length - 1; i >= 0; i--) {
+      const t = String(virt[i]);
+      ctx.beginPath(); ctx.arc(pad + icoR, ly - rowH * 0.3, icoR, 0, Math.PI * 2); ctx.fillStyle = GREEN; ctx.fill();
+      drawIcon(ctx, 'check', pad + icoR, ly - rowH * 0.3, icoR * 0.6, BLACK);
+      ctx.fillStyle = WHITE; ctx.textAlign = 'left';
+      let fpx = fitPx(ctx, t, '700', 'inter', listRight - (pad + icoR * 2 + 18), Math.round(W * 0.036), 18);
+      setFont(ctx, '700', fpx, 'inter');
+      ctx.fillText(t, pad + icoR * 2 + 18, ly - rowH * 0.15);
+      ly -= rowH;
+    }
+
+    return cv.toDataURL('image/png');
+  };
+
+  function loadImgSafe(src) {
+    return new Promise((resolve) => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => resolve(im); im.onerror = () => resolve(null); im.src = src; });
+  }
 })();
