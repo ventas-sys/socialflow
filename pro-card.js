@@ -444,9 +444,10 @@ window.formatForPlatform = function (url, platform) {
     ctx.drawImage(base, 0, 0, W, H);
 
     // Scrims (degradés) arriba y abajo para que el texto se lea sobre cualquier fondo.
-    let g = ctx.createLinearGradient(0, 0, 0, H * 0.40);
-    g.addColorStop(0, 'rgba(6,6,6,0.94)'); g.addColorStop(1, 'rgba(6,6,6,0)');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H * 0.40);
+    // El de arriba es alto y oscuro: la IA deja esa zona vacía para el título.
+    let g = ctx.createLinearGradient(0, 0, 0, H * 0.46);
+    g.addColorStop(0, 'rgba(6,6,6,0.96)'); g.addColorStop(0.7, 'rgba(6,6,6,0.75)'); g.addColorStop(1, 'rgba(6,6,6,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H * 0.46);
     g = ctx.createLinearGradient(0, H * 0.52, 0, H);
     g.addColorStop(0, 'rgba(6,6,6,0)'); g.addColorStop(1, 'rgba(6,6,6,0.96)');
     ctx.fillStyle = g; ctx.fillRect(0, H * 0.52, W, H * 0.48);
