@@ -1,7 +1,21 @@
 # Calculadora de Costos, Margen y Rentabilidad — Mercado Libre Argentina
 
+Hay dos formas de usar esta calculadora: la **herramienta web** (`/calculadora-ml`, en vivo, con datos reales de Mercado Libre) y la **planilla Excel** (offline, para simular varios productos a la vez).
+
+> **Última actualización**: 2026-07-24
+
+## Herramienta web — `/calculadora-ml`
+
+Página `calculadora-ml.html` con dos pestañas:
+
+1. **Por link de publicación**: pegás el link de cualquier publicación de Mercado Libre (propia o de la competencia) + tu costo del producto, y calcula gastos y ganancia **en pesos y en porcentaje**. Usa la [API pública de Mercado Libre](https://developers.mercadolibre.com.ar/) para traer precio, categoría, tipo de publicación, envío gratis/Full y reputación del vendedor reales, y la comisión exacta vía `sites/MLA/listing_prices` (si esa consulta falla, cae a la comisión estimada de la planilla).
+2. **Por artículo**: describís un producto + precio estimado, y detecta la **categoría sugerida** (endpoint público `category_predictor`) y calcula el margen/rentabilidad posible con esa categoría.
+
+Backend: `api/ml/costos-item.js`, `api/ml/costos-articulo.js`, lógica compartida en `lib/ml/costos.js` (mismos supuestos que la hoja "Parámetros" de la planilla — mantenerlos sincronizados si cambian las tarifas).
+
+## Planilla Excel
+
 > **Archivo**: [`recursos/Calculadora-Costos-Rentabilidad-MercadoLibre-Argentina.xlsx`](../recursos/Calculadora-Costos-Rentabilidad-MercadoLibre-Argentina.xlsx)
-> **Última actualización**: 2026-07-23
 
 Planilla Excel (compatible con Google Sheets) para calcular cuánto cobra Mercado Libre por vender en Argentina y qué margen/rentabilidad real deja cada producto, cubriendo las 4 combinaciones típicas de venta:
 
