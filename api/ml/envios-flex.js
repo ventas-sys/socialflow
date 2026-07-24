@@ -1,4 +1,4 @@
-import { httpRequest, cors } from '../_http.js';
+import { httpRequest, cors } from '../../lib/http.js';
 
 async function fetchAllOrders(token, userId, from, to) {
   const headers = { 'Authorization': 'Bearer ' + token };

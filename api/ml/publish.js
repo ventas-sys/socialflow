@@ -1,4 +1,4 @@
-import { httpRequest, cors } from '../_http.js';
+import { httpRequest, cors } from '../../lib/http.js';
 
 export default async function handler(req, res) {
   cors(res);

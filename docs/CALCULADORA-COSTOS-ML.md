@@ -11,7 +11,7 @@ Página `calculadora-ml.html` con dos pestañas:
 1. **Por link de publicación**: pegás el link de cualquier publicación de Mercado Libre (propia o de la competencia) + tu costo del producto, y calcula gastos y ganancia **en pesos y en porcentaje**. Usa la [API pública de Mercado Libre](https://developers.mercadolibre.com.ar/) para traer precio, categoría, tipo de publicación, envío gratis/Full y reputación del vendedor reales, y la comisión exacta vía `sites/MLA/listing_prices` (si esa consulta falla, cae a la comisión estimada de la planilla).
 2. **Por artículo**: describís un producto + precio estimado, y detecta la **categoría sugerida** (endpoint público `category_predictor`) y calcula el margen/rentabilidad posible con esa categoría.
 
-Backend: `api/ml/costos-item.js`, `api/ml/costos-articulo.js`, lógica compartida en `lib/ml/costos.js` (mismos supuestos que la hoja "Parámetros" de la planilla — mantenerlos sincronizados si cambian las tarifas).
+Backend: un único endpoint `api/ml/costos.js` (`mode: 'item'` o `mode: 'articulo'`, para no pasarse del límite de funciones serverless del plan Hobby de Vercel) con la lógica de costos en `lib/ml/costos.js` (mismos supuestos que la hoja "Parámetros" de la planilla — mantenerlos sincronizados si cambian las tarifas). El helper HTTP compartido vive en `lib/http.js` (antes `api/_http.js`) por el mismo motivo: solo los archivos bajo `api/` que son endpoints reales cuentan para ese límite.
 
 ## Planilla Excel
 

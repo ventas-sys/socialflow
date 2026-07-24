@@ -1,5 +1,5 @@
 import https from 'node:https';
-import { httpRequest, cors } from '../_http.js';
+import { httpRequest, cors } from '../../lib/http.js';
 
 // GET que devuelve el CUERPO COMPLETO (texto), siguiendo redirects, con
 // User-Agent de navegador. Sirve para "scrapear" una página propia (ej. la

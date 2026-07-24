@@ -212,9 +212,9 @@ async function calcularPorLink(){
   out.innerHTML = '<div class="loading"><span class="spinner"></span>Buscando la publicación y calculando costos...</div>';
 
   try {
-    const r = await fetch('/api/ml/costos-item', {
+    const r = await fetch('/api/ml/costos', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ url, cost, otherCosts, condicionFiscal, installments })
+      body: JSON.stringify({ mode:'item', url, cost, otherCosts, condicionFiscal, installments })
     });
     const d = await r.json();
     if(!d.ok) throw new Error(d.error || 'No se pudo calcular');
@@ -262,9 +262,9 @@ async function calcularPorArticulo(){
   out.innerHTML = '<div class="loading"><span class="spinner"></span>Detectando categoría en Mercado Libre y calculando margen...</div>';
 
   try {
-    const r = await fetch('/api/ml/costos-articulo', {
+    const r = await fetch('/api/ml/costos', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ titulo, price, cost, otherCosts, weight, full, freeShipping, reputation, condicionFiscal, installments, tipoPublicacion })
+      body: JSON.stringify({ mode:'articulo', titulo, price, cost, otherCosts, weight, full, freeShipping, reputation, condicionFiscal, installments, tipoPublicacion })
     });
     const d = await r.json();
     if(!d.ok) throw new Error(d.error || 'No se pudo calcular');
