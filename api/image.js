@@ -23,7 +23,17 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { platform, productName, price, badge, photoDesc, mlDesc, briefOnly, quality, photoB64, photoMime } = req.body || {};
+  const { platform, productName, price, badge, photoDesc, mlDesc, briefOnly, quality, action, photoB64, photoMime } = req.body || {};
+
+  // --- VIDEO (Veo, imagen->video): mismo endpoint para no pasar el límite de
+  // funciones serverless de Vercel. action='video-start' | 'video-poll'.
+  if (action === 'video-start' || action === 'video-poll') {
+    const GKv = (process.env.GEMINI_API_KEY || '').trim();
+    if (!GKv) return res.status(500).json({ error: 'Falta GEMINI_API_KEY' });
+    if (action === 'video-poll') return await veoPoll(res, GKv, req.body.operation);
+    return await veoStart(res, GKv, req.body);
+  }
+
   const q = (['high', 'medium', 'low'].includes(quality)) ? quality : 'high';
   const OK = (process.env.OPENAI_API_KEY || '').trim();
   const GK = (process.env.GEMINI_API_KEY || '').trim();
@@ -371,5 +381,89 @@ function geminiCall(res, GK, path, body, kind, note) {
     r.on('error', (e) => { res.status(500).json({ error: 'Request error: ' + e.message }); resolve(); });
     r.setTimeout(60000, () => { r.destroy(); res.status(500).json({ error: 'Timeout 60s generando imagen' }); resolve(); });
     r.write(body); r.end();
+  });
+}
+
+// ============================================================================
+// VIDEO con Google Veo (imagen->video, asíncrono). ~8s por clip (máx de Veo 3).
+// Costo aparte por segundo (cuenta de Google del proyecto).
+// ============================================================================
+const VEO_MODEL = 'veo-3.0-generate-001';
+const VEO_HOST = 'generativelanguage.googleapis.com';
+
+function veoStart(res, GK, body) {
+  const { imageB64, imageMime, prompt, aspectRatio } = body || {};
+  if (!imageB64) { res.status(400).json({ error: 'Falta la imagen del cartel' }); return Promise.resolve(); }
+  const ar = (aspectRatio === '16:9') ? '16:9' : '9:16';
+  const reqBody = JSON.stringify({
+    instances: [{
+      prompt: prompt || 'Camara fija. Zoom in lento y sutil hacia el producto, destellos metalicos, pequenas particulas de polvo flotando en la luz. El texto y el logo quedan quietos y nitidos. Estilo publicitario premium.',
+      image: { bytesBase64Encoded: imageB64, mimeType: imageMime || 'image/png' },
+    }],
+    parameters: { aspectRatio: ar, personGeneration: 'allow_adult' },
+  });
+  return veoHttp(res, { host: VEO_HOST, path: `/v1beta/models/${VEO_MODEL}:predictLongRunning?key=${GK}`, method: 'POST', body: reqBody }, (parsed, raw) => {
+    if (parsed?.error) return res.status(500).json({ error: parsed.error.message || 'Veo error' });
+    if (!parsed?.name) return res.status(500).json({ error: 'Veo sin operation: ' + raw.slice(0, 200) });
+    return res.status(200).json({ ok: true, operation: parsed.name });
+  });
+}
+
+function veoPoll(res, GK, operation) {
+  if (!operation) { res.status(400).json({ error: 'Falta operation' }); return Promise.resolve(); }
+  const path = '/v1beta/' + String(operation).replace(/^\/+/, '') + `?key=${GK}`;
+  return veoHttp(res, { host: VEO_HOST, path, method: 'GET' }, async (parsed, raw) => {
+    if (parsed?.error) return res.status(500).json({ error: parsed.error.message || 'Veo poll error' });
+    if (!parsed?.done) return res.status(200).json({ done: false });
+    const r = parsed.response || {};
+    const uri =
+      r?.generateVideoResponse?.generatedSamples?.[0]?.video?.uri ||
+      r?.generatedVideos?.[0]?.video?.uri ||
+      r?.generateVideoResponse?.generatedVideos?.[0]?.video?.uri ||
+      r?.videos?.[0]?.uri || null;
+    if (!uri) return res.status(500).json({ error: 'Video listo pero sin URI: ' + JSON.stringify(r).slice(0, 300) });
+    try {
+      const dataUrl = await veoDownload(uri, GK);
+      return res.status(200).json({ done: true, url: dataUrl });
+    } catch (e) {
+      return res.status(200).json({ done: true, uri, warn: e.message });
+    }
+  });
+}
+
+function veoDownload(uri, GK, redirects = 5) {
+  return new Promise((resolve, reject) => {
+    let u; try { u = new URL(uri); } catch { return reject(new Error('URI invalida')); }
+    if (!u.searchParams.get('key')) u.searchParams.set('key', GK);
+    const r = https.request({ hostname: u.hostname, path: u.pathname + (u.search || ''), method: 'GET', headers: { 'x-goog-api-key': GK } }, (resp) => {
+      if ([301, 302, 303, 307, 308].includes(resp.statusCode) && resp.headers.location && redirects > 0) {
+        resp.resume(); return resolve(veoDownload(new URL(resp.headers.location, uri).href, GK, redirects - 1));
+      }
+      if (resp.statusCode !== 200) { resp.resume(); return reject(new Error('HTTP ' + resp.statusCode)); }
+      const chunks = []; resp.on('data', c => chunks.push(c));
+      resp.on('end', () => resolve('data:' + (resp.headers['content-type'] || 'video/mp4') + ';base64,' + Buffer.concat(chunks).toString('base64')));
+    });
+    r.on('error', reject);
+    r.setTimeout(55000, () => { r.destroy(); reject(new Error('Timeout bajando el video')); });
+    r.end();
+  });
+}
+
+function veoHttp(res, { host, path, method, body }, onOk) {
+  return new Promise((resolve) => {
+    const headers = { 'Content-Type': 'application/json' };
+    if (body) headers['Content-Length'] = Buffer.byteLength(body);
+    const r = https.request({ hostname: host, path, method, headers }, (resp) => {
+      let data = ''; resp.on('data', c => data += c);
+      resp.on('end', async () => {
+        let parsed = {}; try { parsed = JSON.parse(data); } catch {}
+        try { await onOk(parsed, data); } catch (e) { res.status(500).json({ error: e.message }); }
+        resolve();
+      });
+    });
+    r.on('error', (e) => { res.status(500).json({ error: 'Request error: ' + e.message }); resolve(); });
+    r.setTimeout(58000, () => { r.destroy(); res.status(500).json({ error: 'Timeout Veo' }); resolve(); });
+    if (body) r.write(body);
+    r.end();
   });
 }
