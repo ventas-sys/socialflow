@@ -438,31 +438,37 @@ window.formatForPlatform = function (url, platform) {
     }
     const base = await loadImgSafe(aiUrl); if (!base) return aiUrl;
     const logoImg = await loadImgSafe('/logo-uniproveedores.png');
-    const W = base.width, H = base.height, cx = W / 2, pad = Math.round(W * 0.055);
+    const W = base.width, H = base.height, cx = W / 2, pad = Math.round(Math.min(W, H) * 0.05);
+    // S = lado corto -> los TAMAÑOS (fuentes, radios) se basan en S para que
+    // funcione igual en vertical, cuadrado y horizontal.
+    const S = Math.min(W, H);
+    const vertical = H >= W * 1.1;
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     const ctx = cv.getContext('2d'); ctx.textBaseline = 'alphabetic';
     ctx.drawImage(base, 0, 0, W, H);
 
-    // Scrims (degradés) arriba y abajo para que el texto se lea sobre cualquier fondo.
-    // El de arriba es alto y oscuro: la IA deja esa zona vacía para el título.
-    let g = ctx.createLinearGradient(0, 0, 0, H * 0.46);
-    g.addColorStop(0, 'rgba(6,6,6,0.96)'); g.addColorStop(0.7, 'rgba(6,6,6,0.75)'); g.addColorStop(1, 'rgba(6,6,6,0)');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H * 0.46);
-    g = ctx.createLinearGradient(0, H * 0.52, 0, H);
+    // Scrims adaptativos: en vertical son altos; en horizontal/cuadrado, más chicos
+    // para no tapar el producto (que va en la mitad de abajo).
+    const topH = (vertical ? 0.46 : 0.34) * H;
+    const botY = (vertical ? 0.52 : 0.58) * H;
+    let g = ctx.createLinearGradient(0, 0, 0, topH);
+    g.addColorStop(0, 'rgba(6,6,6,0.96)'); g.addColorStop(0.7, 'rgba(6,6,6,0.72)'); g.addColorStop(1, 'rgba(6,6,6,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, topH);
+    g = ctx.createLinearGradient(0, botY, 0, H);
     g.addColorStop(0, 'rgba(6,6,6,0)'); g.addColorStop(1, 'rgba(6,6,6,0.96)');
-    ctx.fillStyle = g; ctx.fillRect(0, H * 0.52, W, H * 0.48);
+    ctx.fillStyle = g; ctx.fillRect(0, botY, W, H - botY);
 
     // ---- LOGO integrado arriba-izquierda ----
     let y = pad;
     if (logoImg) {
-      const lw = Math.min(W * 0.46, W - pad * 2), lh = lw * (logoImg.height / logoImg.width);
-      ctx.drawImage(logoImg, pad, y, lw, lh); y += lh + Math.round(H * 0.012);
+      const lw = Math.min(S * 0.42, W - pad * 2), lh = lw * (logoImg.height / logoImg.width);
+      ctx.drawImage(logoImg, pad, y, lw, lh); y += lh + Math.round(S * 0.014);
     }
 
     // ---- TÍTULO (2 colores, blanco/verde) ----
     const tl = titleLines((brief.titulo || 'PRODUCTO').toUpperCase().split(/\s+/));
-    let tpx = Math.round(W * 0.11);
-    for (const ln of tl) tpx = Math.min(tpx, fitPx(ctx, ln, 'normal', 'anton', W - pad * 2, tpx, 34));
+    let tpx = Math.round(S * 0.10);
+    for (const ln of tl) tpx = Math.min(tpx, fitPx(ctx, ln, 'normal', 'anton', W - pad * 2, tpx, 30));
     ctx.textAlign = 'left';
     ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 2;
     tl.forEach((ln, i) => {
@@ -475,12 +481,13 @@ window.formatForPlatform = function (url, platform) {
     // ---- Cinta de subtítulo (pastilla verde) ----
     const sub = (brief.subtitulo || '').trim();
     if (sub) {
-      setFont(ctx, '800', Math.round(W * 0.032), 'inter');
-      const tw = ctx.measureText(sub.toUpperCase()).width, ph = Math.round(W * 0.055);
-      y += Math.round(H * 0.005);
-      roundRect(ctx, pad, y, tw + Math.round(W * 0.06), ph, 10); ctx.fillStyle = GREEN; ctx.fill();
+      let sfx = fitPx(ctx, sub.toUpperCase(), '800', 'inter', W - pad * 2 - Math.round(S * 0.06), Math.round(S * 0.032), 14);
+      setFont(ctx, '800', sfx, 'inter');
+      const tw = ctx.measureText(sub.toUpperCase()).width, ph = Math.round(S * 0.05);
+      y += Math.round(S * 0.008);
+      roundRect(ctx, pad, y, tw + Math.round(S * 0.055), ph, 10); ctx.fillStyle = GREEN; ctx.fill();
       ctx.fillStyle = BLACK; ctx.textAlign = 'left';
-      ctx.fillText(sub.toUpperCase(), pad + Math.round(W * 0.03), y + ph * 0.68);
+      ctx.fillText(sub.toUpperCase(), pad + Math.round(S * 0.028), y + ph * 0.68);
       y += ph;
     }
 
@@ -494,7 +501,7 @@ window.formatForPlatform = function (url, platform) {
     // Sello circular abajo-derecha.
     let listRight = W - pad;
     if (showSello) {
-      const rr = Math.round(W * 0.13);
+      const rr = Math.round(S * 0.12);
       const bcx = W - pad - rr, bcy = H - pad - rr;
       ctx.beginPath(); ctx.arc(bcx, bcy, rr, 0, Math.PI * 2);
       ctx.fillStyle = GREEN; ctx.save(); ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 20; ctx.fill(); ctx.restore();
@@ -502,18 +509,18 @@ window.formatForPlatform = function (url, platform) {
       ctx.fillStyle = BLACK; ctx.textAlign = 'center';
       setFont(ctx, '800', Math.round(rr * 0.34), 'inter'); ctx.fillText(badgeTxt.toUpperCase(), bcx, bcy - rr * 0.2);
       if (priceTxt) { const pt = '$' + priceTxt.replace(/^\$/, ''); let ppx = fitPx(ctx, pt, 'normal', 'anton', rr * 1.5, Math.round(rr * 0.62), 20); setFont(ctx, 'normal', ppx, 'anton'); ctx.fillText(pt, bcx, bcy + rr * 0.42); }
-      listRight = bcx - rr - Math.round(W * 0.03);
+      listRight = bcx - rr - Math.round(S * 0.03);
     }
 
     // Dibujar checklist de abajo hacia arriba.
-    let ly = H - pad - Math.round(H * 0.02);
-    const rowH = Math.round(H * 0.055), icoR = Math.round(W * 0.03);
+    let ly = H - pad - Math.round(S * 0.02);
+    const rowH = Math.round(S * 0.052), icoR = Math.round(S * 0.028);
     for (let i = virt.length - 1; i >= 0; i--) {
       const t = String(virt[i]);
       ctx.beginPath(); ctx.arc(pad + icoR, ly - rowH * 0.3, icoR, 0, Math.PI * 2); ctx.fillStyle = GREEN; ctx.fill();
       drawIcon(ctx, 'check', pad + icoR, ly - rowH * 0.3, icoR * 0.6, BLACK);
       ctx.fillStyle = WHITE; ctx.textAlign = 'left';
-      let fpx = fitPx(ctx, t, '700', 'inter', listRight - (pad + icoR * 2 + 18), Math.round(W * 0.036), 18);
+      let fpx = fitPx(ctx, t, '700', 'inter', listRight - (pad + icoR * 2 + 18), Math.round(S * 0.034), 16);
       setFont(ctx, '700', fpx, 'inter');
       ctx.fillText(t, pad + icoR * 2 + 18, ly - rowH * 0.15);
       ly -= rowH;
