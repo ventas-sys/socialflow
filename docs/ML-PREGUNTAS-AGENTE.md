@@ -76,6 +76,38 @@ Responder cada pregunta de ML en **< 30 segundos**, con coherencia, en tono de
 - **Lunes:** tokens/OAuth de **las 2 cuentas** de Mercado Libre.
 - **Listado por cuenta** de preguntas frecuentes + respuestas actuales (para entrenar el estilo).
 
+## 🔌 CÓMO CONECTAR (lunes) — todo el código ya está listo
+Código ya escrito y probado (sintaxis): `api/ml/questions.js` + `lib/ml/qa-config.js`,
+`lib/ml/ml-api.js`, `lib/ml/qa-brain.js`. Corre como **función de Vercel** (webhook <30s).
+
+**Paso 1 — Cargar las 2 cuentas** en Vercel → Settings → Environment Variables →
+variable **`ML_ACCOUNTS`** con este JSON (en una línea):
+```json
+[{"label":"full","mode":"full","user_id":123456,"client_id":"...","client_secret":"...","refresh_token":"..."},{"label":"local","mode":"local","user_id":789012,"client_id":"...","client_secret":"...","refresh_token":"..."}]
+```
+- `refresh_token`, `client_id`, `client_secret`, `user_id` salen del OAuth de cada cuenta
+  (el flujo que ya existe en `/conexiones`). `GEMINI_API_KEY` ya está.
+- Redeploy.
+
+**Paso 2 — Probar (sin webhook todavía):**
+- `POST /api/ml/questions?action=test` → debe listar las 2 cuentas.
+- `POST /api/ml/questions?action=unanswered` body `{"account":"full"}` → preguntas sin responder.
+- `POST /api/ml/questions?action=answer` body `{"account":"full","question_id":123,"autopost":false}`
+  → genera la respuesta SIN postear (para revisar el tono). Con `"autopost":true` la publica.
+
+**Paso 3 — Activar el <30s (webhook de ML):**
+- En la app de ML (DevCenter) → Notificaciones → **URL de callback:**
+  `https://socialflow-flax.vercel.app/api/ml/questions` → topic **`questions`**.
+- Listo: cada pregunta nueva se responde sola. (El `middleware.js` ya deja pasar esa ruta
+  sin la contraseña del sitio.)
+
+**Paso 4 — Entrenar el estilo:** cargar el listado de Q&A del cliente en `qa-brain.js`
+(few-shot) para afinar el cierre de venta.
+
+> Nota técnica: en v1 el webhook procesa y responde 200 (unos segundos, dentro de los 30).
+> La idempotencia está garantizada porque solo se responde si la pregunta sigue `UNANSWERED`
+> (ML permite una sola respuesta). Para alto volumen, más adelante se puede pasar a cola/VPS.
+
 ## ⚠️ Nota de cumplimiento
 Todo lo público en ML respeta las políticas: precio igual dentro/fuera, sin venta externa,
 sin pedir contacto por afuera. El retiro por local se ofrece **vía Mercado Libre**.
