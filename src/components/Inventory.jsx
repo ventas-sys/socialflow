@@ -81,6 +81,7 @@ export default function Inventory({
   const [importResult, setImportResult] = useState('')
   const [purchasing, setPurchasing] = useState(false)
   const [purchaseResult, setPurchaseResult] = useState('')
+  const [purchasePreview, setPurchasePreview] = useState(null)
   const fileInputRef = useRef(null)
   const purchaseInputRef = useRef(null)
   const photoInputRef = useRef(null)
@@ -404,12 +405,13 @@ export default function Inventory({
     )
   }
 
+  // Lee el Excel y arma la VISTA PREVIA (no aplica nada todavía)
   const handlePurchaseFile = async (e) => {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    setPurchasing(true)
     setPurchaseResult('')
+    setPurchasePreview(null)
     try {
       const buffer = await file.arrayBuffer()
       const wb = XLSX.read(buffer)
@@ -419,6 +421,8 @@ export default function Inventory({
         setPurchaseResult('⚠️ El archivo está vacío.')
         return
       }
+      // Agrupar por producto (sumar cantidades del mismo producto)
+      const byProduct = new Map()
       const rows = []
       const notFound = new Set()
       let reference = ''
@@ -431,11 +435,14 @@ export default function Inventory({
         if (o.reference && !reference) reference = String(o.reference).trim()
         const refCode = o.ref !== undefined ? String(o.ref).trim() : ''
         const qty = Math.round(parseNumber(o.qty))
-        // positivo = suma stock (compra); negativo = descuenta (ajuste). 0 se ignora.
         if (!refCode || qty === 0) return
         const p = findByRef(refCode)
         if (!p) { notFound.add(refCode); return }
         rows.push({ productId: p.id, productName: p.name, quantity: qty })
+        if (!byProduct.has(p.id)) {
+          byProduct.set(p.id, { productName: p.name, code: refCode, current: p.quantity || 0, delta: 0 })
+        }
+        byProduct.get(p.id).delta += qty
       })
       if (!rows.length) {
         if (notFound.size > 0) {
@@ -453,14 +460,29 @@ export default function Inventory({
         }
         return
       }
-      const result = await onPurchase(rows, { reference })
-      setPurchaseResult(
-        `✅ Listo: ${result.entradas} entradas (+) y ${result.salidas} salidas (−) ` +
-        `sobre ${result.updated} productos.` +
-        (notFound.size ? ` No se encontraron: ${[...notFound].slice(0, 5).join(', ')}${notFound.size > 5 ? '…' : ''}.` : '')
-      )
+      setPurchasePreview({
+        rows,
+        reference,
+        lines: [...byProduct.values()],
+        notFound: [...notFound],
+      })
     } catch (err) {
-      setPurchaseResult('❌ Error al cargar la compra: ' + err.message)
+      setPurchaseResult('❌ Error al leer el archivo: ' + err.message)
+    }
+  }
+
+  const confirmPurchase = async () => {
+    if (!purchasePreview) return
+    setPurchasing(true)
+    try {
+      const result = await onPurchase(purchasePreview.rows, { reference: purchasePreview.reference })
+      setPurchaseResult(
+        `✅ Aplicado: ${result.entradas} entradas (+) y ${result.salidas} salidas (−) ` +
+        `sobre ${result.updated} productos.`
+      )
+      setPurchasePreview(null)
+    } catch (err) {
+      setPurchaseResult('❌ Error al aplicar: ' + err.message)
     } finally {
       setPurchasing(false)
     }
@@ -665,6 +687,61 @@ export default function Inventory({
               ⬇️ Descargar plantilla de compra
             </button>
           )}
+        </div>
+      )}
+
+      {purchasePreview && (
+        <div className="purchase-preview">
+          <div className="pp-header">
+            <h3>Revisá antes de aplicar</h3>
+            {purchasePreview.reference && (
+              <span className="pp-ref">Ref: {purchasePreview.reference}</span>
+            )}
+          </div>
+          <p className="pp-note">
+            Se va a ajustar el stock de <strong>{purchasePreview.lines.length} productos</strong>.
+            Verificá que sean los correctos y confirmá.
+          </p>
+          <div className="pp-table-wrap">
+            <table className="pp-table">
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Producto</th>
+                  <th>Stock actual</th>
+                  <th>Cambio</th>
+                  <th>Stock nuevo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {purchasePreview.lines.map((l, i) => (
+                  <tr key={i}>
+                    <td className="pp-code">{l.code}</td>
+                    <td>{l.productName}</td>
+                    <td>{l.current}</td>
+                    <td className={l.delta >= 0 ? 'pp-plus' : 'pp-minus'}>
+                      {l.delta >= 0 ? `+${l.delta}` : l.delta}
+                    </td>
+                    <td className="pp-new">{l.current + l.delta}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {purchasePreview.notFound.length > 0 && (
+            <p className="pp-notfound">
+              ⚠️ No se encontraron (se ignoran): {purchasePreview.notFound.slice(0, 10).join(', ')}
+              {purchasePreview.notFound.length > 10 ? '…' : ''}
+            </p>
+          )}
+          <div className="pp-actions">
+            <button className="btn-primary" onClick={confirmPurchase} disabled={purchasing}>
+              {purchasing ? '⏳ Aplicando...' : `✓ Confirmar y aplicar (${purchasePreview.lines.length})`}
+            </button>
+            <button className="btn-secondary" onClick={() => setPurchasePreview(null)} disabled={purchasing}>
+              Cancelar
+            </button>
+          </div>
         </div>
       )}
 
