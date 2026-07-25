@@ -40,8 +40,10 @@ const COLUMN_MAP = {
 // Columnas del Excel de compra (identifica el producto + cantidad comprada)
 const PURCHASE_COLS = {
   sku: 'ref', codigo: 'ref', code: 'ref', producto: 'ref',
+  'sku o codigo': 'ref', 'codigo o sku': 'ref', 'sku / codigo': 'ref',
   'codigo de barras': 'ref', barcode: 'ref', ean: 'ref', 'codigo (armado p)': 'ref',
   cantidad: 'qty', 'cantidad comprada': 'qty', qty: 'qty', unidades: 'qty', comprado: 'qty', cant: 'qty',
+  'armado s': 'qty', ajuste: 'qty',
   factura: 'reference', remito: 'reference', referencia: 'reference', comprobante: 'reference', 'nro factura': 'reference',
 }
 
@@ -436,11 +438,19 @@ export default function Inventory({
         rows.push({ productId: p.id, productName: p.name, quantity: qty })
       })
       if (!rows.length) {
-        setPurchaseResult(
-          '⚠️ No se pudo cargar la compra. El archivo debe tener una columna con el ' +
-          'SKU o código de barras del producto y otra con la Cantidad comprada. ' +
-          'Descargá la plantilla de compra para ver el formato.'
-        )
+        if (notFound.size > 0) {
+          setPurchaseResult(
+            `⚠️ Ninguno de los códigos existe en tu inventario. Revisá que el SKU o ` +
+            `código de barras coincida con un producto ya cargado. Ejemplos que no se ` +
+            `encontraron: ${[...notFound].slice(0, 8).join(', ')}${notFound.size > 8 ? '…' : ''}.`
+          )
+        } else {
+          setPurchaseResult(
+            '⚠️ No se pudo cargar la compra. El archivo debe tener una columna con el ' +
+            'SKU o código de barras del producto y otra con la Cantidad. ' +
+            'Descargá la plantilla de compra para ver el formato.'
+          )
+        }
         return
       }
       const result = await onPurchase(rows, { reference })
