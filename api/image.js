@@ -27,9 +27,10 @@ export default async function handler(req, res) {
 
   // --- VIDEO (Veo, imagen->video): mismo endpoint para no pasar el límite de
   // funciones serverless de Vercel. action='video-start' | 'video-poll'.
-  if (action === 'video-start' || action === 'video-poll') {
+  if (action === 'video-start' || action === 'video-poll' || action === 'video-models') {
     const GKv = (process.env.GEMINI_API_KEY || '').trim();
     if (!GKv) return res.status(500).json({ error: 'Falta GEMINI_API_KEY' });
+    if (action === 'video-models') return await veoListModels(res, GKv);
     if (action === 'video-poll') return await veoPoll(res, GKv, req.body.operation);
     return await veoStart(res, GKv, req.body);
   }
@@ -388,12 +389,42 @@ function geminiCall(res, GK, path, body, kind, note) {
 // VIDEO con Google Veo (imagen->video, asíncrono). ~8s por clip (máx de Veo 3).
 // Costo aparte por segundo (cuenta de Google del proyecto).
 // ============================================================================
-const VEO_MODEL = 'veo-3.0-generate-001';
 const VEO_HOST = 'generativelanguage.googleapis.com';
+// Candidatos de modelo Veo (el que exista con la clave se usa; el 1º que ande).
+const VEO_MODELS = [
+  'veo-3.1-generate-preview',
+  'veo-3.1-fast-generate-preview',
+  'veo-3.0-generate-preview',
+  'veo-3.0-fast-generate-preview',
+  'veo-3.0-generate-001',
+  'veo-2.0-generate-001',
+];
 
-function veoStart(res, GK, body) {
+// Request JSON simple (promisificado) contra generativelanguage.
+function veoReq(GK, path, method, body) {
+  return new Promise((resolve) => {
+    const headers = { 'Content-Type': 'application/json' };
+    if (body) headers['Content-Length'] = Buffer.byteLength(body);
+    const r = https.request({ hostname: VEO_HOST, path, method, headers }, (resp) => {
+      let data = ''; resp.on('data', c => data += c);
+      resp.on('end', () => { let parsed = {}; try { parsed = JSON.parse(data); } catch {} resolve({ status: resp.statusCode, parsed, raw: data }); });
+    });
+    r.on('error', (e) => resolve({ status: 0, parsed: { error: { message: 'Request error: ' + e.message } }, raw: '' }));
+    r.setTimeout(58000, () => { r.destroy(); resolve({ status: 0, parsed: { error: { message: 'Timeout Veo' } }, raw: '' }); });
+    if (body) r.write(body); r.end();
+  });
+}
+
+// Diagnóstico: lista los modelos Veo disponibles con la clave.
+async function veoListModels(res, GK) {
+  const { parsed } = await veoReq(GK, `/v1beta/models?key=${GK}&pageSize=200`, 'GET');
+  const veo = (parsed?.models || []).filter(m => /veo/i.test(m.name)).map(m => ({ name: m.name, methods: m.supportedGenerationMethods }));
+  return res.status(200).json({ ok: true, veo });
+}
+
+async function veoStart(res, GK, body) {
   const { imageB64, imageMime, prompt, aspectRatio } = body || {};
-  if (!imageB64) { res.status(400).json({ error: 'Falta la imagen del cartel' }); return Promise.resolve(); }
+  if (!imageB64) return res.status(400).json({ error: 'Falta la imagen del cartel' });
   const ar = (aspectRatio === '16:9') ? '16:9' : '9:16';
   const reqBody = JSON.stringify({
     instances: [{
@@ -402,11 +433,18 @@ function veoStart(res, GK, body) {
     }],
     parameters: { aspectRatio: ar, personGeneration: 'allow_adult' },
   });
-  return veoHttp(res, { host: VEO_HOST, path: `/v1beta/models/${VEO_MODEL}:predictLongRunning?key=${GK}`, method: 'POST', body: reqBody }, (parsed, raw) => {
-    if (parsed?.error) return res.status(500).json({ error: parsed.error.message || 'Veo error' });
-    if (!parsed?.name) return res.status(500).json({ error: 'Veo sin operation: ' + raw.slice(0, 200) });
-    return res.status(200).json({ ok: true, operation: parsed.name });
-  });
+  let lastErr = '';
+  for (const m of VEO_MODELS) {
+    const { parsed, raw } = await veoReq(GK, `/v1beta/models/${m}:predictLongRunning?key=${GK}`, 'POST', reqBody);
+    if (parsed?.name) return res.status(200).json({ ok: true, operation: parsed.name, model: m });
+    const msg = parsed?.error?.message || (raw || '').slice(0, 160);
+    lastErr = msg;
+    // Si es que ese modelo no existe/no soporta el método -> probar el siguiente.
+    if (/not found|not supported|does not exist|NOT_FOUND|unsupported/i.test(msg)) continue;
+    // Otro error (permiso, facturación, cuota) -> cortar y reportarlo.
+    return res.status(500).json({ error: 'Veo: ' + msg });
+  }
+  return res.status(500).json({ error: 'Ningún modelo Veo disponible con tu clave/proyecto. Último error: ' + lastErr });
 }
 
 function veoPoll(res, GK, operation) {
