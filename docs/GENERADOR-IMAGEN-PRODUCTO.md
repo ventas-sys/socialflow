@@ -1,7 +1,70 @@
 # Generador de imagen del producto (cartel publicitario)
 
 Memoria del estado del generador de imágenes del panel (`social.html` → botón
-**🎨 Imagen IA** → `api/image.js`). Última actualización: 2026-07-08.
+**🎨 Cartel IA** → `api/image.js`). Última actualización: 2026-07-08.
+
+---
+## ✅ ESTADO FINAL (2026-07-25) — imagen 9/10 + video
+
+**Cómo funciona el Cartel IA hoy (HÍBRIDO, la solución que quedó bien):**
+1. **Gemini texto** (`geminiBrief`) lee la foto real + la descripción de ML y
+   arma el brief: producto, título, subtítulo/medida, gancho, tipo (hexágono),
+   materiales, 3+ virtudes con descripción, usos, sello.
+2. **gpt-image-1** genera SOLO el producto + escena cinematográfica **SIN texto
+   ni logo** (`buildScenePrompt`), con el producto en la mitad de abajo y la
+   franja de arriba despejada. Calidad **alta**, con **reintento automático a
+   media** si Vercel corta por los 60s (front, `quality`).
+3. El front dibuja por CÓDIGO, integrado, ENCIMA de la escena
+   (`window.composeAdOverlay` en `pro-card.js`): scrims arriba/abajo, **logo
+   real integrado** arriba-izq, **título 2 colores**, cinta de subtítulo,
+   **checklist con tildes verdes**, y **sello** (OFERTA + precio) abajo-derecha.
+   Texto SIEMPRE perfecto en castellano AR. Overlay **adaptativo** al formato
+   (usa `S=min(W,H)`; scrims más chicos en horizontal/cuadrado).
+4. **Tamaño EXACTO por red** (`window.formatForPlatform`): IG/FB 1080x1350,
+   WA/TK 1080x1920, LinkedIn 1080x1080, X/YT 16:9. No corta el diseño: rellena
+   los bordes con copia desenfocada.
+
+**Por qué el híbrido:** gpt-image-1 escribe MAL el texto chico (gibberish). Al
+dibujar el texto por código se resolvió de raíz. Verificado con **render local**
+(Chromium headless + playwright-core) antes de cada deploy — así dejé de iterar
+a ciegas en la parte de layout/texto/logo.
+
+**Logo:** el PNG real vino 1024x1536 con mucho transparente; se **recortó** a
+883x283 (`lib/brand-logo.js` base64 + `/logo-uniproveedores.png` estático).
+
+**El botón "🏆 Cartel Pro" (canvas puro) se SACÓ** por pedido del cliente
+(la función `genPro` quedó como código muerto inofensivo).
+
+## 🎬 VIDEO (Google Veo) — botón "🎬 Video"
+- Anima el cartel ya generado (imagen→video, ~8s) con **Google Veo**, misma
+  clave `GEMINI_API_KEY`.
+- Integrado DENTRO de `api/image.js` (`action=video-start` | `video-poll`) para
+  no pasar el límite de **12 funciones serverless** de Vercel (quedan 11).
+- **Asíncrono**: start devuelve `operation`; el front hace polling cada 10s
+  (`genVideo` en `social.html`) hasta que termina, baja el mp4 server-side y lo
+  muestra con descarga. Formato 9:16 (o 16:9 en YT/X).
+- El modelo se elige probando una lista (`VEO_MODELS`: veo-3.1-generate-preview,
+  veo-3.1-fast, veo-3.0-…, veo-2.0-…) porque el id exacto varía; `veo-3.0-
+  generate-001` daba "model not found".
+- **Costo por segundo** en la cuenta de Google (avisado en un confirm antes de
+  generar). Necesita facturación activa de Google (ya la tiene).
+
+## Higgsfield (aclaración importante)
+- El cliente pagó **Plus US$49/mes (905 créditos) en higgsfield.ai (web)**.
+- El **conector Higgsfield del chat (MCP) es OTRA cuenta, gratis (4 créditos)** →
+  por eso desde el chat daba "minimum_basic_plan_required". Web y MCP NO comparten
+  créditos.
+- **El panel NO usa Higgsfield**: usa Google Veo. La cuenta Plus web le sirve al
+  cliente para hacer videos manualmente en higgsfield.ai si quiere.
+
+## Pendientes / próximos pasos
+- **Hook + hashtags por red** en el copy (`api/generate.js`) — mejora opcional
+  charlada, no ejecutada aún.
+- **Publicar/Programar en TODAS las redes**: recomendado usar un publicador
+  open-source self-hosted (**Mixpost** o **Postiz**) en el VPS; el panel manda
+  imagen+video+copy y desde ahí se programa. No implementado.
+- Veo: si se quiere 10s reales (Veo da ~8s), evaluar extender el clip.
+---
 
 ## Qué tiene que hacer (pedido del cliente)
 - Partir de la **foto real** del producto y armar un **cartel publicitario**
