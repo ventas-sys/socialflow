@@ -42,13 +42,13 @@ export default async function handler(req, res) {
           if (!info) return res.status(400).json({ error: 'Falta nombre del producto' });
 
   const tips = {
-              ig: 'copy para Instagram con emojis y hasta 10 hashtags relevantes al final. Entre 200 y 400 caracteres.',
-              fb: 'copy amigable para Facebook con precio incluido. Entre 150 y 300 caracteres.',
-              wa: 'copy MUY corto para WhatsApp. Maximo 2 lineas. Incluir precio.',
-              li: 'copy profesional para LinkedIn enfocado en valor. Entre 150 y 280 caracteres.',
-              tw: 'copy conciso para Twitter/X con precio. Maximo 230 caracteres.',
-              tk: 'guion corto para TikTok: hook fuerte en 1er linea, beneficio, CTA. Maximo 150 caracteres. 3-5 hashtags virales al final.',
-              yt: 'contenido para YouTube Shorts. Primera linea: titulo gancho de hasta 70 caracteres. Despues una linea en blanco. Despues: descripcion optimizada con keywords del producto y 3-5 hashtags virales al final tipo #Shorts. Total entre 200 y 350 caracteres.'
+              ig: 'Instagram: HOOK potente en la 1ra linea (frena el scroll), 2-3 lineas de beneficios con emojis, CTA claro. Al final 8-12 hashtags relevantes (mezcla generales del rubro + especificos del producto). 200-400 caracteres (sin contar hashtags).',
+              fb: 'Facebook: HOOK en la 1ra linea, beneficios y precio, CTA. Al final 3-5 hashtags. 150-320 caracteres.',
+              wa: 'WhatsApp: HOOK corto y directo + precio + CTA. Maximo 3 lineas. SIN hashtags (en WhatsApp no se usan).',
+              li: 'LinkedIn: HOOK profesional enfocado en valor/beneficio para el negocio, tono serio pero cercano. 3-4 hashtags profesionales al final. 150-300 caracteres.',
+              tw: 'X/Twitter: HOOK filoso en la 1ra linea + beneficio + precio + CTA. 2-3 hashtags. Maximo 250 caracteres en total.',
+              tk: 'TikTok: HOOK muy fuerte en la 1ra linea, beneficio, CTA. Maximo 150 caracteres. 4-6 hashtags virales al final (#fyp #parati + del rubro).',
+              yt: 'YouTube Shorts: 1ra linea = TITULO gancho de hasta 70 caracteres. Linea en blanco. Despues descripcion con keywords del producto y 3-5 hashtags al final tipo #Shorts. 200-350 caracteres.'
   };
 
   const platNames = { ig: 'Instagram', fb: 'Facebook', wa: 'WhatsApp', li: 'LinkedIn', tw: 'X/Twitter', tk: 'TikTok', yt: 'YouTube Shorts' };
@@ -67,11 +67,16 @@ export default async function handler(req, res) {
                             photoDesc = descData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
               }
 
-            const prompt = `Sos experto en marketing digital argentino. Tono: ${tone}.
-            Genera una copia de venta en espanol para ${platNames[platform]}.
-            Producto: ${info}
-            Requisito: ${tips[platform]}
-            Responde UNICAMENTE con el texto del copy listo para publicar. Sin comillas, sin explicaciones.`;
+            const prompt = `Sos redactor publicitario experto, argentino. Tono: ${tone}.
+            Escribi una copia de VENTA en castellano de Argentina para ${platNames[platform]}.
+            Producto y datos: ${info}
+            Requisito de formato: ${tips[platform]}
+            REGLAS:
+            - Arranca SIEMPRE con un HOOK potente en la primera linea (una frase que frene el scroll: pregunta, dolor, promesa o dato).
+            - Ortografia perfecta, natural, sin sonar a robot. Emojis con moderacion.
+            - Si en los datos hay un link de Mercado Libre, incluilo EXACTAMENTE IGUAL (no lo cambies, acortes ni inventes) con un CTA tipo "Comprá acá 👉".
+            - Cerra con los hashtags que corresponden a la red (si la red no usa hashtags, no pongas).
+            Responde UNICAMENTE con el texto del copy listo para publicar. Sin comillas, sin encabezados, sin explicaciones.`;
 
             const copyData = await makeRequest(GEMINI_URL, {
                           contents: [{ parts: [{ text: prompt }] }],
