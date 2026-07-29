@@ -37,6 +37,14 @@ textarea{resize:vertical;min-height:60px;}
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.15);border-top-color:#ff4444;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px;}
 .steps{font-size:11px;color:#888;line-height:1.7;}
 .steps b{color:#ff9a9a;}
+.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:14px;}
+.vclip{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;}
+.vclip .thumb{width:100%;aspect-ratio:16/9;object-fit:cover;background:#000;}
+.vclip.short .thumb{aspect-ratio:9/16;}
+.vclip .vinfo{padding:9px 11px;flex:1;display:flex;flex-direction:column;gap:6px;}
+.vclip .vt{font-size:12px;color:#ddd;line-height:1.35;font-weight:600;min-height:32px;}
+.vclip .vmeta{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#ff8080;display:flex;justify-content:space-between;gap:6px;}
+.vclip a.vlink{margin-top:auto;text-align:center;background:linear-gradient(135deg,#ff2d2d,#c40000);color:#fff;padding:7px;border-radius:7px;text-decoration:none;font-size:12px;font-weight:700;}
 @keyframes spin{to{transform:rotate(360deg);}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
 #notif{position:fixed;top:16px;right:16px;z-index:9999;background:rgba(10,10,22,0.97);border:1px solid rgba(255,0,0,0.45);border-radius:10px;padding:11px 16px;font-size:13px;color:#ff6b6b;display:none;box-shadow:0 4px 20px rgba(0,0,0,0.5);}
@@ -51,6 +59,14 @@ textarea{resize:vertical;min-height:60px;}
 
 <div class="main">
   <div class="tip">▶️ Generá el guion para el avatar IA + títulos, descripción y hashtags de tu Short en segundos. Pegás el guion en HeyGen y subís a YouTube.</div>
+
+  <div class="card">
+    <span class="sec-lbl">🎬 Mis videos y Shorts publicados</span>
+    <div style="font-size:11px;color:#888;margin-bottom:10px;line-height:1.5;">Trae los últimos videos/Shorts ya subidos al canal. Necesitás <b style="color:#ff6b6b;">YouTube conectado</b> (API Key + canal) en <a href="/conexiones" style="color:#ff6b6b;">🔌 Conexiones</a>.</div>
+    <button class="btn-main" id="yt-load-btn" onclick="cargarVideos()">🎬 Ver mis videos</button>
+    <div class="status" id="yt-status" style="font-size:11px;color:#888;margin-top:8px;"></div>
+    <div class="vgrid" id="yt-grid"></div>
+  </div>
 
   <div class="card">
     <span class="sec-lbl">Producto del video</span>
@@ -151,6 +167,48 @@ async function generate(){
     res.innerHTML = '<div style="background:rgba(255,80,80,0.08);border:1px solid rgba(255,80,80,0.25);border-radius:12px;padding:18px;color:#ff8080;font-size:13px;text-align:center">❌ '+e.message+'</div>';
   }
   btn.disabled = false; btn.innerHTML = '▶️ Generar guion + textos del Short';
+}
+
+async function cargarVideos(){
+  const s = JSON.parse(localStorage.getItem('up_state')||'{}');
+  const yt = s.connections?.yt;
+  const st = document.getElementById('yt-status');
+  const grid = document.getElementById('yt-grid');
+  const btn = document.getElementById('yt-load-btn');
+  grid.innerHTML = '';
+
+  if(!yt?.apiKey || !yt?.channel){
+    st.innerHTML = '❌ No hay YouTube conectado. Andá a <a href="/conexiones" style="color:#ff6b6b;">Conexiones</a> y guardá tu API Key + canal.';
+    return;
+  }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Buscando videos...';
+  st.textContent = 'Consultando el canal en YouTube...';
+
+  try {
+    const r = await fetch('/api/youtube?action=videos', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ apiKey: yt.apiKey, channel: yt.channel })
+    });
+    const d = await r.json();
+    if(!d.ok){ st.textContent = '❌ '+(d.error||'Error'); btn.disabled=false; btn.innerHTML='🎬 Ver mis videos'; return; }
+
+    st.textContent = d.totalItems ? `📦 ${d.totalItems} videos encontrados` : 'No encontré videos en este canal.';
+    grid.innerHTML = d.items.map(v => `
+      <div class="vclip ${v.isShort?'short':''}">
+        <img class="thumb" src="${v.thumbnail||''}" alt="" onerror="this.style.opacity=.2">
+        <div class="vinfo">
+          <div class="vt">${esc(v.title).slice(0,70)}</div>
+          <div class="vmeta"><span>${v.isShort?'SHORT':'VIDEO'}</span><span>${v.viewCount?Number(v.viewCount).toLocaleString('es-AR')+' vistas':''}</span></div>
+          <a class="vlink" href="${v.url}" target="_blank">▶️ Ver en YouTube</a>
+        </div>
+      </div>`).join('');
+
+    logActivity('Cargó '+d.totalItems+' videos del canal');
+  } catch(e){
+    st.textContent = '❌ '+e.message;
+  }
+  btn.disabled = false; btn.innerHTML = '🎬 Ver mis videos';
 }
 
 function loadProduct(){
