@@ -20,6 +20,8 @@ service cloud.firestore {
     match /combos/{id}    { allow read, write: if isMember(); }
     match /movements/{id} { allow read, write: if isMember(); }
     match /photos/{id}    { allow read, write: if isMember(); }
+    match /shipments/{id} { allow read, write: if isMember(); }
+    match /couriers/{id}  { allow read, write: if isMember(); }
     // El mapa del depósito lo ve todo el equipo pero solo lo modifica el admin
     match /settings/{id}  { allow read: if isMember(); allow write: if isAdmin(); }
 

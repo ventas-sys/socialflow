@@ -26,6 +26,7 @@ import Inventory from './components/Inventory'
 import Combos from './components/Combos'
 import Movements from './components/Movements'
 import Reports from './components/Reports'
+import Shipments from './components/Shipments'
 import Auth from './components/Auth'
 import './App.css'
 
@@ -36,6 +37,8 @@ export default function App() {
   const [products, setProducts] = useState([])
   const [combos, setCombos] = useState([])
   const [movements, setMovements] = useState([])
+  const [shipments, setShipments] = useState([])
+  const [couriers, setCouriers] = useState([])
   const [depositMap, setDepositMap] = useState(null)
   const [loadingData, setLoadingData] = useState(false)
   const [accessDenied, setAccessDenied] = useState(false)
@@ -138,14 +141,22 @@ export default function App() {
       // Nunca guardamos las fotos en el listado (se cargan on-demand); solo el flag
       const strip = ({ photos, ...rest }) => ({ ...rest, hasPhotos: rest.hasPhotos || (photos?.length > 0) })
 
-      const [productsSnap, combosSnap, movementsSnap, settingsSnap] = await Promise.all([
+      const [productsSnap, combosSnap, movementsSnap, settingsSnap, shipmentsSnap, couriersSnap] = await Promise.all([
         getDocs(query(collection(db, 'products'), where('userId', '==', ORG_ID))),
         getDocs(query(collection(db, 'combos'), where('userId', '==', ORG_ID))),
         getDocs(query(collection(db, 'movements'), where('userId', '==', ORG_ID))),
         getDoc(doc(db, 'settings', ORG_ID)),
+        getDocs(query(collection(db, 'shipments'), where('userId', '==', ORG_ID))),
+        getDocs(query(collection(db, 'couriers'), where('userId', '==', ORG_ID))),
       ])
 
       setDepositMap(settingsSnap.exists() ? settingsSnap.data().depositMapPhoto || null : null)
+      setShipments(
+        shipmentsSnap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
+      )
+      setCouriers(couriersSnap.docs.map(d => ({ id: d.id, ...d.data() })))
 
       setProducts(
         productsSnap.docs
@@ -210,6 +221,8 @@ export default function App() {
       setProducts([])
       setCombos([])
       setMovements([])
+      setShipments([])
+      setCouriers([])
       setCurrentTab('dashboard')
     } catch (error) {
       console.error('Logout error:', error)
@@ -397,6 +410,47 @@ export default function App() {
     await deleteDoc(doc(db, 'photos', productId)).catch(() => {})
     photoCache.current.delete(productId)
     setProducts(products.filter(p => p.id !== productId))
+  }
+
+  // --- Envíos (logística) ---
+  const addShipment = async (data) => {
+    if (!user) return null
+    const docRef = await addDoc(collection(db, 'shipments'), {
+      ...data,
+      userId: ORG_ID,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    })
+    setShipments([{ id: docRef.id, ...data, userId: ORG_ID, createdAt: new Date() }, ...shipments])
+    return docRef.id
+  }
+
+  const updateShipment = async (id, data) => {
+    if (!user) return
+    await updateDoc(doc(db, 'shipments', id), { ...data, updatedAt: Timestamp.now() })
+    setShipments(shipments.map(s => (s.id === id ? { ...s, ...data } : s)))
+  }
+
+  const deleteShipment = async (id) => {
+    if (!user) return
+    await deleteDoc(doc(db, 'shipments', id))
+    setShipments(shipments.filter(s => s.id !== id))
+  }
+
+  const addCourier = async (name) => {
+    if (!user) return
+    const docRef = await addDoc(collection(db, 'couriers'), {
+      name,
+      userId: ORG_ID,
+      createdAt: Timestamp.now(),
+    })
+    setCouriers([...couriers, { id: docRef.id, name }])
+  }
+
+  const removeCourier = async (id) => {
+    if (!user) return
+    await deleteDoc(doc(db, 'couriers', id))
+    setCouriers(couriers.filter(c => c.id !== id))
   }
 
   const saveDepositMap = async (photoDataUrl) => {
@@ -641,6 +695,12 @@ export default function App() {
           🔄 Movimientos
         </button>
         <button
+          className={`nav-btn ${currentTab === 'shipments' ? 'active' : ''}`}
+          onClick={() => setCurrentTab('shipments')}
+        >
+          🚚 Envíos
+        </button>
+        <button
           className={`nav-btn ${currentTab === 'reports' ? 'active' : ''}`}
           onClick={() => setCurrentTab('reports')}
         >
@@ -703,6 +763,17 @@ export default function App() {
                 combos={combos}
                 movements={movements}
                 onAdd={addMovement}
+              />
+            )}
+            {currentTab === 'shipments' && (
+              <Shipments
+                shipments={shipments}
+                couriers={couriers}
+                onAddShipment={addShipment}
+                onUpdateShipment={updateShipment}
+                onDeleteShipment={deleteShipment}
+                onAddCourier={addCourier}
+                onRemoveCourier={removeCourier}
               />
             )}
             {currentTab === 'reports' && <Reports products={products} movements={movements} />}
