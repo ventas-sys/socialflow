@@ -356,7 +356,7 @@ export default function App() {
           productName: r.productName,
           type: isEntrada ? 'entrada' : 'salida',
           quantity: Math.abs(r.quantity),
-          reason: meta.reason || (isEntrada ? 'Compra' : 'Ajuste (Excel)'),
+          reason: r.reason || meta.reason || (isEntrada ? 'Compra' : 'Ajuste (Excel)'),
           reference: meta.reference || '',
           userId: ORG_ID,
           date: now,

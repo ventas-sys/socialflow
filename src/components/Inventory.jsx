@@ -421,11 +421,32 @@ export default function Inventory({
         setPurchaseResult('⚠️ El archivo está vacío.')
         return
       }
-      // Agrupar por producto (sumar cantidades del mismo producto)
+      // Buscar combo por SKU o código de barras
+      const findComboByRef = (ref) => {
+        const q = String(ref).trim().toLowerCase()
+        if (!q) return null
+        return combos.find(c =>
+          (c.code && c.code.toLowerCase() === q) ||
+          (c.barcodes?.length ? c.barcodes : (c.barcode ? [c.barcode] : []))
+            .some(b => String(b).toLowerCase() === q)
+        )
+      }
+
+      // Agrupar por producto base final. Un COMBO expande a sus productos:
+      // cada componente se ajusta por (cantidad del combo × cantidad del ajuste).
       const byProduct = new Map()
       const rows = []
       const notFound = new Set()
       let reference = ''
+      const addDelta = (p, delta, origin, reason) => {
+        rows.push({ productId: p.id, productName: p.name, quantity: delta, reason })
+        if (!byProduct.has(p.id)) {
+          byProduct.set(p.id, { productName: p.name, origins: new Set(), current: p.quantity || 0, delta: 0 })
+        }
+        const e = byProduct.get(p.id)
+        e.delta += delta
+        e.origins.add(origin)
+      }
       raw.forEach(r => {
         const o = {}
         Object.entries(r).forEach(([k, v]) => {
@@ -436,19 +457,27 @@ export default function Inventory({
         const refCode = o.ref !== undefined ? String(o.ref).trim() : ''
         const qty = Math.round(parseNumber(o.qty))
         if (!refCode || qty === 0) return
+        // 1) ¿es un producto?
         const p = findByRef(refCode)
-        if (!p) { notFound.add(refCode); return }
-        rows.push({ productId: p.id, productName: p.name, quantity: qty })
-        if (!byProduct.has(p.id)) {
-          byProduct.set(p.id, { productName: p.name, code: refCode, current: p.quantity || 0, delta: 0 })
+        if (p) { addDelta(p, qty, refCode); return }
+        // 2) ¿es un combo? → expandir a sus productos base
+        const combo = findComboByRef(refCode)
+        if (combo) {
+          const reason = `Ajuste combo ${combo.code || refCode}`
+          combo.items?.forEach(item => {
+            const bp = products.find(pp => pp.id === item.productId)
+            if (!bp) return
+            addDelta(bp, item.quantity * qty, `${refCode} (combo)`, reason)
+          })
+          return
         }
-        byProduct.get(p.id).delta += qty
+        notFound.add(refCode)
       })
       if (!rows.length) {
         if (notFound.size > 0) {
           setPurchaseResult(
-            `⚠️ Ninguno de los códigos existe en tu inventario. Revisá que el SKU o ` +
-            `código de barras coincida con un producto ya cargado. Ejemplos que no se ` +
+            `⚠️ Ninguno de los códigos existe como producto ni como combo. Revisá que el ` +
+            `SKU o código de barras coincida con algo ya cargado. Ejemplos que no se ` +
             `encontraron: ${[...notFound].slice(0, 8).join(', ')}${notFound.size > 8 ? '…' : ''}.`
           )
         } else {
@@ -700,7 +729,8 @@ export default function Inventory({
           </div>
           <p className="pp-note">
             Se va a ajustar el stock de <strong>{purchasePreview.lines.length} productos</strong>.
-            Verificá que sean los correctos y confirmá.
+            Los combos descuentan sus productos base (× la cantidad).
+            Verificá que sea correcto y confirmá.
           </p>
           <div className="pp-table-wrap">
             <table className="pp-table">
@@ -716,7 +746,7 @@ export default function Inventory({
               <tbody>
                 {purchasePreview.lines.map((l, i) => (
                   <tr key={i}>
-                    <td className="pp-code">{l.code}</td>
+                    <td className="pp-code">{[...l.origins].join(', ')}</td>
                     <td>{l.productName}</td>
                     <td>{l.current}</td>
                     <td className={l.delta >= 0 ? 'pp-plus' : 'pp-minus'}>
