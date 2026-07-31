@@ -19,6 +19,8 @@ export default function Movements({ products, combos, movements, onAdd }) {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
+  const [filterType, setFilterType] = useState('all') // all | entrada | salida | hoy
+  const [searchMov, setSearchMov] = useState('')
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -165,11 +167,33 @@ export default function Movements({ products, combos, movements, onAdd }) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const todayMovements = movements.filter(m => {
+  const isToday = (m) => {
     const mDate = m.date?.toDate ? m.date.toDate() : new Date(m.date)
     mDate.setHours(0, 0, 0, 0)
     return mDate.getTime() === today.getTime()
+  }
+  const todayMovements = movements.filter(isToday)
+
+  // Filtro combinado: tipo (tab) + búsqueda por producto/SKU/referencia/usuario
+  const q = searchMov.trim().toLowerCase()
+  const filtered = movements.filter(m => {
+    if (filterType === 'entrada' && m.type !== 'entrada') return false
+    if (filterType === 'salida' && m.type !== 'salida') return false
+    if (filterType === 'hoy' && !isToday(m)) return false
+    if (q) {
+      return (
+        (m.productName || '').toLowerCase().includes(q) ||
+        (m.reference || '').toLowerCase().includes(q) ||
+        (m.reason || '').toLowerCase().includes(q) ||
+        (m.userName || '').toLowerCase().includes(q)
+      )
+    }
+    return true
   })
+
+  // Resumen de unidades del filtro actual
+  const totalEntradas = filtered.filter(m => m.type === 'entrada').reduce((s, m) => s + (m.quantity || 0), 0)
+  const totalSalidas = filtered.filter(m => m.type === 'salida').reduce((s, m) => s + (m.quantity || 0), 0)
 
   return (
     <div className="movements-container">
@@ -320,28 +344,61 @@ export default function Movements({ products, combos, movements, onAdd }) {
       )}
 
       <div className="movements-tabs">
-        <div className="tab-btn active">
+        <button
+          className={`tab-btn ${filterType === 'all' ? 'active' : ''}`}
+          onClick={() => setFilterType('all')}
+        >
           📋 Todos ({movements.length})
-        </div>
-        <div className="tab-btn">
+        </button>
+        <button
+          className={`tab-btn ${filterType === 'entrada' ? 'active' : ''}`}
+          onClick={() => setFilterType('entrada')}
+        >
           📥 Entradas ({movements.filter(m => m.type === 'entrada').length})
-        </div>
-        <div className="tab-btn">
+        </button>
+        <button
+          className={`tab-btn ${filterType === 'salida' ? 'active' : ''}`}
+          onClick={() => setFilterType('salida')}
+        >
           📤 Salidas ({movements.filter(m => m.type === 'salida').length})
-        </div>
-        <div className="tab-btn">
+        </button>
+        <button
+          className={`tab-btn ${filterType === 'hoy' ? 'active' : ''}`}
+          onClick={() => setFilterType('hoy')}
+        >
           📅 Hoy ({todayMovements.length})
-        </div>
+        </button>
       </div>
 
-      {movements.length === 0 ? (
+      <div className="mov-search">
+        <input
+          type="text"
+          placeholder="🔍 Buscar por producto, SKU, referencia o usuario..."
+          value={searchMov}
+          onChange={e => setSearchMov(e.target.value)}
+        />
+        {(searchMov || filterType !== 'all') && (
+          <button className="mov-clear" onClick={() => { setSearchMov(''); setFilterType('all') }}>
+            ✕ Limpiar
+          </button>
+        )}
+      </div>
+
+      <div className="mov-summary">
+        <span className="mov-sum-item">📥 Entró: <strong>{totalEntradas}</strong> u.</span>
+        <span className="mov-sum-item">📤 Salió: <strong>{totalSalidas}</strong> u.</span>
+        <span className="mov-sum-item">Neto: <strong>{totalEntradas - totalSalidas >= 0 ? '+' : ''}{totalEntradas - totalSalidas}</strong> u.</span>
+        <span className="mov-sum-count">{filtered.length} movimientos</span>
+      </div>
+
+      {filtered.length === 0 ? (
         <div className="empty-state">
           <p>📭</p>
-          <p>No hay movimientos registrados. ¡Crea uno para empezar!</p>
+          <p>{movements.length === 0 ? 'No hay movimientos registrados. ¡Crea uno para empezar!' : 'No hay movimientos con ese filtro.'}</p>
         </div>
       ) : (
         <div className="movements-list">
-          {movements.slice(0, 50).map(m => (
+          {filtered.slice(0, 200).map(m => (
             <div key={m.id} className={`movement-card ${m.type}`}>
               <div className="movement-card-icon">
                 {getMovementIcon(m.type)}
@@ -370,9 +427,9 @@ export default function Movements({ products, combos, movements, onAdd }) {
               </div>
             </div>
           ))}
-          {movements.length > 50 && (
+          {filtered.length > 200 && (
             <div className="show-more">
-              Mostrando 50 de {movements.length} movimientos
+              Mostrando 200 de {filtered.length} movimientos. Usá el buscador para acotar.
             </div>
           )}
         </div>

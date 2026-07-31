@@ -297,6 +297,12 @@
   color: #6b7280;
   border-bottom: 2px solid transparent;
   white-space: nowrap;
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+
+.tab-btn:hover {
+  color: #2563eb;
 }
 
 .tab-btn.active {
@@ -317,6 +323,65 @@
     color: #60a5fa;
     border-bottom-color: #60a5fa;
   }
+}
+
+.mov-search {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.mov-search input {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+}
+
+.mov-search input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.mov-clear {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  padding: 0 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #4b5563;
+  white-space: nowrap;
+}
+
+.mov-summary {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.7rem 1rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.9rem;
+  color: #4b5563;
+}
+
+.mov-sum-item strong { color: #1f2937; }
+.mov-sum-count {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+@media (prefers-color-scheme: dark) {
+  .mov-search input { background: #1e293b; color: #f1f5f9; border-color: #334155; }
+  .mov-clear { background: #334155; color: #f1f5f9; border-color: #475569; }
+  .mov-summary { background: #0f172a; border-color: #334155; color: #cbd5e1; }
+  .mov-sum-item strong { color: #f1f5f9; }
 }
 
 .empty-state {
