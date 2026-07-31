@@ -141,22 +141,33 @@ export default function App() {
       // Nunca guardamos las fotos en el listado (se cargan on-demand); solo el flag
       const strip = ({ photos, ...rest }) => ({ ...rest, hasPhotos: rest.hasPhotos || (photos?.length > 0) })
 
-      const [productsSnap, combosSnap, movementsSnap, settingsSnap, shipmentsSnap, couriersSnap] = await Promise.all([
+      const [productsSnap, combosSnap, movementsSnap, settingsSnap] = await Promise.all([
         getDocs(query(collection(db, 'products'), where('userId', '==', ORG_ID))),
         getDocs(query(collection(db, 'combos'), where('userId', '==', ORG_ID))),
         getDocs(query(collection(db, 'movements'), where('userId', '==', ORG_ID))),
         getDoc(doc(db, 'settings', ORG_ID)),
-        getDocs(query(collection(db, 'shipments'), where('userId', '==', ORG_ID))),
-        getDocs(query(collection(db, 'couriers'), where('userId', '==', ORG_ID))),
       ])
 
       setDepositMap(settingsSnap.exists() ? settingsSnap.data().depositMapPhoto || null : null)
-      setShipments(
-        shipmentsSnap.docs
-          .map(d => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
-      )
-      setCouriers(couriersSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+
+      // Envíos y motoqueros: colecciones opcionales. Si sus reglas todavía no
+      // están publicadas, se ignoran sin romper la carga del inventario.
+      try {
+        const [shipmentsSnap, couriersSnap] = await Promise.all([
+          getDocs(query(collection(db, 'shipments'), where('userId', '==', ORG_ID))),
+          getDocs(query(collection(db, 'couriers'), where('userId', '==', ORG_ID))),
+        ])
+        setShipments(
+          shipmentsSnap.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
+        )
+        setCouriers(couriersSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+      } catch (err) {
+        console.warn('Envíos/motoqueros no disponibles (¿faltan reglas?):', err?.code)
+        setShipments([])
+        setCouriers([])
+      }
 
       setProducts(
         productsSnap.docs
@@ -180,7 +191,8 @@ export default function App() {
       }
     } catch (error) {
       console.error('Error loading data:', error)
-      if (error.code === 'permission-denied') {
+      // El administrador nunca queda bloqueado por un error de permisos
+      if (error.code === 'permission-denied' && currentUser.email !== ADMIN_EMAIL) {
         setAccessDenied(true)
       }
     } finally {
