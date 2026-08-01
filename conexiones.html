@@ -82,6 +82,12 @@ input:focus{outline:none;border-color:rgba(0,200,100,0.5);}
         <button class="btn" style="background:rgba(0,179,230,0.12);border-color:rgba(0,179,230,0.3);color:#00b3e6;" onclick="exportMLAccount('local')">📋 Copiar como cuenta RETIRO LOCAL</button>
       </div>
       <div class="result" id="ml-export-out" style="margin-top:8px;font-size:10px;font-family:'SF Mono',Menlo,monospace;"></div>
+      <div id="ml-both-wrap" style="margin-top:10px;display:none;border-top:1px solid rgba(198,222,0,0.2);padding-top:10px;">
+        <div id="ml-both-status" style="font-size:10px;color:#888;margin-bottom:6px;"></div>
+        <button class="btn" style="background:linear-gradient(135deg,#c6de00,#87a800);color:#161a00;border:none;font-weight:800;" onclick="exportMLBoth()">📋 Copiar ML_ACCOUNTS (todas las guardadas)</button>
+        <button class="btn btn-clear" onclick="clearMLAgentAccounts()" style="font-size:10px;">🗑 Vaciar guardadas</button>
+        <div class="result" id="ml-both-out" style="margin-top:8px;font-size:10px;font-family:'SF Mono',Menlo,monospace;"></div>
+      </div>
     </div>
   </div>
 
@@ -364,6 +370,13 @@ async function testConn(prov){
   }
 }
 
+function mlCopy(txt){
+  navigator.clipboard.writeText(txt).catch(()=>{const a=document.createElement('textarea');a.value=txt;document.body.appendChild(a);a.select();document.execCommand('copy');document.body.removeChild(a);});
+}
+function mlMask(json){
+  return json.replace(/("client_secret":")[^"]*/g, '$1•••').replace(/("refresh_token":")[^"]*/g, '$1•••');
+}
+
 function exportMLAccount(mode){
   const s = loadState();
   const c = s.connections?.ml;
@@ -378,15 +391,57 @@ function exportMLAccount(mode){
     refresh_token: c.refreshToken || ''
   };
   const json = JSON.stringify(entry);
-  navigator.clipboard.writeText(json).catch(()=>{const a=document.createElement('textarea');a.value=json;document.body.appendChild(a);a.select();document.execCommand('copy');document.body.removeChild(a);});
+  mlCopy(json);
+  // Guardar la cuenta para poder armar ML_ACCOUNTS completo con las 2
+  const st = loadState();
+  st.mlAgentAccounts = st.mlAgentAccounts || {};
+  st.mlAgentAccounts[entry.label] = entry;
+  saveState(st);
   const out = document.getElementById('ml-export-out');
   out.className = 'result ok';
-  const masked = json.replace(/("client_secret":")[^"]*/, '$1•••').replace(/("refresh_token":")[^"]*/, '$1•••');
-  out.textContent = '✅ Copiado como "' + entry.label + '" (' + (c.nickname || c.userId || '') + ').\nPegalo dentro de ML_ACCOUNTS en Vercel:\n' + masked;
-  notify('📋 Cuenta "'+entry.label+'" copiada al portapapeles');
+  out.textContent = '✅ Copiada y GUARDADA como "' + entry.label + '" (' + (c.nickname || c.userId || '') + ').\n' + mlMask(json);
+  renderMLBoth();
+  notify('📋 Cuenta "'+entry.label+'" copiada y guardada');
+}
+
+function renderMLBoth(){
+  const st = loadState();
+  const accs = st.mlAgentAccounts || {};
+  const labels = Object.keys(accs);
+  const wrap = document.getElementById('ml-both-wrap');
+  if(!wrap) return;
+  if(labels.length){
+    wrap.style.display = 'block';
+    document.getElementById('ml-both-status').textContent = '✅ Guardadas: ' + labels.join(' + ') + ' (' + labels.length + '/2). Cuando tengas las 2, tocá "Copiar ML_ACCOUNTS".';
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+function exportMLBoth(){
+  const st = loadState();
+  const arr = Object.values(st.mlAgentAccounts || {});
+  if(!arr.length){ notify('Copiá al menos una cuenta primero'); return; }
+  const json = JSON.stringify(arr);
+  mlCopy(json);
+  const out = document.getElementById('ml-both-out');
+  out.className = 'result ok';
+  out.textContent = '✅ Copiado ML_ACCOUNTS con ' + arr.length + ' cuenta(s): ' + arr.map(a=>a.label).join(', ') + '.\nPegalo TAL CUAL en la variable ML_ACCOUNTS de Vercel:\n' + mlMask(json);
+  notify('📋 ML_ACCOUNTS ('+arr.length+') copiado');
+}
+
+function clearMLAgentAccounts(){
+  if(!confirm('¿Vaciar las cuentas guardadas para el Agente ML?')) return;
+  const st = loadState();
+  delete st.mlAgentAccounts;
+  saveState(st);
+  const o = document.getElementById('ml-both-out'); if(o) o.textContent='';
+  renderMLBoth();
+  notify('Cuentas del agente vaciadas');
 }
 
 render();
+renderMLBoth();
 </script>
 </body>
 </html>
