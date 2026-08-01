@@ -1,5 +1,5 @@
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/wa).*)']
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/wa|api/ml/questions).*)']
 };
 
 export default function middleware(request) {

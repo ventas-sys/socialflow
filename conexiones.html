@@ -74,6 +74,15 @@ input:focus{outline:none;border-color:rgba(0,200,100,0.5);}
       <button class="btn btn-clear" onclick="clearConn('ml')">🗑 Limpiar</button>
     </div>
     <div class="result" id="ml-result"></div>
+    <div id="ml-export" style="display:none;margin-top:10px;padding:10px;border-radius:8px;background:rgba(198,222,0,0.06);border:1px solid rgba(198,222,0,0.25);">
+      <div style="font-size:11px;color:#c6de00;font-weight:700;margin-bottom:4px;">🤖 Datos para el Agente de Preguntas ML</div>
+      <div style="font-size:10px;color:#999;margin-bottom:8px;">Copiá ESTA cuenta con su rol. Después conectás la OTRA cuenta y copiás la segunda. Pegá las dos dentro de <b>ML_ACCOUNTS</b> en Vercel (Environment Variables).</div>
+      <div class="btn-row">
+        <button class="btn" style="background:rgba(198,222,0,0.15);border-color:rgba(198,222,0,0.4);color:#c6de00;" onclick="exportMLAccount('full')">📋 Copiar como cuenta FULL</button>
+        <button class="btn" style="background:rgba(0,179,230,0.12);border-color:rgba(0,179,230,0.3);color:#00b3e6;" onclick="exportMLAccount('local')">📋 Copiar como cuenta RETIRO LOCAL</button>
+      </div>
+      <div class="result" id="ml-export-out" style="margin-top:8px;font-size:10px;font-family:'SF Mono',Menlo,monospace;"></div>
+    </div>
   </div>
 
   <div class="conn-card" style="--accent:#00b3e6;">
@@ -155,6 +164,9 @@ function render(){
       st.className = 'conn-state ok';
     }
     if(c.ml.refreshToken) document.getElementById('ml-refresh-btn').style.display = 'inline-block';
+    if(c.ml.refreshToken && c.ml.clientId && (c.ml.userId || c.ml.nickname)){
+      document.getElementById('ml-export').style.display = 'block';
+    }
   }
   document.getElementById('tn-redirect').value = location.origin + '/tn-callback';
   if(c.tn?.clientId){
@@ -350,6 +362,28 @@ async function testConn(prov){
     rEl.textContent = '❌ '+e.message;
     stEl.textContent = 'error'; stEl.className = 'conn-state err';
   }
+}
+
+function exportMLAccount(mode){
+  const s = loadState();
+  const c = s.connections?.ml;
+  if(!c || !c.refreshToken){ notify('Primero conectá una cuenta de Mercado Libre'); return; }
+  const uid = c.userId || c.nickname || '';
+  const entry = {
+    label: mode === 'full' ? 'full' : 'local',
+    mode: mode,
+    user_id: /^\d+$/.test(String(uid)) ? Number(uid) : uid,
+    client_id: c.clientId || '',
+    client_secret: c.clientSecret || '',
+    refresh_token: c.refreshToken || ''
+  };
+  const json = JSON.stringify(entry);
+  navigator.clipboard.writeText(json).catch(()=>{const a=document.createElement('textarea');a.value=json;document.body.appendChild(a);a.select();document.execCommand('copy');document.body.removeChild(a);});
+  const out = document.getElementById('ml-export-out');
+  out.className = 'result ok';
+  const masked = json.replace(/("client_secret":")[^"]*/, '$1•••').replace(/("refresh_token":")[^"]*/, '$1•••');
+  out.textContent = '✅ Copiado como "' + entry.label + '" (' + (c.nickname || c.userId || '') + ').\nPegalo dentro de ML_ACCOUNTS en Vercel:\n' + masked;
+  notify('📋 Cuenta "'+entry.label+'" copiada al portapapeles');
 }
 
 render();
