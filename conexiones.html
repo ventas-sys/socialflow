@@ -88,6 +88,13 @@ input:focus{outline:none;border-color:rgba(0,200,100,0.5);}
         <button class="btn btn-clear" onclick="clearMLAgentAccounts()" style="font-size:10px;">🗑 Vaciar guardadas</button>
         <div class="result" id="ml-both-out" style="margin-top:8px;font-size:10px;font-family:'SF Mono',Menlo,monospace;"></div>
       </div>
+      <div style="margin-top:12px;border-top:1px solid rgba(198,222,0,0.2);padding-top:10px;">
+        <div style="font-size:10px;color:#c6de00;font-weight:700;margin-bottom:4px;">🔎 Verificar ANTES de guardar en Vercel</div>
+        <div style="font-size:10px;color:#999;margin-bottom:6px;">¿Dudás si lo que vas a pegar tiene los tokens de verdad? Pegá acá lo que copiaste y te digo si está OK o si tiene puntitos/placeholder.</div>
+        <textarea id="ml-verify-in" placeholder='Pegá acá el ML_ACCOUNTS que vas a poner en Vercel...' style="width:100%;min-height:60px;font-size:10px;font-family:'SF Mono',Menlo,monospace;border-radius:6px;border:1px solid rgba(255,255,255,0.15);background:rgba(0,0,0,0.3);color:#ddd;padding:6px;box-sizing:border-box;"></textarea>
+        <button class="btn" style="margin-top:6px;background:rgba(198,222,0,0.15);border-color:rgba(198,222,0,0.4);color:#c6de00;" onclick="verifyMLAccounts()">🔎 Verificar</button>
+        <div class="result" id="ml-verify-out" style="margin-top:8px;font-size:10px;font-family:'SF Mono',Menlo,monospace;"></div>
+      </div>
     </div>
   </div>
 
@@ -399,9 +406,13 @@ function exportMLAccount(mode){
   saveState(st);
   const out = document.getElementById('ml-export-out');
   out.className = 'result ok';
-  out.textContent = '✅ Copiada y GUARDADA como "' + entry.label + '" (' + (c.nickname || c.userId || '') + ').\n' + mlMask(json);
+  out.textContent =
+    '✅ Cuenta "' + entry.label + '" (' + (c.nickname || c.userId || '') + ') YA ESTÁ EN TU PORTAPAPELES.\n' +
+    'Ahora andá a Vercel y pegá con Ctrl+V (en el celu: mantené apretado → Pegar).\n' +
+    '⚠️ NO copies lo que ves acá abajo (va con puntitos a propósito para que no se filtre en fotos). El botón ya copió el valor REAL:\n' +
+    mlMask(json);
   renderMLBoth();
-  notify('📋 Cuenta "'+entry.label+'" copiada y guardada');
+  notify('📋 Cuenta "'+entry.label+'" copiada al portapapeles (valor real)');
 }
 
 function renderMLBoth(){
@@ -426,8 +437,39 @@ function exportMLBoth(){
   mlCopy(json);
   const out = document.getElementById('ml-both-out');
   out.className = 'result ok';
-  out.textContent = '✅ Copiado ML_ACCOUNTS con ' + arr.length + ' cuenta(s): ' + arr.map(a=>a.label).join(', ') + '.\nPegalo TAL CUAL en la variable ML_ACCOUNTS de Vercel:\n' + mlMask(json);
-  notify('📋 ML_ACCOUNTS ('+arr.length+') copiado');
+  out.textContent =
+    '✅ ML_ACCOUNTS con ' + arr.length + ' cuenta(s) (' + arr.map(a=>a.label).join(', ') + ') YA ESTÁ EN TU PORTAPAPELES.\n' +
+    'Pegalo TAL CUAL (Ctrl+V) en la variable ML_ACCOUNTS de Vercel.\n' +
+    '⚠️ NO copies lo de abajo (va con puntitos a propósito). El botón ya copió el valor REAL:\n' +
+    mlMask(json);
+  notify('📋 ML_ACCOUNTS ('+arr.length+') copiado al portapapeles (valor real)');
+}
+
+function verifyMLAccounts(){
+  const out = document.getElementById('ml-verify-out');
+  const raw = (document.getElementById('ml-verify-in').value || '').trim();
+  if(!raw){ out.className='result err'; out.textContent='Pegá algo primero.'; return; }
+  let data;
+  try { data = JSON.parse(raw); }
+  catch(e){ out.className='result err'; out.textContent='❌ No es un JSON válido. Copiá de nuevo con el botón de arriba (no lo escribas a mano).'; return; }
+  const arr = Array.isArray(data) ? data : [data];
+  const bad = /[•]|\.\.\.|xxx|tu_|your_/i;
+  const lines = [];
+  let ok = true;
+  arr.forEach((a,i)=>{
+    const tag = a && (a.label || ('cuenta '+(i+1)));
+    const probs = [];
+    ['client_id','client_secret','refresh_token'].forEach(f=>{
+      const v = a && a[f];
+      if(!v){ probs.push(f+' vacío'); }
+      else if(bad.test(String(v))){ probs.push(f+' TIENE PUNTITOS/placeholder'); }
+    });
+    if(a && (a.user_id===undefined || a.user_id==='' )) probs.push('user_id vacío');
+    if(probs.length){ ok=false; lines.push('❌ '+tag+': '+probs.join(', ')); }
+    else { lines.push('✅ '+tag+': client_id, client_secret, refresh_token y user_id OK (rol: '+(a.mode||'?')+')'); }
+  });
+  out.className = ok ? 'result ok' : 'result err';
+  out.textContent = (ok ? '✅ TODO OK — este valor tiene los tokens de verdad. Ya lo podés guardar en Vercel.\n' : '⚠️ NO lo guardes así. Volvé a copiar con el botón (Ctrl+V), no escribas a mano ni copies lo que aparece con puntitos.\n') + lines.join('\n');
 }
 
 function clearMLAgentAccounts(){
