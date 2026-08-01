@@ -398,35 +398,42 @@ export default function Movements({ products, combos, movements, onAdd }) {
         </div>
       ) : (
         <div className="movements-list">
-          {filtered.slice(0, 200).map(m => (
-            <div key={m.id} className={`movement-card ${m.type}`}>
-              <div className="movement-card-icon">
-                {getMovementIcon(m.type)}
-              </div>
-              <div className="movement-card-content">
-                <div className="movement-card-title">
-                  {m.productName || 'Producto'}
-                </div>
-                <div className="movement-card-details">
-                  <span className="detail-badge">{getMovementLabel(m.type)}</span>
-                  <span className="quantity">{m.quantity} {m.comboId ? 'combos' : 'unidades'}</span>
-                  {m.reason && <span className="reason">• {m.reason}</span>}
-                </div>
-                {m.breakdown?.length > 0 && (
-                  <div className="breakdown">
-                    Incluye: {m.breakdown.map(b => `${b.quantity}× ${b.productName}`).join(', ')}
+          {filtered.slice(0, 200).map(m => {
+            const prod = products.find(p => p.id === m.productId)
+            const sku = prod?.code
+            const isEntrada = m.type === 'entrada'
+            return (
+              <div key={m.id} className={`movement-card ${m.type}`}>
+                <div className="movement-card-content">
+                  <div className="movement-card-title">
+                    {m.productName || 'Producto'}
                   </div>
-                )}
-                {m.reference && (
-                  <div className="reference">Ref: {m.reference}</div>
-                )}
-                <div className="meta-info">
-                  <span className="date">{formatDate(m.date)}</span>
-                  {m.userName && <span className="user">• {m.userName}</span>}
+                  <div className="movement-sub">
+                    {m.comboId && <span className="chip-combo">🎁 Combo</span>}
+                    {sku && <span className="movement-sku">SKU: {sku}</span>}
+                    {m.reason && <span className="reason">{m.reason}</span>}
+                  </div>
+                  {m.breakdown?.length > 0 && (
+                    <div className="breakdown">
+                      Incluye: {m.breakdown.map(b => `${b.quantity}× ${b.productName}`).join(', ')}
+                    </div>
+                  )}
+                  {m.reference && (
+                    <div className="reference">Ref: {m.reference}</div>
+                  )}
+                  <div className="meta-info">
+                    <span className="date">{formatDate(m.date)}</span>
+                    {m.userName && <span className="user">• {m.userName}</span>}
+                  </div>
+                </div>
+                <div className={`movement-qty ${m.type}`}>
+                  <span className="mq-num">{isEntrada ? '+' : '−'}{m.quantity}</span>
+                  <span className="mq-unit">{m.comboId ? 'combos' : 'u.'}</span>
+                  <span className="mq-label">{isEntrada ? 'ENTRADA' : 'SALIDA'}</span>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
           {filtered.length > 200 && (
             <div className="show-more">
               Mostrando 200 de {filtered.length} movimientos. Usá el buscador para acotar.
