@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { computeConsumption } from './utils/stock'
 import { auth, googleProvider, db } from './firebase'
 import {
   signInWithPopup,
@@ -49,6 +50,9 @@ export default function App() {
   const photoCache = useRef(new Map())
 
   const isAdmin = user?.email === ADMIN_EMAIL
+
+  // Consumo (salidas) de los últimos 2 meses por producto → estimar días de stock
+  const consumption = useMemo(() => computeConsumption(movements), [movements])
 
   // Lee las fotos de un producto/combo solo cuando se necesitan (búsqueda, edición,
   // miniatura visible). Así abrir la app no descarga miles de fotos de golpe.
@@ -732,6 +736,7 @@ export default function App() {
               <Dashboard
                 products={products}
                 movements={movements}
+                consumption={consumption}
                 depositMap={depositMap}
                 onSaveMap={saveDepositMap}
                 isAdmin={isAdmin}
@@ -751,6 +756,7 @@ export default function App() {
                 onPurchase={registerPurchase}
                 onDeleteCombo={deleteCombo}
                 loadPhotos={loadPhotos}
+                consumption={consumption}
                 onEditCombo={(combo) => {
                   setComboEditRequest({ combo, ts: Date.now() })
                   setCurrentTab('combos')

@@ -5,6 +5,7 @@ import { extractImagesByRow } from '../utils/excelImages'
 import { comboAvailable, STOCK_TYPES } from './Combos'
 import Scanner from './Scanner'
 import LazyThumb from './LazyThumb'
+import { stockStatus, daysLeftText } from '../utils/stock'
 import './Inventory.css'
 
 const EMPTY_FORM = {
@@ -67,6 +68,7 @@ export default function Inventory({
   onEditCombo,
   onPurchase,
   loadPhotos,
+  consumption,
 }) {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
@@ -1038,6 +1040,14 @@ export default function Inventory({
                   <span className="fm-stock">
                     Stock: {row.kind === 'combo' ? `${comboAvailable(row, products)} armables` : (row.quantity || 0)}
                   </span>
+                  {row.kind !== 'combo' && (() => {
+                    const h = stockStatus(row, consumption?.get(row.id) || 0)
+                    return (
+                      <span className={`health health-${h.status}`}>
+                        {h.label}{h.daysLeft != null && h.status !== 'sin' ? ` · ${daysLeftText(h)}` : ''}
+                      </span>
+                    )
+                  })()}
                 </div>
                 <div className="found-actions">
                   <button
@@ -1085,7 +1095,7 @@ export default function Inventory({
                 <th>Precio</th>
                 <th>Stock</th>
                 <th>📍 Ubicación</th>
-                <th>Estado</th>
+                <th>Salud / Días</th>
                 <th>Acciones</th>
               </tr>
             </thead>
@@ -1129,9 +1139,19 @@ export default function Inventory({
                     </td>
                     <td>{row.location || '-'}</td>
                     <td>
-                      <span className={`badge ${!isLow ? 'ok' : 'warn'}`}>
-                        {!isLow ? '✓ OK' : (isCombo ? '⚠ Sin stock' : '⚠ Bajo')}
-                      </span>
+                      {isCombo ? (
+                        <span className={`badge ${stock > 0 ? 'ok' : 'warn'}`}>
+                          {stock > 0 ? '✓ OK' : '⚠ Sin stock'}
+                        </span>
+                      ) : (() => {
+                        const h = stockStatus(row, consumption?.get(row.id) || 0)
+                        return (
+                          <span className={`health health-${h.status}`} title={h.dailyRate > 0 ? `${h.dailyRate.toFixed(1)} u/día` : ''}>
+                            {h.label}
+                            {h.daysLeft != null && h.status !== 'sin' && <em> · {daysLeftText(h)}</em>}
+                          </span>
+                        )
+                      })()}
                     </td>
                     <td className="actions">
                       <button

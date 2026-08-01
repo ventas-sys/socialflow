@@ -724,6 +724,31 @@
   margin-left: 0.25rem;
 }
 
+/* Salud de stock (días restantes según consumo de 2 meses) */
+.health {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.health em { font-style: normal; font-weight: 500; opacity: 0.85; }
+
+.health-ok       { background: #dcfce7; color: #166534; }
+.health-bajo     { background: #fee2e2; color: #991b1b; }
+.health-sobre    { background: #dbeafe; color: #1e40af; }
+.health-sin      { background: #fecaca; color: #7f1d1d; }
+.health-sinventas{ background: #f3f4f6; color: #6b7280; }
+
+@media (prefers-color-scheme: dark) {
+  .health-ok       { background: rgba(16,185,129,0.18); color: #6ee7b7; }
+  .health-bajo     { background: rgba(239,68,68,0.18); color: #fca5a5; }
+  .health-sobre    { background: rgba(59,130,246,0.18); color: #93c5fd; }
+  .health-sin      { background: rgba(239,68,68,0.28); color: #fca5a5; }
+  .health-sinventas{ background: #334155; color: #cbd5e1; }
+}
+
 @media (prefers-color-scheme: dark) {
   .bc-more {
     background: rgba(59, 130, 246, 0.2);
