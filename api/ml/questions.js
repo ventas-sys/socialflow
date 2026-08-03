@@ -38,6 +38,11 @@ function productQuery(text) {
     .replace(/\s+/g, ' ').trim().slice(0, 60);
 }
 
+// ¿El cliente YA compró y quiere agregar/cambiar algo del pedido? -> no se puede.
+function alreadyPurchased(text) {
+  return /ya compr|reci[eé]n compr|hice (una|la|mi) compra|ya pagu|ya hice (el|un) pedido|agregar.*al pedido|sumar.*al pedido|al pedido\b|cambiar (el|la|mi) (pedido|compra|orden)|modificar (el|la|mi) (pedido|compra|orden)/i.test(text || '');
+}
+
 // ¿El cliente pregunta por OTRO artículo / quiere llevar varios? -> recomendar del catálogo + carrito.
 // Dispara por palabras clave ("otro", "aparte"...) O cuando menciona un producto (>=2 palabras de peso).
 function wantsOtherProduct(text) {
@@ -108,10 +113,13 @@ async function answerFlow({ acc, accounts, q, autopost }) {
     }
   }
 
+  // Si YA compró y quiere agregar/cambiar algo, NO ofrecemos carrito ni recomendaciones.
+  const yaCompro = alreadyPurchased(q.text);
+
   // ¿Preguntan por OTRO artículo? -> buscarlo en el catálogo de ESTA cuenta y recomendar + carrito.
   let otro = null;
   let catalogo = null;
-  if (wantsOtherProduct(q.text)) {
+  if (!yaCompro && wantsOtherProduct(q.text)) {
     const query = productQuery(q.text);
     const qWords = significantWords(query);
     // Link del catálogo filtrado por la 1ª palabra de peso (siempre disponible, sin depender de la API).
@@ -127,7 +135,7 @@ async function answerFlow({ acc, accounts, q, autopost }) {
     } catch { /* si la búsqueda falla, seguimos con el link del catálogo */ }
   }
 
-  const answer = await generateAnswer({ question: q.text, ctx, mode: acc.mode, cross, crossLocal, otro, catalogo });
+  const answer = await generateAnswer({ question: q.text, ctx, mode: acc.mode, cross, crossLocal, otro, catalogo, yaCompro });
 
   // Anti-repetición: solo posteamos si sigue SIN responder (ML permite 1 sola respuesta).
   let posted = null;
