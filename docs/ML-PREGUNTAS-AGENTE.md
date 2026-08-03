@@ -36,6 +36,11 @@ Reusando el mismo cerebro "Tatiana", conexión (OAuth+webhook) por red:
 - ⚠️ Estos cambios están en el repo/main; falta **desplegar en el VPS** (`cd /opt/socialflow && git pull origin main && pm2 restart wa-bridge`).
 - A confirmar: URLs exactas de **Facebook** y **X** (se usaron los handles estándar).
 
+### 📇 Agenda en Google Contactos (nuevo, código listo — falta autorizar Google)
+- El bot agenda a quien escribe, auto-clasificado: **Cliente NN**, **Nombre x Mayor NN** (con CUIT + qué compra en notas), **Nombre - Proveedor NN (atendido)**. Grupos/etiquetas por categoría + número secuencial. Idempotente por teléfono. Si no dio el nombre → guarda con el número.
+- Cuenta destino: **ventas@uniproveedores.com.ar**. Clasifica la IA (`lib/wa/ia-guide.js` → `contacto`); agenda `lib/google/contacts.js` (People API, sin deps); dispara el bridge fire-and-forget.
+- **PENDIENTE (mañana):** autorizar Google (OAuth client en Google Cloud con scope `contacts` para ventas@uniproveedores.com.ar) → setear `GOOGLE_CONTACTS_CLIENT_ID`, `GOOGLE_CONTACTS_CLIENT_SECRET`, `GOOGLE_CONTACTS_REFRESH_TOKEN` + redeploy del bridge. Sin esas vars, no hace nada (bot sigue igual). Opción: armar botón "Autorizar Google Contactos" en el panel (como ML).
+
 
 ## 🎯 Objetivo
 Responder cada pregunta de ML en **< 30 segundos**, con coherencia, en tono de
