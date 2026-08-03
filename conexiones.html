@@ -456,8 +456,7 @@ function exportMLBoth(){
 }
 
 async function mlAgentCall(action, body){
-  const out = document.getElementById('ml-agent-out');
-  out.className = 'result'; out.textContent = '⏳ Consultando...';
+  // NO toca el DOM: solo hace el fetch y devuelve el resultado.
   try{
     const r = await fetch('/api/ml/questions?action='+action, {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -466,12 +465,14 @@ async function mlAgentCall(action, body){
     const data = await r.json();
     return { ok:r.ok, data };
   }catch(e){
-    out.className='result err'; out.textContent='❌ Error de red: '+e.message;
-    return null;
+    return { ok:false, netError:e.message };
   }
 }
 async function mlAgentTest(){
+  const out = document.getElementById('ml-agent-out');
+  out.className='result'; out.textContent='⏳ Consultando...';
   const res = await mlAgentCall('test', {});
+  if(res.netError){ out.className='result err'; out.textContent='❌ Error de red: '+res.netError; return; }
   if(!res) return;
   const out = document.getElementById('ml-agent-out');
   const d = res.data || {};
@@ -483,9 +484,10 @@ async function mlAgentTest(){
 }
 function mlEsc(t){ return String(t||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 async function mlAgentUnanswered(account){
-  const res = await mlAgentCall('unanswered', { account });
-  if(!res) return;
   const out = document.getElementById('ml-agent-out');
+  out.className='result'; out.textContent='⏳ Consultando...';
+  const res = await mlAgentCall('unanswered', { account });
+  if(res.netError){ out.className='result err'; out.textContent='❌ Error de red: '+res.netError; return; }
   const d = res.data || {};
   if(!res.ok || d.error){ out.className='result err'; out.textContent='❌ '+(d.error||'Error'); return; }
   const qs = d.questions || [];
@@ -508,7 +510,7 @@ async function mlAgentAnswer(account, questionId){
   const box = document.getElementById('ml-ans-'+questionId);
   if(box){ box.style.color='#888'; box.textContent='⏳ Generando respuesta...'; }
   const res = await mlAgentCall('answer', { account, question_id: questionId, autopost: false });
-  if(!res){ if(box){ box.style.color='#e66'; box.textContent='❌ Error de red'; } return; }
+  if(res.netError){ if(box){ box.style.color='#e66'; box.textContent='❌ Error de red: '+res.netError; } return; }
   const d = res.data || {};
   if(!res.ok || d.error){ if(box){ box.style.color='#e66'; box.textContent='❌ '+(d.error||'Error'); } return; }
   if(box){ box.style.color='#c6de00'; box.innerHTML='💬 <b>Respuesta sugerida:</b><br>'+mlEsc(d.answer||'(vacía)'); }
