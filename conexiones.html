@@ -511,6 +511,7 @@ async function mlAgentAnswer(account, questionId){
   if(res.netError){ if(box){ box.style.color='#e66'; box.textContent='❌ Error de red: '+res.netError; } return; }
   const d = res.data || {};
   if(!res.ok || d.error){ if(box){ box.style.color='#e66'; box.textContent='❌ '+(d.error||'Error'); } return; }
+  if(d.escalated){ if(box){ box.style.color='#ffb060'; box.innerHTML='🙋 <b>No responde el bot:</b> '+mlEsc(d.note||'lo atiende un humano (repetición/loop).'); } return; }
   if(box){ box.style.color='#c6de00'; box.innerHTML='💬 <b>Respuesta sugerida:</b><br>'+mlEsc(d.answer||'(vacía)'); }
 }
 
