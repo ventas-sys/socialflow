@@ -45,6 +45,17 @@ function wantsOtherProduct(text) {
   return significantWords(productQuery(text)).length >= 2;
 }
 
+// Link público del catálogo del vendedor filtrado por palabra, ej:
+//   https://listado.mercadolibre.com.ar/disco_CustId_46539072
+// Muestra TODOS los productos de esa cuenta que matchean la palabra (siempre funciona, sin API).
+function catalogUrl(userId, query) {
+  const slug = String(query || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')  // saca acentos
+    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const base = 'https://listado.mercadolibre.com.ar/';
+  return slug ? `${base}${slug}_CustId_${userId}` : `${base}_CustId_${userId}`;
+}
+
 // Flujo central: contexto del item + (cross-account) + IA + (postear).
 async function answerFlow({ acc, accounts, q, autopost }) {
   const token = await tokenOf(acc);
@@ -65,10 +76,13 @@ async function answerFlow({ acc, accounts, q, autopost }) {
 
   // ¿Preguntan por OTRO artículo? -> buscarlo en el catálogo de ESTA cuenta y recomendar + carrito.
   let otro = null;
+  let catalogo = null;
   if (wantsOtherProduct(q.text)) {
+    const query = productQuery(q.text);
+    const qWords = significantWords(query);
+    // Link del catálogo filtrado por la 1ª palabra de peso (siempre disponible, sin depender de la API).
+    if (qWords.length) catalogo = catalogUrl(acc.user_id, qWords.slice(0, 2).join(' '));
     try {
-      const query = productQuery(q.text);
-      const qWords = significantWords(query);
       const found = await searchSellerItem(token, acc.user_id, query || ctx.title || '');
       // Relevante: distinto al item actual y que el título comparta alguna palabra de la pregunta.
       const r = (found?.results || []).find(x =>
@@ -76,10 +90,10 @@ async function answerFlow({ acc, accounts, q, autopost }) {
         qWords.some(w => String(x.title || '').toLowerCase().includes(w))
       );
       if (r) otro = { title: r.title, permalink: r.permalink };
-    } catch { /* si la búsqueda falla, seguimos sin recomendación */ }
+    } catch { /* si la búsqueda falla, seguimos con el link del catálogo */ }
   }
 
-  const answer = await generateAnswer({ question: q.text, ctx, mode: acc.mode, cross, otro });
+  const answer = await generateAnswer({ question: q.text, ctx, mode: acc.mode, cross, otro, catalogo });
 
   // Anti-repetición: solo posteamos si sigue SIN responder (ML permite 1 sola respuesta).
   let posted = null;
