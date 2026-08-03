@@ -3,33 +3,52 @@ import { calcularCostos, mapReputacion } from '../../lib/ml/costos.js';
 
 const LISTING_TYPE = { 'Clásica': 'gold_special', Premium: 'gold_pro' };
 
-// Mercado Libre tiene 2 tipos de link para lo mismo:
-//  - publicación puntual de un vendedor: .../MLA-123456789-titulo-_JM  -> ítem directo
-//  - página de catálogo (varios vendedores compitiendo): .../p/MLA123456 -> "producto",
-//    hay que resolverlo primero a un ítem real (el ganador del buy box) antes de /items/{id}
-function parseMlUrl(input) {
+// Mercado Libre usa varios formatos de link/ID para lo mismo, y no publica un mapeo
+// oficial y estable entre ellos:
+//  - publicación puntual de un vendedor: .../MLA-123456789-titulo-_JM  -> ítem directo (MLA...)
+//  - página de catálogo (varios vendedores compitiendo): .../p/MLA123456   -> "producto" (buy box)
+//  - "user product" (variaciones sin catálogo compartido): .../up/MLAU123456 -> producto de 1 vendedor
+// En vez de mantener una lista rígida de formatos de URL (frágil ante cambios de ML),
+// se extrae cualquier token con pinta de ID de Mercado Libre y se prueba a resolverlo
+// contra los 3 recursos posibles, en orden, hasta encontrar un ítem real.
+function extractMlToken(input) {
   const s = String(input || '').trim();
-  const productMatch = s.match(/\/p\/(MLA)-?(\d+)/i);
-  if (productMatch) return { type: 'product', id: (productMatch[1] + productMatch[2]).toUpperCase() };
-  const itemMatch = s.match(/MLA-?(\d{6,})/i);
-  if (itemMatch) return { type: 'item', id: 'MLA' + itemMatch[1] };
+  const m = s.match(/\bML[A-Z]{0,2}-?(\d{6,})\b/i);
+  if (m) return m[0].replace('-', '').toUpperCase();
   const bare = s.match(/^\d{6,}$/);
-  if (bare) return { type: 'item', id: 'MLA' + bare[0] };
+  if (bare) return 'MLA' + bare[0];
   return null;
 }
 
-async function resolveProductToItemId(productId) {
-  const prodR = await httpRequest('GET', 'https://api.mercadolibre.com/products/' + productId, {}, null);
-  if (prodR.status !== 200) {
-    throw new Error('Esa es una página de catálogo de Mercado Libre (producto ' + productId + ') y no pude resolverla (HTTP ' + prodR.status + '). Probá pegar el link de una publicación puntual (formato .../MLA-123456789-titulo).');
+async function resolveToItem(token) {
+  const direct = await httpRequest('GET', 'https://api.mercadolibre.com/items/' + token, {}, null);
+  if (direct.status === 200) return direct.body;
+
+  if (/^MLAU/i.test(token)) {
+    const upR = await httpRequest('GET', 'https://api.mercadolibre.com/user-products/' + token, {}, null);
+    if (upR.status === 200) {
+      const b = upR.body || {};
+      const candidate = b.item_id || b.buy_box_winner?.item_id
+        || (Array.isArray(b.items) && b.items[0]?.id)
+        || (Array.isArray(b.variations) && b.variations[0]?.item_id);
+      if (candidate) {
+        const r = await httpRequest('GET', 'https://api.mercadolibre.com/items/' + candidate, {}, null);
+        if (r.status === 200) return r.body;
+      }
+    }
   }
-  const itemId = prodR.body?.buy_box_winner?.item_id
-    || prodR.body?.buy_box_winner_item_id
-    || prodR.body?.item_id;
-  if (!itemId) {
-    throw new Error('Esa es una página de catálogo de Mercado Libre y no encontré ninguna publicación activa asociada (sin ganador de buy box). Probá pegar el link de una publicación puntual (formato .../MLA-123456789-titulo) en vez del link del producto de catálogo.');
+
+  const prodR = await httpRequest('GET', 'https://api.mercadolibre.com/products/' + token, {}, null);
+  if (prodR.status === 200) {
+    const b = prodR.body || {};
+    const candidate = b.buy_box_winner?.item_id || b.buy_box_winner_item_id;
+    if (candidate) {
+      const r = await httpRequest('GET', 'https://api.mercadolibre.com/items/' + candidate, {}, null);
+      if (r.status === 200) return r.body;
+    }
   }
-  return itemId;
+
+  return null;
 }
 
 function extractWeightKg(item) {
@@ -59,21 +78,16 @@ async function fetchComisionMonto(price, listingTypeId, categoryId) {
 async function calcularPorItem(body, res) {
   const { url, cost, otherCosts, installments, condicionFiscal } = body;
   if (!url) return res.status(400).json({ ok: false, error: 'Falta el link de la publicación' });
-  const parsed = parseMlUrl(url);
-  if (!parsed) return res.status(400).json({ ok: false, error: 'No pude identificar el ID de la publicación (formato MLA123456789) en ese link' });
+  const token = extractMlToken(url);
+  if (!token) return res.status(400).json({ ok: false, error: 'No pude identificar el ID de la publicación en ese link' });
 
-  let itemId;
-  try {
-    itemId = parsed.type === 'product' ? await resolveProductToItemId(parsed.id) : parsed.id;
-  } catch (e) {
-    return res.status(200).json({ ok: false, error: e.message });
+  const item = await resolveToItem(token);
+  if (!item) {
+    return res.status(200).json({
+      ok: false,
+      error: 'No pude resolver esa publicación (' + token + '). Puede ser un link de catálogo o de variación que Mercado Libre no me deja resolver del todo. Probá con el link de una publicación puntual (formato .../MLA-123456789-titulo) o con el link corto del botón "Compartir" de la publicación.',
+    });
   }
-
-  const itemR = await httpRequest('GET', 'https://api.mercadolibre.com/items/' + itemId, {}, null);
-  if (itemR.status !== 200) {
-    return res.status(200).json({ ok: false, error: itemR.body?.message || ('No encontré esa publicación (HTTP ' + itemR.status + ')') });
-  }
-  const item = itemR.body;
   const price = item.price;
   const categoryId = item.category_id;
   const listingTypeId = item.listing_type_id;
