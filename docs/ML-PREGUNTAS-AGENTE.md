@@ -2,7 +2,20 @@
 
 > Auto-respondedor de las **preguntas de las publicaciones de Mercado Libre**, con IA,
 > multi-cuenta, orientado a **cerrar la venta**. Hermano del bot de WhatsApp (mismo patrón).
-> Estado: **DISEÑO / a construir** (arranca cuando lleguen los tokens — lunes).
+> Estado: **CONSTRUIDO — cuentas cargadas** (falta test + webhook).
+
+## 📌 Estado al 1-ago-2026 (retomar acá el lunes)
+- ✅ Código del agente desplegado en producción (endpoint `/api/ml/questions`, cerebro Gemini, multi-cuenta, cross-account, idempotente).
+- ✅ Panel `conexiones.html` con exportador + **verificador** de `ML_ACCOUNTS` (avisa si los tokens tienen puntitos/placeholder).
+- ✅ Variable **`ML_ACCOUNTS`** cargada en Vercel (Sensible, Production + Preview) con las **2 cuentas**:
+  - `full`  → user_id **80460157** (Envíos Full, sin retiro local)
+  - `local` → user_id **46539072** (envío normal + retiro por local)
+  - El verificador dio **✅ TODO OK** para ambas (client_id, client_secret, refresh_token, user_id reales).
+- ✅ Redeploy hecho por el cliente.
+- ⏳ **PENDIENTE (lunes):** correr los tests (Paso 2) — no se pudo desde acá por el proxy de red (403); probar desde el navegador/panel o pedirle al cliente. Después activar el **webhook** (Paso 3) y **entrenar el estilo** con el listado de Q&A por cuenta (Paso 4).
+
+Ambas cuentas usan la MISMA app de ML (client_id `5731065254303938`, "Uniproveedores MCP"); redirect `https://socialflow-flax.vercel.app/ml-callback`.
+
 
 ## 🎯 Objetivo
 Responder cada pregunta de ML en **< 30 segundos**, con coherencia, en tono de
