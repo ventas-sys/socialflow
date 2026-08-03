@@ -3,13 +3,33 @@ import { calcularCostos, mapReputacion } from '../../lib/ml/costos.js';
 
 const LISTING_TYPE = { 'Clásica': 'gold_special', Premium: 'gold_pro' };
 
-function extractItemId(input) {
+// Mercado Libre tiene 2 tipos de link para lo mismo:
+//  - publicación puntual de un vendedor: .../MLA-123456789-titulo-_JM  -> ítem directo
+//  - página de catálogo (varios vendedores compitiendo): .../p/MLA123456 -> "producto",
+//    hay que resolverlo primero a un ítem real (el ganador del buy box) antes de /items/{id}
+function parseMlUrl(input) {
   const s = String(input || '').trim();
-  const m = s.match(/MLA-?(\d{6,})/i);
-  if (m) return 'MLA' + m[1];
-  const n = s.match(/^\d{6,}$/);
-  if (n) return 'MLA' + n[0];
+  const productMatch = s.match(/\/p\/(MLA)-?(\d+)/i);
+  if (productMatch) return { type: 'product', id: (productMatch[1] + productMatch[2]).toUpperCase() };
+  const itemMatch = s.match(/MLA-?(\d{6,})/i);
+  if (itemMatch) return { type: 'item', id: 'MLA' + itemMatch[1] };
+  const bare = s.match(/^\d{6,}$/);
+  if (bare) return { type: 'item', id: 'MLA' + bare[0] };
   return null;
+}
+
+async function resolveProductToItemId(productId) {
+  const prodR = await httpRequest('GET', 'https://api.mercadolibre.com/products/' + productId, {}, null);
+  if (prodR.status !== 200) {
+    throw new Error('Esa es una página de catálogo de Mercado Libre (producto ' + productId + ') y no pude resolverla (HTTP ' + prodR.status + '). Probá pegar el link de una publicación puntual (formato .../MLA-123456789-titulo).');
+  }
+  const itemId = prodR.body?.buy_box_winner?.item_id
+    || prodR.body?.buy_box_winner_item_id
+    || prodR.body?.item_id;
+  if (!itemId) {
+    throw new Error('Esa es una página de catálogo de Mercado Libre y no encontré ninguna publicación activa asociada (sin ganador de buy box). Probá pegar el link de una publicación puntual (formato .../MLA-123456789-titulo) en vez del link del producto de catálogo.');
+  }
+  return itemId;
 }
 
 function extractWeightKg(item) {
@@ -39,8 +59,15 @@ async function fetchComisionMonto(price, listingTypeId, categoryId) {
 async function calcularPorItem(body, res) {
   const { url, cost, otherCosts, installments, condicionFiscal } = body;
   if (!url) return res.status(400).json({ ok: false, error: 'Falta el link de la publicación' });
-  const itemId = extractItemId(url);
-  if (!itemId) return res.status(400).json({ ok: false, error: 'No pude identificar el ID de la publicación (formato MLA123456789) en ese link' });
+  const parsed = parseMlUrl(url);
+  if (!parsed) return res.status(400).json({ ok: false, error: 'No pude identificar el ID de la publicación (formato MLA123456789) en ese link' });
+
+  let itemId;
+  try {
+    itemId = parsed.type === 'product' ? await resolveProductToItemId(parsed.id) : parsed.id;
+  } catch (e) {
+    return res.status(200).json({ ok: false, error: e.message });
+  }
 
   const itemR = await httpRequest('GET', 'https://api.mercadolibre.com/items/' + itemId, {}, null);
   if (itemR.status !== 200) {
