@@ -103,6 +103,10 @@ input:focus{outline:none;border-color:rgba(0,200,100,0.5);}
           <button class="btn" style="background:rgba(198,222,0,0.12);border-color:rgba(198,222,0,0.3);color:#c6de00;" onclick="mlAgentUnanswered('full')">📥 Preguntas FULL</button>
           <button class="btn" style="background:rgba(0,179,230,0.12);border-color:rgba(0,179,230,0.3);color:#00b3e6;" onclick="mlAgentUnanswered('local')">📥 Preguntas LOCAL</button>
         </div>
+        <div class="btn-row" style="margin-top:6px;">
+          <button class="btn" style="background:linear-gradient(135deg,#1d6f42,#0f3d24);color:#d6ffe6;border:none;font-weight:700;" onclick="mlDownloadLog()">📊 Descargar registro (Excel)</button>
+        </div>
+        <div style="font-size:10px;color:#888;margin-top:4px;">Baja un archivo con las últimas preguntas y respuestas de las 2 cuentas (se abre en Excel).</div>
         <div class="result" id="ml-agent-out" style="margin-top:8px;font-size:10px;font-family:'SF Mono',Menlo,monospace;white-space:pre-wrap;"></div>
       </div>
     </div>
@@ -513,6 +517,37 @@ async function mlAgentAnswer(account, questionId){
   if(!res.ok || d.error){ if(box){ box.style.color='#e66'; box.textContent='❌ '+(d.error||'Error'); } return; }
   if(d.escalated){ if(box){ box.style.color='#ffb060'; box.innerHTML='🙋 <b>No responde el bot:</b> '+mlEsc(d.note||'lo atiende un humano (repetición/loop).'); } return; }
   if(box){ box.style.color='#c6de00'; box.innerHTML='💬 <b>Respuesta sugerida:</b><br>'+mlEsc(d.answer||'(vacía)'); }
+}
+
+function mlCsvCell(v){
+  const s = String(v==null?'':v).replace(/"/g,'""');
+  return '"'+s+'"';
+}
+async function mlDownloadLog(){
+  const out = document.getElementById('ml-agent-out');
+  out.className='result'; out.textContent='⏳ Bajando registro de las 2 cuentas...';
+  const cuentas = ['full','local'];
+  const header = ['cuenta','fecha','item_id','estado','comprador','pregunta','respuesta','fecha_respuesta'];
+  const lines = [header.map(mlCsvCell).join(',')];
+  let total = 0;
+  for(const c of cuentas){
+    const res = await mlAgentCall('log', { account:c, limit:100 });
+    if(res.netError){ out.className='result err'; out.textContent='❌ Error de red: '+res.netError; return; }
+    const d = res.data || {};
+    if(d.error){ out.className='result err'; out.textContent='❌ '+d.error; return; }
+    (d.rows||[]).forEach(r=>{
+      lines.push([c, r.fecha, r.item_id, r.estado, r.comprador, r.pregunta, r.respuesta, r.fecha_respuesta].map(mlCsvCell).join(','));
+      total++;
+    });
+  }
+  const csv = '﻿' + lines.join('\r\n'); // BOM para que Excel abra los acentos bien
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'registro-preguntas-uniproveedores.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  out.className='result ok'; out.textContent='✅ Registro descargado ('+total+' preguntas de las 2 cuentas). Abrilo con Excel.';
 }
 
 function verifyMLAccounts(){
