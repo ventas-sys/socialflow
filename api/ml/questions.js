@@ -24,6 +24,20 @@ function wantsPickup(text, mode) {
   return /\bretir|\blocal\b|pasar a buscar|sucursal|retiro/i.test(text || '');
 }
 
+// ¿El cliente pregunta por OTRO artículo / quiere llevar varios? -> recomendar del catálogo + carrito.
+function wantsOtherProduct(text) {
+  return /\botr[oa]s?\b|\baparte\b|\badem[aá]s\b|cat[aá]logo|lista de precio|\bvarios\b|\bcombo\b|carrito|\bvend[eé]n?\b|\bmanejan\b|consigu|m[aá]s productos|junto con|llevar (varios|todo)/i.test(text || '');
+}
+
+// Limpia la pregunta para buscar el producto en el catálogo (saca saludos y palabras de relleno).
+function productQuery(text) {
+  return String(text || '')
+    .replace(/hola|buenas|buen d[ií]a|gracias|por favor|c[oó]mo est[aá]s?|que tal/gi, ' ')
+    .replace(/[¿?¡!.,]/g, ' ')
+    .replace(/\b(ten[eé]s|tienen|vend[eé]n?|manejan|hay|busco|necesito|quiero|otro|otra|otros|otras|aparte|adem[aá]s|para|el|la|los|las|un|una|de|del|que|cuanto|cu[aá]nto|mide|color|con|sin|este|esta)\b/gi, ' ')
+    .replace(/\s+/g, ' ').trim().slice(0, 60);
+}
+
 // Flujo central: contexto del item + (cross-account) + IA + (postear).
 async function answerFlow({ acc, accounts, q, autopost }) {
   const token = await tokenOf(acc);
@@ -42,7 +56,17 @@ async function answerFlow({ acc, accounts, q, autopost }) {
     }
   }
 
-  const answer = await generateAnswer({ question: q.text, ctx, mode: acc.mode, cross });
+  // ¿Preguntan por OTRO artículo? -> buscarlo en el catálogo de ESTA cuenta y recomendar + carrito.
+  let otro = null;
+  if (wantsOtherProduct(q.text)) {
+    try {
+      const found = await searchSellerItem(token, acc.user_id, productQuery(q.text) || ctx.title || '');
+      const r = (found?.results || []).find(x => String(x.id) !== String(q.item_id));
+      if (r) otro = { title: r.title, permalink: r.permalink };
+    } catch { /* si la búsqueda falla, seguimos sin recomendación */ }
+  }
+
+  const answer = await generateAnswer({ question: q.text, ctx, mode: acc.mode, cross, otro });
 
   // Anti-repetición: solo posteamos si sigue SIN responder (ML permite 1 sola respuesta).
   let posted = null;
