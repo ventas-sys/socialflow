@@ -2,19 +2,39 @@
 
 > Auto-respondedor de las **preguntas de las publicaciones de Mercado Libre**, con IA,
 > multi-cuenta, orientado a **cerrar la venta**. Hermano del bot de WhatsApp (mismo patrón).
-> Estado: **CONSTRUIDO — cuentas cargadas** (falta test + webhook).
+> Estado: **FUNCIONANDO — "Tatiana"** (probado en manual; falta activar webhook).
 
-## 📌 Estado al 1-ago-2026 (retomar acá el lunes)
-- ✅ Código del agente desplegado en producción (endpoint `/api/ml/questions`, cerebro Gemini, multi-cuenta, cross-account, idempotente).
-- ✅ Panel `conexiones.html` con exportador + **verificador** de `ML_ACCOUNTS` (avisa si los tokens tienen puntitos/placeholder).
-- ✅ Variable **`ML_ACCOUNTS`** cargada en Vercel (Sensible, Production + Preview) con las **2 cuentas**:
-  - `full`  → user_id **80460157** (Envíos Full, sin retiro local)
-  - `local` → user_id **46539072** (envío normal + retiro por local)
-  - El verificador dio **✅ TODO OK** para ambas (client_id, client_secret, refresh_token, user_id reales).
-- ✅ Redeploy hecho por el cliente.
-- ⏳ **PENDIENTE (lunes):** correr los tests (Paso 2) — no se pudo desde acá por el proxy de red (403); probar desde el navegador/panel o pedirle al cliente. Después activar el **webhook** (Paso 3) y **entrenar el estilo** con el listado de Q&A por cuenta (Paso 4).
+## 📌 Estado al 3-ago-2026 (retomar acá mañana)
+- ✅ Agente **"Tatiana"** desplegado y probado en MANUAL en las 2 cuentas (botón "Probar respuesta" en el panel). Responde bien.
+- ✅ `ML_ACCOUNTS` cargada y verificada en Vercel: `full` (80460157) y `local` (46539072). Misma app `5731065254303938` ("Uniproveedores MCP"), redirect `.../ml-callback`.
+- ✅ Reglas del cerebro (`qa-brain.js` + `questions.js`) ya implementadas:
+  - Nombre **Tatiana**, firma "Uniproveedores". Saludo según hora AR (mañana/tarde/noche, siempre alentando a estar feliz).
+  - Respuestas de **250 caracteres**, en **un solo renglón** (ML no permite saltos de línea), separadas con "...".
+  - Horarios de retiro: **L-V 14 a 17:30, Sáb 10 a 13**. Retiro SOLO en cuenta LOCAL.
+  - **Cross-account:** en FULL, si preguntan retiro/ubicación ("dónde están", etc.) pasa el link del mismo producto en LOCAL; si no lo encuentra, pasa el link del **catálogo LOCAL filtrado** (`listado.mercadolibre.com.ar/<palabra>_CustId_46539072`).
+  - **Otro producto:** busca en el catálogo de la cuenta + propone **armar carrito** (envío único).
+  - **Medidas/detalles:** invita a mirar la **3ª foto**.
+  - **Color:** si no hay variante de color → "el color es indiferente al uso" (evita devoluciones). Si hay → elegir variante.
+  - **Variantes:** se eligen "abajo del precio" en la publicación.
+  - **Pedido ya hecho:** no se cambia ni agrega nada; cancelar y rearmar (sin carrito).
+  - **Factura A/B**; precio "por fuera" = sale igual.
+  - **Anti-loop:** si el mismo comprador repite o pregunta +3 veces → NO responde, lo atiende un humano (1h mín). `shouldEscalate` + `getItemQuestions`.
+- ✅ **Interruptor de seguridad:** en Vercel, `ML_AUTOANSWER=off` pausa el auto-respondido al instante (default: on).
+- ✅ **Registro a Excel:** botón "📊 Descargar registro (Excel)" en el panel → CSV con Q&A de las 2 cuentas (acción `log`).
+- ⏳ **PENDIENTE (mañana):** activar el **WEBHOOK** en DevCenter (Notificaciones callback URL `https://socialflow-flax.vercel.app/api/ml/questions` + topic `questions`). El cliente lo estaba configurando (ojo: el campo mostraba `mercadoshops.com.ar` por defecto — confirmar que sea la app "Uniproveedores MCP"). Después: prueba real (preguntar y ver que responde sola en <30s).
 
-Ambas cuentas usan la MISMA app de ML (client_id `5731065254303938`, "Uniproveedores MCP"); redirect `https://socialflow-flax.vercel.app/ml-callback`.
+## 🌐 Roadmap bots de redes (consultado el 3-ago)
+Reusando el mismo cerebro "Tatiana", conexión (OAuth+webhook) por red:
+- ✅ Factibles: **Instagram + Facebook** (una sola app de Meta cubre las dos, DMs y comentarios) y **YouTube** (comentarios, API de Google).
+- ⚠️ **X/Twitter**: factible pero API PAGA (~USD 100/mes).
+- ❌ **TikTok** y **LinkedIn**: sin API pública abierta para auto-responder (por ahora no).
+- Recomendación: arrancar por **Meta (IG+FB)**, luego **YouTube**.
+
+## 📲 WhatsApp (bot ya vivo, VPS) — cambios del 3-ago
+- Recordatorio post-contacto: premio del video corregido a **$15.000** + bloque con **todas las redes** (links completos) — `lib/wa/business-config.js` (`REDES`, `REDES_TEXTO`).
+- Persona del bot pasada a **"Tatiana"** (femenino), se presenta como Tatiana si le preguntan — `lib/wa/ia-guide.js`.
+- ⚠️ Estos cambios están en el repo/main; falta **desplegar en el VPS** (`cd /opt/socialflow && git pull origin main && pm2 restart wa-bridge`).
+- A confirmar: URLs exactas de **Facebook** y **X** (se usaron los handles estándar).
 
 
 ## 🎯 Objetivo
