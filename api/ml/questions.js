@@ -24,9 +24,9 @@ function wantsPickup(text, mode) {
   return /\bretir|\blocal\b|pasar a buscar|sucursal|retiro/i.test(text || '');
 }
 
-// ¿El cliente pregunta por OTRO artículo / quiere llevar varios? -> recomendar del catálogo + carrito.
-function wantsOtherProduct(text) {
-  return /\botr[oa]s?\b|\baparte\b|\badem[aá]s\b|cat[aá]logo|lista de precio|\bvarios\b|\bcombo\b|carrito|\bvend[eé]n?\b|\bmanejan\b|consigu|m[aá]s productos|junto con|llevar (varios|todo)/i.test(text || '');
+// Palabras "de peso" de un texto (para buscar y para medir relevancia).
+function significantWords(s) {
+  return String(s || '').toLowerCase().split(/\s+/).filter(w => w.length >= 4);
 }
 
 // Limpia la pregunta para buscar el producto en el catálogo (saca saludos y palabras de relleno).
@@ -34,8 +34,15 @@ function productQuery(text) {
   return String(text || '')
     .replace(/hola|buenas|buen d[ií]a|gracias|por favor|c[oó]mo est[aá]s?|que tal/gi, ' ')
     .replace(/[¿?¡!.,]/g, ' ')
-    .replace(/\b(ten[eé]s|tienen|vend[eé]n?|manejan|hay|busco|necesito|quiero|otro|otra|otros|otras|aparte|adem[aá]s|para|el|la|los|las|un|una|de|del|que|cuanto|cu[aá]nto|mide|color|con|sin|este|esta)\b/gi, ' ')
+    .replace(/\b(ten[eé]s|tienen|vend[eé]n?|manejan|hay|busco|necesito|quiero|otro|otra|otros|otras|aparte|adem[aá]s|para|el|la|los|las|un|una|de|del|que|cuanto|cu[aá]nto|mide|medida|medidas|color|stock|env[ií]os?|precio|factura|con|sin|este|esta|sirve|viene)\b/gi, ' ')
     .replace(/\s+/g, ' ').trim().slice(0, 60);
+}
+
+// ¿El cliente pregunta por OTRO artículo / quiere llevar varios? -> recomendar del catálogo + carrito.
+// Dispara por palabras clave ("otro", "aparte"...) O cuando menciona un producto (>=2 palabras de peso).
+function wantsOtherProduct(text) {
+  if (/\botr[oa]s?\b|\baparte\b|\badem[aá]s\b|cat[aá]logo|lista de precio|\bvarios\b|\bcombo\b|carrito|\bvend[eé]n?\b|\bmanejan\b|consigu|m[aá]s productos|junto con|llevar (varios|todo)/i.test(text || '')) return true;
+  return significantWords(productQuery(text)).length >= 2;
 }
 
 // Flujo central: contexto del item + (cross-account) + IA + (postear).
@@ -60,8 +67,14 @@ async function answerFlow({ acc, accounts, q, autopost }) {
   let otro = null;
   if (wantsOtherProduct(q.text)) {
     try {
-      const found = await searchSellerItem(token, acc.user_id, productQuery(q.text) || ctx.title || '');
-      const r = (found?.results || []).find(x => String(x.id) !== String(q.item_id));
+      const query = productQuery(q.text);
+      const qWords = significantWords(query);
+      const found = await searchSellerItem(token, acc.user_id, query || ctx.title || '');
+      // Relevante: distinto al item actual y que el título comparta alguna palabra de la pregunta.
+      const r = (found?.results || []).find(x =>
+        String(x.id) !== String(q.item_id) &&
+        qWords.some(w => String(x.title || '').toLowerCase().includes(w))
+      );
       if (r) otro = { title: r.title, permalink: r.permalink };
     } catch { /* si la búsqueda falla, seguimos sin recomendación */ }
   }
