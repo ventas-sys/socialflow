@@ -18,10 +18,10 @@ async function tokenOf(acc) {
   return t.access_token;
 }
 
-// ¿La pregunta pide retiro/local y estamos en la cuenta Full? -> cross-account.
+// ¿La pregunta pide retiro/ubicación y estamos en la cuenta Full? -> cross-account.
 function wantsPickup(text, mode) {
   if (mode !== 'full') return false;
-  return /\bretir|\blocal\b|pasar a buscar|sucursal|retiro/i.test(text || '');
+  return /\bretir|\blocal\b|pasar a buscar|sucursal|retiro|d[oó]nde|direcci[oó]n|ubica|\bzona\b|\bbarrio\b|paso a|puedo ir|est[aá]n\b|est[aá]s\b/i.test(text || '');
 }
 
 // Palabras "de peso" de un texto (para buscar y para medir relevancia).
@@ -92,15 +92,19 @@ async function answerFlow({ acc, accounts, q, autopost }) {
   const item = await getItem(token, q.item_id);
   const ctx = itemContext(item);
 
-  let cross = null;
+  let cross = null;        // link exacto del MISMO producto en la cuenta LOCAL
+  let crossLocal = null;   // fallback: catálogo LOCAL filtrado (si no aparece el exacto)
   if (wantsPickup(q.text, acc.mode)) {
     const other = otherAccount(accounts, acc);
     if (other) {
+      // Catálogo LOCAL filtrado por las palabras del título (siempre disponible).
+      const kw = significantWords(ctx.title || item?.title || '').slice(0, 2).join(' ');
+      if (other.user_id) crossLocal = catalogUrl(other.user_id, kw);
       try {
         const ot = await tokenOf(other);
         const found = await searchSellerItem(ot, other.user_id, ctx.title || item?.title || '');
         cross = found?.results?.[0]?.permalink || null;
-      } catch { /* si falla el cross-account, seguimos sin él */ }
+      } catch { /* si falla el cross-account, queda el link del catálogo LOCAL */ }
     }
   }
 
@@ -123,7 +127,7 @@ async function answerFlow({ acc, accounts, q, autopost }) {
     } catch { /* si la búsqueda falla, seguimos con el link del catálogo */ }
   }
 
-  const answer = await generateAnswer({ question: q.text, ctx, mode: acc.mode, cross, otro, catalogo });
+  const answer = await generateAnswer({ question: q.text, ctx, mode: acc.mode, cross, crossLocal, otro, catalogo });
 
   // Anti-repetición: solo posteamos si sigue SIN responder (ML permite 1 sola respuesta).
   let posted = null;
