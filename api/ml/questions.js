@@ -10,7 +10,7 @@
 // Config: variable de entorno ML_ACCOUNTS (JSON). Ver lib/ml/qa-config.js.
 import { cors } from '../_http.js';
 import { loadAccounts, findAccountByUser, findAccountByLabel, otherAccount } from '../../lib/ml/qa-config.js';
-import { refreshAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, searchSellerItem, postAnswer, itemContext } from '../../lib/ml/ml-api.js';
+import { refreshAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, getRecentQuestions, searchSellerItem, postAnswer, itemContext } from '../../lib/ml/ml-api.js';
 import { generateAnswer } from '../../lib/ml/qa-brain.js';
 
 async function tokenOf(acc) {
@@ -173,8 +173,10 @@ export default async function handler(req, res) {
       const token = await tokenOf(acc);
       const q = await getQuestion(token, qId);
       if (!q || q.status !== 'UNANSWERED') return res.status(200).json({ ok: true, skipped: 'ya respondida o inexistente' });
-      const out = await answerFlow({ acc, accounts, q, autopost: true });
-      return res.status(200).json({ ok: true, ...out });
+      // Interruptor de seguridad: poné ML_AUTOANSWER=off en Vercel para pausar el auto-respondido.
+      const autopost = process.env.ML_AUTOANSWER !== 'off';
+      const out = await answerFlow({ acc, accounts, q, autopost });
+      return res.status(200).json({ ok: true, autopost, ...out });
     }
 
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -191,6 +193,27 @@ export default async function handler(req, res) {
         account: acc.label,
         total: data?.total ?? (data?.questions?.length || 0),
         questions: (data?.questions || []).map(q => ({ id: q.id, text: q.text, item_id: q.item_id, date: q.date_created })),
+      });
+    }
+
+    // Registro: preguntas recientes con su respuesta (para exportar a Excel).
+    if (action === 'log') {
+      const token = await tokenOf(acc);
+      const limit = Math.min(Number(req.body?.limit) || 50, 100);
+      const data = await getRecentQuestions(token, acc.user_id, limit);
+      return res.status(200).json({
+        ok: true,
+        account: acc.label,
+        total: data?.total ?? (data?.questions?.length || 0),
+        rows: (data?.questions || []).map(q => ({
+          fecha: q.date_created,
+          item_id: q.item_id,
+          estado: q.status,
+          comprador: q.from?.id ?? '',
+          pregunta: q.text || '',
+          respuesta: q.answer?.text || '',
+          fecha_respuesta: q.answer?.date_created || '',
+        })),
       });
     }
 
