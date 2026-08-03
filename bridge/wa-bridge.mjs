@@ -13,6 +13,7 @@ import 'dotenv/config';
 import pkg from 'whatsapp-web.js';
 import qrcode from 'qrcode-terminal';
 import { RECORDATORIO } from '../lib/wa/business-config.js';
+import { agendarContacto } from '../lib/google/contacts.js';
 
 const { Client, LocalAuth } = pkg;
 
@@ -601,6 +602,16 @@ async function handleIncoming(client, msg) {
       lastActivityAt.set(from, Date.now());
       recordHistory(from, 'bot', m.body);
       console.log(`[${from}] <- ${m.body.slice(0, 80)}`);
+    }
+
+    // Agendar el contacto en Google Contactos (cliente / mayorista / proveedor).
+    // Fire-and-forget: nunca frena ni rompe la conversación.
+    const contacto = result.ia?.contacto;
+    if (contacto) {
+      const phone = '+' + from.split('@')[0];
+      agendarContacto({ ...contacto, phone })
+        .then(r => { if (r?.ok) console.log(`[${from}] 📇 agendado: ${r.nombre}`); else if (r?.error) console.error(`[${from}] agendar contacto:`, r.error); })
+        .catch(e => console.error(`[${from}] agendar contacto:`, e.message));
     }
 
     // Mandó el link de un producto: si el cliente no vuelve a escribir en
