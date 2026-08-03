@@ -10,7 +10,7 @@
 // Config: variable de entorno ML_ACCOUNTS (JSON). Ver lib/ml/qa-config.js.
 import { cors } from '../_http.js';
 import { loadAccounts, findAccountByUser, findAccountByLabel, otherAccount } from '../../lib/ml/qa-config.js';
-import { refreshAccessToken, getQuestion, getItem, getUnanswered, searchSellerItem, postAnswer, itemContext } from '../../lib/ml/ml-api.js';
+import { refreshAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, searchSellerItem, postAnswer, itemContext } from '../../lib/ml/ml-api.js';
 import { generateAnswer } from '../../lib/ml/qa-brain.js';
 
 async function tokenOf(acc) {
@@ -56,9 +56,39 @@ function catalogUrl(userId, query) {
   return slug ? `${base}${slug}_CustId_${userId}` : `${base}_CustId_${userId}`;
 }
 
+// Normaliza texto para comparar preguntas repetidas.
+function normText(t) {
+  return String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+// Anti-loop: si el MISMO comprador repite la pregunta o pregunta más de 3 veces,
+// NO respondemos: lo tiene que atender un humano (esperar como mínimo 1 hora).
+async function shouldEscalate(token, q) {
+  const buyerId = q?.from?.id;
+  if (!buyerId) return false;
+  try {
+    const data = await getItemQuestions(token, q.item_id, 50);
+    const mine = (data?.questions || []).filter(x => x?.from?.id === buyerId);
+    if (mine.length > 3) return true;                       // más de 3 preguntas del mismo comprador
+    const norm = normText(q.text);
+    const iguales = mine.filter(x => normText(x.text) === norm);
+    if (iguales.length >= 2) return true;                   // la actual + al menos una igual previa
+  } catch { /* si no podemos chequear, seguimos normal */ }
+  return false;
+}
+
 // Flujo central: contexto del item + (cross-account) + IA + (postear).
 async function answerFlow({ acc, accounts, q, autopost }) {
   const token = await tokenOf(acc);
+
+  // Anti-loop: si hay que escalar a humano, no respondemos ni posteamos.
+  const escalate = await shouldEscalate(token, q);
+  if (escalate) {
+    return { question: q.text, item: null, answer: null, status: q.status, posted: null,
+             escalated: true, note: 'Repetición/loop detectado: lo responde un humano (esperar 1h mínimo).' };
+  }
+
   const item = await getItem(token, q.item_id);
   const ctx = itemContext(item);
 
