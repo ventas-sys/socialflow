@@ -95,6 +95,16 @@ input:focus{outline:none;border-color:rgba(0,200,100,0.5);}
         <button class="btn" style="margin-top:6px;background:rgba(198,222,0,0.15);border-color:rgba(198,222,0,0.4);color:#c6de00;" onclick="verifyMLAccounts()">🔎 Verificar</button>
         <div class="result" id="ml-verify-out" style="margin-top:8px;font-size:10px;font-family:'SF Mono',Menlo,monospace;"></div>
       </div>
+      <div style="margin-top:12px;border-top:1px solid rgba(198,222,0,0.2);padding-top:10px;">
+        <div style="font-size:10px;color:#c6de00;font-weight:700;margin-bottom:4px;">🧪 Probar el Agente (ya con ML_ACCOUNTS en Vercel)</div>
+        <div style="font-size:10px;color:#999;margin-bottom:6px;">Corré esto DESPUÉS de guardar y redeployar en Vercel. Muestra si el agente ve las 2 cuentas y las preguntas sin responder.</div>
+        <div class="btn-row">
+          <button class="btn" style="background:rgba(198,222,0,0.15);border-color:rgba(198,222,0,0.4);color:#c6de00;" onclick="mlAgentTest()">🧪 Probar cuentas</button>
+          <button class="btn" style="background:rgba(198,222,0,0.12);border-color:rgba(198,222,0,0.3);color:#c6de00;" onclick="mlAgentUnanswered('full')">📥 Preguntas FULL</button>
+          <button class="btn" style="background:rgba(0,179,230,0.12);border-color:rgba(0,179,230,0.3);color:#00b3e6;" onclick="mlAgentUnanswered('local')">📥 Preguntas LOCAL</button>
+        </div>
+        <div class="result" id="ml-agent-out" style="margin-top:8px;font-size:10px;font-family:'SF Mono',Menlo,monospace;white-space:pre-wrap;"></div>
+      </div>
     </div>
   </div>
 
@@ -443,6 +453,44 @@ function exportMLBoth(){
     '⚠️ NO copies lo de abajo (va con puntitos a propósito). El botón ya copió el valor REAL:\n' +
     mlMask(json);
   notify('📋 ML_ACCOUNTS ('+arr.length+') copiado al portapapeles (valor real)');
+}
+
+async function mlAgentCall(action, body){
+  const out = document.getElementById('ml-agent-out');
+  out.className = 'result'; out.textContent = '⏳ Consultando...';
+  try{
+    const r = await fetch('/api/ml/questions?action='+action, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body||{})
+    });
+    const data = await r.json();
+    return { ok:r.ok, data };
+  }catch(e){
+    out.className='result err'; out.textContent='❌ Error de red: '+e.message;
+    return null;
+  }
+}
+async function mlAgentTest(){
+  const res = await mlAgentCall('test', {});
+  if(!res) return;
+  const out = document.getElementById('ml-agent-out');
+  const d = res.data || {};
+  if(!res.ok || d.error){ out.className='result err'; out.textContent='❌ '+(d.error||'Error'); return; }
+  if(!d.count){ out.className='result err'; out.textContent='⚠️ El agente NO ve cuentas (count 0). Revisá que ML_ACCOUNTS esté guardada en Vercel y que hayas hecho Redeploy.'; return; }
+  out.className='result ok';
+  out.textContent = '✅ El agente ve '+d.count+' cuenta(s):\n' +
+    (d.accounts||[]).map(a=>'• '+a.label+' (rol '+a.mode+') · user '+a.user_id+' · token '+(a.has_refresh?'OK':'FALTA')).join('\n');
+}
+async function mlAgentUnanswered(account){
+  const res = await mlAgentCall('unanswered', { account });
+  if(!res) return;
+  const out = document.getElementById('ml-agent-out');
+  const d = res.data || {};
+  if(!res.ok || d.error){ out.className='result err'; out.textContent='❌ '+(d.error||'Error'); return; }
+  const qs = d.questions || [];
+  out.className='result ok';
+  out.textContent = '📥 Cuenta '+(d.account||account)+' — '+ (d.total||qs.length) +' pregunta(s) sin responder:\n' +
+    (qs.length ? qs.slice(0,10).map(q=>'• ['+q.id+'] '+(q.text||'').slice(0,80)).join('\n') : '(no hay preguntas pendientes ahora)');
 }
 
 function verifyMLAccounts(){
