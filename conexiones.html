@@ -481,6 +481,7 @@ async function mlAgentTest(){
   out.textContent = '✅ El agente ve '+d.count+' cuenta(s):\n' +
     (d.accounts||[]).map(a=>'• '+a.label+' (rol '+a.mode+') · user '+a.user_id+' · token '+(a.has_refresh?'OK':'FALTA')).join('\n');
 }
+function mlEsc(t){ return String(t||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 async function mlAgentUnanswered(account){
   const res = await mlAgentCall('unanswered', { account });
   if(!res) return;
@@ -489,8 +490,28 @@ async function mlAgentUnanswered(account){
   if(!res.ok || d.error){ out.className='result err'; out.textContent='❌ '+(d.error||'Error'); return; }
   const qs = d.questions || [];
   out.className='result ok';
-  out.textContent = '📥 Cuenta '+(d.account||account)+' — '+ (d.total||qs.length) +' pregunta(s) sin responder:\n' +
-    (qs.length ? qs.slice(0,10).map(q=>'• ['+q.id+'] '+(q.text||'').slice(0,80)).join('\n') : '(no hay preguntas pendientes ahora)');
+  if(!qs.length){
+    out.textContent = '📥 Cuenta '+(d.account||account)+' — 0 pregunta(s) sin responder:\n(no hay preguntas pendientes ahora)';
+    return;
+  }
+  let html = '📥 Cuenta '+mlEsc(d.account||account)+' — '+(d.total||qs.length)+' pregunta(s) sin responder:<br>';
+  html += qs.slice(0,10).map(q=>
+    '<div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.1);">'+
+    '• '+mlEsc((q.text||'').slice(0,120))+'<br>'+
+    '<button class="btn" style="margin-top:4px;font-size:10px;background:rgba(198,222,0,0.15);border-color:rgba(198,222,0,0.4);color:#c6de00;" '+
+    'onclick="mlAgentAnswer(\''+mlEsc(account)+'\','+q.id+')">✍️ Probar respuesta (sin postear)</button>'+
+    '<div id="ml-ans-'+q.id+'" style="font-size:10px;margin-top:4px;"></div></div>'
+  ).join('');
+  out.innerHTML = html;
+}
+async function mlAgentAnswer(account, questionId){
+  const box = document.getElementById('ml-ans-'+questionId);
+  if(box){ box.style.color='#888'; box.textContent='⏳ Generando respuesta...'; }
+  const res = await mlAgentCall('answer', { account, question_id: questionId, autopost: false });
+  if(!res){ if(box){ box.style.color='#e66'; box.textContent='❌ Error de red'; } return; }
+  const d = res.data || {};
+  if(!res.ok || d.error){ if(box){ box.style.color='#e66'; box.textContent='❌ '+(d.error||'Error'); } return; }
+  if(box){ box.style.color='#c6de00'; box.innerHTML='💬 <b>Respuesta sugerida:</b><br>'+mlEsc(d.answer||'(vacía)'); }
 }
 
 function verifyMLAccounts(){
