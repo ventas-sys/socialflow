@@ -473,8 +473,6 @@ async function mlAgentTest(){
   out.className='result'; out.textContent='⏳ Consultando...';
   const res = await mlAgentCall('test', {});
   if(res.netError){ out.className='result err'; out.textContent='❌ Error de red: '+res.netError; return; }
-  if(!res) return;
-  const out = document.getElementById('ml-agent-out');
   const d = res.data || {};
   if(!res.ok || d.error){ out.className='result err'; out.textContent='❌ '+(d.error||'Error'); return; }
   if(!d.count){ out.className='result err'; out.textContent='⚠️ El agente NO ve cuentas (count 0). Revisá que ML_ACCOUNTS esté guardada en Vercel y que hayas hecho Redeploy.'; return; }
