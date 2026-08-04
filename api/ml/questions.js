@@ -43,6 +43,16 @@ function alreadyPurchased(text) {
   return /ya compr|reci[eé]n compr|hice (una|la|mi) compra|ya pagu|ya hice (el|un) pedido|agregar.*al pedido|sumar.*al pedido|al pedido\b|cambiar (el|la|mi) (pedido|compra|orden)|modificar (el|la|mi) (pedido|compra|orden)/i.test(text || '');
 }
 
+// ¿Pregunta por CANTIDAD / compra grande? -> ofrecer precio por mayor.
+function wantsWholesale(text) {
+  const t = String(text || '');
+  if (/\bpor mayor\b|x\s*mayor|al por mayor|mayorista|revend|reventa|docena|\bbulto\b|\bpacks?\b|\bcajas?\b|descuento por cantidad|por cantidad|mejor precio/i.test(t)) return true;
+  // "18 packs", "50 unidades", "x 20", "20u" -> cantidad de 6 o más
+  const m = t.match(/(?:^|\D)(\d{1,4})\s*(unidad|unidades|packs?|cajas?|docenas?|u\b|piezas?)/i) || t.match(/\bx\s*(\d{1,4})\b/i);
+  if (m && Number(m[1]) >= 6) return true;
+  return false;
+}
+
 // ¿El cliente pregunta por OTRO artículo / quiere llevar varios? -> recomendar del catálogo + carrito.
 // Dispara por palabras clave ("otro", "aparte"...) O cuando menciona un producto (>=2 palabras de peso).
 function wantsOtherProduct(text) {
@@ -135,7 +145,9 @@ async function answerFlow({ acc, accounts, q, autopost }) {
     } catch { /* si la búsqueda falla, seguimos con el link del catálogo */ }
   }
 
-  const answer = await generateAnswer({ question: q.text, ctx, mode: acc.mode, cross, crossLocal, otro, catalogo, yaCompro });
+  const mayorista = wantsWholesale(q.text);
+
+  const answer = await generateAnswer({ question: q.text, ctx, mode: acc.mode, cross, crossLocal, otro, catalogo, yaCompro, mayorista });
 
   // Anti-repetición: solo posteamos si sigue SIN responder (ML permite 1 sola respuesta).
   let posted = null;
