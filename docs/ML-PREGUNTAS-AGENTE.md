@@ -2,7 +2,24 @@
 
 > Auto-respondedor de las **preguntas de las publicaciones de Mercado Libre**, con IA,
 > multi-cuenta, orientado a **cerrar la venta**. Hermano del bot de WhatsApp (mismo patrón).
-> Estado: **FUNCIONANDO — "Tatiana"** (probado en manual; falta activar webhook).
+> Estado: **EN VIVO — "Tatiana" 100% automática** (webhook activo, probado con pregunta real).
+
+## 📌 Estado al 4-ago-2026 (última sesión)
+- ✅ **Webhook de ML ACTIVO** en la app "Uniproveedores MCP": callback `https://socialflow-flax.vercel.app/api/ml/questions`, topic **Questions** (dentro del grupo **Items**). Probado con pregunta real → Tatiana respondió sola. **Ya está en vivo en las 2 cuentas.**
+- ✅ El endpoint responde 200 a GET (health) y a POST sin acción (ping de ML).
+- ✅ Ajustes finales del cerebro:
+  - **Por cantidad/mayor:** menciona mejor precio por mayor y dirige SOLO a "Ver más datos de este vendedor" (perfil), sin mail/teléfono (compatible ML).
+  - **Repreguntas:** 1ª con saludo; 2ª y 3ª SIN saludo; **4ª pregunta → no responde** (humano). `buyerContext` (escalate + isFollowup).
+- ✅ **Bot de WhatsApp desplegado en el VPS** (git pull + pm2 restart wa-bridge). Corre con Tatiana + redes + código de agenda (dormido). Arranque limpio: HUMANO label id=18, follow-up, recordatorio, heartbeat OK.
+
+### ⏳ PENDIENTE (mañana)
+1. **Google Contactos:** autorizar Google (OAuth client, scope contacts, ventas@uniproveedores.com.ar) → setear `GOOGLE_CONTACTS_CLIENT_ID/SECRET/REFRESH_TOKEN` + redeploy bridge.
+2. **⚠️ Fix @lid:** WhatsApp ahora usa IDs `@lid` (no el teléfono). `bridge/wa-bridge.mjs` arma el phone con `from.split('@')[0]` → con `@lid` guardaría el LID, NO el teléfono real. Ajustar (resolver número real vía `client`/contacto) ANTES de activar la agenda.
+3. **Vigilar** `aviso a supervisor fail: No LID` — si reaparece al marcar humano, arreglar `notifySupervisor` (resolver LID con `getNumberId`).
+4. (Opcional) Bots de redes: Meta (IG+FB) primero, luego YouTube.
+
+---
+## 📌 Estado al 3-ago-2026
 
 ## 📌 Estado al 3-ago-2026 (retomar acá mañana)
 - ✅ Agente **"Tatiana"** desplegado y probado en MANUAL en las 2 cuentas (botón "Probar respuesta" en el panel). Responde bien.
