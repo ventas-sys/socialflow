@@ -152,6 +152,11 @@ export default async function handler(req, res) {
   const action = (req.query?.action || req.body?.action || '').toString();
   const accounts = loadAccounts();
 
+  // Health-check: ML (o el navegador) puede pegarle con GET para validar la URL.
+  if (req.method === 'GET' && !action) {
+    return res.status(200).json({ ok: true, service: 'ml-questions', accounts: accounts.length });
+  }
+
   try {
     // Ver qué cuentas están cargadas (sin exponer secretos).
     if (action === 'test') {
@@ -229,6 +234,8 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, account: acc.label, ...out });
     }
 
+    // POST sin acción reconocida (ej: ping/validación de ML): respondemos 200 para no fallar.
+    if (req.method === 'POST') return res.status(200).json({ ok: true, ignored: true });
     return res.status(400).json({ error: 'Acción desconocida: ' + (action || '(vacía)') });
   } catch (e) {
     return res.status(500).json({ error: e.message });
