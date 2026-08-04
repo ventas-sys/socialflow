@@ -77,31 +77,34 @@ function normText(t) {
     .replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-// Anti-loop: si el MISMO comprador repite la pregunta o pregunta más de 3 veces,
-// NO respondemos: lo tiene que atender un humano (esperar como mínimo 1 hora).
-async function shouldEscalate(token, q) {
+// Contexto del comprador sobre esta publicación:
+// - escalate: repite la pregunta o ya va por la 4ta -> lo atiende un humano (no respondemos).
+// - isFollowup: ya preguntó antes -> la respuesta va SIN saludo ("hola cómo estás").
+async function buyerContext(token, q) {
   const buyerId = q?.from?.id;
-  if (!buyerId) return false;
+  if (!buyerId) return { escalate: false, isFollowup: false };
   try {
     const data = await getItemQuestions(token, q.item_id, 50);
     const mine = (data?.questions || []).filter(x => x?.from?.id === buyerId);
-    if (mine.length > 3) return true;                       // más de 3 preguntas del mismo comprador
     const norm = normText(q.text);
     const iguales = mine.filter(x => normText(x.text) === norm);
-    if (iguales.length >= 2) return true;                   // la actual + al menos una igual previa
-  } catch { /* si no podemos chequear, seguimos normal */ }
-  return false;
+    const escalate = mine.length > 3 || iguales.length >= 2; // 4ta pregunta o repetida
+    const isFollowup = mine.length > 1;                       // ya preguntó antes (no volver a saludar)
+    return { escalate, isFollowup };
+  } catch {
+    return { escalate: false, isFollowup: false };
+  }
 }
 
 // Flujo central: contexto del item + (cross-account) + IA + (postear).
 async function answerFlow({ acc, accounts, q, autopost }) {
   const token = await tokenOf(acc);
 
-  // Anti-loop: si hay que escalar a humano, no respondemos ni posteamos.
-  const escalate = await shouldEscalate(token, q);
+  // Anti-loop + saludo: si hay que escalar a humano, no respondemos ni posteamos.
+  const { escalate, isFollowup } = await buyerContext(token, q);
   if (escalate) {
     return { question: q.text, item: null, answer: null, status: q.status, posted: null,
-             escalated: true, note: 'Repetición/loop detectado: lo responde un humano (esperar 1h mínimo).' };
+             escalated: true, note: 'Repetición/4ta pregunta: lo responde un humano (esperar 1h mínimo).' };
   }
 
   const item = await getItem(token, q.item_id);
@@ -147,7 +150,7 @@ async function answerFlow({ acc, accounts, q, autopost }) {
 
   const mayorista = wantsWholesale(q.text);
 
-  const answer = await generateAnswer({ question: q.text, ctx, mode: acc.mode, cross, crossLocal, otro, catalogo, yaCompro, mayorista });
+  const answer = await generateAnswer({ question: q.text, ctx, mode: acc.mode, cross, crossLocal, otro, catalogo, yaCompro, mayorista, saludar: !isFollowup });
 
   // Anti-repetición: solo posteamos si sigue SIN responder (ML permite 1 sola respuesta).
   let posted = null;
