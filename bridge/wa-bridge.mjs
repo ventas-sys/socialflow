@@ -532,8 +532,10 @@ async function handleIncoming(client, msg) {
       console.log(`[${from}] -> (sin texto: ${msg.type}) [ignorado]`);
       return;
     }
-    const chat = await msg.getChat();
-    if (chat.isGroup) return;
+    // NO usamos msg.getChat(): con el formato nuevo de WhatsApp (@lid) esa llamada
+    // falla ("no se pudo abrir el chat") y tiraba abajo TODA la respuesta.
+    // Los grupos se detectan por el sufijo del ID, sin abrir el chat.
+    if (from.endsWith('@g.us')) return;
 
     // El cliente cerró la charla ("gracias", "dale, te aviso", "listo"):
     // NO le re-escribimos nada (ni "de nada" ni "¿algo más?"). Chat cerrado.
