@@ -163,6 +163,22 @@ input:focus{outline:none;border-color:rgba(0,200,100,0.5);}
     </div>
     <div class="result" id="meta-result"></div>
   </div>
+
+  <div class="conn-card" style="--accent:#ff4444;">
+    <div class="conn-top">
+      <div class="conn-name"><div class="conn-icon">▶️</div><div><div class="conn-title">YouTube</div><div class="conn-sub">YouTube Data API v3 · console.cloud.google.com</div></div></div>
+      <div class="conn-state" id="yt-state">sin conectar</div>
+    </div>
+    <div class="field"><label>API Key</label><input id="yt-key" type="password" placeholder="AIzaSy..."></div>
+    <div class="field"><label>Canal (ID o @handle)</label><input id="yt-channel" type="text" placeholder="@UNIPROVEEDORES"></div>
+    <div class="help">Creá una API Key en <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a> con la <b>YouTube Data API v3</b> habilitada. Solo lee datos públicos del canal (no hace falta OAuth) — sirve para ver tus videos/Shorts ya publicados desde el Agente YouTube.</div>
+    <div class="btn-row">
+      <button class="btn btn-save" onclick="saveConn('yt')">💾 Guardar credenciales</button>
+      <button class="btn btn-test" onclick="testConn('yt')">🧪 Probar conexión</button>
+      <button class="btn btn-clear" onclick="clearConn('yt')">🗑 Limpiar</button>
+    </div>
+    <div class="result" id="yt-result"></div>
+  </div>
 </div>
 
 <script>
@@ -232,6 +248,15 @@ function render(){
       st.className = 'conn-state ok';
     }
   }
+  if(c.yt?.apiKey){
+    document.getElementById('yt-key').value = c.yt.apiKey;
+    document.getElementById('yt-channel').value = c.yt.channel||'';
+  }
+  if(c.yt?.verified){
+    const st = document.getElementById('yt-state');
+    st.textContent = '✓ '+(c.yt.title||'canal')+(c.yt.subs?' · '+c.yt.subs+' subs':'');
+    st.className = 'conn-state ok';
+  }
 }
 
 function saveConn(prov){
@@ -258,6 +283,11 @@ function saveConn(prov){
     const clientSecret = document.getElementById('meta-cs').value.trim();
     if(!clientId||!clientSecret){ notify('Falta App ID o App Secret'); return; }
     s.connections.meta = {...s.connections.meta, clientId, clientSecret, savedAt:new Date().toISOString()};
+  } else if(prov==='yt'){
+    const apiKey = document.getElementById('yt-key').value.trim();
+    const channel = document.getElementById('yt-channel').value.trim();
+    if(!apiKey||!channel){ notify('Falta API Key o Canal'); return; }
+    s.connections.yt = {...s.connections.yt, apiKey, channel, savedAt:new Date().toISOString()};
   }
   saveState(s);
   notify('💾 Credenciales guardadas');
@@ -331,14 +361,14 @@ async function refreshML(){
 }
 
 function clearConn(prov){
-  const provName = prov==='ml'?'Mercado Libre':prov==='tn'?'Tienda Nube':prov==='meta'?'Meta (FB+IG)':'Contabilium';
+  const provName = prov==='ml'?'Mercado Libre':prov==='tn'?'Tienda Nube':prov==='meta'?'Meta (FB+IG)':prov==='yt'?'YouTube':'Contabilium';
   if(!confirm('¿Borrar las credenciales de '+provName+'?')) return;
   const s = loadState();
   s.connections = s.connections || {};
   delete s.connections[prov];
   if(prov==='meta' && s.channels){ delete s.channels.fb; delete s.channels.ig; }
   saveState(s);
-  const fields = prov==='ml' ? ['ml-cid','ml-cs'] : prov==='tn' ? ['tn-cid','tn-cs'] : prov==='meta' ? ['meta-cid','meta-cs'] : ['conta-cid','conta-cs','conta-inbox'];
+  const fields = prov==='ml' ? ['ml-cid','ml-cs'] : prov==='tn' ? ['tn-cid','tn-cs'] : prov==='meta' ? ['meta-cid','meta-cs'] : prov==='yt' ? ['yt-key','yt-channel'] : ['conta-cid','conta-cs','conta-inbox'];
   fields.forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   document.getElementById(prov+'-state').textContent = 'sin conectar';
   document.getElementById(prov+'-state').className = 'conn-state';
@@ -359,6 +389,7 @@ async function testConn(prov){
     const url = prov==='conta' ? '/api/contabilium?action=test'
               : prov==='tn' ? '/api/tn?action=test'
               : prov==='ml' ? '/api/ml/exchange?action=test'
+              : prov==='yt' ? '/api/youtube?action=test'
               : '/api/'+prov+'/test';
     const r = await fetch(url,{
       method:'POST',headers:{'Content-Type':'application/json'},
@@ -374,12 +405,12 @@ async function testConn(prov){
     rEl.className = 'result ok';
     rEl.textContent = '✅ Conectado\n\n'+JSON.stringify(d.info||{},null,2);
     stEl.className = 'conn-state ok';
-    stEl.textContent = '✓ conectado'+(d.info?.nickname?' · '+d.info.nickname:'')+(d.info?.storeName?' · '+d.info.storeName:'');
+    stEl.textContent = '✓ conectado'+(d.info?.nickname?' · '+d.info.nickname:'')+(d.info?.storeName?' · '+d.info.storeName:'')+(d.info?.title?' · '+d.info.title:'');
     const s2 = loadState();
     s2.connections = s2.connections || {};
     s2.connections[prov] = {...creds, verified:true, ...d.info};
     s2.activity = s2.activity || [];
-    const provName = prov==='ml'?'Mercado Libre':prov==='tn'?'Tienda Nube':'Contabilium';
+    const provName = prov==='ml'?'Mercado Libre':prov==='tn'?'Tienda Nube':prov==='yt'?'YouTube':'Contabilium';
     s2.activity.unshift({icon:'🔌',agent:'CONN',text:provName+' verificado',time:new Date().toLocaleString('es-AR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})});
     s2.activity = s2.activity.slice(0,20);
     saveState(s2);
