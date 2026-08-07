@@ -112,6 +112,24 @@ input:focus{outline:none;border-color:rgba(0,200,100,0.5);}
     </div>
   </div>
 
+  <div class="conn-card" style="--accent:#4285f4;">
+    <div class="conn-top">
+      <div class="conn-name"><div class="conn-icon">📇</div><div><div class="conn-title">Google Contactos</div><div class="conn-sub">Agenda del bot · console.cloud.google.com</div></div></div>
+      <div class="conn-state" id="google-state">sin conectar</div>
+    </div>
+    <div style="font-size:11px;color:#7eb0ff;margin-bottom:8px;">Para que el bot de WhatsApp agende clientes/mayoristas/proveedores en la cuenta <b>ventas@uniproveedores.com.ar</b>.</div>
+    <div class="field"><label>Client ID (de Google Cloud)</label><input id="google-cid" type="text" placeholder="1234567890-abc.apps.googleusercontent.com"></div>
+    <div class="field"><label>Client Secret</label><input id="google-cs" type="password" placeholder="GOCSPX-..."></div>
+    <div class="field"><label>Redirect URI (copialo en tu app de Google Cloud)</label><input id="google-redirect" type="text" readonly style="background:rgba(0,0,0,0.2);font-size:11px;"></div>
+    <div class="help">⚠️ En Google Cloud → Credenciales → tu "ID de cliente de OAuth" (tipo Aplicación web) → en "URIs de redireccionamiento autorizados" pegá EXACTAMENTE el valor de arriba.</div>
+    <div class="btn-row">
+      <button class="btn btn-save" onclick="saveConn('google')">💾 Guardar credenciales</button>
+      <button class="btn" style="background:rgba(66,133,244,0.15);border-color:rgba(66,133,244,0.4);color:#7eb0ff;font-weight:700;" onclick="oauthGoogle()">🚀 Autorizar Google</button>
+      <button class="btn btn-clear" onclick="clearConn('google')">🗑 Limpiar</button>
+    </div>
+    <div class="result" id="google-result"></div>
+  </div>
+
   <div class="conn-card" style="--accent:#00b3e6;">
     <div class="conn-top">
       <div class="conn-name"><div class="conn-icon">🏪</div><div><div class="conn-title">Tienda Nube</div><div class="conn-sub">OAuth · partners.tiendanube.com</div></div></div>
@@ -215,6 +233,16 @@ function render(){
   if(c.conta?.inbox){
     document.getElementById('conta-inbox').value = c.conta.inbox;
   }
+  document.getElementById('google-redirect').value = location.origin + '/google-callback';
+  if(c.google?.clientId){
+    document.getElementById('google-cid').value = c.google.clientId;
+    document.getElementById('google-cs').value = c.google.clientSecret||'';
+  }
+  if(c.google?.refreshToken){
+    const st = document.getElementById('google-state');
+    st.textContent = '✓ autorizado';
+    st.className = 'conn-state ok';
+  }
   document.getElementById('meta-redirect').value = location.origin + '/meta-callback';
   if(c.meta?.clientId){
     document.getElementById('meta-cid').value = c.meta.clientId;
@@ -258,6 +286,11 @@ function saveConn(prov){
     const clientSecret = document.getElementById('meta-cs').value.trim();
     if(!clientId||!clientSecret){ notify('Falta App ID o App Secret'); return; }
     s.connections.meta = {...s.connections.meta, clientId, clientSecret, savedAt:new Date().toISOString()};
+  } else if(prov==='google'){
+    const clientId = document.getElementById('google-cid').value.trim();
+    const clientSecret = document.getElementById('google-cs').value.trim();
+    if(!clientId||!clientSecret){ notify('Falta Client ID o Client Secret'); return; }
+    s.connections.google = {...s.connections.google, clientId, clientSecret, savedAt:new Date().toISOString()};
   }
   saveState(s);
   notify('💾 Credenciales guardadas');
@@ -284,6 +317,24 @@ function oauthML(){
   }
   const redirectUri = location.origin + '/ml-callback';
   const authUrl = 'https://auth.mercadolibre.com.ar/authorization?response_type=code&client_id='+encodeURIComponent(c.clientId)+'&redirect_uri='+encodeURIComponent(redirectUri);
+  location.href = authUrl;
+}
+
+function oauthGoogle(){
+  const s = loadState();
+  const c = s.connections?.google;
+  if(!c?.clientId || !c?.clientSecret){
+    notify('Guardá Client ID + Secret primero');
+    return;
+  }
+  const redirectUri = location.origin + '/google-callback';
+  const scope = 'https://www.googleapis.com/auth/contacts';
+  const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?response_type=code'
+    + '&client_id='+encodeURIComponent(c.clientId)
+    + '&redirect_uri='+encodeURIComponent(redirectUri)
+    + '&scope='+encodeURIComponent(scope)
+    + '&access_type=offline&prompt=consent'
+    + '&login_hint='+encodeURIComponent('ventas@uniproveedores.com.ar');
   location.href = authUrl;
 }
 
@@ -331,14 +382,14 @@ async function refreshML(){
 }
 
 function clearConn(prov){
-  const provName = prov==='ml'?'Mercado Libre':prov==='tn'?'Tienda Nube':prov==='meta'?'Meta (FB+IG)':'Contabilium';
+  const provName = prov==='ml'?'Mercado Libre':prov==='tn'?'Tienda Nube':prov==='meta'?'Meta (FB+IG)':prov==='google'?'Google Contactos':'Contabilium';
   if(!confirm('¿Borrar las credenciales de '+provName+'?')) return;
   const s = loadState();
   s.connections = s.connections || {};
   delete s.connections[prov];
   if(prov==='meta' && s.channels){ delete s.channels.fb; delete s.channels.ig; }
   saveState(s);
-  const fields = prov==='ml' ? ['ml-cid','ml-cs'] : prov==='tn' ? ['tn-cid','tn-cs'] : prov==='meta' ? ['meta-cid','meta-cs'] : ['conta-cid','conta-cs','conta-inbox'];
+  const fields = prov==='ml' ? ['ml-cid','ml-cs'] : prov==='tn' ? ['tn-cid','tn-cs'] : prov==='meta' ? ['meta-cid','meta-cs'] : prov==='google' ? ['google-cid','google-cs'] : ['conta-cid','conta-cs','conta-inbox'];
   fields.forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   document.getElementById(prov+'-state').textContent = 'sin conectar';
   document.getElementById(prov+'-state').className = 'conn-state';
