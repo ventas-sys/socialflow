@@ -1,0 +1,15 @@
+{
+  "name": "socialflow-ml-mcp",
+  "version": "1.0.0",
+  "description": "Servidor MCP (stdio) para que un asistente de IA lea datos de Mercado Libre de las cuentas de Uniproveedores: productos, fotos, descripción, reviews, preguntas, ventas y métricas de visitas.",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "dotenv": "^16.4.5"
+  }
+}

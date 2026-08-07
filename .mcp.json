@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "mercadolibre": {
+      "command": "node",
+      "args": ["mcp-ml/server.mjs"]
+    }
+  }
+}
