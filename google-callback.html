@@ -59,7 +59,7 @@ p{font-size:13px;color:#999;line-height:1.6;margin-bottom:8px;}
 
   const redirectUri = location.origin + '/google-callback';
   try {
-    const r = await fetch('/api/google/exchange', {
+    const r = await fetch('/api/meta?action=google_exchange', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ clientId, clientSecret, code, redirectUri })
     });

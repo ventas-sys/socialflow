@@ -3,8 +3,10 @@ import { httpRequest, cors } from './_http.js';
 const GRAPH = 'https://graph.facebook.com/v21.0';
 
 // Conector Meta (Facebook + Instagram) en una sola función serverless.
-//   POST /api/meta?action=exchange  -> OAuth code -> token largo + páginas + IG
-//   POST /api/meta?action=publish   -> publica en página FB y/o IG
+//   POST /api/meta?action=exchange         -> OAuth code -> token largo + páginas + IG
+//   POST /api/meta?action=publish          -> publica en página FB y/o IG
+//   POST /api/meta?action=google_exchange  -> OAuth de Google (Contactos): code -> refresh_token
+//        (va acá para no superar el límite de funciones serverless de Vercel)
 export default async function handler(req, res) {
   cors(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -14,10 +16,39 @@ export default async function handler(req, res) {
   try {
     if (action === 'exchange') return await exchange(req, res);
     if (action === 'publish') return await publish(req, res);
-    return res.status(400).json({ ok: false, error: 'action inválida (exchange | publish)' });
+    if (action === 'google_exchange') return await googleExchange(req, res);
+    return res.status(400).json({ ok: false, error: 'action inválida (exchange | publish | google_exchange)' });
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message });
   }
+}
+
+// OAuth de Google (People API / Contactos): intercambia el code por refresh_token.
+// Resultado -> variables .env del bot: GOOGLE_CONTACTS_CLIENT_ID/_CLIENT_SECRET/_REFRESH_TOKEN.
+async function googleExchange(req, res) {
+  const { clientId, clientSecret, code, redirectUri } = req.body || {};
+  if (!clientId || !clientSecret || !code || !redirectUri) {
+    return res.status(400).json({ ok: false, error: 'Faltan: clientId, clientSecret, code, redirectUri' });
+  }
+  const body = new URLSearchParams({
+    grant_type: 'authorization_code',
+    client_id: clientId, client_secret: clientSecret, code, redirect_uri: redirectUri,
+  }).toString();
+  const r = await httpRequest('POST', 'https://oauth2.googleapis.com/token', {
+    'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json',
+  }, body);
+  if (r.status !== 200 || !r.body?.refresh_token) {
+    return res.status(200).json({
+      ok: false,
+      error: (r.body?.error_description || r.body?.error || ('HTTP ' + r.status))
+        + (r.body?.refresh_token === undefined ? ' (sin refresh_token: revocá el acceso previo en myaccount.google.com/permissions y reautorizá)' : ''),
+      details: r.body,
+    });
+  }
+  return res.status(200).json({
+    ok: true, refreshToken: r.body.refresh_token, accessToken: r.body.access_token,
+    expiresIn: r.body.expires_in, scope: r.body.scope,
+  });
 }
 
 // Intercambia el code de OAuth por token de larga duración y devuelve
