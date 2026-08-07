@@ -12,7 +12,13 @@
   - **Repreguntas:** 1ª con saludo; 2ª y 3ª SIN saludo; **4ª pregunta → no responde** (humano). `buyerContext` (escalate + isFollowup).
 - ✅ **Bot de WhatsApp desplegado en el VPS** (git pull + pm2 restart wa-bridge). Corre con Tatiana + redes + código de agenda (dormido). Arranque limpio: HUMANO label id=18, follow-up, recordatorio, heartbeat OK.
 
-### ⏳ PENDIENTE (mañana)
+### 🔧 5-ago: bot de WhatsApp caído por `@lid` — RESUELTO
+- WhatsApp migró la cuenta al formato de ID `@lid`. `msg.getChat()` fallaba ("no se pudo abrir el chat") y tumbaba `handleIncoming` → el bot no respondía (el equipo contestaba a mano, silenciando todo 180min).
+- **Fix:** se sacó `msg.getChat()` del camino de respuesta (grupos por sufijo `@g.us`). Confirmado en vivo: el bot recibe, procesa Y responde a chats `@lid` (`<- ...`). Enviar a `@lid` funciona OK.
+- **Auto-deploy activado:** `bridge/auto-deploy.sh` + cron cada 2min → los cambios en main entran solos, sin entrar al servidor.
+- Menor pendiente: `markChatForHuman`/etiquetas y `notifySupervisor` aún usan `getChat`/`@c.us` y fallan con `@lid` (están capturados, no rompen la respuesta). Se pueden blindar/actualizar librería más adelante.
+
+### ⏳ PENDIENTE
 1. **Google Contactos:** autorizar Google (OAuth client, scope contacts, ventas@uniproveedores.com.ar) → setear `GOOGLE_CONTACTS_CLIENT_ID/SECRET/REFRESH_TOKEN` + redeploy bridge.
 2. **⚠️ Fix @lid:** WhatsApp ahora usa IDs `@lid` (no el teléfono). `bridge/wa-bridge.mjs` arma el phone con `from.split('@')[0]` → con `@lid` guardaría el LID, NO el teléfono real. Ajustar (resolver número real vía `client`/contacto) ANTES de activar la agenda.
 3. **Vigilar** `aviso a supervisor fail: No LID` — si reaparece al marcar humano, arreglar `notifySupervisor` (resolver LID con `getNumberId`).
