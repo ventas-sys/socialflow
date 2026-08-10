@@ -28,6 +28,7 @@ import Combos from './components/Combos'
 import Movements from './components/Movements'
 import Reports from './components/Reports'
 import Shipments from './components/Shipments'
+import MercadoLibre from './components/MercadoLibre'
 import Auth from './components/Auth'
 import './App.css'
 
@@ -40,6 +41,7 @@ export default function App() {
   const [movements, setMovements] = useState([])
   const [shipments, setShipments] = useState([])
   const [couriers, setCouriers] = useState([])
+  const [mlAccounts, setMlAccounts] = useState({})
   const [depositMap, setDepositMap] = useState(null)
   const [loadingData, setLoadingData] = useState(false)
   const [accessDenied, setAccessDenied] = useState(false)
@@ -90,6 +92,46 @@ export default function App() {
     })
     return unsubscribe
   }, [])
+
+  // Retorno del OAuth de MercadoLibre: la URL vuelve con ?code=&state=<cuenta>.
+  // Intercambia el code por tokens y los guarda en la cuenta correspondiente.
+  const mlCallbackDone = useRef(false)
+  useEffect(() => {
+    if (mlCallbackDone.current || !user) return
+    const params = new URLSearchParams(window.location.search)
+    const code = params.get('code')
+    const state = params.get('state')
+    if (!code || !state) return
+    const acc = mlAccounts[state]
+    if (!acc?.clientId) return // esperar a que carguen las cuentas
+    mlCallbackDone.current = true
+    ;(async () => {
+      try {
+        const redirectUri = window.location.origin + '/'
+        const r = await fetch('/api/ml/exchange', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clientId: acc.clientId, clientSecret: acc.clientSecret, code, redirectUri }),
+        }).then(x => x.json())
+        if (r.ok) {
+          const expiresAt = Timestamp.fromMillis(Date.now() + (r.expiresIn || 21600) * 1000)
+          await saveMlAccount(state, {
+            accessToken: r.accessToken,
+            refreshToken: r.refreshToken,
+            sellerId: r.userId || null,
+            expiresAt,
+          })
+          setCurrentTab('mercadolibre')
+        } else {
+          console.error('OAuth ML falló:', r.error)
+          alert('No se pudo conectar la cuenta de MercadoLibre: ' + (r.error || 'error'))
+        }
+      } catch (e) {
+        console.error('OAuth ML error:', e)
+      } finally {
+        window.history.replaceState({}, '', window.location.origin + '/')
+      }
+    })()
+  }, [user, mlAccounts])
 
   // Migra los datos viejos (guardados por usuario) al espacio compartido.
   // Solo la corre el administrador y solo si encuentra documentos viejos.
@@ -173,6 +215,17 @@ export default function App() {
         setCouriers([])
       }
 
+      // Cuentas de MercadoLibre (colección opcional; solo admin escribe)
+      try {
+        const mlSnap = await getDocs(query(collection(db, 'ml_accounts'), where('userId', '==', ORG_ID)))
+        const acc = {}
+        mlSnap.docs.forEach(d => { acc[d.id] = { id: d.id, ...d.data() } })
+        setMlAccounts(acc)
+      } catch (err) {
+        console.warn('Cuentas ML no disponibles (¿faltan reglas?):', err?.code)
+        setMlAccounts({})
+      }
+
       setProducts(
         productsSnap.docs
           .map(d => ({ id: d.id, ...strip(d.data()) }))
@@ -239,6 +292,7 @@ export default function App() {
       setMovements([])
       setShipments([])
       setCouriers([])
+      setMlAccounts({})
       setCurrentTab('dashboard')
     } catch (error) {
       console.error('Logout error:', error)
@@ -467,6 +521,13 @@ export default function App() {
     if (!user) return
     await deleteDoc(doc(db, 'couriers', id))
     setCouriers(couriers.filter(c => c.id !== id))
+  }
+
+  // --- MercadoLibre (config + tokens por cuenta: 'full' / 'ferre') ---
+  const saveMlAccount = async (key, data) => {
+    if (!user) return
+    await setDoc(doc(db, 'ml_accounts', key), { ...data, userId: ORG_ID, updatedAt: Timestamp.now() }, { merge: true })
+    setMlAccounts(prev => ({ ...prev, [key]: { id: key, ...(prev[key] || {}), ...data } }))
   }
 
   const saveDepositMap = async (photoDataUrl) => {
@@ -717,6 +778,12 @@ export default function App() {
           🚚 Envíos
         </button>
         <button
+          className={`nav-btn ${currentTab === 'mercadolibre' ? 'active' : ''}`}
+          onClick={() => setCurrentTab('mercadolibre')}
+        >
+          🛒 ML
+        </button>
+        <button
           className={`nav-btn ${currentTab === 'reports' ? 'active' : ''}`}
           onClick={() => setCurrentTab('reports')}
         >
@@ -792,6 +859,15 @@ export default function App() {
                 onDeleteShipment={deleteShipment}
                 onAddCourier={addCourier}
                 onRemoveCourier={removeCourier}
+              />
+            )}
+            {currentTab === 'mercadolibre' && (
+              <MercadoLibre
+                products={products}
+                combos={combos}
+                mlAccounts={mlAccounts}
+                onSaveAccount={saveMlAccount}
+                onPurchase={registerPurchase}
               />
             )}
             {currentTab === 'reports' && <Reports products={products} movements={movements} />}

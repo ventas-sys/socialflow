@@ -1,0 +1,102 @@
+.ml-container { max-width: 1000px; margin: 0 auto; }
+
+.ml-head h1 { font-size: 2rem; font-weight: 800; color: #1f2937; margin: 0; }
+.ml-head p { color: #6b7280; margin: 0.5rem 0 1.25rem; }
+
+.ml-info {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  border-radius: 0.5rem;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+.ml-info code {
+  display: inline-block;
+  margin-top: 0.4rem;
+  background: #1f2937;
+  color: #fde68a;
+  padding: 0.3rem 0.6rem;
+  border-radius: 0.35rem;
+  font-size: 0.85rem;
+  user-select: all;
+  word-break: break-all;
+}
+
+.ml-accounts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem; }
+
+.ml-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-top: 4px solid #ffe600;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+}
+.ml-card.connected { border-top-color: #10b981; }
+
+.ml-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.ml-card-head h2 { margin: 0; font-size: 1.3rem; font-weight: 800; color: #1f2937; }
+
+.ml-badge { font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 9999px; }
+.ml-badge.on { background: #dcfce7; color: #166534; }
+.ml-badge.off { background: #f3f4f6; color: #6b7280; }
+
+.ml-label { display: block; font-size: 0.8rem; font-weight: 600; color: #4b5563; margin: 0.6rem 0 0.25rem; }
+.ml-card input {
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.4rem;
+  font-size: 0.95rem;
+}
+
+.ml-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+.ml-actions button { border: none; border-radius: 0.45rem; padding: 0.55rem 0.9rem; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
+.ml-btn-save { background: #f3f4f6; color: #1f2937; }
+.ml-btn-connect { background: #2563eb; color: white; }
+.ml-btn-connect:disabled { background: #9ca3af; cursor: not-allowed; }
+.ml-btn-sync { background: #059669; color: white; }
+.ml-btn-sync:disabled { background: #9ca3af; cursor: not-allowed; }
+
+.ml-lastsync { font-size: 0.78rem; color: #9ca3af; margin-top: 0.6rem; }
+.ml-msg { margin-top: 0.7rem; font-size: 0.85rem; padding: 0.5rem 0.7rem; border-radius: 0.4rem; }
+.ml-msg.ok { background: #dcfce7; color: #166534; }
+.ml-msg.warn { background: #fef3c7; color: #92400e; }
+
+.ml-preview {
+  margin-top: 1.5rem;
+  background: white;
+  border: 2px solid #059669;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+}
+.ml-preview h3 { margin: 0 0 0.3rem; color: #1f2937; }
+.ml-preview-sub { color: #6b7280; font-size: 0.88rem; margin: 0 0 1rem; }
+.ml-preview-table-wrap { overflow-x: auto; max-height: 340px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 0.5rem; }
+.ml-preview-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.ml-preview-table th { position: sticky; top: 0; background: #f9fafb; text-align: left; padding: 0.55rem 0.7rem; color: #4b5563; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+.ml-preview-table td { padding: 0.55rem 0.7rem; border-bottom: 1px solid #f3f4f6; color: #1f2937; }
+.ml-code { font-family: monospace; color: #6b7280; }
+.ml-minus { color: #dc2626; font-weight: 700; }
+.ml-new { font-weight: 700; }
+.ml-preview-actions { display: flex; gap: 1rem; margin-top: 1.25rem; }
+.ml-btn-apply { background: #059669; color: white; border: none; border-radius: 0.5rem; padding: 0.7rem 1.2rem; font-weight: 700; cursor: pointer; }
+.ml-btn-apply:disabled { background: #9ca3af; cursor: not-allowed; }
+.ml-btn-cancel { background: #f3f4f6; color: #374151; border: none; border-radius: 0.5rem; padding: 0.7rem 1.2rem; font-weight: 600; cursor: pointer; }
+
+@media (prefers-color-scheme: dark) {
+  .ml-head h1 { color: #f1f5f9; }
+  .ml-head p { color: #cbd5e1; }
+  .ml-info { background: rgba(251,191,36,0.1); border-color: #b45309; color: #fcd34d; }
+  .ml-card { background: #1e293b; border-color: #334155; }
+  .ml-card-head h2 { color: #f1f5f9; }
+  .ml-card input { background: #0f172a; color: #f1f5f9; border-color: #334155; }
+  .ml-badge.off { background: #334155; color: #cbd5e1; }
+  .ml-btn-save { background: #334155; color: #f1f5f9; }
+  .ml-preview { background: #1e293b; border-color: #10b981; }
+  .ml-preview h3 { color: #f1f5f9; }
+  .ml-preview-table th { background: #0f172a; color: #cbd5e1; border-bottom-color: #334155; }
+  .ml-preview-table td { color: #f1f5f9; border-bottom-color: #1e293b; }
+  .ml-btn-cancel { background: #334155; color: #f1f5f9; }
+}

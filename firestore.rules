@@ -22,6 +22,10 @@ service cloud.firestore {
     match /photos/{id}    { allow read, write: if isMember(); }
     match /shipments/{id} { allow read, write: if isMember(); }
     match /couriers/{id}  { allow read, write: if isMember(); }
+    // Órdenes de ML ya procesadas (para no descontar dos veces)
+    match /ml_orders/{id} { allow read, write: if isMember(); }
+    // Cuentas de MercadoLibre (tienen el Secret): las lee/escribe solo el admin
+    match /ml_accounts/{id} { allow read, write: if isAdmin(); }
     // El mapa del depósito lo ve todo el equipo pero solo lo modifica el admin
     match /settings/{id}  { allow read: if isMember(); allow write: if isAdmin(); }
 

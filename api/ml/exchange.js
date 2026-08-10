@@ -14,10 +14,74 @@ export default async function handler(req, res) {
   try {
     if (action === 'refresh') return await refresh(req, res);
     if (action === 'test') return await test(req, res);
+    if (action === 'orders') return await orders(req, res);
     return await exchange(req, res);
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message });
   }
+}
+
+// Trae las órdenes (ventas) recientes del vendedor con su tipo de envío.
+// Body: { token, from } (from = fecha ISO desde la cual traer las ventas).
+// Cada orden incluye logisticType para poder EXCLUIR "fulfillment" (Full/bodega ML).
+async function orders(req, res) {
+  const { token, from } = req.body || {};
+  if (!token) return res.status(400).json({ ok: false, error: 'Falta access_token' });
+  const auth = { 'Authorization': 'Bearer ' + token };
+
+  const me = await httpRequest('GET', 'https://api.mercadolibre.com/users/me', auth);
+  if (me.status !== 200) {
+    return res.status(200).json({ ok: false, error: me.body?.message || ('HTTP ' + me.status) });
+  }
+  const sellerId = me.body.id;
+  const nickname = me.body.nickname;
+
+  const fromParam = from ? `&order.date_created.from=${encodeURIComponent(from)}` : '';
+  const raw = [];
+  let offset = 0;
+  for (let page = 0; page < 20; page++) { // hasta 1000 órdenes
+    const url = `https://api.mercadolibre.com/orders/search?seller=${sellerId}&sort=date_desc&limit=50&offset=${offset}${fromParam}`;
+    const r = await httpRequest('GET', url, auth);
+    if (r.status !== 200) {
+      return res.status(200).json({ ok: false, error: r.body?.message || ('HTTP ' + r.status), details: r.body });
+    }
+    const results = r.body?.results || [];
+    raw.push(...results);
+    if (results.length < 50) break;
+    offset += 50;
+  }
+
+  const shipCache = new Map();
+  const out = [];
+  for (const o of raw) {
+    const items = (o.order_items || []).map(it => ({
+      mla: it.item?.id || null,
+      sku: it.item?.seller_sku || it.item?.seller_custom_field || null,
+      title: it.item?.title || '',
+      quantity: it.quantity || 0,
+    }));
+    const shipmentId = o.shipping?.id || null;
+    let logisticType = null;
+    if (shipmentId) {
+      if (shipCache.has(shipmentId)) {
+        logisticType = shipCache.get(shipmentId);
+      } else {
+        const s = await httpRequest('GET', `https://api.mercadolibre.com/shipments/${shipmentId}`, auth);
+        logisticType = s.body?.logistic_type || null;
+        shipCache.set(shipmentId, logisticType);
+      }
+    }
+    out.push({
+      id: String(o.id),
+      date: o.date_created,
+      status: o.status,
+      logisticType, // 'fulfillment' = Full → se EXCLUYE; el resto descuenta
+      shipmentId,
+      items,
+    });
+  }
+
+  return res.status(200).json({ ok: true, sellerId, nickname, count: out.length, orders: out });
 }
 
 async function exchange(req, res) {
