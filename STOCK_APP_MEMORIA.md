@@ -39,8 +39,21 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 · Deploy: Vercel.
 
 ## Pendiente (pedido por el usuario, no hecho)
 1. **Stock desde foto de factura/remito (OCR)** — hay base reutilizable en `api/contabilium.js` (Gemini Vision). Requiere API key de IA.
-2. **Descontar por ventas de MercadoLibre** — el usuario TIENE app de ML. Base en `api/ml/exchange.js` (OAuth). Los combos tienen SKU MLA → al vender un MLA se descuenta ese combo → sus productos base. Falta: conectar cuenta (App ID/Secret/Redirect URI), leer órdenes, descontar, evitar doble descuento.
-3. **Envíos a bodega Full de ML** — registrar/descontar lo enviado a Full.
+2. **Descontar por ventas de MercadoLibre (2 cuentas: FULL y FERRE)** — base OAuth en `api/ml/exchange.js` (exchange/refresh/test ya funcionan). Reglas definidas por el usuario:
+   - **Cuándo**: 1 vez por día, después de las 18hs ART (UTC-3) → cron diario ~21:00 UTC. (confirmar hora exacta)
+   - **Qué descontar**: de cada orden mirar el envío (`/shipments/{id}` → `logistic_type`). Se descuenta TODO menos `fulfillment` (bodega ML / Full). O sea SÍ descuentan: FLEX (`self_service`), correo (`cross_docking`/`drop_off`/`xd_drop_off`), retiro (`pickup`/acordar). NO descuenta `fulfillment`.
+   - **Misma regla para ambas cuentas** (FULL y FERRE). El stock en la bodega de ML ya salió del depósito propio al enviarlo a Full.
+   - **Mapeo**: item vendido trae SKU de la publicación (MLA...) o seller_sku → coincide con `code` del combo → descuenta sus productos base × cantidad. Si es SKU de producto suelto, descuenta ese producto.
+   - **Devoluciones/claims**: suman stock de vuelta.
+   - **Evitar doble descuento**: colección `ml_orders` con las órdenes ya procesadas.
+   - **Credenciales**: App ID + Secret de cada cuenta como env vars en Vercel (no en el repo). Redirect URI sugerida `<dominio>/ml-callback`.
+   - **Fases**: (1) conectar cuentas + botón "Sincronizar ventas" con vista previa/confirmación; (2) automático diario por cron + devoluciones.
+3. **Envíos a bodega Full de ML** — registrar/descontar lo enviado a Full (esto SÍ descuenta del depósito propio al enviar).
+4. **Sección Envíos (logística)** — YA creada (escanear etiqueta, mapa Leaflet, motoqueros, estados). Falta: de dónde salen dirección/destinatario (administrado.net da 403).
+
+## ⚠️ Nota de entorno (IMPORTANTE)
+El repo real `ventas-sys/socialflow` es el proyecto viejo de redes/ML/WhatsApp (archivos .html, api/, lib/). La app de stock (React, carpeta `src/`) vive SOLO en la rama `claude/stock-inventory-app-06rlv5`. Al abrir un contenedor nuevo, si el checkout queda en otra rama, hacer:
+`git fetch origin claude/stock-inventory-app-06rlv5 && git checkout -B claude/stock-inventory-app-06rlv5 origin/claude/stock-inventory-app-06rlv5`
 
 ## Notas operativas
 - **Caché PWA**: si el usuario "no ve" un cambio, es caché → Ctrl+Shift+R o borrar datos del sitio o incógnito.
