@@ -517,30 +517,32 @@ async function telefonoReal(client, msg, from) {
     //    disponible para afinar el arreglo si hiciera falta.
     let diag = null;
     try {
-      diag = await client.pupPage.evaluate(async (lidSer) => {
-        const out = { tried: [], modules: [] };
+      diag = await client.pupPage.evaluate((lidSer) => {
+        const info = {};
         try {
-          const S = window.Store || {};
-          out.modules = Object.keys(S).filter(k => /lid|pn/i.test(k));
-          let wid = null;
-          try { wid = (S.WidFactory && S.WidFactory.createWid) ? S.WidFactory.createWid(lidSer) : null; } catch {}
-          const candMods = ['LidUtils', 'LidPnCache', 'LidMigrationUtils', 'WidToJid', 'ContactMethods'];
-          const candFns = ['getPhoneNumber', 'getPhoneForLid', 'getPnForLid', 'findPn', 'getCurrentLidPn', 'lidToPn'];
-          for (const mn of candMods) {
-            const m = S[mn]; if (!m) continue;
-            out.tried.push(mn + ':[' + Object.keys(m).filter(f => typeof m[f] === 'function').slice(0, 25).join(',') + ']');
-            for (const fn of candFns) {
-              if (typeof m[fn] === 'function') {
+          const S = window.Store;
+          info.hasStore = !!S;
+          if (S) {
+            const keys = Object.keys(S);
+            info.storeKeys = keys.length;
+            info.lidish = keys.filter(k => /lid|pn|phone|wid|jid|number|migrat/i.test(k)).slice(0, 30);
+            // Módulos que tengan funciones relacionadas a teléfono / lid.
+            info.fnHits = [];
+            for (const k of keys) {
+              const m = S[k];
+              if (m && typeof m === 'object') {
                 try {
-                  const r = await m[fn](wid || lidSer);
-                  const pn = (r && (r._serialized || r.user || (r.id && r.id.user))) || (typeof r === 'string' ? r : null);
-                  if (pn) { out.hit = mn + '.' + fn; out.pn = String(pn); return out; }
-                } catch (e) { /* seguimos probando */ }
+                  const fns = Object.keys(m).filter(f => typeof m[f] === 'function' && /phone|pn|lid/i.test(f));
+                  if (fns.length) info.fnHits.push(k + ':[' + fns.slice(0, 10).join(',') + ']');
+                } catch {}
               }
             }
+            info.sample = keys.slice(0, 40);
           }
-        } catch (e) { out.err = e.message; }
-        return out;
+          info.hasWPP = !!window.WPP;
+          info.waGlobals = Object.keys(window).filter(k => /store|wpp|wweb|require/i.test(k)).slice(0, 15);
+        } catch (e) { info.err = e.message; }
+        return info;
       }, from);
     } catch (e) { diag = { evalErr: e.message }; }
 
