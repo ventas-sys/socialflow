@@ -54,6 +54,13 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 · Deploy: Vercel.
 3. **Envíos a bodega Full de ML** — registrar/descontar lo enviado a Full (esto SÍ descuenta del depósito propio al enviar).
 4. **Sección Envíos (logística)** — YA creada (escanear etiqueta, mapa Leaflet, motoqueros, estados). Falta: de dónde salen dirección/destinatario (administrado.net da 403).
 
+## Producción del automático (cron ML)
+- Proyecto Vercel SEPARADO **stock-inventario** (dominio `stock-inventario-sable.vercel.app`), Production Branch = `claude/stock-inventory-app-06rlv5`. NO toca el proyecto viejo `socialflow` (main = WhatsApp).
+- Env vars en ese proyecto: CRON_EMAIL, CRON_PASSWORD.
+- Cron `/api/ml/cron` a las `0 21 * * *` (18hs ART). Corre solo en la producción de stock-inventario.
+- El cron usa los refresh tokens ya guardados en Firestore (ml_accounts) → no necesita re-OAuth aunque el dominio cambie.
+- Botón "▶️ Probar automático ahora" en la sección ML dispara el mismo proceso a demanda. Validado OK.
+
 ## ⚠️ Nota de entorno (IMPORTANTE)
 El repo real `ventas-sys/socialflow` es el proyecto viejo de redes/ML/WhatsApp (archivos .html, api/, lib/). La app de stock (React, carpeta `src/`) vive SOLO en la rama `claude/stock-inventory-app-06rlv5`. Al abrir un contenedor nuevo, si el checkout queda en otra rama, hacer:
 `git fetch origin claude/stock-inventory-app-06rlv5 && git checkout -B claude/stock-inventory-app-06rlv5 origin/claude/stock-inventory-app-06rlv5`
