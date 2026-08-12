@@ -1,266 +1,357 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
+import * as XLSX from 'xlsx'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import Scanner from './Scanner'
 import './Shipments.css'
 
+// Flujo de estados del envío
 const STATUS = {
-  pendiente: { label: 'Pendiente', color: '#ef4444', emoji: '🔴' },
-  camino: { label: 'En camino', color: '#f59e0b', emoji: '🟡' },
-  entregado: { label: 'Entregado', color: '#10b981', emoji: '🟢' },
+  pendiente: { label: 'Pendiente de imprimir', short: 'Pendiente', color: '#ef4444', emoji: '🖨️' },
+  armado:    { label: 'Armado', short: 'Armado', color: '#f59e0b', emoji: '📦' },
+  camino:    { label: 'En camino', short: 'En camino', color: '#3b82f6', emoji: '🏍️' },
+  entregado: { label: 'Entregado', short: 'Entregado', color: '#10b981', emoji: '✅' },
+  demorado:  { label: 'Demorado', short: 'Demorado', color: '#8b5cf6', emoji: '⏰' },
 }
+const ORDER = ['pendiente', 'armado', 'camino', 'entregado', 'demorado']
 
-// Intenta sacar un número/código de envío del contenido del QR de ML
-function parseShipmentCode(raw) {
+const parseShipmentCode = (raw) => {
   const text = String(raw).trim()
-  try {
-    const obj = JSON.parse(text)
-    if (obj && (obj.id || obj.shipment_id)) return String(obj.id || obj.shipment_id)
-  } catch { /* no es JSON */ }
-  const m = text.match(/(\d{8,})/) // primer número largo (id de envío)
+  try { const o = JSON.parse(text); if (o && (o.id || o.shipment_id)) return String(o.id || o.shipment_id) } catch {}
+  const m = text.match(/(\d{8,})/)
   return m ? m[1] : text.slice(0, 40)
 }
 
+const toMillis = (t) => (t?.toMillis ? t.toMillis() : (t ? new Date(t).getTime() : 0))
+const fmtDur = (ms) => {
+  if (!ms || ms < 0) return '—'
+  const min = Math.round(ms / 60000)
+  if (min < 60) return `${min} min`
+  const h = Math.floor(min / 60), m = min % 60
+  return `${h}h ${m}m`
+}
+const fmtDateTime = (t) => t ? new Date(toMillis(t)).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
+
 export default function Shipments({
-  shipments,
-  couriers,
-  onAddShipment,
-  onUpdateShipment,
-  onDeleteShipment,
-  onAddCourier,
-  onRemoveCourier,
+  shipments, couriers,
+  onAddShipment, onUpdateShipment, onDeleteShipment,
+  onAddCourier, onRemoveCourier,
 }) {
   const mapRef = useRef(null)
   const mapObj = useRef(null)
   const markers = useRef(new Map())
+  const [view, setView] = useState('tablero') // 'tablero' | 'reporte'
   const [showScanner, setShowScanner] = useState(false)
-  const [locatingId, setLocatingId] = useState(null) // envío al que le estamos poniendo ubicación
-  const [courierFilter, setCourierFilter] = useState('all')
+  const [locatingId, setLocatingId] = useState(null)
+  const locatingRef = useRef(null); locatingRef.current = locatingId
   const [statusFilter, setStatusFilter] = useState('all')
-  const [newCourier, setNewCourier] = useState('')
+  const [courierFilter, setCourierFilter] = useState('all')
   const [showCouriers, setShowCouriers] = useState(false)
-  const locatingRef = useRef(null)
-  locatingRef.current = locatingId
+  const [newCourier, setNewCourier] = useState('')
+  const [actionId, setActionId] = useState(null) // envío enfocado tras escanear
+  const [range, setRange] = useState('hoy') // reporte: hoy | semana | mes
 
-  // Inicializar mapa una sola vez
+  // Mapa
   useEffect(() => {
-    if (mapObj.current || !mapRef.current) return
-    const map = L.map(mapRef.current).setView([-34.6037, -58.3816], 12) // Buenos Aires por defecto
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap',
-      maxZoom: 19,
-    }).addTo(map)
+    if (mapObj.current || !mapRef.current || view !== 'tablero') return
+    const map = L.map(mapRef.current).setView([-34.6037, -58.3816], 12)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(map)
     map.on('click', (e) => {
       const id = locatingRef.current
-      if (id) {
-        onUpdateShipment(id, { lat: e.latlng.lat, lng: e.latlng.lng })
-        setLocatingId(null)
-      }
+      if (id) { onUpdateShipment(id, { lat: e.latlng.lat, lng: e.latlng.lng }); setLocatingId(null) }
     })
     mapObj.current = map
-    // Ajuste de tamaño tras el primer render
     setTimeout(() => map.invalidateSize(), 200)
-  }, [onUpdateShipment])
+  }, [onUpdateShipment, view])
 
   const visible = useMemo(() => shipments.filter(s => {
-    if (courierFilter !== 'all' && s.courierId !== courierFilter) return false
     if (statusFilter !== 'all' && (s.status || 'pendiente') !== statusFilter) return false
+    if (courierFilter !== 'all' && s.courierId !== courierFilter) return false
     return true
-  }), [shipments, courierFilter, statusFilter])
+  }), [shipments, statusFilter, courierFilter])
 
-  // Dibujar / actualizar marcadores
   useEffect(() => {
     const map = mapObj.current
-    if (!map) return
+    if (!map || view !== 'tablero') return
     const seen = new Set()
     visible.forEach(s => {
       if (s.lat == null || s.lng == null) return
       seen.add(s.id)
       const st = STATUS[s.status || 'pendiente'] || STATUS.pendiente
-      const html = `<div class="pin" style="background:${st.color}"></div>`
-      const icon = L.divIcon({ html, className: 'pin-wrap', iconSize: [22, 22], iconAnchor: [11, 11] })
+      const icon = L.divIcon({ html: `<div class="pin" style="background:${st.color}"></div>`, className: 'pin-wrap', iconSize: [22, 22], iconAnchor: [11, 11] })
       let m = markers.current.get(s.id)
-      if (!m) {
-        m = L.marker([s.lat, s.lng], { icon }).addTo(map)
-        markers.current.set(s.id, m)
-      } else {
-        m.setLatLng([s.lat, s.lng])
-        m.setIcon(icon)
-      }
-      m.bindPopup(
-        `<b>${(s.code || '').replace(/</g, '&lt;')}</b><br>${(s.recipient || '').replace(/</g, '&lt;')}<br>` +
-        `${st.emoji} ${st.label}${s.courierName ? '<br>🏍️ ' + s.courierName.replace(/</g, '&lt;') : ''}`
-      )
+      if (!m) { m = L.marker([s.lat, s.lng], { icon }).addTo(map); markers.current.set(s.id, m) }
+      else { m.setLatLng([s.lat, s.lng]); m.setIcon(icon) }
+      m.bindPopup(`<b>${(s.code || '').replace(/</g, '&lt;')}</b><br>${(s.recipient || '').replace(/</g, '&lt;')}<br>${st.emoji} ${st.label}${s.courierName ? '<br>🏍️ ' + s.courierName.replace(/</g, '&lt;') : ''}`)
     })
-    // quitar los que ya no están visibles
-    markers.current.forEach((m, id) => {
-      if (!seen.has(id)) { map.removeLayer(m); markers.current.delete(id) }
-    })
-  }, [visible])
+    markers.current.forEach((m, id) => { if (!seen.has(id)) { map.removeLayer(m); markers.current.delete(id) } })
+  }, [visible, view])
 
-  const handleScan = async (raw) => {
-    setShowScanner(false)
-    const code = parseShipmentCode(raw)
-    const exists = shipments.find(s => s.code === code)
-    if (exists) {
-      alert('Ese envío ya está cargado: ' + code)
-      setLocatingId(exists.id)
-      return
-    }
-    const id = await onAddShipment({ code, recipient: '', status: 'pendiente' })
-    if (id) setLocatingId(id) // pedir que se marque en el mapa
-  }
-
-  const cycleStatus = (s) => {
-    const order = ['pendiente', 'camino', 'entregado']
-    const next = order[(order.indexOf(s.status || 'pendiente') + 1) % order.length]
-    onUpdateShipment(s.id, { status: next, ...(next === 'entregado' ? { deliveredAt: new Date() } : {}) })
+  // Cambiar de estado guardando el timestamp correspondiente
+  const changeStatus = (s, newStatus, extra = {}) => {
+    const now = new Date()
+    const patch = { status: newStatus, ...extra }
+    if (newStatus === 'armado' && !s.armadoAt) patch.armadoAt = now
+    if (newStatus === 'camino' && !s.assignedAt) patch.assignedAt = now
+    if (newStatus === 'entregado') patch.deliveredAt = now
+    if (newStatus === 'demorado') patch.demoradoAt = now
+    onUpdateShipment(s.id, patch)
   }
 
   const assignCourier = (s, courierId) => {
     const c = couriers.find(x => x.id === courierId)
-    onUpdateShipment(s.id, { courierId: courierId || '', courierName: c?.name || '' })
+    const patch = { courierId: courierId || '', courierName: c?.name || '' }
+    // Asignar motoquero pasa el envío a "En camino"
+    if (courierId && ['pendiente', 'armado', 'demorado'].includes(s.status || 'pendiente')) {
+      patch.status = 'camino'
+      if (!s.assignedAt) patch.assignedAt = new Date()
+    }
+    onUpdateShipment(s.id, patch)
+  }
+
+  const handleScan = async (raw) => {
+    setShowScanner(false)
+    const code = parseShipmentCode(raw)
+    const existing = shipments.find(s => s.code === code)
+    if (existing) { setActionId(existing.id); return }
+    const id = await onAddShipment({ code, recipient: '', status: 'pendiente', cost: 0 })
+    if (id) setActionId(id)
   }
 
   const handleAddCourier = async (e) => {
     e.preventDefault()
-    const name = newCourier.trim()
-    if (!name) return
-    await onAddCourier(name)
-    setNewCourier('')
+    const name = newCourier.trim(); if (!name) return
+    await onAddCourier(name); setNewCourier('')
   }
 
   const counts = useMemo(() => {
-    const c = { pendiente: 0, camino: 0, entregado: 0 }
+    const c = {}; ORDER.forEach(k => c[k] = 0)
     shipments.forEach(s => { c[s.status || 'pendiente'] = (c[s.status || 'pendiente'] || 0) + 1 })
     return c
   }, [shipments])
+
+  const actionShipment = shipments.find(s => s.id === actionId)
+
+  // ---- Reporte ----
+  const reportRows = useMemo(() => {
+    const now = new Date()
+    let from = new Date(now); from.setHours(0, 0, 0, 0)
+    if (range === 'semana') from.setDate(from.getDate() - 6)
+    if (range === 'mes') from.setDate(from.getDate() - 29)
+    const fromMs = from.getTime()
+    return shipments
+      .filter(s => {
+        const ref = toMillis(s.deliveredAt || s.createdAt)
+        return ref >= fromMs
+      })
+      .map(s => {
+        const salio = toMillis(s.assignedAt)
+        const entrego = toMillis(s.deliveredAt)
+        const demoraMs = salio && entrego ? entrego - salio : 0
+        return { s, salio, entrego, demoraMs }
+      })
+      .sort((a, b) => toMillis(b.s.createdAt) - toMillis(a.s.createdAt))
+  }, [shipments, range])
+
+  const reportTotals = useMemo(() => {
+    const entregados = reportRows.filter(r => (r.s.status === 'entregado'))
+    const costo = reportRows.reduce((sum, r) => sum + (Number(r.s.cost) || 0), 0)
+    const demoras = entregados.filter(r => r.demoraMs > 0).map(r => r.demoraMs)
+    const demoraProm = demoras.length ? demoras.reduce((a, b) => a + b, 0) / demoras.length : 0
+    return { total: reportRows.length, entregados: entregados.length, costo, demoraProm }
+  }, [reportRows])
+
+  const exportReport = () => {
+    const rows = [['Código', 'Destinatario', 'Motoquero', 'Estado', 'Salió', 'Entregó', 'Demora (min)', 'Costo']]
+    reportRows.forEach(({ s, salio, entrego, demoraMs }) => {
+      rows.push([
+        s.code || '', s.recipient || '', s.courierName || '', STATUS[s.status || 'pendiente']?.label || '',
+        salio ? new Date(salio).toLocaleString('es-AR') : '',
+        entrego ? new Date(entrego).toLocaleString('es-AR') : '',
+        demoraMs ? Math.round(demoraMs / 60000) : '',
+        Number(s.cost) || 0,
+      ])
+    })
+    const ws = XLSX.utils.aoa_to_sheet(rows)
+    ws['!cols'] = [{ wch: 16 }, { wch: 26 }, { wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 10 }]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Envíos')
+    XLSX.writeFile(wb, `envios-${range}.xlsx`)
+  }
 
   return (
     <div className="shipments-container">
       <div className="ship-header">
         <div>
           <h1>🚚 Envíos</h1>
-          <p>Escaneá etiquetas de MercadoLibre, ubicalas en el mapa y asigná motoqueros.</p>
+          <p>Escaneá el QR para asignar o mover el estado de cada envío. Al final del día/semana mirá el reporte.</p>
         </div>
         <div className="ship-header-actions">
-          <button className="btn-scan-ship" onClick={() => setShowScanner(true)}>
-            📷 Escanear etiqueta
-          </button>
-          <button className="btn-couriers" onClick={() => setShowCouriers(v => !v)}>
-            🏍️ Motoqueros ({couriers.length})
-          </button>
+          <button className="btn-scan-ship" onClick={() => setShowScanner(true)}>📷 Escanear QR</button>
+          <button className="btn-couriers" onClick={() => setShowCouriers(v => !v)}>🏍️ Motoqueros ({couriers.length})</button>
         </div>
       </div>
 
-      {showScanner && (
-        <Scanner onScan={handleScan} onClose={() => setShowScanner(false)} />
-      )}
+      <div className="ship-viewtabs">
+        <button className={view === 'tablero' ? 'active' : ''} onClick={() => setView('tablero')}>🗂️ Tablero</button>
+        <button className={view === 'reporte' ? 'active' : ''} onClick={() => setView('reporte')}>📊 Reporte</button>
+      </div>
 
-      {locatingId && (
-        <div className="locating-banner">
-          📍 Tocá en el mapa el punto de entrega de este envío.
-          <button onClick={() => setLocatingId(null)}>Cancelar</button>
-        </div>
-      )}
+      {showScanner && <Scanner onScan={handleScan} onClose={() => setShowScanner(false)} />}
 
       {showCouriers && (
         <div className="couriers-panel">
           <h3>🏍️ Motoqueros</h3>
           <form onSubmit={handleAddCourier} className="courier-form">
-            <input
-              type="text"
-              value={newCourier}
-              onChange={e => setNewCourier(e.target.value)}
-              placeholder="Nombre del motoquero"
-            />
+            <input type="text" value={newCourier} onChange={e => setNewCourier(e.target.value)} placeholder="Nombre del motoquero" />
             <button type="submit" className="btn-add-courier">+ Agregar</button>
           </form>
-          {couriers.length === 0 ? (
-            <p className="empty-hint">Todavía no agregaste motoqueros.</p>
-          ) : (
+          {couriers.length === 0 ? <p className="empty-hint">Todavía no agregaste motoqueros.</p> : (
             <ul className="couriers-list">
               {couriers.map(c => (
-                <li key={c.id}>
-                  <span>🏍️ {c.name}</span>
-                  <button onClick={() => onRemoveCourier(c.id)} title="Quitar">🗑️</button>
-                </li>
+                <li key={c.id}><span>🏍️ {c.name}</span><button onClick={() => onRemoveCourier(c.id)} title="Quitar">🗑️</button></li>
               ))}
             </ul>
           )}
         </div>
       )}
 
-      <div className="ship-stats">
-        <button className={`ship-stat ${statusFilter === 'all' ? 'active' : ''}`} onClick={() => setStatusFilter('all')}>
-          Todos ({shipments.length})
-        </button>
-        <button className={`ship-stat pend ${statusFilter === 'pendiente' ? 'active' : ''}`} onClick={() => setStatusFilter('pendiente')}>
-          🔴 Pendientes ({counts.pendiente})
-        </button>
-        <button className={`ship-stat cam ${statusFilter === 'camino' ? 'active' : ''}`} onClick={() => setStatusFilter('camino')}>
-          🟡 En camino ({counts.camino})
-        </button>
-        <button className={`ship-stat ent ${statusFilter === 'entregado' ? 'active' : ''}`} onClick={() => setStatusFilter('entregado')}>
-          🟢 Entregados ({counts.entregado})
-        </button>
-        {couriers.length > 0 && (
-          <select value={courierFilter} onChange={e => setCourierFilter(e.target.value)} className="courier-filter">
-            <option value="all">Todos los motoqueros</option>
-            {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        )}
-      </div>
-
-      <div ref={mapRef} className="ship-map"></div>
-
-      <div className="ship-list">
-        {visible.length === 0 ? (
-          <div className="empty-state">
-            <p>🚚</p>
-            <p>No hay envíos. Escaneá una etiqueta para empezar.</p>
+      {/* Panel de acción tras escanear un envío */}
+      {actionShipment && (
+        <div className="ship-action">
+          <div className="ship-action-head">
+            <div>
+              <div className="sa-code">{actionShipment.code}</div>
+              <span className="sa-status" style={{ background: STATUS[actionShipment.status || 'pendiente'].color }}>
+                {STATUS[actionShipment.status || 'pendiente'].emoji} {STATUS[actionShipment.status || 'pendiente'].label}
+              </span>
+            </div>
+            <button className="sa-close" onClick={() => setActionId(null)}>✕</button>
           </div>
-        ) : (
-          visible.map(s => {
-            const st = STATUS[s.status || 'pendiente'] || STATUS.pendiente
-            return (
-              <div key={s.id} className="ship-card" style={{ borderLeftColor: st.color }}>
-                <div className="ship-card-main">
-                  <div className="ship-code">{s.code}</div>
-                  {s.recipient && <div className="ship-recipient">{s.recipient}</div>}
-                  <div className="ship-badges">
-                    <button className="ship-status-badge" style={{ background: st.color }} onClick={() => cycleStatus(s)}>
-                      {st.emoji} {st.label}
-                    </button>
-                    {s.lat == null && (
-                      <button className="ship-locate" onClick={() => setLocatingId(s.id)}>📍 Ubicar</button>
-                    )}
-                    {s.lat != null && (
-                      <button className="ship-locate ok" onClick={() => {
-                        setLocatingId(null)
-                        mapObj.current?.setView([s.lat, s.lng], 16)
-                      }}>🗺️ Ver</button>
-                    )}
+          <div className="sa-buttons">
+            <button onClick={() => changeStatus(actionShipment, 'armado')}>📦 Armado</button>
+            <select value={actionShipment.courierId || ''} onChange={e => assignCourier(actionShipment, e.target.value)}>
+              <option value="">🏍️ Asignar motoquero…</option>
+              {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <button className="ok" onClick={() => changeStatus(actionShipment, 'entregado')}>✅ Entregado</button>
+            <button className="warn" onClick={() => changeStatus(actionShipment, 'demorado')}>⏰ Demorado</button>
+          </div>
+        </div>
+      )}
+
+      {locatingId && (
+        <div className="locating-banner">📍 Tocá en el mapa el punto de entrega.<button onClick={() => setLocatingId(null)}>Cancelar</button></div>
+      )}
+
+      {view === 'tablero' ? (
+        <>
+          <div className="ship-stats">
+            <button className={`ship-stat ${statusFilter === 'all' ? 'active' : ''}`} onClick={() => setStatusFilter('all')}>Todos ({shipments.length})</button>
+            {ORDER.map(k => (
+              <button key={k} className={`ship-stat ${statusFilter === k ? 'active' : ''}`}
+                onClick={() => setStatusFilter(k)}
+                style={statusFilter === k ? { background: STATUS[k].color, borderColor: STATUS[k].color, color: '#fff' } : {}}>
+                {STATUS[k].emoji} {STATUS[k].short} ({counts[k]})
+              </button>
+            ))}
+            {couriers.length > 0 && (
+              <select value={courierFilter} onChange={e => setCourierFilter(e.target.value)} className="courier-filter">
+                <option value="all">Todos los motoqueros</option>
+                {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            )}
+          </div>
+
+          <div ref={mapRef} className="ship-map"></div>
+
+          <div className="ship-list">
+            {visible.length === 0 ? (
+              <div className="empty-state"><p>🚚</p><p>No hay envíos. Escaneá un QR para empezar.</p></div>
+            ) : visible.map(s => {
+              const st = STATUS[s.status || 'pendiente'] || STATUS.pendiente
+              return (
+                <div key={s.id} className="ship-card" style={{ borderLeftColor: st.color }}>
+                  <div className="ship-card-main">
+                    <div className="ship-code">{s.code}</div>
+                    {s.recipient && <div className="ship-recipient">{s.recipient}</div>}
+                    <div className="ship-badges">
+                      <span className="ship-status-badge" style={{ background: st.color }}>{st.emoji} {st.label}</span>
+                      {s.courierName && <span className="ship-courier-tag">🏍️ {s.courierName}</span>}
+                    </div>
+                    <div className="ship-flow">
+                      <button onClick={() => changeStatus(s, 'armado')} disabled={s.status === 'armado'}>📦 Armado</button>
+                      <select value={s.courierId || ''} onChange={e => assignCourier(s, e.target.value)}>
+                        <option value="">🏍️ Motoquero…</option>
+                        {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                      <button className="ok" onClick={() => changeStatus(s, 'entregado')}>✅ Entregado</button>
+                      <button className="warn" onClick={() => changeStatus(s, 'demorado')}>⏰ Demorado</button>
+                    </div>
+                  </div>
+                  <div className="ship-card-side">
+                    <label className="ship-cost">$
+                      <input type="number" min="0" defaultValue={s.cost || ''} placeholder="costo"
+                        onBlur={e => onUpdateShipment(s.id, { cost: parseFloat(e.target.value) || 0 })} />
+                    </label>
+                    {s.lat == null
+                      ? <button className="ship-locate" onClick={() => setLocatingId(s.id)}>📍 Ubicar</button>
+                      : <button className="ship-locate ok" onClick={() => mapObj.current?.setView([s.lat, s.lng], 16)}>🗺️ Ver</button>}
+                    <button className="ship-del" onClick={() => { if (window.confirm('¿Eliminar este envío?')) onDeleteShipment(s.id) }}>🗑️</button>
                   </div>
                 </div>
-                <div className="ship-card-side">
-                  <select
-                    value={s.courierId || ''}
-                    onChange={e => assignCourier(s, e.target.value)}
-                    className="ship-courier-select"
-                  >
-                    <option value="">Sin motoquero</option>
-                    {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                  <button className="ship-del" onClick={() => {
-                    if (window.confirm('¿Eliminar este envío?')) onDeleteShipment(s.id)
-                  }}>🗑️</button>
-                </div>
-              </div>
-            )
-          })
-        )}
-      </div>
+              )
+            })}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="rep-controls">
+            <div className="rep-range">
+              {['hoy', 'semana', 'mes'].map(r => (
+                <button key={r} className={range === r ? 'active' : ''} onClick={() => setRange(r)}>
+                  {r === 'hoy' ? 'Hoy' : r === 'semana' ? 'Últimos 7 días' : 'Últimos 30 días'}
+                </button>
+              ))}
+            </div>
+            <button className="rep-export" onClick={exportReport}>⬇️ Exportar Excel</button>
+          </div>
+
+          <div className="rep-totals">
+            <div className="rep-total"><span>Envíos</span><strong>{reportTotals.total}</strong></div>
+            <div className="rep-total"><span>Entregados</span><strong>{reportTotals.entregados}</strong></div>
+            <div className="rep-total"><span>Costo total</span><strong>${reportTotals.costo.toFixed(2)}</strong></div>
+            <div className="rep-total"><span>Demora promedio</span><strong>{fmtDur(reportTotals.demoraProm)}</strong></div>
+          </div>
+
+          <div className="rep-table-wrap">
+            <table className="rep-table">
+              <thead>
+                <tr><th>Código</th><th>Destinatario</th><th>Motoquero</th><th>Estado</th><th>Salió</th><th>Entregó</th><th>Demora</th><th>Costo</th></tr>
+              </thead>
+              <tbody>
+                {reportRows.length === 0 ? (
+                  <tr><td colSpan="8" className="rep-empty">No hay envíos en este período.</td></tr>
+                ) : reportRows.map(({ s, salio, entrego, demoraMs }) => {
+                  const st = STATUS[s.status || 'pendiente']
+                  return (
+                    <tr key={s.id}>
+                      <td className="rep-code">{s.code}</td>
+                      <td>{s.recipient || '—'}</td>
+                      <td>{s.courierName || '—'}</td>
+                      <td><span className="rep-badge" style={{ background: st.color }}>{st.short}</span></td>
+                      <td>{fmtDateTime(salio)}</td>
+                      <td>{fmtDateTime(entrego)}</td>
+                      <td>{fmtDur(demoraMs)}</td>
+                      <td>${(Number(s.cost) || 0).toFixed(2)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </div>
   )
 }

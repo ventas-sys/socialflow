@@ -59,6 +59,92 @@
   .btn-couriers { background: #1e293b; color: #f1f5f9; border-color: #334155; }
 }
 
+.ship-viewtabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.ship-viewtabs button {
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 9999px;
+  padding: 0.5rem 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #4b5563;
+}
+.ship-viewtabs button.active { background: #1f2937; color: white; border-color: #1f2937; }
+
+.ship-action {
+  background: #eff6ff;
+  border: 2px solid #3b82f6;
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+.ship-action-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.85rem; }
+.sa-code { font-family: monospace; font-weight: 800; font-size: 1.15rem; color: #1f2937; }
+.sa-status { display: inline-block; margin-top: 0.3rem; color: white; border-radius: 9999px; padding: 0.2rem 0.7rem; font-size: 0.78rem; font-weight: 700; }
+.sa-close { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #6b7280; }
+.sa-buttons { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.sa-buttons button, .sa-buttons select {
+  border: 1px solid #d1d5db; border-radius: 0.5rem; padding: 0.6rem 0.9rem;
+  font-weight: 600; cursor: pointer; font-size: 0.9rem; background: white; color: #1f2937;
+}
+.sa-buttons button.ok { background: #10b981; color: white; border-color: #10b981; }
+.sa-buttons button.warn { background: #8b5cf6; color: white; border-color: #8b5cf6; }
+
+.ship-flow { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.7rem; }
+.ship-flow button, .ship-flow select {
+  border: 1px solid #d1d5db; border-radius: 0.4rem; padding: 0.35rem 0.6rem;
+  font-size: 0.8rem; font-weight: 600; cursor: pointer; background: white; color: #374151;
+}
+.ship-flow button.ok { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+.ship-flow button.warn { background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe; }
+.ship-flow button:disabled { opacity: 0.5; cursor: default; }
+
+.ship-courier-tag { font-size: 0.75rem; color: #4b5563; background: #f3f4f6; border-radius: 9999px; padding: 0.15rem 0.6rem; }
+
+.ship-cost { display: inline-flex; align-items: center; gap: 0.15rem; font-weight: 700; color: #374151; }
+.ship-cost input { width: 72px; padding: 0.35rem; border: 1px solid #d1d5db; border-radius: 0.35rem; font-size: 0.85rem; }
+
+/* Reporte */
+.rep-controls { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.rep-range { display: flex; gap: 0.4rem; }
+.rep-range button { background: white; border: 1px solid #d1d5db; border-radius: 9999px; padding: 0.4rem 0.9rem; font-weight: 600; font-size: 0.85rem; cursor: pointer; color: #4b5563; }
+.rep-range button.active { background: #2563eb; color: white; border-color: #2563eb; }
+.rep-export { background: #059669; color: white; border: none; border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 600; cursor: pointer; }
+
+.rep-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
+.rep-total { background: white; border: 1px solid #e5e7eb; border-radius: 0.6rem; padding: 0.85rem 1rem; }
+.rep-total span { display: block; font-size: 0.78rem; color: #6b7280; }
+.rep-total strong { font-size: 1.4rem; color: #1f2937; }
+
+.rep-table-wrap { overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 0.6rem; }
+.rep-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.rep-table th { background: #f9fafb; text-align: left; padding: 0.6rem 0.75rem; color: #4b5563; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+.rep-table td { padding: 0.6rem 0.75rem; border-bottom: 1px solid #f3f4f6; color: #1f2937; white-space: nowrap; }
+.rep-code { font-family: monospace; }
+.rep-badge { color: white; border-radius: 9999px; padding: 0.15rem 0.6rem; font-size: 0.72rem; font-weight: 700; }
+.rep-empty { text-align: center; color: #9ca3af; padding: 2rem; }
+
+@media (prefers-color-scheme: dark) {
+  .ship-viewtabs button { background: #1e293b; color: #cbd5e1; border-color: #334155; }
+  .ship-action { background: rgba(59,130,246,0.12); border-color: #3b82f6; }
+  .sa-code { color: #f1f5f9; }
+  .sa-buttons button, .sa-buttons select { background: #0f172a; color: #f1f5f9; border-color: #334155; }
+  .ship-flow button, .ship-flow select { background: #0f172a; color: #e2e8f0; border-color: #334155; }
+  .ship-courier-tag { background: #334155; color: #cbd5e1; }
+  .ship-cost { color: #e2e8f0; }
+  .ship-cost input { background: #0f172a; color: #f1f5f9; border-color: #334155; }
+  .rep-range button { background: #1e293b; color: #cbd5e1; border-color: #334155; }
+  .rep-total { background: #1e293b; border-color: #334155; }
+  .rep-total strong { color: #f1f5f9; }
+  .rep-table-wrap { border-color: #334155; }
+  .rep-table th { background: #0f172a; color: #cbd5e1; border-bottom-color: #334155; }
+  .rep-table td { color: #f1f5f9; border-bottom-color: #1e293b; }
+}
+
 .locating-banner {
   background: #dbeafe;
   border: 1px solid #93c5fd;
