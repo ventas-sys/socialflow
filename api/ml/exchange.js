@@ -15,6 +15,7 @@ export default async function handler(req, res) {
     if (action === 'refresh') return await refresh(req, res);
     if (action === 'test') return await test(req, res);
     if (action === 'orders') return await orders(req, res);
+    if (action === 'items') return await items(req, res);
     return await exchange(req, res);
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message });
@@ -82,6 +83,46 @@ async function orders(req, res) {
   }
 
   return res.status(200).json({ ok: true, sellerId, nickname, count: out.length, orders: out });
+}
+
+// Lista TODAS las publicaciones activas del vendedor (para detectar cuáles no
+// están cargadas como combo/producto). Body: { token }.
+async function items(req, res) {
+  const { token } = req.body || {};
+  if (!token) return res.status(400).json({ ok: false, error: 'Falta access_token' });
+  const auth = { 'Authorization': 'Bearer ' + token };
+
+  const me = await httpRequest('GET', 'https://api.mercadolibre.com/users/me', auth);
+  if (me.status !== 200) return res.status(200).json({ ok: false, error: me.body?.message || ('HTTP ' + me.status) });
+  const sellerId = me.body.id;
+
+  // IDs de publicaciones con scroll (paginado que soporta muchos items)
+  const ids = [];
+  let scrollId = null;
+  for (let p = 0; p < 60; p++) {
+    const url = `https://api.mercadolibre.com/users/${sellerId}/items/search?search_type=scan&limit=100` +
+      (scrollId ? `&scroll_id=${encodeURIComponent(scrollId)}` : '');
+    const r = await httpRequest('GET', url, auth);
+    if (r.status !== 200) break;
+    const results = r.body?.results || [];
+    ids.push(...results);
+    scrollId = r.body?.scroll_id;
+    if (!results.length || !scrollId) break;
+  }
+
+  // Detalle en lotes de 20 (multiget): id, título, seller_sku
+  const out = [];
+  for (let i = 0; i < ids.length; i += 20) {
+    const batch = ids.slice(i, i + 20).join(',');
+    const r = await httpRequest('GET', `https://api.mercadolibre.com/items?ids=${batch}&attributes=id,title,seller_custom_field,status`, auth);
+    for (const entry of (r.body || [])) {
+      const b = entry?.body;
+      if (!b) continue;
+      out.push({ mla: b.id, title: b.title || '', sku: b.seller_custom_field || null, status: b.status });
+    }
+  }
+
+  return res.status(200).json({ ok: true, sellerId, count: out.length, items: out });
 }
 
 async function exchange(req, res) {

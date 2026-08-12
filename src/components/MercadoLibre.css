@@ -24,6 +24,19 @@
   word-break: break-all;
 }
 
+.ml-auto {
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  color: #3730a3;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+@media (prefers-color-scheme: dark) {
+  .ml-auto { background: rgba(99,102,241,0.12); border-color: #6366f1; color: #c7d2fe; }
+}
+
 .ml-accounts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem; }
 
 .ml-card {
@@ -58,6 +71,8 @@
 .ml-btn-connect:disabled { background: #9ca3af; cursor: not-allowed; }
 .ml-btn-sync { background: #059669; color: white; }
 .ml-btn-sync:disabled { background: #9ca3af; cursor: not-allowed; }
+.ml-btn-missing { background: #7c3aed; color: white; }
+.ml-btn-missing:disabled { background: #9ca3af; cursor: not-allowed; }
 
 .ml-lastsync { font-size: 0.78rem; color: #9ca3af; margin-top: 0.6rem; }
 .ml-msg { margin-top: 0.7rem; font-size: 0.85rem; padding: 0.5rem 0.7rem; border-radius: 0.4rem; }

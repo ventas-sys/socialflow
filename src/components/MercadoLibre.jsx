@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react'
+import * as XLSX from 'xlsx'
 import { db } from '../firebase'
 import { doc, getDoc, writeBatch, Timestamp } from 'firebase/firestore'
 import { ORG_ID } from '../config'
@@ -150,6 +151,64 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
     }
   }
 
+  // Busca las publicaciones de ML que NO están cargadas como combo/producto
+  // y exporta un Excel con esos MLA para completar el armado y reimportar.
+  const findMissing = async (key) => {
+    setBusy(key); setMsg(m => ({ ...m, [key]: '' }))
+    try {
+      const token = await ensureToken(key)
+      const r = await fetch(`${API}?action=items`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      }).then(x => x.json())
+      if (!r.ok) throw new Error(r.error || 'Error al leer las publicaciones')
+
+      // Conjunto de códigos ya cargados (SKU y códigos de barras de combos y productos)
+      const known = new Set()
+      const addKnown = (x) => {
+        if (x.code) known.add(String(x.code).toLowerCase())
+        ;(x.barcodes?.length ? x.barcodes : (x.barcode ? [x.barcode] : [])).forEach(b => known.add(String(b).toLowerCase()))
+      }
+      combos.forEach(addKnown); products.forEach(addKnown)
+
+      const missing = r.items.filter(it =>
+        (it.status ? it.status === 'active' : true) &&
+        !known.has(String(it.mla).toLowerCase()) &&
+        !(it.sku && known.has(String(it.sku).toLowerCase()))
+      )
+      if (!missing.length) {
+        setMsg(m => ({ ...m, [key]: `✅ Todas las publicaciones (${r.count}) ya están cargadas.` }))
+        return
+      }
+      // Excel para completar: SKU (MLA) + Nombre + columnas de armado vacías
+      const rows = [['SKU', 'Nombre', 'Codigo (ARMADO P)', 'ARMADO S', 'Codigo de Barras', 'TIPO']]
+      missing.forEach(it => rows.push([it.mla, it.title, '', '', '', key.toUpperCase()]))
+      const ws = XLSX.utils.aoa_to_sheet(rows)
+      ws['!cols'] = [{ wch: 18 }, { wch: 45 }, { wch: 16 }, { wch: 10 }, { wch: 16 }, { wch: 8 }]
+      const info = XLSX.utils.aoa_to_sheet([
+        ['PUBLICACIONES DE ML QUE FALTAN CARGAR COMO COMBO'],
+        [''],
+        ['Cada fila es una publicación de tu cuenta que todavía no está en el sistema.'],
+        ['Completá por cada una:'],
+        ['  • Codigo (ARMADO P): el SKU del producto base que arma ese combo'],
+        ['  • ARMADO S: cuántas unidades de ese producto lleva'],
+        ['Si un combo lleva 2 productos, agregá otra fila con el MISMO SKU y el otro producto.'],
+        [''],
+        ['Después importá este archivo desde la pestaña Combos → Importar Excel.'],
+      ])
+      info['!cols'] = [{ wch: 70 }]
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, info, 'Instrucciones')
+      XLSX.utils.book_append_sheet(wb, ws, 'Combos')
+      XLSX.writeFile(wb, `faltantes-${key}.xlsx`)
+      setMsg(m => ({ ...m, [key]: `✅ ${missing.length} publicaciones faltantes de ${r.count}. Descargué el Excel "faltantes-${key}.xlsx" para completar el armado.` }))
+    } catch (err) {
+      setMsg(m => ({ ...m, [key]: '❌ ' + err.message }))
+    } finally {
+      setBusy('')
+    }
+  }
+
   // Confirma: descuenta stock y marca las órdenes como procesadas
   const applyPreview = async () => {
     if (!preview) return
@@ -194,6 +253,11 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
         <code>{redirectUri}</code>
       </div>
 
+      <div className="ml-auto">
+        🤖 <strong>Automático:</strong> todos los días a las <strong>18:00</strong> el sistema descuenta solo
+        las ventas del día de las dos cuentas (menos lo de bodega Full). Igual podés sincronizar a mano cuando quieras.
+      </div>
+
       <div className="ml-accounts">
         {ACCOUNTS.map(({ key, label }) => {
           const acc = mlAccounts?.[key] || {}
@@ -230,6 +294,9 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
                 </button>
                 <button className="ml-btn-sync" onClick={() => sync(key)} disabled={!connected || busy === key}>
                   {busy === key ? '⏳...' : '⬇️ Sincronizar ventas de hoy'}
+                </button>
+                <button className="ml-btn-missing" onClick={() => findMissing(key)} disabled={!connected || busy === key}>
+                  🔍 Publicaciones faltantes
                 </button>
               </div>
 
