@@ -494,22 +494,62 @@ async function notifySupervisor(client, chatId, reason, lastText) {
 }
 
 // Resuelve el teléfono REAL del contacto para agendarlo.
-// Con el formato nuevo de WhatsApp muchos chats llegan como "<id>@lid": ese ID
-// es interno de WhatsApp, NO es un teléfono. Si lo usáramos tal cual, se
-// agendarían números falsos (ej: +4007321927846). getContact() suele resolver
-// el teléfono real (@c.us); si no lo logra, devolvemos null y NO agendamos
-// (mejor no guardar nada que guardar un número inventado).
-async function telefonoReal(msg, from) {
+// WhatsApp ahora identifica muchos chats con "<id>@lid": ese ID es interno y NO
+// es un teléfono (por privacidad esconde el número real). getContact() a veces
+// tampoco lo devuelve: en ese caso intentamos resolver el @lid -> teléfono con
+// el store interno de WhatsApp. Si no lo logramos, devolvemos null y NO agendamos
+// (mejor no guardar nada que guardar un número inventado como +185229138464948).
+async function telefonoReal(client, msg, from) {
   if (from.endsWith('@c.us')) return '+' + from.split('@')[0];
   const lid = from.split('@')[0];
+  const esTelReal = n => n && n !== lid && /^\d{10,15}$/.test(n);
   try {
-    const contact = await msg.getContact();
-    const num = String(contact?.number || '').replace(/\D/g, '');
-    const sid = contact?.id?._serialized || '';
-    // Teléfono real: el id resolvió a @c.us, o el number es válido y distinto del @lid.
-    if (sid.endsWith('@c.us') && num) return '+' + num;
-    if (num && num !== lid && /^\d{10,15}$/.test(num)) return '+' + num;
-  } catch {}
+    // 1) Número directo del contacto (sirve si WhatsApp lo expone).
+    let num = '';
+    try {
+      const contact = await msg.getContact();
+      num = String(contact?.number || '').replace(/\D/g, '');
+      if (esTelReal(num)) return '+' + num;
+    } catch {}
+
+    // 2) Resolver @lid -> teléfono con el store interno de WhatsApp. Los nombres
+    //    internos cambian por versión: probamos varios candidatos y logueamos lo
+    //    disponible para afinar el arreglo si hiciera falta.
+    let diag = null;
+    try {
+      diag = await client.pupPage.evaluate(async (lidSer) => {
+        const out = { tried: [], modules: [] };
+        try {
+          const S = window.Store || {};
+          out.modules = Object.keys(S).filter(k => /lid|pn/i.test(k));
+          let wid = null;
+          try { wid = (S.WidFactory && S.WidFactory.createWid) ? S.WidFactory.createWid(lidSer) : null; } catch {}
+          const candMods = ['LidUtils', 'LidPnCache', 'LidMigrationUtils', 'WidToJid', 'ContactMethods'];
+          const candFns = ['getPhoneNumber', 'getPhoneForLid', 'getPnForLid', 'findPn', 'getCurrentLidPn', 'lidToPn'];
+          for (const mn of candMods) {
+            const m = S[mn]; if (!m) continue;
+            out.tried.push(mn + ':[' + Object.keys(m).filter(f => typeof m[f] === 'function').slice(0, 25).join(',') + ']');
+            for (const fn of candFns) {
+              if (typeof m[fn] === 'function') {
+                try {
+                  const r = await m[fn](wid || lidSer);
+                  const pn = (r && (r._serialized || r.user || (r.id && r.id.user))) || (typeof r === 'string' ? r : null);
+                  if (pn) { out.hit = mn + '.' + fn; out.pn = String(pn); return out; }
+                } catch (e) { /* seguimos probando */ }
+              }
+            }
+          }
+        } catch (e) { out.err = e.message; }
+        return out;
+      }, from);
+    } catch (e) { diag = { evalErr: e.message }; }
+
+    const pnDigits = String(diag?.pn || '').replace(/\D/g, '');
+    console.log(`[DIAG-LID] from=${from} number=${num || '-'} store=${JSON.stringify(diag)}`);
+    if (esTelReal(pnDigits)) return '+' + pnDigits;
+  } catch (e) {
+    console.log(`[DIAG-LID] telefonoReal fail: ${e.message}`);
+  }
   return null;
 }
 
@@ -630,7 +670,7 @@ async function handleIncoming(client, msg) {
     // Fire-and-forget: nunca frena ni rompe la conversación.
     const contacto = result.ia?.contacto;
     if (contacto) {
-      telefonoReal(msg, from)
+      telefonoReal(client, msg, from)
         .then(phone => {
           if (!phone) {
             console.warn(`[${from}] 📇 sin teléfono real (chat @lid sin resolver): no se agenda para no guardar un número falso`);
