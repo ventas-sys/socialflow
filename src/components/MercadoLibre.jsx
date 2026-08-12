@@ -209,6 +209,27 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
     }
   }
 
+  // Dispara el proceso automático (el mismo del cron de las 18hs) una vez
+  const [cronMsg, setCronMsg] = useState('')
+  const [cronBusy, setCronBusy] = useState(false)
+  const runCronNow = async () => {
+    if (!window.confirm('Esto descuenta ahora las ventas de hoy de las 2 cuentas (menos bodega Full). ¿Seguir?')) return
+    setCronBusy(true); setCronMsg('')
+    try {
+      const r = await fetch('/api/ml/cron', { method: 'POST' }).then(x => x.json())
+      if (!r.ok) throw new Error(r.error || 'Error')
+      const parts = Object.entries(r.summary || {}).map(([k, v]) =>
+        typeof v === 'string' ? `${k.toUpperCase()}: ${v}` :
+        `${k.toUpperCase()}: ${v.ordenes} ventas, ${v.productos} productos${v.salteadasFull ? `, ${v.salteadasFull} de Full salteadas` : ''}`
+      )
+      setCronMsg('✅ ' + parts.join(' · '))
+    } catch (err) {
+      setCronMsg('❌ ' + err.message)
+    } finally {
+      setCronBusy(false)
+    }
+  }
+
   // Confirma: descuenta stock y marca las órdenes como procesadas
   const applyPreview = async () => {
     if (!preview) return
@@ -256,6 +277,12 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
       <div className="ml-auto">
         🤖 <strong>Automático:</strong> todos los días a las <strong>18:00</strong> el sistema descuenta solo
         las ventas del día de las dos cuentas (menos lo de bodega Full). Igual podés sincronizar a mano cuando quieras.
+        <div className="ml-auto-actions">
+          <button className="ml-btn-cron" onClick={runCronNow} disabled={cronBusy}>
+            {cronBusy ? '⏳ Procesando...' : '▶️ Probar automático ahora'}
+          </button>
+          {cronMsg && <span className={`ml-cron-msg ${cronMsg.startsWith('✅') ? 'ok' : 'warn'}`}>{cronMsg}</span>}
+        </div>
       </div>
 
       <div className="ml-accounts">

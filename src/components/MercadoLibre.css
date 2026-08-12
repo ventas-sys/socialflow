@@ -33,8 +33,17 @@
   margin-bottom: 1.5rem;
   font-size: 0.9rem;
 }
+.ml-auto-actions { margin-top: 0.6rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.ml-btn-cron { background: #4338ca; color: white; border: none; border-radius: 0.45rem; padding: 0.5rem 0.9rem; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
+.ml-btn-cron:disabled { background: #9ca3af; cursor: not-allowed; }
+.ml-cron-msg { font-size: 0.85rem; font-weight: 600; }
+.ml-cron-msg.ok { color: #059669; }
+.ml-cron-msg.warn { color: #b91c1c; }
+
 @media (prefers-color-scheme: dark) {
   .ml-auto { background: rgba(99,102,241,0.12); border-color: #6366f1; color: #c7d2fe; }
+  .ml-cron-msg.ok { color: #6ee7b7; }
+  .ml-cron-msg.warn { color: #fca5a5; }
 }
 
 .ml-accounts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.25rem; }
