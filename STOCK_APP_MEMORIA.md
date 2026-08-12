@@ -47,7 +47,10 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 · Deploy: Vercel.
    - **Devoluciones/claims**: suman stock de vuelta.
    - **Evitar doble descuento**: colección `ml_orders` con las órdenes ya procesadas.
    - **Credenciales**: App ID + Secret de cada cuenta como env vars en Vercel (no en el repo). Redirect URI sugerida `<dominio>/ml-callback`.
-   - **Fases**: (1) conectar cuentas + botón "Sincronizar ventas" con vista previa/confirmación; (2) automático diario por cron + devoluciones.
+   - **Fases**: (1) conectar cuentas + botón "Sincronizar ventas" con vista previa/confirmación ✅ HECHO Y VALIDADO con datos reales; (2) automático diario por cron + devoluciones (PENDIENTE).
+   - **Apps ML reales**: FULL = "Uniproveedores MCP" (Client ID 5731065254303938). FERRE = "Publicacion-por-telegram" (Client ID 914895574262615). Redirect URI configurada: `https://socialflow-git-claude-stock-in-858296-ventas-sys-2783s-projects.vercel.app/`.
+   - **Operación clave**: en la app entrar SIEMPRE con el admin (ventas@distribuidorauniverso.com) — solo el admin puede guardar ml_accounts. Para conectar cada cuenta, el navegador debe tener la sesión de MercadoLibre de esa cuenta (FULL o FERRE). Los combos cargados tienen SKU MLA de la cuenta FULL; FERRE tiene sus propias MLA (muchas ventas FERRE caen en "Sin producto" si ese combo no está cargado).
+   - **Fase 1 validada**: FULL 41 ventas (131 Full excluidas), FERRE 78 ventas (0 Full). Mapeo combo→base OK.
 3. **Envíos a bodega Full de ML** — registrar/descontar lo enviado a Full (esto SÍ descuenta del depósito propio al enviar).
 4. **Sección Envíos (logística)** — YA creada (escanear etiqueta, mapa Leaflet, motoqueros, estados). Falta: de dónde salen dirección/destinatario (administrado.net da 403).
 
