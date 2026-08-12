@@ -91,6 +91,7 @@ const knownContacts = new Set();
 const firstContactAt = new Map();   // chatId -> timestamp del primer contacto
 const reminderSent = new Set();      // chatId que ya recibieron el recordatorio de 5 días
 const productFollowup = new Map();   // chatId -> ts del link de producto (para "¿pudiste comprarlo?")
+const agendadosGoogle = new Set();   // chatId ya agendados en Google Contactos (evita duplicados tipo "Cliente 28..32")
 let humanLabelId = null;
 
 try {
@@ -105,6 +106,7 @@ try {
     for (const [k, v] of Object.entries(raw.productFollowup || {})) productFollowup.set(k, v);
     for (const [k, v] of Object.entries(raw.lastActivityAt || {})) lastActivityAt.set(k, v);
     for (const [k, v] of Object.entries(raw.followupSent || {})) followupSent.set(k, v);
+    for (const k of (raw.agendadosGoogle || [])) agendadosGoogle.add(k);
     console.log(`Estado cargado: ${states.size} contactos · ${humanHandled.size} con asesor activo · ${knownContacts.size} ya conocidos · ${reminderSent.size} con recordatorio enviado`);
   }
 } catch (e) { console.error('No se pudo cargar estado previo:', e.message); }
@@ -125,6 +127,7 @@ setInterval(() => {
       productFollowup: Object.fromEntries(productFollowup),
       lastActivityAt: Object.fromEntries(lastActivityAt),
       followupSent: Object.fromEntries(followupSent),
+      agendadosGoogle: Array.from(agendadosGoogle),
     };
     fs.writeFileSync(STATE_FILE, JSON.stringify(out));
   } catch (e) { console.error('persist fail:', e.message); }
@@ -671,17 +674,16 @@ async function handleIncoming(client, msg) {
     // Agendar el contacto en Google Contactos (cliente / mayorista / proveedor).
     // Fire-and-forget: nunca frena ni rompe la conversación.
     const contacto = result.ia?.contacto;
-    if (contacto) {
+    if (contacto && !agendadosGoogle.has(from)) {
+      agendadosGoogle.add(from); // marcar ANTES: evita duplicados si llegan varios mensajes seguidos
       telefonoReal(client, msg, from)
-        .then(phone => {
-          if (!phone) {
-            console.warn(`[${from}] 📇 sin teléfono real (chat @lid sin resolver): no se agenda para no guardar un número falso`);
-            return;
-          }
-          return agendarContacto({ ...contacto, phone })
-            .then(r => { if (r?.ok) console.log(`[${from}] 📇 agendado: ${r.nombre} (${phone})`); else if (r?.error) console.error(`[${from}] agendar contacto:`, r.error); });
-        })
-        .catch(e => console.error(`[${from}] agendar contacto:`, e.message));
+        .then(phone => agendarContacto({ ...contacto, phone, chatId: from })
+          .then(r => {
+            if (r?.ok) console.log(`[${from}] 📇 agendado: ${r.nombre}${phone ? ' (' + phone + ')' : ' (sin número: chat @lid)'}`);
+            else if (r?.error) { agendadosGoogle.delete(from); console.error(`[${from}] agendar contacto:`, r.error); }
+            else if (r?.skipped && r.skipped !== 'ya agendado') agendadosGoogle.delete(from);
+          }))
+        .catch(e => { agendadosGoogle.delete(from); console.error(`[${from}] agendar contacto:`, e.message); });
     }
 
     // Mandó el link de un producto: si el cliente no vuelve a escribir en
