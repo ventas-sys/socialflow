@@ -1,21 +1,29 @@
-import admin from 'firebase-admin';
+import { initializeApp, getApps } from 'firebase/app';
+import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
+import {
+  getFirestore, collection, query, where, getDocs, doc, getDoc,
+  setDoc, updateDoc, writeBatch, Timestamp,
+} from 'firebase/firestore';
 import { httpRequest } from '../_http.js';
 
-// Cron diario (18hs ART / 21:00 UTC): descuenta stock de las ventas del día
-// de ambas cuentas de MercadoLibre, EXCLUYENDO lo que sale de la bodega (Full).
-// Requiere env vars: FIREBASE_SERVICE_ACCOUNT (JSON) y opcional CRON_SECRET.
+// Cron diario (18hs ART / 21:00 UTC): descuenta stock de las ventas del día de
+// ambas cuentas de MercadoLibre, EXCLUYENDO la bodega (Full). Usa el SDK cliente
+// de Firebase autenticado con una cuenta admin dedicada (CRON_EMAIL/CRON_PASSWORD),
+// para no depender de una service account key (bloqueada por política de la org).
 
 const ORG_ID = 'distribuidora-universo';
 const isDescontable = (t) => t !== 'fulfillment';
 
-function initDb() {
-  if (!admin.apps.length) {
-    const svc = process.env.FIREBASE_SERVICE_ACCOUNT;
-    if (!svc) throw new Error('Falta la variable FIREBASE_SERVICE_ACCOUNT');
-    admin.initializeApp({ credential: admin.credential.cert(JSON.parse(svc)) });
-  }
-  return admin.firestore();
-}
+const firebaseConfig = {
+  apiKey: 'AIzaSyDnIYGZF37XaTetiG3a_0jrk4DvpKlF8JY',
+  authDomain: 'stock-e-inventario.firebaseapp.com',
+  projectId: 'stock-e-inventario',
+  storageBucket: 'stock-e-inventario.firebasestorage.app',
+  messagingSenderId: '189841276349',
+  appId: '1:189841276349:web:ed4a4b0f96f49a0a7966d4',
+};
+
+const barcodesOf = (x) => (x.barcodes?.length ? x.barcodes : (x.barcode ? [x.barcode] : []));
 
 async function ensureToken(db, key, acc) {
   const expMs = acc.expiresAt?.toMillis ? acc.expiresAt.toMillis() : new Date(acc.expiresAt || 0).getTime();
@@ -27,9 +35,9 @@ async function ensureToken(db, key, acc) {
   const r = await httpRequest('POST', 'https://api.mercadolibre.com/oauth/token',
     { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' }, body);
   if (r.status !== 200) throw new Error('No se pudo renovar el token: ' + (r.body?.message || r.status));
-  await db.collection('ml_accounts').doc(key).set({
+  await setDoc(doc(db, 'ml_accounts', key), {
     accessToken: r.body.access_token, refreshToken: r.body.refresh_token,
-    expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + (r.body.expires_in || 21600) * 1000),
+    expiresAt: Timestamp.fromMillis(Date.now() + (r.body.expires_in || 21600) * 1000),
   }, { merge: true });
   return r.body.access_token;
 }
@@ -72,20 +80,25 @@ async function fetchOrders(token, fromISO) {
 }
 
 export default async function handler(req, res) {
-  // Seguridad: si hay CRON_SECRET, exigir el header que manda Vercel Cron
   if (process.env.CRON_SECRET) {
     const authz = req.headers['authorization'] || '';
     if (authz !== `Bearer ${process.env.CRON_SECRET}`) return res.status(401).json({ ok: false, error: 'unauthorized' });
   }
   try {
-    const db = initDb();
+    if (!process.env.CRON_EMAIL || !process.env.CRON_PASSWORD) {
+      throw new Error('Faltan las variables CRON_EMAIL / CRON_PASSWORD');
+    }
+    const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+    const authClient = getAuth(app);
+    await signInWithEmailAndPassword(authClient, process.env.CRON_EMAIL, process.env.CRON_PASSWORD);
+    const db = getFirestore(app);
+
     const [prodSnap, comboSnap] = await Promise.all([
-      db.collection('products').where('userId', '==', ORG_ID).get(),
-      db.collection('combos').where('userId', '==', ORG_ID).get(),
+      getDocs(query(collection(db, 'products'), where('userId', '==', ORG_ID))),
+      getDocs(query(collection(db, 'combos'), where('userId', '==', ORG_ID))),
     ]);
     const products = prodSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     const combos = comboSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const barcodesOf = (x) => (x.barcodes?.length ? x.barcodes : (x.barcode ? [x.barcode] : []));
     const findByRef = (ref) => {
       const q = String(ref || '').trim().toLowerCase();
       if (!q) return null;
@@ -102,8 +115,8 @@ export default async function handler(req, res) {
     const summary = {};
 
     for (const key of ['full', 'ferre']) {
-      const accDoc = await db.collection('ml_accounts').doc(key).get();
-      if (!accDoc.exists || !accDoc.data().accessToken) { summary[key] = 'sin conectar'; continue; }
+      const accDoc = await getDoc(doc(db, 'ml_accounts', key));
+      if (!accDoc.exists() || !accDoc.data().accessToken) { summary[key] = 'sin conectar'; continue; }
       const token = await ensureToken(db, key, accDoc.data());
       const orders = await fetchOrders(token, fromISO);
 
@@ -113,8 +126,8 @@ export default async function handler(req, res) {
       let skippedFull = 0;
       for (const o of orders) {
         if (!isDescontable(o.logisticType)) { skippedFull++; continue; }
-        const seen = await db.collection('ml_orders').doc(`${key}_${o.id}`).get();
-        if (seen.exists) continue;
+        const seen = await getDoc(doc(db, 'ml_orders', `${key}_${o.id}`));
+        if (seen.exists()) continue;
         for (const it of o.items) {
           const m = findByRef(it.sku) || findByRef(it.mla);
           if (!m) continue;
@@ -128,35 +141,32 @@ export default async function handler(req, res) {
         processed.push(o.id);
       }
 
-      // Aplicar descuentos + movimientos (en lotes de 200 productos = 400 ops)
       const ids = [...deltas.keys()];
       for (let i = 0; i < ids.length; i += 200) {
-        const batch = db.batch();
+        const batch = writeBatch(db);
         ids.slice(i, i + 200).forEach(pid => {
           const prod = products.find(pp => pp.id === pid);
           const newQ = (prod?.quantity || 0) + deltas.get(pid);
-          batch.update(db.collection('products').doc(pid), { quantity: newQ, updatedAt: admin.firestore.Timestamp.now() });
-          const mRef = db.collection('movements').doc();
-          batch.set(mRef, {
+          batch.update(doc(db, 'products', pid), { quantity: newQ, updatedAt: Timestamp.now() });
+          batch.set(doc(collection(db, 'movements')), {
             productId: pid, productName: names.get(pid) || '', type: 'salida',
             quantity: Math.abs(deltas.get(pid)), reason: `Venta ML ${key.toUpperCase()} (auto)`,
-            reference: 'ML', userId: ORG_ID, date: admin.firestore.Timestamp.now(),
+            reference: 'ML', userId: ORG_ID, date: Timestamp.now(),
             userName: 'Automático 18hs', userEmail: 'cron',
           });
         });
         await batch.commit();
       }
-      // Marcar órdenes procesadas
       for (let i = 0; i < processed.length; i += 400) {
-        const batch = db.batch();
+        const batch = writeBatch(db);
         processed.slice(i, i + 400).forEach(oid => {
-          batch.set(db.collection('ml_orders').doc(`${key}_${oid}`), {
-            account: key, orderId: oid, userId: ORG_ID, processedAt: admin.firestore.Timestamp.now(),
+          batch.set(doc(db, 'ml_orders', `${key}_${oid}`), {
+            account: key, orderId: oid, userId: ORG_ID, processedAt: Timestamp.now(),
           });
         });
         await batch.commit();
       }
-      await db.collection('ml_accounts').doc(key).set({ lastSyncAt: admin.firestore.Timestamp.now() }, { merge: true });
+      await setDoc(doc(db, 'ml_accounts', key), { lastSyncAt: Timestamp.now() }, { merge: true });
       summary[key] = { ordenes: processed.length, productos: ids.length, salteadasFull: skippedFull };
     }
 
