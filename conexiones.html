@@ -333,7 +333,7 @@ function oauthGoogle(){
     + '&client_id='+encodeURIComponent(c.clientId)
     + '&redirect_uri='+encodeURIComponent(redirectUri)
     + '&scope='+encodeURIComponent(scope)
-    + '&access_type=offline&prompt=consent'
+    + '&access_type=offline&prompt='+encodeURIComponent('select_account consent')
     + '&login_hint='+encodeURIComponent('ventas@uniproveedores.com.ar');
   location.href = authUrl;
 }

@@ -493,6 +493,26 @@ async function notifySupervisor(client, chatId, reason, lastText) {
   }
 }
 
+// Resuelve el teléfono REAL del contacto para agendarlo.
+// Con el formato nuevo de WhatsApp muchos chats llegan como "<id>@lid": ese ID
+// es interno de WhatsApp, NO es un teléfono. Si lo usáramos tal cual, se
+// agendarían números falsos (ej: +4007321927846). getContact() suele resolver
+// el teléfono real (@c.us); si no lo logra, devolvemos null y NO agendamos
+// (mejor no guardar nada que guardar un número inventado).
+async function telefonoReal(msg, from) {
+  if (from.endsWith('@c.us')) return '+' + from.split('@')[0];
+  const lid = from.split('@')[0];
+  try {
+    const contact = await msg.getContact();
+    const num = String(contact?.number || '').replace(/\D/g, '');
+    const sid = contact?.id?._serialized || '';
+    // Teléfono real: el id resolvió a @c.us, o el number es válido y distinto del @lid.
+    if (sid.endsWith('@c.us') && num) return '+' + num;
+    if (num && num !== lid && /^\d{10,15}$/.test(num)) return '+' + num;
+  } catch {}
+  return null;
+}
+
 async function handleIncoming(client, msg) {
   try {
     if (msg.fromMe) return;
@@ -610,9 +630,15 @@ async function handleIncoming(client, msg) {
     // Fire-and-forget: nunca frena ni rompe la conversación.
     const contacto = result.ia?.contacto;
     if (contacto) {
-      const phone = '+' + from.split('@')[0];
-      agendarContacto({ ...contacto, phone })
-        .then(r => { if (r?.ok) console.log(`[${from}] 📇 agendado: ${r.nombre}`); else if (r?.error) console.error(`[${from}] agendar contacto:`, r.error); })
+      telefonoReal(msg, from)
+        .then(phone => {
+          if (!phone) {
+            console.warn(`[${from}] 📇 sin teléfono real (chat @lid sin resolver): no se agenda para no guardar un número falso`);
+            return;
+          }
+          return agendarContacto({ ...contacto, phone })
+            .then(r => { if (r?.ok) console.log(`[${from}] 📇 agendado: ${r.nombre} (${phone})`); else if (r?.error) console.error(`[${from}] agendar contacto:`, r.error); });
+        })
         .catch(e => console.error(`[${from}] agendar contacto:`, e.message));
     }
 
