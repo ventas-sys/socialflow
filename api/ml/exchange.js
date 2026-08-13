@@ -86,6 +86,7 @@ async function orders(req, res) {
       status: o.status,
       logisticType: ship.logisticType, // 'fulfillment' = Full → se EXCLUYE
       shipmentId: shipmentId != null ? String(shipmentId) : null,
+      packId: o.pack_id != null ? String(o.pack_id) : null, // agrupa una compra de varios productos
       recipient: ship.recipient,
       address: ship.address,
       lat: ship.lat,

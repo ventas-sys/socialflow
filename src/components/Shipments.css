@@ -43,6 +43,20 @@
 }
 .btn-sync-ship:disabled { background: #9ca3af; cursor: not-allowed; }
 
+.btn-clear-ship {
+  background: white;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+@media (prefers-color-scheme: dark) {
+  .btn-clear-ship { background: #1e293b; color: #fca5a5; border-color: #7f1d1d; }
+}
+
 .ship-sync-msg {
   border-radius: 0.5rem;
   padding: 0.6rem 0.9rem;

@@ -36,7 +36,7 @@ const API = '/api/ml/exchange'
 
 export default function Shipments({
   shipments, couriers, mlAccounts, onSaveAccount,
-  onAddShipment, onUpdateShipment, onDeleteShipment,
+  onAddShipment, onUpdateShipment, onDeleteShipment, onClearShipments,
   onAddCourier, onRemoveCourier,
 }) {
   const mapRef = useRef(null)
@@ -86,7 +86,8 @@ export default function Shipments({
     if (!keys.length) { if (!silent) setSyncMsg('⚠️ Conectá MercadoLibre primero (solapa ML).'); return }
     syncingRef.current = true
     if (!silent) setSyncing(true)
-    const seen = new Set(shipmentsRef.current.map(s => String(s.code)))
+    // Un envío por COMPRA (pack) o por envío físico; evita duplicar por producto
+    const seen = new Set(shipmentsRef.current.map(s => String(s.packId || s.code)))
     let created = 0
     try {
       for (const key of keys) {
@@ -100,10 +101,12 @@ export default function Shipments({
         if (!r.ok) continue
         for (const o of r.orders) {
           if (o.logisticType === 'fulfillment') continue // no despachamos lo de Full
-          if (!o.shipmentId || seen.has(String(o.shipmentId))) continue
-          seen.add(String(o.shipmentId))
+          const gkey = String(o.packId || o.shipmentId || '')
+          if (!gkey || seen.has(gkey)) continue // agrupa la compra del cliente
+          seen.add(gkey)
           const id = await onAddShipment({
-            code: String(o.shipmentId), recipient: o.recipient || '', address: o.address || '',
+            code: String(o.shipmentId || o.packId), packId: o.packId || null,
+            recipient: o.recipient || '', address: o.address || '',
             lat: o.lat ?? null, lng: o.lng ?? null, status: 'pendiente', cost: 0, account: key,
           })
           if (id) created++
@@ -276,6 +279,11 @@ export default function Shipments({
           </button>
           <button className="btn-scan-ship" onClick={() => setShowScanner(true)}>📷 Escanear QR</button>
           <button className="btn-couriers" onClick={() => setShowCouriers(v => !v)}>🏍️ Motoqueros ({couriers.length})</button>
+          {onClearShipments && shipments.length > 0 && (
+            <button className="btn-clear-ship" onClick={() => {
+              if (window.confirm(`¿Borrar los ${shipments.length} envíos y volver a traerlos de ML bien agrupados?`)) onClearShipments()
+            }}>🗑️ Vaciar</button>
+          )}
         </div>
       </div>
       {syncMsg && <div className={`ship-sync-msg ${syncMsg.startsWith('✅') ? 'ok' : 'warn'}`}>{syncMsg}</div>}

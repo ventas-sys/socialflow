@@ -485,8 +485,11 @@ export default function App() {
   // --- Envíos (logística) ---
   const addShipment = async (data) => {
     if (!user) return null
-    // Evitar duplicar un envío que ya existe (mismo código de ML)
-    if (data.code && shipments.some(s => String(s.code) === String(data.code))) return null
+    // Evitar duplicar un envío que ya existe (mismo código o misma compra/pack)
+    if (shipments.some(s =>
+      (data.code && String(s.code) === String(data.code)) ||
+      (data.packId && s.packId && String(s.packId) === String(data.packId))
+    )) return null
     const docRef = await addDoc(collection(db, 'shipments'), {
       ...data,
       userId: ORG_ID,
@@ -507,6 +510,18 @@ export default function App() {
     if (!user) return
     await deleteDoc(doc(db, 'shipments', id))
     setShipments(shipments.filter(s => s.id !== id))
+  }
+
+  // Borra TODOS los envíos (para reiniciar limpio durante las pruebas)
+  const clearShipments = async () => {
+    if (!user) return
+    const ids = shipments.map(s => s.id)
+    for (let i = 0; i < ids.length; i += 400) {
+      const batch = writeBatch(db)
+      ids.slice(i, i + 400).forEach(id => batch.delete(doc(db, 'shipments', id)))
+      await batch.commit()
+    }
+    setShipments([])
   }
 
   const addCourier = async (name) => {
@@ -861,6 +876,7 @@ export default function App() {
                 onAddShipment={addShipment}
                 onUpdateShipment={updateShipment}
                 onDeleteShipment={deleteShipment}
+                onClearShipments={clearShipments}
                 onAddCourier={addCourier}
                 onRemoveCourier={removeCourier}
               />
