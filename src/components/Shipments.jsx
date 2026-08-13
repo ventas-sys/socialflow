@@ -54,6 +54,7 @@ export default function Shipments({
   const [range, setRange] = useState('hoy') // reporte: hoy | semana | mes
   const [syncMsg, setSyncMsg] = useState('')
   const [syncing, setSyncing] = useState(false)
+  const syncingRef = useRef(false)
   const shipmentsRef = useRef(shipments); shipmentsRef.current = shipments
   const mlRef = useRef(mlAccounts); mlRef.current = mlAccounts
 
@@ -79,9 +80,11 @@ export default function Shipments({
   // Trae las ventas de ML (ambas cuentas), excluye Full y crea los envíos
   // que falten en estado "Pendiente de imprimir".
   const syncFromML = async (silent = false) => {
+    if (syncingRef.current) return // no solapar sincronizaciones
     const accs = mlRef.current || {}
     const keys = Object.keys(accs).filter(k => accs[k]?.accessToken)
     if (!keys.length) { if (!silent) setSyncMsg('⚠️ Conectá MercadoLibre primero (solapa ML).'); return }
+    syncingRef.current = true
     if (!silent) setSyncing(true)
     const seen = new Set(shipmentsRef.current.map(s => String(s.code)))
     let created = 0
@@ -89,7 +92,7 @@ export default function Shipments({
       for (const key of keys) {
         const token = await ensureToken(key)
         if (!token) continue
-        const from = new Date(); from.setHours(0, 0, 0, 0); from.setDate(from.getDate() - 3)
+        const from = new Date(); from.setHours(0, 0, 0, 0); from.setDate(from.getDate() - 15)
         const r = await fetch(`${API}?action=orders`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token, from: from.toISOString() }),
@@ -106,10 +109,11 @@ export default function Shipments({
           if (id) created++
         }
       }
-      setSyncMsg(created ? `✅ ${created} envíos nuevos traídos de ML.` : (silent ? '' : '✅ Sin envíos nuevos.'))
+      if (created || !silent) setSyncMsg(created ? `✅ ${created} envíos nuevos traídos de ML.` : '✅ Sin envíos nuevos.')
     } catch (e) {
       if (!silent) setSyncMsg('❌ ' + e.message)
     } finally {
+      syncingRef.current = false
       setSyncing(false)
     }
   }
@@ -141,11 +145,21 @@ export default function Shipments({
     return true
   }), [shipments, statusFilter, courierFilter])
 
+  // En el mapa: solo los ACTIVOS del día (sin asignar, armándose, en camino)
+  const startOfToday = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime() })()
+  const mapItems = useMemo(() => shipments.filter(s => {
+    const st = s.status || 'pendiente'
+    if (!['pendiente', 'armado', 'camino'].includes(st)) return false
+    if (courierFilter !== 'all' && s.courierId !== courierFilter) return false
+    // del día (por fecha de creación), o los que siguen en camino
+    return toMillis(s.createdAt) >= startOfToday || st === 'camino'
+  }), [shipments, courierFilter, startOfToday])
+
   useEffect(() => {
     const map = mapObj.current
     if (!map || view !== 'tablero') return
     const seen = new Set()
-    visible.forEach(s => {
+    mapItems.forEach(s => {
       if (s.lat == null || s.lng == null) return
       seen.add(s.id)
       const st = STATUS[s.status || 'pendiente'] || STATUS.pendiente
@@ -156,7 +170,7 @@ export default function Shipments({
       m.bindPopup(`<b>${(s.code || '').replace(/</g, '&lt;')}</b><br>${(s.recipient || '').replace(/</g, '&lt;')}<br>${st.emoji} ${st.label}${s.courierName ? '<br>🏍️ ' + s.courierName.replace(/</g, '&lt;') : ''}`)
     })
     markers.current.forEach((m, id) => { if (!seen.has(id)) { map.removeLayer(m); markers.current.delete(id) } })
-  }, [visible, view])
+  }, [mapItems, view])
 
   // Cambiar de estado guardando el timestamp correspondiente
   const changeStatus = (s, newStatus, extra = {}) => {
