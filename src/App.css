@@ -217,4 +217,15 @@
   .user-details {
     display: none;
   }
+
+  /* Menú de pestañas más compacto y deslizable en el celular */
+  .app-nav {
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+  }
+  .nav-btn {
+    padding: 0.7rem 0.85rem;
+    font-size: 0.88rem;
+    scroll-snap-align: start;
+  }
 }
