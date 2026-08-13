@@ -32,8 +32,10 @@ const fmtDur = (ms) => {
 }
 const fmtDateTime = (t) => t ? new Date(toMillis(t)).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
 
+const API = '/api/ml/exchange'
+
 export default function Shipments({
-  shipments, couriers,
+  shipments, couriers, mlAccounts, onSaveAccount,
   onAddShipment, onUpdateShipment, onDeleteShipment,
   onAddCourier, onRemoveCourier,
 }) {
@@ -50,6 +52,75 @@ export default function Shipments({
   const [newCourier, setNewCourier] = useState('')
   const [actionId, setActionId] = useState(null) // envío enfocado tras escanear
   const [range, setRange] = useState('hoy') // reporte: hoy | semana | mes
+  const [syncMsg, setSyncMsg] = useState('')
+  const [syncing, setSyncing] = useState(false)
+  const shipmentsRef = useRef(shipments); shipmentsRef.current = shipments
+  const mlRef = useRef(mlAccounts); mlRef.current = mlAccounts
+
+  // Renueva el token de ML si está por vencer (usa el actual si no puede)
+  const ensureToken = async (key) => {
+    const acc = mlRef.current?.[key]
+    if (!acc?.accessToken) return null
+    const expMs = acc.expiresAt?.toMillis ? acc.expiresAt.toMillis() : new Date(acc.expiresAt || 0).getTime()
+    if (expMs && expMs - Date.now() > 5 * 60 * 1000) return acc.accessToken
+    try {
+      const r = await fetch(`${API}?action=refresh`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: acc.clientId, clientSecret: acc.clientSecret, refreshToken: acc.refreshToken }),
+      }).then(x => x.json())
+      if (r.ok) {
+        try { await onSaveAccount(key, { accessToken: r.accessToken, refreshToken: r.refreshToken, expiresAt: new Date(Date.now() + (r.expiresIn || 21600) * 1000) }) } catch {}
+        return r.accessToken
+      }
+    } catch {}
+    return acc.accessToken
+  }
+
+  // Trae las ventas de ML (ambas cuentas), excluye Full y crea los envíos
+  // que falten en estado "Pendiente de imprimir".
+  const syncFromML = async (silent = false) => {
+    const accs = mlRef.current || {}
+    const keys = Object.keys(accs).filter(k => accs[k]?.accessToken)
+    if (!keys.length) { if (!silent) setSyncMsg('⚠️ Conectá MercadoLibre primero (solapa ML).'); return }
+    if (!silent) setSyncing(true)
+    const seen = new Set(shipmentsRef.current.map(s => String(s.code)))
+    let created = 0
+    try {
+      for (const key of keys) {
+        const token = await ensureToken(key)
+        if (!token) continue
+        const from = new Date(); from.setHours(0, 0, 0, 0); from.setDate(from.getDate() - 3)
+        const r = await fetch(`${API}?action=orders`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, from: from.toISOString() }),
+        }).then(x => x.json())
+        if (!r.ok) continue
+        for (const o of r.orders) {
+          if (o.logisticType === 'fulfillment') continue // no despachamos lo de Full
+          if (!o.shipmentId || seen.has(String(o.shipmentId))) continue
+          seen.add(String(o.shipmentId))
+          const id = await onAddShipment({
+            code: String(o.shipmentId), recipient: o.recipient || '', address: o.address || '',
+            lat: o.lat ?? null, lng: o.lng ?? null, status: 'pendiente', cost: 0, account: key,
+          })
+          if (id) created++
+        }
+      }
+      setSyncMsg(created ? `✅ ${created} envíos nuevos traídos de ML.` : (silent ? '' : '✅ Sin envíos nuevos.'))
+    } catch (e) {
+      if (!silent) setSyncMsg('❌ ' + e.message)
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  // Al abrir la sección y cada 15 minutos, traer las ventas de ML
+  useEffect(() => {
+    syncFromML(true)
+    const t = setInterval(() => syncFromML(true), 15 * 60 * 1000)
+    return () => clearInterval(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Mapa
   useEffect(() => {
@@ -112,10 +183,9 @@ export default function Shipments({
   const handleScan = async (raw) => {
     setShowScanner(false)
     const code = parseShipmentCode(raw)
-    const existing = shipments.find(s => s.code === code)
-    if (existing) { setActionId(existing.id); return }
-    const id = await onAddShipment({ code, recipient: '', status: 'pendiente', cost: 0 })
-    if (id) setActionId(id)
+    const existing = shipments.find(s => String(s.code) === code)
+    if (existing) { setActionId(existing.id) }
+    else setSyncMsg('⚠️ No se encontró ese envío. Tocá "Traer ventas de ML" o esperá la sincronización.')
   }
 
   const handleAddCourier = async (e) => {
@@ -184,13 +254,17 @@ export default function Shipments({
       <div className="ship-header">
         <div>
           <h1>🚚 Envíos</h1>
-          <p>Escaneá el QR para asignar o mover el estado de cada envío. Al final del día/semana mirá el reporte.</p>
+          <p>Las ventas de ML entran solas como "Pendiente de imprimir". Escaneá el QR para asignar el motoquero. Al final del día/semana mirá el reporte.</p>
         </div>
         <div className="ship-header-actions">
+          <button className="btn-sync-ship" onClick={() => syncFromML(false)} disabled={syncing}>
+            {syncing ? '⏳ Trayendo...' : '🔄 Traer ventas de ML'}
+          </button>
           <button className="btn-scan-ship" onClick={() => setShowScanner(true)}>📷 Escanear QR</button>
           <button className="btn-couriers" onClick={() => setShowCouriers(v => !v)}>🏍️ Motoqueros ({couriers.length})</button>
         </div>
       </div>
+      {syncMsg && <div className={`ship-sync-msg ${syncMsg.startsWith('✅') ? 'ok' : 'warn'}`}>{syncMsg}</div>}
 
       <div className="ship-viewtabs">
         <button className={view === 'tablero' ? 'active' : ''} onClick={() => setView('tablero')}>🗂️ Tablero</button>

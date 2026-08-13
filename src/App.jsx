@@ -485,6 +485,8 @@ export default function App() {
   // --- Envíos (logística) ---
   const addShipment = async (data) => {
     if (!user) return null
+    // Evitar duplicar un envío que ya existe (mismo código de ML)
+    if (data.code && shipments.some(s => String(s.code) === String(data.code))) return null
     const docRef = await addDoc(collection(db, 'shipments'), {
       ...data,
       userId: ORG_ID,
@@ -854,6 +856,8 @@ export default function App() {
               <Shipments
                 shipments={shipments}
                 couriers={couriers}
+                mlAccounts={mlAccounts}
+                onSaveAccount={saveMlAccount}
                 onAddShipment={addShipment}
                 onUpdateShipment={updateShipment}
                 onDeleteShipment={deleteShipment}

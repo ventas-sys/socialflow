@@ -62,22 +62,34 @@ async function orders(req, res) {
       quantity: it.quantity || 0,
     }));
     const shipmentId = o.shipping?.id || null;
-    let logisticType = null;
+    let ship = { logisticType: null, recipient: null, address: null, lat: null, lng: null };
     if (shipmentId) {
       if (shipCache.has(shipmentId)) {
-        logisticType = shipCache.get(shipmentId);
+        ship = shipCache.get(shipmentId);
       } else {
         const s = await httpRequest('GET', `https://api.mercadolibre.com/shipments/${shipmentId}`, auth);
-        logisticType = s.body?.logistic_type || null;
-        shipCache.set(shipmentId, logisticType);
+        const b = s.body || {};
+        const ra = b.receiver_address || {};
+        ship = {
+          logisticType: b.logistic_type || null,
+          recipient: ra.receiver_name || (o.buyer ? [o.buyer.first_name, o.buyer.last_name].filter(Boolean).join(' ') : null),
+          address: [ra.address_line, ra.city?.name, ra.state?.name].filter(Boolean).join(', ') || null,
+          lat: ra.latitude != null ? Number(ra.latitude) : null,
+          lng: ra.longitude != null ? Number(ra.longitude) : null,
+        };
+        shipCache.set(shipmentId, ship);
       }
     }
     out.push({
       id: String(o.id),
       date: o.date_created,
       status: o.status,
-      logisticType, // 'fulfillment' = Full → se EXCLUYE; el resto descuenta
-      shipmentId,
+      logisticType: ship.logisticType, // 'fulfillment' = Full → se EXCLUYE
+      shipmentId: shipmentId != null ? String(shipmentId) : null,
+      recipient: ship.recipient,
+      address: ship.address,
+      lat: ship.lat,
+      lng: ship.lng,
       items,
     });
   }

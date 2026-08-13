@@ -31,6 +31,32 @@
   flex-wrap: wrap;
 }
 
+.btn-sync-ship {
+  background: #2563eb;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-sync-ship:disabled { background: #9ca3af; cursor: not-allowed; }
+
+.ship-sync-msg {
+  border-radius: 0.5rem;
+  padding: 0.6rem 0.9rem;
+  margin-bottom: 1rem;
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+.ship-sync-msg.ok { background: #dcfce7; color: #166534; }
+.ship-sync-msg.warn { background: #fef3c7; color: #92400e; }
+@media (prefers-color-scheme: dark) {
+  .ship-sync-msg.ok { background: rgba(16,185,129,0.15); color: #6ee7b7; }
+  .ship-sync-msg.warn { background: rgba(251,191,36,0.12); color: #fcd34d; }
+}
+
 .btn-scan-ship {
   background: #059669;
   color: white;
