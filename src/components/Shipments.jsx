@@ -100,7 +100,9 @@ export default function Shipments({
         }).then(x => x.json())
         if (!r.ok) continue
         for (const o of r.orders) {
-          if (o.logisticType === 'fulfillment') continue // no despachamos lo de Full
+          // SOLO FLEX / Turbo (self_service): lo que repartimos con moto.
+          // Se excluye correo (cross_docking/drop_off), Full (fulfillment) y retiro.
+          if (o.logisticType !== 'self_service') continue
           const gkey = String(o.packId || o.shipmentId || '')
           if (!gkey || seen.has(gkey)) continue // agrupa la compra del cliente
           seen.add(gkey)
@@ -271,7 +273,7 @@ export default function Shipments({
       <div className="ship-header">
         <div>
           <h1>🚚 Envíos</h1>
-          <p>Las ventas de ML entran solas como "Pendiente de imprimir". Escaneá el QR para asignar el motoquero. Al final del día/semana mirá el reporte.</p>
+          <p>Entran solos los envíos FLEX / Turbo (los que repartís con moto) como "Pendiente de imprimir" — no el correo ni Full. Escaneá el QR para asignar el motoquero.</p>
         </div>
         <div className="ship-header-actions">
           <button className="btn-sync-ship" onClick={() => syncFromML(false)} disabled={syncing}>
