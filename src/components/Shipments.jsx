@@ -199,15 +199,31 @@ export default function Shipments({
     })
   }, [shipments, statusFilter, courierFilter, searchShip])
 
-  // En el mapa: solo los ACTIVOS del día (sin asignar, armándose, en camino)
+  // El mapa sigue al filtro: con un estado elegido muestra SOLO ese estado;
+  // en "Todos" muestra los activos del día (pendiente, armado, en camino).
   const startOfToday = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime() })()
-  const mapItems = useMemo(() => shipments.filter(s => {
-    const st = s.status || 'pendiente'
-    if (!['pendiente', 'armado', 'camino'].includes(st)) return false
-    if (courierFilter !== 'all' && s.courierId !== courierFilter) return false
-    // del día (por fecha de creación), o los que siguen en camino
-    return toMillis(s.createdAt) >= startOfToday || st === 'camino'
-  }), [shipments, courierFilter, startOfToday])
+  const mapItems = useMemo(() => {
+    const q = searchShip.trim().toLowerCase()
+    return shipments.filter(s => {
+      const st = s.status || 'pendiente'
+      if (statusFilter !== 'all') {
+        if (st !== statusFilter) return false
+      } else {
+        if (!['pendiente', 'armado', 'camino'].includes(st)) return false
+        if (!(toMillis(s.createdAt) >= startOfToday || st === 'camino')) return false
+      }
+      if (courierFilter !== 'all' && s.courierId !== courierFilter) return false
+      if (q) {
+        return (
+          String(s.code || '').toLowerCase().includes(q) ||
+          (s.recipient || '').toLowerCase().includes(q) ||
+          (s.address || '').toLowerCase().includes(q) ||
+          (s.courierName || '').toLowerCase().includes(q)
+        )
+      }
+      return true
+    })
+  }, [shipments, statusFilter, courierFilter, searchShip, startOfToday])
 
   useEffect(() => {
     const map = mapObj.current
@@ -461,7 +477,7 @@ export default function Shipments({
             <span><i style={{ background: '#ef4444' }}></i> Pendiente de imprimir</span>
             <span><i style={{ background: '#f59e0b' }}></i> Armado</span>
             <span><i style={{ background: '#3b82f6' }}></i> En camino</span>
-            <em>Los entregados y demorados no se muestran en el mapa.</em>
+            <em>Al elegir un filtro de estado, el mapa muestra solo ese estado (incluye entregados/demorados).</em>
           </div>
           <div ref={mapRef} className="ship-map"></div>
 
