@@ -52,7 +52,14 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 · Deploy: Vercel.
    - **Operación clave**: en la app entrar SIEMPRE con el admin (ventas@distribuidorauniverso.com) — solo el admin puede guardar ml_accounts. Para conectar cada cuenta, el navegador debe tener la sesión de MercadoLibre de esa cuenta (FULL o FERRE). Los combos cargados tienen SKU MLA de la cuenta FULL; FERRE tiene sus propias MLA (muchas ventas FERRE caen en "Sin producto" si ese combo no está cargado).
    - **Fase 1 validada**: FULL 41 ventas (131 Full excluidas), FERRE 78 ventas (0 Full). Mapeo combo→base OK.
 3. **Envíos a bodega Full de ML** — registrar/descontar lo enviado a Full (esto SÍ descuenta del depósito propio al enviar).
-4. **Sección Envíos (logística)** — YA creada (escanear etiqueta, mapa Leaflet, motoqueros, estados). Falta: de dónde salen dirección/destinatario (administrado.net da 403).
+4. **Sección Envíos (logística FLEX)** — COMPLETA Y VALIDADA:
+   - Los envíos entran SOLOS desde ML (al abrir la sección + cada 15 min + botón "Traer ventas de ML"). Solo `self_service` (FLEX/Turbo); excluye correo, Full y retiro. UN envío por compra (agrupa por `pack_id`, si no por `shipmentId`). Trae destinatario, dirección y coords (receiver_address) → pin automático en el mapa.
+   - Ventana: 7 días. Estado inicial según ML: abierto ≤48hs → Pendiente; `shipped` ≤48hs → En camino; más viejo o `not_delivered` → Demorado; `delivered`/`cancelled` no entran.
+   - Estados: Pendiente de imprimir → Armado → En camino (auto al asignar motoquero) → Entregado / Demorado. Timestamps por estado (armadoAt/assignedAt/deliveredAt).
+   - QR de la etiqueta FLEX: solo BUSCA el envío (para asignar motoquero tras armar); parse flexible (JSON id / dígitos). Mapa: solo activos del día (rojo=pendiente, naranja=armado, azul=en camino) con leyenda visible solo en PC.
+   - Barra de búsqueda (código/pack/destinatario/dirección/motoquero) con acciones en la tarjeta.
+   - **Reporte (solo PC; pestaña oculta en celular)**: hoy/7/30 días. Por envío: Zona FLEX (cercana $4.490 / media $6.490 / lejana $8.690 / muylejana $9.990 — constantes ZONES en Shipments.jsx, actualizar cuando ML cambie precios) → "Cobro ML" auto; "Pago motoquero" (courierPay) y "Pagó comprador" (buyerPay) editables. Totales + export Excel. El costo NO está en el tablero.
+   - Lección técnica: setShipments SIEMPRE en forma funcional (los adds en ráfaga se pisaban); dup-check con shipmentsLiveRef.
 
 ## Producción del automático (cron ML)
 - Proyecto Vercel SEPARADO **stock-inventario** (dominio `stock-inventario-sable.vercel.app`), Production Branch = `claude/stock-inventory-app-06rlv5`. NO toca el proyecto viejo `socialflow` (main = WhatsApp).
