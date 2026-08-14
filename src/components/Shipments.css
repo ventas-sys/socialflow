@@ -341,6 +341,40 @@
   .ship-search-hint { color: #94a3b8; }
 }
 
+/* Leyenda de colores del mapa (solo en PC) */
+.map-legend {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.82rem;
+  color: #4b5563;
+}
+.map-legend strong { color: #1f2937; }
+.map-legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+.map-legend i {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 0 2px rgba(0,0,0,0.4);
+}
+.map-legend em { font-style: normal; color: #9ca3af; font-size: 0.76rem; }
+@media (max-width: 768px) {
+  .map-legend { display: none; }
+}
+@media (prefers-color-scheme: dark) {
+  .map-legend { background: #1e293b; border-color: #334155; color: #cbd5e1; }
+  .map-legend strong { color: #f1f5f9; }
+  .map-legend em { color: #64748b; }
+}
+
 .ship-map {
   height: 380px;
   width: 100%;

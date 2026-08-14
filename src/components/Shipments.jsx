@@ -441,6 +441,13 @@ export default function Shipments({
             </p>
           )}
 
+          <div className="map-legend">
+            <strong>Mapa (solo activos del día):</strong>
+            <span><i style={{ background: '#ef4444' }}></i> Pendiente de imprimir</span>
+            <span><i style={{ background: '#f59e0b' }}></i> Armado</span>
+            <span><i style={{ background: '#3b82f6' }}></i> En camino</span>
+            <em>Los entregados y demorados no se muestran en el mapa.</em>
+          </div>
           <div ref={mapRef} className="ship-map"></div>
 
           <div className="ship-list">
