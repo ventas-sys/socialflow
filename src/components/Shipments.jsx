@@ -333,7 +333,12 @@ export default function Shipments({
           )}
         </div>
       </div>
-      {syncMsg && <div className={`ship-sync-msg ${syncMsg.startsWith('✅') ? 'ok' : 'warn'}`}>{syncMsg}</div>}
+      {syncing && (
+        <div className="ship-sync-msg loading">
+          ⏳ Trayendo las ventas de MercadoLibre... esperá un momento, puede tardar hasta un minuto. No hace falta volver a tocar el botón.
+        </div>
+      )}
+      {!syncing && syncMsg && <div className={`ship-sync-msg ${syncMsg.startsWith('✅') ? 'ok' : 'warn'}`}>{syncMsg}</div>}
 
       <div className="ship-viewtabs">
         <button className={view === 'tablero' ? 'active' : ''} onClick={() => setView('tablero')}>🗂️ Tablero</button>

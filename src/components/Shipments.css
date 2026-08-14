@@ -66,6 +66,16 @@
 }
 .ship-sync-msg.ok { background: #dcfce7; color: #166534; }
 .ship-sync-msg.warn { background: #fef3c7; color: #92400e; }
+.ship-sync-msg.loading {
+  background: #dbeafe;
+  color: #1e40af;
+  font-weight: 600;
+  animation: pulse-sync 1.2s ease-in-out infinite;
+}
+@keyframes pulse-sync {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
 @media (prefers-color-scheme: dark) {
   .ship-sync-msg.ok { background: rgba(16,185,129,0.15); color: #6ee7b7; }
   .ship-sync-msg.warn { background: rgba(251,191,36,0.12); color: #fcd34d; }
