@@ -125,6 +125,34 @@
 }
 .ship-viewtabs button.active { background: #1f2937; color: white; border-color: #1f2937; }
 
+/* El Reporte solo se usa desde la PC */
+@media (max-width: 768px) {
+  .ship-viewtabs .tab-rep { display: none; }
+}
+
+/* Controles editables del reporte */
+.rep-zone {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.35rem;
+  font-size: 0.82rem;
+  background: white;
+  color: #1f2937;
+  cursor: pointer;
+}
+.rep-input {
+  width: 90px;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.35rem;
+  font-size: 0.85rem;
+}
+.rep-money { font-weight: 700; color: #047857; }
+@media (prefers-color-scheme: dark) {
+  .rep-zone, .rep-input { background: #0f172a; color: #f1f5f9; border-color: #334155; }
+  .rep-money { color: #6ee7b7; }
+}
+
 .ship-action {
   background: #eff6ff;
   border: 2px solid #3b82f6;

@@ -15,6 +15,16 @@ const STATUS = {
 }
 const ORDER = ['pendiente', 'armado', 'camino', 'entregado', 'demorado']
 
+// Zonas FLEX de MercadoLibre: lo que ML bonifica por cada envío según la zona
+const ZONES = {
+  cercana:   { label: 'Cercana', pay: 4490 },
+  media:     { label: 'Media dist.', pay: 6490 },
+  lejana:    { label: 'Lejana', pay: 8690 },
+  muylejana: { label: 'Muy lejana', pay: 9990 },
+}
+const zonePay = (s) => (s.zone && ZONES[s.zone] ? ZONES[s.zone].pay : 0)
+const fmtMoney = (n) => '$' + (Number(n) || 0).toLocaleString('es-AR')
+
 const parseShipmentCode = (raw) => {
   const text = String(raw).trim()
   try { const o = JSON.parse(text); if (o && (o.id || o.shipment_id)) return String(o.id || o.shipment_id) } catch {}
@@ -302,25 +312,30 @@ export default function Shipments({
 
   const reportTotals = useMemo(() => {
     const entregados = reportRows.filter(r => (r.s.status === 'entregado'))
-    const costo = reportRows.reduce((sum, r) => sum + (Number(r.s.cost) || 0), 0)
+    const cobroML = reportRows.reduce((sum, r) => sum + zonePay(r.s), 0)
+    const pagoMoto = reportRows.reduce((sum, r) => sum + (Number(r.s.courierPay) || 0), 0)
+    const pagoComprador = reportRows.reduce((sum, r) => sum + (Number(r.s.buyerPay) || 0), 0)
     const demoras = entregados.filter(r => r.demoraMs > 0).map(r => r.demoraMs)
     const demoraProm = demoras.length ? demoras.reduce((a, b) => a + b, 0) / demoras.length : 0
-    return { total: reportRows.length, entregados: entregados.length, costo, demoraProm }
+    return { total: reportRows.length, entregados: entregados.length, cobroML, pagoMoto, pagoComprador, demoraProm }
   }, [reportRows])
 
   const exportReport = () => {
-    const rows = [['Código', 'Destinatario', 'Motoquero', 'Estado', 'Salió', 'Entregó', 'Demora (min)', 'Costo']]
+    const rows = [['Código', 'Destinatario', 'Motoquero', 'Estado', 'Salió', 'Entregó', 'Demora (min)', 'Zona', 'Cobro ML', 'Pago motoquero', 'Pagó comprador']]
     reportRows.forEach(({ s, salio, entrego, demoraMs }) => {
       rows.push([
         s.code || '', s.recipient || '', s.courierName || '', STATUS[s.status || 'pendiente']?.label || '',
         salio ? new Date(salio).toLocaleString('es-AR') : '',
         entrego ? new Date(entrego).toLocaleString('es-AR') : '',
         demoraMs ? Math.round(demoraMs / 60000) : '',
-        Number(s.cost) || 0,
+        s.zone && ZONES[s.zone] ? ZONES[s.zone].label : '',
+        zonePay(s),
+        Number(s.courierPay) || 0,
+        Number(s.buyerPay) || 0,
       ])
     })
     const ws = XLSX.utils.aoa_to_sheet(rows)
-    ws['!cols'] = [{ wch: 16 }, { wch: 26 }, { wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 10 }]
+    ws['!cols'] = [{ wch: 16 }, { wch: 26 }, { wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 14 }]
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Envíos')
     XLSX.writeFile(wb, `envios-${range}.xlsx`)
@@ -355,7 +370,7 @@ export default function Shipments({
 
       <div className="ship-viewtabs">
         <button className={view === 'tablero' ? 'active' : ''} onClick={() => setView('tablero')}>🗂️ Tablero</button>
-        <button className={view === 'reporte' ? 'active' : ''} onClick={() => setView('reporte')}>📊 Reporte</button>
+        <button className={`tab-rep ${view === 'reporte' ? 'active' : ''}`} onClick={() => setView('reporte')}>📊 Reporte</button>
       </div>
 
       {showScanner && <Scanner onScan={handleScan} onClose={() => setShowScanner(false)} />}
@@ -475,10 +490,6 @@ export default function Shipments({
                     </div>
                   </div>
                   <div className="ship-card-side">
-                    <label className="ship-cost">$
-                      <input type="number" min="0" defaultValue={s.cost || ''} placeholder="costo"
-                        onBlur={e => onUpdateShipment(s.id, { cost: parseFloat(e.target.value) || 0 })} />
-                    </label>
                     {s.lat == null
                       ? <button className="ship-locate" onClick={() => setLocatingId(s.id)}>📍 Ubicar</button>
                       : <button className="ship-locate ok" onClick={() => mapObj.current?.setView([s.lat, s.lng], 16)}>🗺️ Ver</button>}
@@ -505,18 +516,24 @@ export default function Shipments({
           <div className="rep-totals">
             <div className="rep-total"><span>Envíos</span><strong>{reportTotals.total}</strong></div>
             <div className="rep-total"><span>Entregados</span><strong>{reportTotals.entregados}</strong></div>
-            <div className="rep-total"><span>Costo total</span><strong>${reportTotals.costo.toFixed(2)}</strong></div>
+            <div className="rep-total"><span>Cobro ML (zonas)</span><strong>{fmtMoney(reportTotals.cobroML)}</strong></div>
+            <div className="rep-total"><span>Pago motoqueros</span><strong>{fmtMoney(reportTotals.pagoMoto)}</strong></div>
+            <div className="rep-total"><span>Pagó comprador</span><strong>{fmtMoney(reportTotals.pagoComprador)}</strong></div>
             <div className="rep-total"><span>Demora promedio</span><strong>{fmtDur(reportTotals.demoraProm)}</strong></div>
           </div>
 
           <div className="rep-table-wrap">
             <table className="rep-table">
               <thead>
-                <tr><th>Código</th><th>Destinatario</th><th>Motoquero</th><th>Estado</th><th>Salió</th><th>Entregó</th><th>Demora</th><th>Costo</th></tr>
+                <tr>
+                  <th>Código</th><th>Destinatario</th><th>Motoquero</th><th>Estado</th>
+                  <th>Salió</th><th>Entregó</th><th>Demora</th>
+                  <th>Zona</th><th>Cobro ML</th><th>Pago moto</th><th>Pagó comprador</th>
+                </tr>
               </thead>
               <tbody>
                 {reportRows.length === 0 ? (
-                  <tr><td colSpan="8" className="rep-empty">No hay envíos en este período.</td></tr>
+                  <tr><td colSpan="11" className="rep-empty">No hay envíos en este período.</td></tr>
                 ) : reportRows.map(({ s, salio, entrego, demoraMs }) => {
                   const st = STATUS[s.status || 'pendiente']
                   return (
@@ -528,7 +545,35 @@ export default function Shipments({
                       <td>{fmtDateTime(salio)}</td>
                       <td>{fmtDateTime(entrego)}</td>
                       <td>{fmtDur(demoraMs)}</td>
-                      <td>${(Number(s.cost) || 0).toFixed(2)}</td>
+                      <td>
+                        <select
+                          className="rep-zone"
+                          value={s.zone || ''}
+                          onChange={e => onUpdateShipment(s.id, { zone: e.target.value })}
+                        >
+                          <option value="">— zona —</option>
+                          {Object.entries(ZONES).map(([k, z]) => (
+                            <option key={k} value={k}>{z.label} ({fmtMoney(z.pay)})</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="rep-money">{fmtMoney(zonePay(s))}</td>
+                      <td>
+                        <input
+                          type="number" min="0" className="rep-input"
+                          defaultValue={s.courierPay || ''}
+                          placeholder="$"
+                          onBlur={e => onUpdateShipment(s.id, { courierPay: parseFloat(e.target.value) || 0 })}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number" min="0" className="rep-input"
+                          defaultValue={s.buyerPay || ''}
+                          placeholder="$ o 0"
+                          onBlur={e => onUpdateShipment(s.id, { buyerPay: parseFloat(e.target.value) || 0 })}
+                        />
+                      </td>
                     </tr>
                   )
                 })}
