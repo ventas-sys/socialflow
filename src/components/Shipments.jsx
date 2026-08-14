@@ -48,6 +48,7 @@ export default function Shipments({
   const locatingRef = useRef(null); locatingRef.current = locatingId
   const [statusFilter, setStatusFilter] = useState('all')
   const [courierFilter, setCourierFilter] = useState('all')
+  const [searchShip, setSearchShip] = useState('')
   const [showCouriers, setShowCouriers] = useState(false)
   const [newCourier, setNewCourier] = useState('')
   const [actionId, setActionId] = useState(null) // envío enfocado tras escanear
@@ -170,11 +171,23 @@ export default function Shipments({
     setTimeout(() => map.invalidateSize(), 200)
   }, [onUpdateShipment, view])
 
-  const visible = useMemo(() => shipments.filter(s => {
-    if (statusFilter !== 'all' && (s.status || 'pendiente') !== statusFilter) return false
-    if (courierFilter !== 'all' && s.courierId !== courierFilter) return false
-    return true
-  }), [shipments, statusFilter, courierFilter])
+  const visible = useMemo(() => {
+    const q = searchShip.trim().toLowerCase()
+    return shipments.filter(s => {
+      if (statusFilter !== 'all' && (s.status || 'pendiente') !== statusFilter) return false
+      if (courierFilter !== 'all' && s.courierId !== courierFilter) return false
+      if (q) {
+        return (
+          String(s.code || '').toLowerCase().includes(q) ||
+          String(s.packId || '').toLowerCase().includes(q) ||
+          (s.recipient || '').toLowerCase().includes(q) ||
+          (s.address || '').toLowerCase().includes(q) ||
+          (s.courierName || '').toLowerCase().includes(q)
+        )
+      }
+      return true
+    })
+  }, [shipments, statusFilter, courierFilter, searchShip])
 
   // En el mapa: solo los ACTIVOS del día (sin asignar, armándose, en camino)
   const startOfToday = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime() })()
@@ -410,6 +423,23 @@ export default function Shipments({
               </select>
             )}
           </div>
+
+          <div className="ship-search">
+            <input
+              type="text"
+              value={searchShip}
+              onChange={e => setSearchShip(e.target.value)}
+              placeholder="🔍 Buscar envío por número, destinatario, dirección o motoquero..."
+            />
+            {searchShip && (
+              <button className="ship-search-clear" onClick={() => setSearchShip('')}>✕</button>
+            )}
+          </div>
+          {searchShip && (
+            <p className="ship-search-hint">
+              {visible.length} resultado{visible.length !== 1 ? 's' : ''} — asigná el motoquero o cambiá el estado directo en la tarjeta.
+            </p>
+          )}
 
           <div ref={mapRef} className="ship-map"></div>
 
