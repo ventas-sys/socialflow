@@ -89,14 +89,15 @@ export default function Shipments({
     // Un envío por COMPRA (pack) o por envío físico; evita duplicar por producto
     const seen = new Set(shipmentsRef.current.map(s => String(s.packId || s.code)))
     let created = 0
-    const diag = { total: 0, flex: 0, finalizados: 0 }
-    // Estados de envío ya despachados/cerrados → NO se traen
-    const CERRADOS = ['shipped', 'delivered', 'not_delivered', 'cancelled', 'to_be_agreed']
+    const diag = { total: 0, flex: 0, cerrados: 0 }
+    let nPend = 0, nCamino = 0, nDemorado = 0
+    const H48 = 48 * 3600 * 1000
     try {
       for (const key of keys) {
         const token = await ensureToken(key)
         if (!token) continue
-        const from = new Date(); from.setHours(0, 0, 0, 0); from.setDate(from.getDate() - 15)
+        // Ventana de 7 días: 48hs para pendientes/en camino, 1 semana para demorados
+        const from = new Date(); from.setHours(0, 0, 0, 0); from.setDate(from.getDate() - 7)
         const r = await fetch(`${API}?action=orders`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token, from: from.toISOString() }),
@@ -107,22 +108,38 @@ export default function Shipments({
           // SOLO FLEX / Turbo (self_service): lo que repartimos con moto
           if (o.logisticType !== 'self_service') continue
           diag.flex++
-          // Solo lo pendiente de DESPACHAR (no lo ya enviado/entregado)
-          if (CERRADOS.includes(o.shipmentStatus)) { diag.finalizados++; continue }
+          // Entregados y cancelados no se traen
+          if (['delivered', 'cancelled', 'to_be_agreed'].includes(o.shipmentStatus)) { diag.cerrados++; continue }
+          const ageMs = Date.now() - new Date(o.date).getTime()
+          // Estado inicial según ML y antigüedad:
+          //  shipped ≤48hs → En camino (la moto lo está llevando)
+          //  shipped >48hs o no entregado → Demorado (hasta 1 semana)
+          //  abierto ≤48hs → Pendiente; abierto más viejo → Demorado
+          let status
+          if (o.shipmentStatus === 'shipped') status = ageMs <= H48 ? 'camino' : 'demorado'
+          else if (o.shipmentStatus === 'not_delivered') status = 'demorado'
+          else status = ageMs <= H48 ? 'pendiente' : 'demorado'
           const gkey = String(o.packId || o.shipmentId || '')
           if (!gkey || seen.has(gkey)) continue // agrupa la compra del cliente
           seen.add(gkey)
           const id = await onAddShipment({
             code: String(o.shipmentId || o.packId), packId: o.packId || null,
             recipient: o.recipient || '', address: o.address || '',
-            lat: o.lat ?? null, lng: o.lng ?? null, status: 'pendiente', cost: 0, account: key,
+            lat: o.lat ?? null, lng: o.lng ?? null, status, cost: 0, account: key,
+            ...(status === 'camino' ? { assignedAt: new Date(o.date) } : {}),
+            ...(status === 'demorado' ? { demoradoAt: new Date() } : {}),
           })
-          if (id) created++
+          if (id) {
+            created++
+            if (status === 'pendiente') nPend++
+            else if (status === 'camino') nCamino++
+            else nDemorado++
+          }
         }
       }
       if (created || !silent) setSyncMsg(
-        `✅ ${created} envíos nuevos. (De ${diag.total} ventas: ${diag.flex} FLEX/Turbo, ` +
-        `${diag.finalizados} ya despachados omitidos)`
+        `✅ ${created} envíos nuevos: ${nPend} pendientes, ${nCamino} en camino, ${nDemorado} demorados. ` +
+        `(${diag.flex} FLEX de ${diag.total} ventas; ${diag.cerrados} entregados omitidos)`
       )
     } catch (e) {
       if (!silent) setSyncMsg('❌ ' + e.message)
@@ -187,17 +204,21 @@ export default function Shipments({
   }, [mapItems, view])
 
   // Cambiar de estado guardando el timestamp correspondiente
-  const changeStatus = (s, newStatus, extra = {}) => {
+  const changeStatus = async (s, newStatus, extra = {}) => {
     const now = new Date()
     const patch = { status: newStatus, ...extra }
     if (newStatus === 'armado' && !s.armadoAt) patch.armadoAt = now
     if (newStatus === 'camino' && !s.assignedAt) patch.assignedAt = now
     if (newStatus === 'entregado') patch.deliveredAt = now
     if (newStatus === 'demorado') patch.demoradoAt = now
-    onUpdateShipment(s.id, patch)
+    try {
+      await onUpdateShipment(s.id, patch)
+    } catch (e) {
+      setSyncMsg('❌ No se pudo guardar el estado: ' + (e?.message || e))
+    }
   }
 
-  const assignCourier = (s, courierId) => {
+  const assignCourier = async (s, courierId) => {
     const c = couriers.find(x => x.id === courierId)
     const patch = { courierId: courierId || '', courierName: c?.name || '' }
     // Asignar motoquero pasa el envío a "En camino"
@@ -205,7 +226,11 @@ export default function Shipments({
       patch.status = 'camino'
       if (!s.assignedAt) patch.assignedAt = new Date()
     }
-    onUpdateShipment(s.id, patch)
+    try {
+      await onUpdateShipment(s.id, patch)
+    } catch (e) {
+      setSyncMsg('❌ No se pudo asignar: ' + (e?.message || e))
+    }
   }
 
   const handleScan = async (raw) => {

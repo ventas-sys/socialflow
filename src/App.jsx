@@ -42,6 +42,9 @@ export default function App() {
   const [shipments, setShipments] = useState([])
   const [couriers, setCouriers] = useState([])
   const [mlAccounts, setMlAccounts] = useState({})
+  // Espejo siempre actualizado de shipments (para chequeos dentro de ráfagas)
+  const shipmentsLiveRef = useRef([])
+  useEffect(() => { shipmentsLiveRef.current = shipments }, [shipments])
   const [depositMap, setDepositMap] = useState(null)
   const [loadingData, setLoadingData] = useState(false)
   const [accessDenied, setAccessDenied] = useState(false)
@@ -485,8 +488,10 @@ export default function App() {
   // --- Envíos (logística) ---
   const addShipment = async (data) => {
     if (!user) return null
-    // Evitar duplicar un envío que ya existe (mismo código o misma compra/pack)
-    if (shipments.some(s =>
+    // Evitar duplicar un envío que ya existe (mismo código o misma compra/pack).
+    // Se usa la ref (no el state del closure) para que funcione bien cuando el
+    // sync crea muchos envíos seguidos.
+    if (shipmentsLiveRef.current.some(s =>
       (data.code && String(s.code) === String(data.code)) ||
       (data.packId && s.packId && String(s.packId) === String(data.packId))
     )) return null
@@ -496,26 +501,27 @@ export default function App() {
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     })
-    setShipments([{ id: docRef.id, ...data, userId: ORG_ID, createdAt: new Date() }, ...shipments])
+    // Forma funcional: los agregados en ráfaga no se pisan entre sí
+    setShipments(prev => [{ id: docRef.id, ...data, userId: ORG_ID, createdAt: new Date() }, ...prev])
     return docRef.id
   }
 
   const updateShipment = async (id, data) => {
     if (!user) return
     await updateDoc(doc(db, 'shipments', id), { ...data, updatedAt: Timestamp.now() })
-    setShipments(shipments.map(s => (s.id === id ? { ...s, ...data } : s)))
+    setShipments(prev => prev.map(s => (s.id === id ? { ...s, ...data } : s)))
   }
 
   const deleteShipment = async (id) => {
     if (!user) return
     await deleteDoc(doc(db, 'shipments', id))
-    setShipments(shipments.filter(s => s.id !== id))
+    setShipments(prev => prev.filter(s => s.id !== id))
   }
 
   // Borra TODOS los envíos (para reiniciar limpio durante las pruebas)
   const clearShipments = async () => {
     if (!user) return
-    const ids = shipments.map(s => s.id)
+    const ids = shipmentsLiveRef.current.map(s => s.id)
     for (let i = 0; i < ids.length; i += 400) {
       const batch = writeBatch(db)
       ids.slice(i, i + 400).forEach(id => batch.delete(doc(db, 'shipments', id)))
@@ -531,13 +537,13 @@ export default function App() {
       userId: ORG_ID,
       createdAt: Timestamp.now(),
     })
-    setCouriers([...couriers, { id: docRef.id, name }])
+    setCouriers(prev => [...prev, { id: docRef.id, name }])
   }
 
   const removeCourier = async (id) => {
     if (!user) return
     await deleteDoc(doc(db, 'couriers', id))
-    setCouriers(couriers.filter(c => c.id !== id))
+    setCouriers(prev => prev.filter(c => c.id !== id))
   }
 
   // --- MercadoLibre (config + tokens por cuenta: 'full' / 'ferre') ---
