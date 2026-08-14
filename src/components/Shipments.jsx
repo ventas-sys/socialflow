@@ -89,6 +89,9 @@ export default function Shipments({
     // Un envío por COMPRA (pack) o por envío físico; evita duplicar por producto
     const seen = new Set(shipmentsRef.current.map(s => String(s.packId || s.code)))
     let created = 0
+    const diag = { total: 0, flex: 0, finalizados: 0 }
+    // Estados de envío ya despachados/cerrados → NO se traen
+    const CERRADOS = ['shipped', 'delivered', 'not_delivered', 'cancelled', 'to_be_agreed']
     try {
       for (const key of keys) {
         const token = await ensureToken(key)
@@ -99,10 +102,13 @@ export default function Shipments({
           body: JSON.stringify({ token, from: from.toISOString() }),
         }).then(x => x.json())
         if (!r.ok) continue
+        diag.total += r.orders.length
         for (const o of r.orders) {
-          // SOLO FLEX / Turbo (self_service): lo que repartimos con moto.
-          // Se excluye correo (cross_docking/drop_off), Full (fulfillment) y retiro.
+          // SOLO FLEX / Turbo (self_service): lo que repartimos con moto
           if (o.logisticType !== 'self_service') continue
+          diag.flex++
+          // Solo lo pendiente de DESPACHAR (no lo ya enviado/entregado)
+          if (CERRADOS.includes(o.shipmentStatus)) { diag.finalizados++; continue }
           const gkey = String(o.packId || o.shipmentId || '')
           if (!gkey || seen.has(gkey)) continue // agrupa la compra del cliente
           seen.add(gkey)
@@ -114,7 +120,10 @@ export default function Shipments({
           if (id) created++
         }
       }
-      if (created || !silent) setSyncMsg(created ? `✅ ${created} envíos nuevos traídos de ML.` : '✅ Sin envíos nuevos.')
+      if (created || !silent) setSyncMsg(
+        `✅ ${created} envíos nuevos. (De ${diag.total} ventas: ${diag.flex} FLEX/Turbo, ` +
+        `${diag.finalizados} ya despachados omitidos)`
+      )
     } catch (e) {
       if (!silent) setSyncMsg('❌ ' + e.message)
     } finally {

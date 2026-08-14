@@ -72,6 +72,8 @@ async function orders(req, res) {
         const ra = b.receiver_address || {};
         ship = {
           logisticType: b.logistic_type || null,
+          shipmentStatus: b.status || null,       // pending/handling/ready_to_ship/shipped/delivered...
+          shipmentSubstatus: b.substatus || null,
           recipient: ra.receiver_name || (o.buyer ? [o.buyer.first_name, o.buyer.last_name].filter(Boolean).join(' ') : null),
           address: [ra.address_line, ra.city?.name, ra.state?.name].filter(Boolean).join(', ') || null,
           lat: ra.latitude != null ? Number(ra.latitude) : null,
@@ -85,6 +87,8 @@ async function orders(req, res) {
       date: o.date_created,
       status: o.status,
       logisticType: ship.logisticType, // 'fulfillment' = Full → se EXCLUYE
+      shipmentStatus: ship.shipmentStatus || null,
+      shipmentSubstatus: ship.shipmentSubstatus || null,
       shipmentId: shipmentId != null ? String(shipmentId) : null,
       packId: o.pack_id != null ? String(o.pack_id) : null, // agrupa una compra de varios productos
       recipient: ship.recipient,
