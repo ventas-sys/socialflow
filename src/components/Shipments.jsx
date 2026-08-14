@@ -211,9 +211,20 @@ export default function Shipments({
   const handleScan = async (raw) => {
     setShowScanner(false)
     const code = parseShipmentCode(raw)
-    const existing = shipments.find(s => String(s.code) === code)
+    // Búsqueda flexible: por código exacto, por pack, o por coincidencia parcial
+    const digits = String(raw).replace(/\D/g, '')
+    const existing = shipments.find(s => {
+      const c = String(s.code); const p = String(s.packId || '')
+      return c === code || p === code ||
+        (code && (c.includes(code) || code.includes(c))) ||
+        (digits && (c === digits || p === digits || c.includes(digits) || digits.includes(c)))
+    })
     if (existing) { setActionId(existing.id) }
-    else setSyncMsg('⚠️ No se encontró ese envío. Tocá "Traer ventas de ML" o esperá la sincronización.')
+    else setSyncMsg(
+      `⚠️ No se encontró ese envío. El QR dice: «${String(raw).slice(0, 90)}» ` +
+      `(código leído: ${code}). Puede ser de correo/Full o ya despachado; ` +
+      `si debería estar, pasame ese texto y ajusto la lectura del QR.`
+    )
   }
 
   const handleAddCourier = async (e) => {
