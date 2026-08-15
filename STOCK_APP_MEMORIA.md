@@ -1,79 +1,57 @@
-# 🧠 Memoria técnica — App Stock & Inventario
+# 🧠 Memoria técnica — App Stock & Inventario (Distribuidora Universo)
 
-App PWA de gestión de inventario para **Distribuidora Universo**.
-Rama: `claude/stock-inventory-app-06rlv5` · PR #38 · Deploy: Vercel.
+**ÚNICA fuente de verdad del proyecto. Leer entera antes de tocar nada.**
+Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/socialflow
 
-## Stack
-- React + Vite + PWA (vite-plugin-pwa, autoUpdate + skipWaiting/clientsClaim)
-- Firebase Auth (Google) + Firestore
-- xlsx (leer/escribir Excel) · exceljs (export con imágenes, carga diferida) · jszip (leer fotos pegadas en Excel) · html5-qrcode (escáner)
+## ⚠️ Entorno (leer PRIMERO en cada sesión nueva)
+- El repo `ventas-sys/socialflow` en `main` es OTRO proyecto (redes/WhatsApp, .html). La app de stock (React, `src/`) vive SOLO en la rama `claude/stock-inventory-app-06rlv5`. Si el contenedor clona otra rama: `git fetch origin claude/stock-inventory-app-06rlv5 && git checkout -B claude/stock-inventory-app-06rlv5 origin/claude/stock-inventory-app-06rlv5` y `npm install`.
+- **2 proyectos Vercel del mismo repo**: `socialflow` (viejo, main, NO tocar) y **`stock-inventario`** (producción de esta app, Production Branch = la rama de stock, dominio **`stock-inventario-sable.vercel.app`**). El preview largo `socialflow-git-claude-stock-in-858296-...vercel.app` es el que usa el usuario a diario y es la Redirect URI de ML.
+- **Caché PWA**: problema recurrente. La app muestra la versión de build en el subtítulo (`v2026-...`, definida en vite.config `__APP_VERSION__`). Si el usuario reporta algo "que no anda", PRIMERO verificar versión → Ctrl+Shift+R / incógnito / borrar datos del sitio.
+- Deploys: cada push a la rama deploya preview + producción (~2 min). El usuario espera que le avise cuando queda verde.
 
-## Config / acceso
-- `src/config.js`: `ORG_ID = 'distribuidora-universo'` (espacio compartido) · `ADMIN_EMAIL = ventas@distribuidorauniverso.com`
-- **Inventario compartido**: todos los datos usan `userId = ORG_ID`. Varias cuentas de Google ven el mismo stock.
-- **Equipo**: el admin agrega/quita emails (colección `members`) desde el panel del Dashboard. Auditoría por movimiento (userName/userEmail).
-- `firestore.rules`: acceso por `isMember()`; `settings` y `members` solo escribe el admin. Colecciones: products, combos, movements, photos, settings, members.
+## Stack y estructura
+- React + Vite + PWA (autoUpdate, skipWaiting, navigateFallbackDenylist para `/api/`), Firebase Auth (Google + email/password) + Firestore, xlsx / exceljs / jszip / html5-qrcode / **leaflet** (OpenStreetMap).
+- Backend serverless en `api/` (mismo repo): `api/ml/exchange.js` (OAuth ML + orders + items), `api/ml/cron.js` (descuento diario), `api/_http.js`.
+- `src/config.js`: `ORG_ID='distribuidora-universo'`, `ADMIN_EMAIL='ventas@distribuidorauniverso.com'`. Todos los datos con `userId=ORG_ID` (inventario compartido). Miembros en colección `members` (los gestiona el admin desde Dashboard). Auditoría por movimiento.
+- `firestore.rules` (publicadas): isAdmin = ventas@ **o cron@distribuidorauniverso.com**; isMember = admin o email en `members`. Colecciones: products, combos, movements, photos, shipments, couriers, ml_orders (member) y ml_accounts, settings (solo admin escribe; ml_accounts solo admin lee).
 
 ## Modelo de datos (Firestore)
-- **products/{id}**: name, code (SKU), `barcodes[]` (varios; barcode = barcodes[0]), category, price, quantity (stock, puede ser negativo), minStock, location, stockType (FULL/FERRE/BASE), description, hasPhotos, userId, createdAt/updatedAt
-- **combos/{id}**: name, code (SKU MLA), `barcodes[]`, price, location, stockType, `items[]` ({productId, quantity}), itemBarcodes[] (para buscar el combo por sus componentes), hasPhotos, userId...
-- **photos/{id}**: `{ photos: [...dataURLs], userId }` — separado de products/combos para que el listado cargue liviano. Se leen **on-demand** (LazyThumb con IntersectionObserver + cache en memoria en App.jsx `loadPhotos`).
-- **movements/{id}**: productId, productName, type ('entrada'|'salida'), quantity, reason, reference, comboId?, breakdown?, userName, userEmail, date, userId
-- **settings/{ORG_ID}**: depositMapPhoto (mapa del depósito, solo admin lo edita)
+- **products**: name, code (SKU), `barcodes[]` (varios; barcode=primero), category, price, quantity (puede ser negativo), minStock, location, stockType (FULL/FERRE/BASE), description, hasPhotos.
+- **combos**: name, code (**SKU MLA** de la publicación), `barcodes[]`, price, location, stockType, `items[]` {productId, quantity}, itemBarcodes[], hasPhotos. Un combo = N unidades de producto(s) base.
+- **photos/{id}**: dataURLs aparte, on-demand (LazyThumb + cache).
+- **movements**: productId, productName, type entrada/salida, quantity, reason, reference, userName/userEmail, date.
+- **shipments**: code (shipmentId ML), packId, recipient, address, lat/lng, status (pendiente/armado/camino/entregado/demorado/**archivado**), courierId/courierName, zone, courierPay, buyerPay, timestamps (armadoAt/assignedAt/deliveredAt/demoradoAt/archivedAt), account (full/ferre).
+- **couriers**: {name}. **ml_accounts/{full|ferre}**: clientId, clientSecret, tokens, expiresAt, lastSyncAt. **ml_orders/{cuenta_orderId}**: órdenes ya descontadas (no repetir).
 
-## Funciones implementadas
-- Inventario unificado (productos + combos) con filtro Todos/Productos/Combos y buscador (por nombre, SKU, cualquier código de barras, ubicación, tipo) + escaneo con cámara. Tarjeta de resultado destacada con foto grande, nombre y **ubicación en naranja**.
-- Productos y combos: hasta 5 fotos; **varios códigos de barras** (textarea, uno por línea).
-- Combos: descuentan el stock de sus productos base al mover. Stock puede quedar negativo.
-- FULL/FERRE/BASE, ubicación en depósito, mapa del depósito en Dashboard (solo admin sube; todos ven).
-- Escáner con **pitido** (Web Audio); reconoce SKU/códigos de productos, combos y componentes.
-- Movimientos entrada/salida (manual y por combo) con auditoría.
-- Reportes.
+## Funciones principales
+- **Inventario**: productos+combos unificados, filtros, búsqueda por nombre/SKU/cualquier código de barras/ubicación/tipo + escáner con pitido; tarjeta destacada con foto y ubicación naranja; salud de stock (utils/stock.js: consumo 60 días → Sin stock / Bajo ≤20d / Saludable 21-75d / Sobre >75d / Sin ventas) en tabla, tarjeta y panel "Se terminan primero" del Dashboard.
+- **Import/Export Excel**:
+  - Productos: agrupa por SKU → varios códigos de barras por producto; fotos pegadas en el Excel; actualiza existentes.
+  - Combos (formato catálogo real): `SKU` MLA = combo, `Codigo (ARMADO P)` = producto base, `ARMADO S` = cantidad, filas repetidas = códigos de barras del combo (no suman). Base debe existir.
+  - **Compra/Ajuste**: `SKU o Código` + `Cantidad` (+ negativo resta) + `Factura`; acepta SKU de COMBO (expande a base × cantidad); **vista previa obligatoria** antes de aplicar; registra movimientos.
+- **Movimientos**: tabs funcionales Todos/Entradas/Salidas/**Hoy/Ayer/Semana** + buscador + resumen entró/salió/neto; tarjetas con +verde/−rojo grande y SKU.
+- **MercadoLibre (solapa ML)**: 2 cuentas conectadas por OAuth — **FULL** = app "Uniproveedores MCP" (client 5731065254303938), **FERRE** = app "Publicacion-por-telegram" (914895574262615). Redirect URI = preview largo con `/` final. En la app SIEMPRE loguearse como admin; el navegador define qué cuenta ML se autoriza. Sincronizar ventas (vista previa → descuenta stock, excluye `fulfillment`, mapea SKU/MLA → combo → base, marca ml_orders), **cron diario 21:00 UTC (18hs AR)** en producción stock-inventario (env: CRON_EMAIL/CRON_PASSWORD = usuario Firebase cron@distribuidorauniverso.com; la service account key está bloqueada por política de org, por eso login email/password), botón "Probar automático ahora", "Publicaciones faltantes" (Excel de MLA sin cargar).
+- **Envíos (logística FLEX)**: ver bloque siguiente.
+- **Reportes** y Dashboard con mapa del depósito (settings, solo admin).
 
-## Import/Export Excel
-- **Productos** (pestaña Inventario → Importar/Exportar/Plantilla): columnas FOTO, Nombre, SKU, Código de Barras, Categoría, Precio, Cantidad, Stock Mínimo, Ubicación, Tipo, Descripción. Foto pegada en la columna FOTO (imagen flotante sobre la fila). Agrupa por SKU → **un producto con varios códigos de barras**. Actualiza si el SKU/código ya existe.
-- **Combos** (pestaña Combos → Importar/Exportar/Plantilla): formato **multi-fila** — cada combo ocupa varias filas (una por producto o por código de barras). Reconoce el formato real del catálogo:
-  - `SKU` (MLA...) = combo · `Nombre` = nombre · `Código de barras` = códigos del combo (varios) · `UBICACIÓN` · `TIPO` (FULL/FERRE) · **`Codigo (ARMADO P)`** = producto base componente · **`ARMADO S`** = cantidad de ese producto en el combo.
-  - Agrupa por SKU MLA; filas repetidas con el mismo producto NO suman (son códigos de barras distintos del combo), se deduplican por producto. El producto base se busca por SKU/código de barras/nombre y **ya debe existir**.
-- **Compra / Ajuste** (botón en Inventario): Excel con `SKU o Código` + `Cantidad` (+ `Factura` opcional). **Positivo suma, negativo resta** stock. Muestra **vista previa** (Código → Producto → Stock actual → Cambio → Stock nuevo) y **no aplica hasta confirmar**. Registra un movimiento por renglón.
+## Envíos — estado final
+- Entran SOLOS desde ML: al abrir + **cada 30 min** + botón (con leyenda "esperá" animada SIEMPRE, incluso auto). Solo `self_service` (FLEX/Turbo); excluye correo/Full/retiro/cancelados. **UN envío por compra** (packId || shipmentId). Trae destinatario, dirección, coords → pin automático.
+- Ventana **7 días** (usuario mueve ~300 envíos/día → backend trae hasta **3000 órdenes/cuenta con detalle de envíos en paralelo, lotes de 10**). Estado inicial: delivered→Entregado (con fecha), shipped ≤48hs→En camino, más viejo o not_delivered→Demorado, abierto ≤48hs→Pendiente, abierto viejo→Demorado. El sync NUNCA pisa estados ya gestionados (dedup por seen). **No usar Vaciar** salvo reset total (pierde gestión).
+- Flujo: Pendiente de imprimir → Armado → En camino (auto al asignar motoquero) → Entregado → **Archivado** (sale de mapa y de "Todos"; filtro propio; sigue contando como entregado en reporte). QR de etiqueta FLEX solo BUSCA (parse JSON id / dígitos, matching flexible); si no encuentra muestra el contenido del QR.
+- Mapa: en "Todos" solo activos del día; **al elegir un filtro de estado muestra ese estado**; búsqueda y motoquero también filtran el mapa. Leyenda de colores solo PC (rojo pendiente / naranja armado / azul camino).
+- Barra de búsqueda (código/pack/destinatario/dirección/motoquero) con acciones en la tarjeta. Costo NO está en el tablero.
+- **Reporte (solo PC, oculto en celular)**: hoy/7/30 días; por envío: **Zona FLEX** (cercana $4.490 / media $6.490 / lejana $8.690 / muylejana $9.990 — constantes ZONES en Shipments.jsx, actualizar cuando ML cambie) → Cobro ML auto; **Pago motoquero** y **Pagó comprador** editables; totales + export Excel.
+- Lección técnica: setShipments/setCouriers SIEMPRE en forma funcional + shipmentsLiveRef para dup-check (los adds en ráfaga se pisaban y parecía que nada guardaba).
 
-## Pendiente (pedido por el usuario, no hecho)
-1. **Stock desde foto de factura/remito (OCR)** — hay base reutilizable en `api/contabilium.js` (Gemini Vision). Requiere API key de IA.
-2. **Descontar por ventas de MercadoLibre (2 cuentas: FULL y FERRE)** — base OAuth en `api/ml/exchange.js` (exchange/refresh/test ya funcionan). Reglas definidas por el usuario:
-   - **Cuándo**: 1 vez por día, después de las 18hs ART (UTC-3) → cron diario ~21:00 UTC. (confirmar hora exacta)
-   - **Qué descontar**: de cada orden mirar el envío (`/shipments/{id}` → `logistic_type`). Se descuenta TODO menos `fulfillment` (bodega ML / Full). O sea SÍ descuentan: FLEX (`self_service`), correo (`cross_docking`/`drop_off`/`xd_drop_off`), retiro (`pickup`/acordar). NO descuenta `fulfillment`.
-   - **Misma regla para ambas cuentas** (FULL y FERRE). El stock en la bodega de ML ya salió del depósito propio al enviarlo a Full.
-   - **Mapeo**: item vendido trae SKU de la publicación (MLA...) o seller_sku → coincide con `code` del combo → descuenta sus productos base × cantidad. Si es SKU de producto suelto, descuenta ese producto.
-   - **Devoluciones/claims**: suman stock de vuelta.
-   - **Evitar doble descuento**: colección `ml_orders` con las órdenes ya procesadas.
-   - **Credenciales**: App ID + Secret de cada cuenta como env vars en Vercel (no en el repo). Redirect URI sugerida `<dominio>/ml-callback`.
-   - **Fases**: (1) conectar cuentas + botón "Sincronizar ventas" con vista previa/confirmación ✅ HECHO Y VALIDADO con datos reales; (2) automático diario por cron + devoluciones (PENDIENTE).
-   - **Apps ML reales**: FULL = "Uniproveedores MCP" (Client ID 5731065254303938). FERRE = "Publicacion-por-telegram" (Client ID 914895574262615). Redirect URI configurada: `https://socialflow-git-claude-stock-in-858296-ventas-sys-2783s-projects.vercel.app/`.
-   - **Operación clave**: en la app entrar SIEMPRE con el admin (ventas@distribuidorauniverso.com) — solo el admin puede guardar ml_accounts. Para conectar cada cuenta, el navegador debe tener la sesión de MercadoLibre de esa cuenta (FULL o FERRE). Los combos cargados tienen SKU MLA de la cuenta FULL; FERRE tiene sus propias MLA (muchas ventas FERRE caen en "Sin producto" si ese combo no está cargado).
-   - **Fase 1 validada**: FULL 41 ventas (131 Full excluidas), FERRE 78 ventas (0 Full). Mapeo combo→base OK.
-3. **Envíos a bodega Full de ML** — registrar/descontar lo enviado a Full (esto SÍ descuenta del depósito propio al enviar).
-4. **Sección Envíos (logística FLEX)** — COMPLETA Y VALIDADA:
-   - Los envíos entran SOLOS desde ML (al abrir la sección + cada 15 min + botón "Traer ventas de ML"). Solo `self_service` (FLEX/Turbo); excluye correo, Full y retiro. UN envío por compra (agrupa por `pack_id`, si no por `shipmentId`). Trae destinatario, dirección y coords (receiver_address) → pin automático en el mapa.
-   - Ventana: 7 días. Estado inicial según ML: abierto ≤48hs → Pendiente; `shipped` ≤48hs → En camino; más viejo o `not_delivered` → Demorado; `delivered`/`cancelled` no entran.
-   - Estados: Pendiente de imprimir → Armado → En camino (auto al asignar motoquero) → Entregado / Demorado. Timestamps por estado (armadoAt/assignedAt/deliveredAt).
-   - QR de la etiqueta FLEX: solo BUSCA el envío (para asignar motoquero tras armar); parse flexible (JSON id / dígitos). Mapa: solo activos del día (rojo=pendiente, naranja=armado, azul=en camino) con leyenda visible solo en PC.
-   - Barra de búsqueda (código/pack/destinatario/dirección/motoquero) con acciones en la tarjeta.
-   - **Reporte (solo PC; pestaña oculta en celular)**: hoy/7/30 días. Por envío: Zona FLEX (cercana $4.490 / media $6.490 / lejana $8.690 / muylejana $9.990 — constantes ZONES en Shipments.jsx, actualizar cuando ML cambie precios) → "Cobro ML" auto; "Pago motoquero" (courierPay) y "Pagó comprador" (buyerPay) editables. Totales + export Excel. El costo NO está en el tablero.
-   - Lección técnica: setShipments SIEMPRE en forma funcional (los adds en ráfaga se pisaban); dup-check con shipmentsLiveRef.
+## Pendiente (no hecho)
+1. **Devoluciones de ML** que SUMAN stock.
+2. **Cargar stock real** de productos base (el usuario lo va ajustando con Compra/Ajuste).
+3. Stock desde **foto de factura (OCR)** — base en `api/contabilium.js` (Gemini Vision), necesita API key.
+4. Envíos a bodega **Full** (descuento al enviar).
+5. Si se quiere usar el dominio corto para conectar ML: agregar `https://stock-inventario-sable.vercel.app/` como Redirect URI en ambas apps ML y reconectar.
+6. Valores de zonas FLEX editables desde la app (hoy constantes).
 
-## Producción del automático (cron ML)
-- Proyecto Vercel SEPARADO **stock-inventario** (dominio `stock-inventario-sable.vercel.app`), Production Branch = `claude/stock-inventory-app-06rlv5`. NO toca el proyecto viejo `socialflow` (main = WhatsApp).
-- Env vars en ese proyecto: CRON_EMAIL, CRON_PASSWORD.
-- Cron `/api/ml/cron` a las `0 21 * * *` (18hs ART). Corre solo en la producción de stock-inventario.
-- El cron usa los refresh tokens ya guardados en Firestore (ml_accounts) → no necesita re-OAuth aunque el dominio cambie.
-- Botón "▶️ Probar automático ahora" en la sección ML dispara el mismo proceso a demanda. Validado OK.
-
-## ⚠️ Nota de entorno (IMPORTANTE)
-El repo real `ventas-sys/socialflow` es el proyecto viejo de redes/ML/WhatsApp (archivos .html, api/, lib/). La app de stock (React, carpeta `src/`) vive SOLO en la rama `claude/stock-inventory-app-06rlv5`. Al abrir un contenedor nuevo, si el checkout queda en otra rama, hacer:
-`git fetch origin claude/stock-inventory-app-06rlv5 && git checkout -B claude/stock-inventory-app-06rlv5 origin/claude/stock-inventory-app-06rlv5`
-
-## Notas operativas
-- **Caché PWA**: si el usuario "no ve" un cambio, es caché → Ctrl+Shift+R o borrar datos del sitio o incógnito.
-- **Deployment Protection de Vercel**: debe estar en Disabled para que el link sea público (Settings → Deployment Protection).
-- Firebase config real embebida en `src/firebase.js` (pública por diseño; la seguridad la dan las reglas).
-- Después de agregar colecciones nuevas, **publicar firestore.rules** (el archivo tiene la versión final).
+## Reglas de negocio clave (definidas por el usuario)
+- Stock: descuenta TODO lo despachado desde el depósito propio (FLEX+correo+retiro), NUNCA `fulfillment` (Full ya salió al enviarse a bodega). Igual para ambas cuentas. 1 vez/día después de las 18hs. Stock puede quedar negativo.
+- Reparto (Envíos): SOLO FLEX/Turbo (motos propias). Por venta/cliente, no por producto. Historial 7 días para ver evolución; demorados hasta 1 semana.
+- ML paga por zona (bonificación); al motoquero se le paga otro monto; el comprador puede haber pagado o no el envío — 3 columnas separadas en el reporte.
