@@ -12,8 +12,9 @@ const STATUS = {
   camino:    { label: 'En camino', short: 'En camino', color: '#3b82f6', emoji: '🏍️' },
   entregado: { label: 'Entregado', short: 'Entregado', color: '#10b981', emoji: '✅' },
   demorado:  { label: 'Demorado', short: 'Demorado', color: '#8b5cf6', emoji: '⏰' },
+  archivado: { label: 'Archivado', short: 'Archivado', color: '#6b7280', emoji: '🗄️' },
 }
-const ORDER = ['pendiente', 'armado', 'camino', 'entregado', 'demorado']
+const ORDER = ['pendiente', 'armado', 'camino', 'entregado', 'demorado', 'archivado']
 
 // Zonas FLEX de MercadoLibre: lo que ML bonifica por cada envío según la zona
 const ZONES = {
@@ -96,12 +97,13 @@ export default function Shipments({
     const keys = Object.keys(accs).filter(k => accs[k]?.accessToken)
     if (!keys.length) { if (!silent) setSyncMsg('⚠️ Conectá MercadoLibre primero (solapa ML).'); return }
     syncingRef.current = true
-    if (!silent) setSyncing(true)
-    // Un envío por COMPRA (pack) o por envío físico; evita duplicar por producto
+    setSyncing(true) // avisar SIEMPRE, también en la actualización automática
+    // Un envío por COMPRA (pack) o por envío físico; evita duplicar por producto.
+    // Solo AGREGA ventas nuevas: nunca toca el estado de las ya gestionadas.
     const seen = new Set(shipmentsRef.current.map(s => String(s.packId || s.code)))
     let created = 0
     const diag = { total: 0, flex: 0, cerrados: 0 }
-    let nPend = 0, nCamino = 0, nDemorado = 0
+    let nPend = 0, nCamino = 0, nDemorado = 0, nEntregado = 0
     const H48 = 48 * 3600 * 1000
     try {
       for (const key of keys) {
@@ -119,15 +121,17 @@ export default function Shipments({
           // SOLO FLEX / Turbo (self_service): lo que repartimos con moto
           if (o.logisticType !== 'self_service') continue
           diag.flex++
-          // Entregados y cancelados no se traen
-          if (['delivered', 'cancelled', 'to_be_agreed'].includes(o.shipmentStatus)) { diag.cerrados++; continue }
+          // Cancelados no se traen; el resto de los últimos 7 días SÍ
+          // (incluidos entregados, para ver la evolución del reparto)
+          if (['cancelled', 'to_be_agreed'].includes(o.shipmentStatus)) { diag.cerrados++; continue }
           const ageMs = Date.now() - new Date(o.date).getTime()
           // Estado inicial según ML y antigüedad:
-          //  shipped ≤48hs → En camino (la moto lo está llevando)
-          //  shipped >48hs o no entregado → Demorado (hasta 1 semana)
+          //  delivered → Entregado
+          //  shipped ≤48hs → En camino; más viejo o not_delivered → Demorado
           //  abierto ≤48hs → Pendiente; abierto más viejo → Demorado
           let status
-          if (o.shipmentStatus === 'shipped') status = ageMs <= H48 ? 'camino' : 'demorado'
+          if (o.shipmentStatus === 'delivered') status = 'entregado'
+          else if (o.shipmentStatus === 'shipped') status = ageMs <= H48 ? 'camino' : 'demorado'
           else if (o.shipmentStatus === 'not_delivered') status = 'demorado'
           else status = ageMs <= H48 ? 'pendiente' : 'demorado'
           const gkey = String(o.packId || o.shipmentId || '')
@@ -139,18 +143,20 @@ export default function Shipments({
             lat: o.lat ?? null, lng: o.lng ?? null, status, cost: 0, account: key,
             ...(status === 'camino' ? { assignedAt: new Date(o.date) } : {}),
             ...(status === 'demorado' ? { demoradoAt: new Date() } : {}),
+            ...(status === 'entregado' ? { deliveredAt: new Date(o.date) } : {}),
           })
           if (id) {
             created++
             if (status === 'pendiente') nPend++
             else if (status === 'camino') nCamino++
+            else if (status === 'entregado') nEntregado++
             else nDemorado++
           }
         }
       }
       if (created || !silent) setSyncMsg(
-        `✅ ${created} envíos nuevos: ${nPend} pendientes, ${nCamino} en camino, ${nDemorado} demorados. ` +
-        `(${diag.flex} FLEX de ${diag.total} ventas; ${diag.cerrados} entregados omitidos)`
+        `✅ ${created} envíos nuevos: ${nPend} pendientes, ${nCamino} en camino, ` +
+        `${nEntregado} entregados, ${nDemorado} demorados. (${diag.flex} FLEX de ${diag.total} ventas)`
       )
     } catch (e) {
       if (!silent) setSyncMsg('❌ ' + e.message)
@@ -160,10 +166,10 @@ export default function Shipments({
     }
   }
 
-  // Al abrir la sección y cada 15 minutos, traer las ventas de ML
+  // Al abrir la sección y cada 30 minutos, traer las ventas de ML
   useEffect(() => {
     syncFromML(true)
-    const t = setInterval(() => syncFromML(true), 15 * 60 * 1000)
+    const t = setInterval(() => syncFromML(true), 30 * 60 * 1000)
     return () => clearInterval(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -184,7 +190,10 @@ export default function Shipments({
   const visible = useMemo(() => {
     const q = searchShip.trim().toLowerCase()
     return shipments.filter(s => {
-      if (statusFilter !== 'all' && (s.status || 'pendiente') !== statusFilter) return false
+      const st = s.status || 'pendiente'
+      // "Todos" no incluye los archivados (tienen su propio filtro)
+      if (statusFilter === 'all' && st === 'archivado') return false
+      if (statusFilter !== 'all' && st !== statusFilter) return false
       if (courierFilter !== 'all' && s.courierId !== courierFilter) return false
       if (q) {
         return (
@@ -206,6 +215,7 @@ export default function Shipments({
     const q = searchShip.trim().toLowerCase()
     return shipments.filter(s => {
       const st = s.status || 'pendiente'
+      if (st === 'archivado') return false // archivado nunca va al mapa
       if (statusFilter !== 'all') {
         if (st !== statusFilter) return false
       } else {
@@ -250,6 +260,7 @@ export default function Shipments({
     if (newStatus === 'camino' && !s.assignedAt) patch.assignedAt = now
     if (newStatus === 'entregado') patch.deliveredAt = now
     if (newStatus === 'demorado') patch.demoradoAt = now
+    if (newStatus === 'archivado') patch.archivedAt = now
     try {
       await onUpdateShipment(s.id, patch)
     } catch (e) {
@@ -327,7 +338,9 @@ export default function Shipments({
   }, [shipments, range])
 
   const reportTotals = useMemo(() => {
-    const entregados = reportRows.filter(r => (r.s.status === 'entregado'))
+    const entregados = reportRows.filter(r =>
+      r.s.status === 'entregado' || (r.s.status === 'archivado' && r.s.deliveredAt)
+    )
     const cobroML = reportRows.reduce((sum, r) => sum + zonePay(r.s), 0)
     const pagoMoto = reportRows.reduce((sum, r) => sum + (Number(r.s.courierPay) || 0), 0)
     const pagoComprador = reportRows.reduce((sum, r) => sum + (Number(r.s.buyerPay) || 0), 0)
@@ -428,6 +441,9 @@ export default function Shipments({
             </select>
             <button className="ok" onClick={() => changeStatus(actionShipment, 'entregado')}>✅ Entregado</button>
             <button className="warn" onClick={() => changeStatus(actionShipment, 'demorado')}>⏰ Demorado</button>
+            {actionShipment.status === 'entregado' && (
+              <button onClick={() => changeStatus(actionShipment, 'archivado')}>🗄️ Archivar</button>
+            )}
           </div>
         </div>
       )}
@@ -439,7 +455,7 @@ export default function Shipments({
       {view === 'tablero' ? (
         <>
           <div className="ship-stats">
-            <button className={`ship-stat ${statusFilter === 'all' ? 'active' : ''}`} onClick={() => setStatusFilter('all')}>Todos ({shipments.length})</button>
+            <button className={`ship-stat ${statusFilter === 'all' ? 'active' : ''}`} onClick={() => setStatusFilter('all')}>Todos ({shipments.length - (counts.archivado || 0)})</button>
             {ORDER.map(k => (
               <button key={k} className={`ship-stat ${statusFilter === k ? 'active' : ''}`}
                 onClick={() => setStatusFilter(k)}
@@ -503,6 +519,9 @@ export default function Shipments({
                       </select>
                       <button className="ok" onClick={() => changeStatus(s, 'entregado')}>✅ Entregado</button>
                       <button className="warn" onClick={() => changeStatus(s, 'demorado')}>⏰ Demorado</button>
+                      {s.status === 'entregado' && (
+                        <button onClick={() => changeStatus(s, 'archivado')}>🗄️ Archivar</button>
+                      )}
                     </div>
                   </div>
                   <div className="ship-card-side">
