@@ -40,7 +40,7 @@ async function orders(req, res) {
   const fromParam = from ? `&order.date_created.from=${encodeURIComponent(from)}` : '';
   const raw = [];
   let offset = 0;
-  for (let page = 0; page < 20; page++) { // hasta 1000 órdenes
+  for (let page = 0; page < 40; page++) { // hasta 2000 órdenes por cuenta
     const url = `https://api.mercadolibre.com/orders/search?seller=${sellerId}&sort=date_desc&limit=50&offset=${offset}${fromParam}`;
     const r = await httpRequest('GET', url, auth);
     if (r.status !== 200) {

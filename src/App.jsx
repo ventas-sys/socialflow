@@ -753,7 +753,7 @@ export default function App() {
       <header className="app-header">
         <div className="header-left">
           <h1 className="app-title">📦 Stock & ML Inventory</h1>
-          <p className="app-subtitle">Gestión de inventario en tiempo real</p>
+          <p className="app-subtitle">Gestión de inventario en tiempo real · v{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'}</p>
         </div>
         <div className="header-right">
           <div className="user-info">

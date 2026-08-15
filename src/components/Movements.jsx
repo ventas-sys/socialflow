@@ -167,19 +167,28 @@ export default function Movements({ products, combos, movements, onAdd }) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const isToday = (m) => {
+  const dayOf = (m) => {
     const mDate = m.date?.toDate ? m.date.toDate() : new Date(m.date)
     mDate.setHours(0, 0, 0, 0)
-    return mDate.getTime() === today.getTime()
+    return mDate.getTime()
   }
+  const yesterday = today.getTime() - 86400000
+  const weekAgo = today.getTime() - 6 * 86400000
+  const isToday = (m) => dayOf(m) === today.getTime()
+  const isYesterday = (m) => dayOf(m) === yesterday
+  const isWeek = (m) => dayOf(m) >= weekAgo
   const todayMovements = movements.filter(isToday)
+  const yesterdayMovements = movements.filter(isYesterday)
+  const weekMovements = movements.filter(isWeek)
 
-  // Filtro combinado: tipo (tab) + búsqueda por producto/SKU/referencia/usuario
+  // Filtro combinado: tipo/fecha (tab) + búsqueda por producto/SKU/referencia/usuario
   const q = searchMov.trim().toLowerCase()
   const filtered = movements.filter(m => {
     if (filterType === 'entrada' && m.type !== 'entrada') return false
     if (filterType === 'salida' && m.type !== 'salida') return false
     if (filterType === 'hoy' && !isToday(m)) return false
+    if (filterType === 'ayer' && !isYesterday(m)) return false
+    if (filterType === 'semana' && !isWeek(m)) return false
     if (q) {
       return (
         (m.productName || '').toLowerCase().includes(q) ||
@@ -367,6 +376,18 @@ export default function Movements({ products, combos, movements, onAdd }) {
           onClick={() => setFilterType('hoy')}
         >
           📅 Hoy ({todayMovements.length})
+        </button>
+        <button
+          className={`tab-btn ${filterType === 'ayer' ? 'active' : ''}`}
+          onClick={() => setFilterType('ayer')}
+        >
+          🕐 Ayer ({yesterdayMovements.length})
+        </button>
+        <button
+          className={`tab-btn ${filterType === 'semana' ? 'active' : ''}`}
+          onClick={() => setFilterType('semana')}
+        >
+          🗓️ Semana ({weekMovements.length})
         </button>
       </div>
 
