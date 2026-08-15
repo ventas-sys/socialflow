@@ -40,7 +40,7 @@ async function orders(req, res) {
   const fromParam = from ? `&order.date_created.from=${encodeURIComponent(from)}` : '';
   const raw = [];
   let offset = 0;
-  for (let page = 0; page < 40; page++) { // hasta 2000 órdenes por cuenta
+  for (let page = 0; page < 60; page++) { // hasta 3000 órdenes por cuenta (~300 envíos/día × 7 días)
     const url = `https://api.mercadolibre.com/orders/search?seller=${sellerId}&sort=date_desc&limit=50&offset=${offset}${fromParam}`;
     const r = await httpRequest('GET', url, auth);
     if (r.status !== 200) {
@@ -52,7 +52,31 @@ async function orders(req, res) {
     offset += 50;
   }
 
+  // Detalle de cada envío en PARALELO (lotes de 10) — secuencial tardaría minutos
   const shipCache = new Map();
+  const shipIds = [...new Set(raw.map(o => o.shipping?.id).filter(Boolean))];
+  const CONC = 10;
+  for (let i = 0; i < shipIds.length; i += CONC) {
+    await Promise.all(shipIds.slice(i, i + CONC).map(async (sid) => {
+      try {
+        const s = await httpRequest('GET', `https://api.mercadolibre.com/shipments/${sid}`, auth);
+        const b = s.body || {};
+        const ra = b.receiver_address || {};
+        shipCache.set(sid, {
+          logisticType: b.logistic_type || null,
+          shipmentStatus: b.status || null,       // pending/handling/ready_to_ship/shipped/delivered...
+          shipmentSubstatus: b.substatus || null,
+          recipient: ra.receiver_name || null,
+          address: [ra.address_line, ra.city?.name, ra.state?.name].filter(Boolean).join(', ') || null,
+          lat: ra.latitude != null ? Number(ra.latitude) : null,
+          lng: ra.longitude != null ? Number(ra.longitude) : null,
+        });
+      } catch {
+        shipCache.set(sid, { logisticType: null });
+      }
+    }));
+  }
+
   const out = [];
   for (const o of raw) {
     const items = (o.order_items || []).map(it => ({
@@ -62,25 +86,9 @@ async function orders(req, res) {
       quantity: it.quantity || 0,
     }));
     const shipmentId = o.shipping?.id || null;
-    let ship = { logisticType: null, recipient: null, address: null, lat: null, lng: null };
-    if (shipmentId) {
-      if (shipCache.has(shipmentId)) {
-        ship = shipCache.get(shipmentId);
-      } else {
-        const s = await httpRequest('GET', `https://api.mercadolibre.com/shipments/${shipmentId}`, auth);
-        const b = s.body || {};
-        const ra = b.receiver_address || {};
-        ship = {
-          logisticType: b.logistic_type || null,
-          shipmentStatus: b.status || null,       // pending/handling/ready_to_ship/shipped/delivered...
-          shipmentSubstatus: b.substatus || null,
-          recipient: ra.receiver_name || (o.buyer ? [o.buyer.first_name, o.buyer.last_name].filter(Boolean).join(' ') : null),
-          address: [ra.address_line, ra.city?.name, ra.state?.name].filter(Boolean).join(', ') || null,
-          lat: ra.latitude != null ? Number(ra.latitude) : null,
-          lng: ra.longitude != null ? Number(ra.longitude) : null,
-        };
-        shipCache.set(shipmentId, ship);
-      }
+    const ship = (shipmentId && shipCache.get(shipmentId)) || { logisticType: null };
+    if (!ship.recipient && o.buyer) {
+      ship.recipient = [o.buyer.first_name, o.buyer.last_name].filter(Boolean).join(' ') || null;
     }
     out.push({
       id: String(o.id),
