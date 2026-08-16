@@ -32,6 +32,7 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
 - **Movimientos**: tabs funcionales Todos/Entradas/Salidas/**Hoy/Ayer/Semana** + buscador + resumen entró/salió/neto; tarjetas con +verde/−rojo grande y SKU.
 - **MercadoLibre (solapa ML)**: 2 cuentas conectadas por OAuth — **FULL** = app "Uniproveedores MCP" (client 5731065254303938), **FERRE** = app "Publicacion-por-telegram" (914895574262615). Redirect URI = preview largo con `/` final. En la app SIEMPRE loguearse como admin; el navegador define qué cuenta ML se autoriza. Sincronizar ventas (vista previa → descuenta stock, excluye `fulfillment`, mapea SKU/MLA → combo → base, marca ml_orders), **cron diario 21:00 UTC (18hs AR)** en producción stock-inventario (env: CRON_EMAIL/CRON_PASSWORD = usuario Firebase cron@distribuidorauniverso.com; la service account key está bloqueada por política de org, por eso login email/password), botón "Probar automático ahora", "Publicaciones faltantes" (Excel de MLA sin cargar).
 - **Envíos (logística FLEX)**: ver bloque siguiente.
+- **📦 Empaquetado** (`src/components/Packing.jsx`): flujo guiado de armado. Escanea QR de la venta (mismo matching flexible que Envíos) → **Paso 1**: banner de bolsa por volumen ML (`dims` del envío; BAGS: verde ≤4.000 cm³ / blanca ≤12.000 / gris ≤30.000 / empaque especial — **límites estimados, calibrar con medidas reales**), aviso FRÁGIL si algún producto lo es (checkbox `fragile` nuevo en formulario de producto), checklist de artículos con foto/ubicación/cantidad (SKU combo se expande a productos base × cantidad). Al continuar pasa el envío a **Armado** automático. **Paso 2**: total de unidades gigante + checks de cantidades y papelitos de calificación/devolución. **Paso 3**: leyenda "pegá la etiqueta del lado LISO" + cuenta regresiva 6s que vuelve sola al escáner. Requiere que el envío tenga `items`/`dims` (los guarda el sync desde commit 75d6f6e; envíos anteriores muestran aviso — Vaciar+Traer una vez si se necesita el detalle en todos).
 - **Reportes** y Dashboard con mapa del depósito (settings, solo admin).
 
 ## Envíos — estado final
@@ -50,6 +51,9 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
 4. Envíos a bodega **Full** (descuento al enviar).
 5. Si se quiere usar el dominio corto para conectar ML: agregar `https://stock-inventario-sable.vercel.app/` como Redirect URI en ambas apps ML y reconectar.
 6. Valores de zonas FLEX editables desde la app (hoy constantes).
+7. **Calibrar bolsas de Empaquetado**: el usuario debe pasar medidas reales de bolsa verde/blanca/gris → ajustar `BAGS` en Packing.jsx.
+8. **Verificar el cron de las 18hs** tras el fix de paralelización (5d7314d): el usuario debe abrir `https://stock-inventario-sable.vercel.app/api/ml/cron` y pegar el JSON, o mirar View Logs del cron en stock-inventario.
+9. Marcar productos frágiles (checkbox nuevo en Inventario) para que Empaquetado avise.
 
 ## Reglas de negocio clave (definidas por el usuario)
 - Stock: descuenta TODO lo despachado desde el depósito propio (FLEX+correo+retiro), NUNCA `fulfillment` (Full ya salió al enviarse a bodega). Igual para ambas cuentas. 1 vez/día después de las 18hs. Stock puede quedar negativo.
