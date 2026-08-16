@@ -3,14 +3,17 @@ import Scanner from './Scanner'
 import LazyThumb from './LazyThumb'
 import './Packing.css'
 
-// Bolsas según el volumen del paquete (cm³). AJUSTAR los límites cuando el
-// usuario pase las medidas reales de cada bolsa.
+// Medidas reales de cada bolsa (ancho × largo en cm, dadas por el usuario):
+// verde 20×30, blanca 30×40, gris 40×50. Si no entra en la gris → empaque especial.
 const BAGS = [
-  { key: 'verde',    label: 'BOLSA VERDE',      bg: '#16a34a', fg: '#fff', maxVol: 4000 },
-  { key: 'blanca',   label: 'BOLSA BLANCA',     bg: '#f9fafb', fg: '#1f2937', maxVol: 12000 },
-  { key: 'gris',     label: 'BOLSA GRIS',       bg: '#6b7280', fg: '#fff', maxVol: 30000 },
-  { key: 'especial', label: 'EMPAQUE ESPECIAL', bg: '#7c3aed', fg: '#fff', maxVol: Infinity },
+  { key: 'verde',    label: 'BOLSA VERDE (20×30)',  bg: '#16a34a', fg: '#fff', w: 20, l: 30 },
+  { key: 'blanca',   label: 'BOLSA BLANCA (30×40)', bg: '#f9fafb', fg: '#1f2937', w: 30, l: 40 },
+  { key: 'gris',     label: 'BOLSA GRIS (40×50)',   bg: '#6b7280', fg: '#fff', w: 40, l: 50 },
+  { key: 'especial', label: 'EMPAQUE ESPECIAL',     bg: '#7c3aed', fg: '#fff' },
 ]
+
+// Margen para poder envolver y cerrar la bolsa
+const BAG_SLACK = 2
 
 const parseShipmentCode = (raw) => {
   const text = String(raw).trim()
@@ -19,15 +22,29 @@ const parseShipmentCode = (raw) => {
   return m ? m[1] : text.slice(0, 40)
 }
 
-// Volumen en cm³ desde las dimensiones que da ML (objeto o texto "13x37x53,1350")
-const volumeOf = (dims) => {
+// Dimensiones del paquete en cm desde lo que da ML (objeto o texto "13x37x53,1350"),
+// ordenadas de mayor a menor
+const dimsOf = (dims) => {
   if (!dims) return null
+  let a, b, c
   if (typeof dims === 'string') {
-    const m = dims.match(/(\d+)\s*x\s*(\d+)\s*x\s*(\d+)/i)
-    return m ? (+m[1]) * (+m[2]) * (+m[3]) : null
+    const m = dims.match(/(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)/i)
+    if (!m) return null
+    ;[a, b, c] = [+m[1], +m[2], +m[3]]
+  } else {
+    ;[a, b, c] = [Number(dims.height), Number(dims.width), Number(dims.length)]
   }
-  const h = Number(dims.height), w = Number(dims.width), l = Number(dims.length)
-  return h > 0 && w > 0 && l > 0 ? h * w * l : null
+  if (!(a > 0 && b > 0 && c > 0)) return null
+  return [a, b, c].sort((x, y) => y - x) // [largo, ancho, alto]
+}
+
+// Una bolsa plana de w×l sirve si el paquete envuelto entra con margen:
+// (ancho + alto) ≤ ancho bolsa y (largo + alto) ≤ largo bolsa
+const bagFor = (dims) => {
+  const d = dimsOf(dims)
+  if (!d) return null
+  const [L, W, H] = d
+  return BAGS.find(b => !b.w || (W + H + BAG_SLACK <= b.w && L + H + BAG_SLACK <= b.l))
 }
 
 export default function Packing({ products, combos, shipments, loadPhotos, onUpdateShipment }) {
@@ -83,8 +100,7 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
 
   const totalUnits = lines.reduce((s, l) => s + l.qty, 0)
   const anyFragile = lines.some(l => l.fragile)
-  const vol = volumeOf(shipment?.dims)
-  const bag = vol != null ? BAGS.find(b => vol <= b.maxVol) : null
+  const bag = bagFor(shipment?.dims)
   const allChecked = lines.length > 0 && lines.every(l => checks[l.key])
 
   const reset = (openScanner = true) => {
@@ -161,7 +177,7 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
                 🛍️ {bag.label}
               </div>
             ) : (
-              <div className="pk-bag pk-bag-unknown">🛍️ Sin volumen de ML — elegí la bolsa a criterio</div>
+              <div className="pk-bag pk-bag-unknown">🛍️ Sin medidas de ML — elegí la bolsa a criterio</div>
             )}
             {anyFragile && <div className="pk-fragile">⚠️ FRÁGIL — embalar con cuidado</div>}
           </div>
