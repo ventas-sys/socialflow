@@ -56,7 +56,21 @@ async function fetchOrders(token, fromISO) {
     if (results.length < 50) break;
     offset += 50;
   }
+  // logistic_type de cada envío en PARALELO (lotes de 10): secuencial con
+  // ~300 ventas/día superaba el tiempo máximo de la función y el cron moría
   const shipCache = new Map();
+  const shipIds = [...new Set(raw.map(o => o.shipping?.id).filter(Boolean))];
+  const CONC = 10;
+  for (let i = 0; i < shipIds.length; i += CONC) {
+    await Promise.all(shipIds.slice(i, i + CONC).map(async (sid) => {
+      try {
+        const s = await httpRequest('GET', `https://api.mercadolibre.com/shipments/${sid}`, auth);
+        shipCache.set(sid, s.body?.logistic_type || null);
+      } catch {
+        shipCache.set(sid, null);
+      }
+    }));
+  }
   const out = [];
   for (const o of raw) {
     const items = (o.order_items || []).map(it => ({
@@ -64,17 +78,8 @@ async function fetchOrders(token, fromISO) {
       sku: it.item?.seller_sku || it.item?.seller_custom_field || null,
       quantity: it.quantity || 0,
     }));
-    let logisticType = null;
     const sid = o.shipping?.id;
-    if (sid) {
-      if (shipCache.has(sid)) logisticType = shipCache.get(sid);
-      else {
-        const s = await httpRequest('GET', `https://api.mercadolibre.com/shipments/${sid}`, auth);
-        logisticType = s.body?.logistic_type || null;
-        shipCache.set(sid, logisticType);
-      }
-    }
-    out.push({ id: String(o.id), logisticType, items });
+    out.push({ id: String(o.id), logisticType: (sid && shipCache.get(sid)) || null, items });
   }
   return out;
 }
@@ -124,10 +129,18 @@ export default async function handler(req, res) {
       const names = new Map();
       const processed = [];
       let skippedFull = 0;
-      for (const o of orders) {
-        if (!isDescontable(o.logisticType)) { skippedFull++; continue; }
-        const seen = await getDoc(doc(db, 'ml_orders', `${key}_${o.id}`));
-        if (seen.exists()) continue;
+      // Chequear en PARALELO qué órdenes ya fueron procesadas
+      const candidates = orders.filter(o => isDescontable(o.logisticType));
+      skippedFull = orders.length - candidates.length;
+      const seenSet = new Set();
+      for (let i = 0; i < candidates.length; i += 25) {
+        await Promise.all(candidates.slice(i, i + 25).map(async (o) => {
+          const seen = await getDoc(doc(db, 'ml_orders', `${key}_${o.id}`));
+          if (seen.exists()) seenSet.add(o.id);
+        }));
+      }
+      for (const o of candidates) {
+        if (seenSet.has(o.id)) continue;
         for (const it of o.items) {
           const m = findByRef(it.sku) || findByRef(it.mla);
           if (!m) continue;
