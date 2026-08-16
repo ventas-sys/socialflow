@@ -18,6 +18,7 @@ const EMPTY_FORM = {
   quantity: '0',
   location: '',
   stockType: '',
+  fragile: false,
   description: '',
   photos: [],
 }
@@ -106,6 +107,7 @@ export default function Inventory({
       quantity: product.quantity ?? '0',
       location: product.location || '',
       stockType: product.stockType || '',
+      fragile: !!product.fragile,
       description: product.description || '',
       photos: [],
     })
@@ -888,6 +890,18 @@ export default function Inventory({
                   ))}
                 </select>
               </div>
+            </div>
+
+            <div className="form-group">
+              <label className="fragile-check">
+                <input
+                  type="checkbox"
+                  checked={!!formData.fragile}
+                  onChange={e => setFormData({ ...formData, fragile: e.target.checked })}
+                  disabled={loading}
+                />
+                ⚠️ Producto FRÁGIL (se avisa al empaquetar)
+              </label>
             </div>
 
             <div className="form-group">

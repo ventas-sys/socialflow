@@ -28,6 +28,7 @@ import Combos from './components/Combos'
 import Movements from './components/Movements'
 import Reports from './components/Reports'
 import Shipments from './components/Shipments'
+import Packing from './components/Packing'
 import MercadoLibre from './components/MercadoLibre'
 import Auth from './components/Auth'
 import './App.css'
@@ -801,6 +802,12 @@ export default function App() {
           🚚 Envíos
         </button>
         <button
+          className={`nav-btn ${currentTab === 'packing' ? 'active' : ''}`}
+          onClick={() => setCurrentTab('packing')}
+        >
+          📦 Empaque
+        </button>
+        <button
           className={`nav-btn ${currentTab === 'mercadolibre' ? 'active' : ''}`}
           onClick={() => setCurrentTab('mercadolibre')}
         >
@@ -885,6 +892,15 @@ export default function App() {
                 onClearShipments={clearShipments}
                 onAddCourier={addCourier}
                 onRemoveCourier={removeCourier}
+              />
+            )}
+            {currentTab === 'packing' && (
+              <Packing
+                products={products}
+                combos={combos}
+                shipments={shipments}
+                loadPhotos={loadPhotos}
+                onUpdateShipment={updateShipment}
               />
             )}
             {currentTab === 'mercadolibre' && (

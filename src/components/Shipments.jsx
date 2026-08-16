@@ -117,30 +117,34 @@ export default function Shipments({
         }).then(x => x.json())
         if (!r.ok) continue
         diag.total += r.orders.length
+        // Agrupar por compra (pack) juntando los artículos de todas sus órdenes
+        const groups = new Map()
         for (const o of r.orders) {
           // SOLO FLEX / Turbo (self_service): lo que repartimos con moto
           if (o.logisticType !== 'self_service') continue
           diag.flex++
           // Cancelados no se traen; el resto de los últimos 7 días SÍ
-          // (incluidos entregados, para ver la evolución del reparto)
           if (['cancelled', 'to_be_agreed'].includes(o.shipmentStatus)) { diag.cerrados++; continue }
+          const gkey = String(o.packId || o.shipmentId || '')
+          if (!gkey || seen.has(gkey)) continue
+          const g = groups.get(gkey)
+          if (g) g.items = [...(g.items || []), ...(o.items || [])]
+          else groups.set(gkey, { ...o, items: [...(o.items || [])] })
+        }
+        for (const o of groups.values()) {
           const ageMs = Date.now() - new Date(o.date).getTime()
-          // Estado inicial según ML y antigüedad:
-          //  delivered → Entregado
-          //  shipped ≤48hs → En camino; más viejo o not_delivered → Demorado
-          //  abierto ≤48hs → Pendiente; abierto más viejo → Demorado
+          // Estado inicial según ML y antigüedad
           let status
           if (o.shipmentStatus === 'delivered') status = 'entregado'
           else if (o.shipmentStatus === 'shipped') status = ageMs <= H48 ? 'camino' : 'demorado'
           else if (o.shipmentStatus === 'not_delivered') status = 'demorado'
           else status = ageMs <= H48 ? 'pendiente' : 'demorado'
-          const gkey = String(o.packId || o.shipmentId || '')
-          if (!gkey || seen.has(gkey)) continue // agrupa la compra del cliente
-          seen.add(gkey)
+          seen.add(String(o.packId || o.shipmentId))
           const id = await onAddShipment({
             code: String(o.shipmentId || o.packId), packId: o.packId || null,
             recipient: o.recipient || '', address: o.address || '',
             lat: o.lat ?? null, lng: o.lng ?? null, status, cost: 0, account: key,
+            items: o.items || [], dims: o.dimensions || null,
             ...(status === 'camino' ? { assignedAt: new Date(o.date) } : {}),
             ...(status === 'demorado' ? { demoradoAt: new Date() } : {}),
             ...(status === 'entregado' ? { deliveredAt: new Date(o.date) } : {}),

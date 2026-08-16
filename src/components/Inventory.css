@@ -724,6 +724,16 @@
   margin-left: 0.25rem;
 }
 
+.fragile-check {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.fragile-check input { width: 20px; height: 20px; accent-color: #dc2626; }
+
 /* Salud de stock (días restantes según consumo de 2 meses) */
 .health {
   display: inline-block;

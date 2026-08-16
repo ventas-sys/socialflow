@@ -66,6 +66,7 @@ async function orders(req, res) {
           logisticType: b.logistic_type || null,
           shipmentStatus: b.status || null,       // pending/handling/ready_to_ship/shipped/delivered...
           shipmentSubstatus: b.substatus || null,
+          dimensions: b.dimensions || null,       // alto/ancho/largo (para elegir bolsa al empaquetar)
           recipient: ra.receiver_name || null,
           address: [ra.address_line, ra.city?.name, ra.state?.name].filter(Boolean).join(', ') || null,
           lat: ra.latitude != null ? Number(ra.latitude) : null,
@@ -99,6 +100,7 @@ async function orders(req, res) {
       shipmentSubstatus: ship.shipmentSubstatus || null,
       shipmentId: shipmentId != null ? String(shipmentId) : null,
       packId: o.pack_id != null ? String(o.pack_id) : null, // agrupa una compra de varios productos
+      dimensions: ship.dimensions || null,
       recipient: ship.recipient,
       address: ship.address,
       lat: ship.lat,
