@@ -48,7 +48,7 @@ async function fetchOrders(token, fromISO) {
   const sellerId = me.body.id;
   const raw = [];
   let offset = 0;
-  for (let p = 0; p < 20; p++) {
+  for (let p = 0; p < 40; p++) {
     const url = `https://api.mercadolibre.com/orders/search?seller=${sellerId}&sort=date_desc&limit=50&offset=${offset}&order.date_created.from=${encodeURIComponent(fromISO)}`;
     const r = await httpRequest('GET', url, auth);
     const results = r.body?.results || [];
@@ -114,9 +114,11 @@ export default async function handler(req, res) {
       return null;
     };
 
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    const fromISO = start.toISOString();
+    // Ventana móvil de 48hs. Antes se usaba "medianoche del servidor" (00:00 UTC
+    // = 21hs AR del día anterior) y las ventas de 18 a 21hs AR quedaban fuera de
+    // la corrida del día Y de la siguiente: se perdían para siempre. Con 48hs se
+    // recuperan; ml_orders evita descontar dos veces la misma orden.
+    const fromISO = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
     const summary = {};
 
     for (const key of ['full', 'ferre']) {
@@ -180,7 +182,12 @@ export default async function handler(req, res) {
         await batch.commit();
       }
       await setDoc(doc(db, 'ml_accounts', key), { lastSyncAt: Timestamp.now() }, { merge: true });
-      summary[key] = { ordenes: processed.length, productos: ids.length, salteadasFull: skippedFull };
+      const unidades = ids.reduce((s, pid) => s + Math.abs(deltas.get(pid)), 0);
+      summary[key] = {
+        enVentana48hs: orders.length, salteadasFull: skippedFull,
+        yaProcesadas: seenSet.size, ordenesNuevas: processed.length,
+        productos: ids.length, unidadesDescontadas: unidades,
+      };
     }
 
     return res.status(200).json({ ok: true, at: new Date().toISOString(), summary });

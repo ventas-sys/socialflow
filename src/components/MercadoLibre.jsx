@@ -220,7 +220,8 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
       if (!r.ok) throw new Error(r.error || 'Error')
       const parts = Object.entries(r.summary || {}).map(([k, v]) =>
         typeof v === 'string' ? `${k.toUpperCase()}: ${v}` :
-        `${k.toUpperCase()}: ${v.ordenes} ventas, ${v.productos} productos${v.salteadasFull ? `, ${v.salteadasFull} de Full salteadas` : ''}`
+        `${k.toUpperCase()}: ${v.enVentana48hs} ventas en 48hs → ${v.ordenesNuevas} nuevas descontadas (${v.unidadesDescontadas} unidades de ${v.productos} productos)` +
+        `${v.salteadasFull ? `, ${v.salteadasFull} de Full salteadas` : ''}${v.yaProcesadas ? `, ${v.yaProcesadas} ya procesadas` : ''}`
       )
       setCronMsg('✅ ' + parts.join(' · '))
     } catch (err) {
