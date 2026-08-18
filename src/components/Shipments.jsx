@@ -17,11 +17,13 @@ const STATUS = {
 const ORDER = ['pendiente', 'armado', 'camino', 'entregado', 'demorado', 'archivado']
 
 // Zonas FLEX de MercadoLibre: lo que ML bonifica por cada envío según la zona
+// pay = lo que bonifica ML por zona · motoPay = lo que le pagamos al motoquero
+// (por ahora solo definido para cercana; las demás se cargan a mano)
 const ZONES = {
-  cercana:   { label: 'Cercana', pay: 4490 },
-  media:     { label: 'Media dist.', pay: 6490 },
-  lejana:    { label: 'Lejana', pay: 8690 },
-  muylejana: { label: 'Muy lejana', pay: 9990 },
+  cercana:   { label: 'Cercana', pay: 4490, motoPay: 2750 },
+  media:     { label: 'Media dist.', pay: 6490, motoPay: 0 },
+  lejana:    { label: 'Lejana', pay: 8690, motoPay: 0 },
+  muylejana: { label: 'Muy lejana', pay: 9990, motoPay: 0 },
 }
 // Zona automática según las coordenadas que da ML. Todo Capital = cercana
 // (polígono aproximado de CABA: Gral. Paz + Riachuelo + costa). Fuera de CABA,
@@ -57,6 +59,12 @@ const zoneFromCoords = (lat, lng) => {
 }
 const effZone = (s) => s.zone || zoneFromCoords(s.lat, s.lng)
 const zonePay = (s) => { const z = effZone(s); return z && ZONES[z] ? ZONES[z].pay : 0 }
+// Pago al motoquero: lo cargado a mano pisa el valor automático de la zona
+const motoPay = (s) => {
+  if (s.courierPay != null && s.courierPay !== '') return Number(s.courierPay) || 0
+  const z = effZone(s)
+  return (z && ZONES[z]?.motoPay) || 0
+}
 const fmtMoney = (n) => '$' + (Number(n) || 0).toLocaleString('es-AR')
 
 const parseShipmentCode = (raw) => {
@@ -398,7 +406,7 @@ export default function Shipments({
       r.s.status === 'entregado' || (r.s.status === 'archivado' && r.s.deliveredAt)
     )
     const cobroML = reportRows.reduce((sum, r) => sum + zonePay(r.s), 0)
-    const pagoMoto = reportRows.reduce((sum, r) => sum + (Number(r.s.courierPay) || 0), 0)
+    const pagoMoto = reportRows.reduce((sum, r) => sum + motoPay(r.s), 0)
     const pagoComprador = reportRows.reduce((sum, r) => sum + (Number(r.s.buyerPay) || 0), 0)
     const demoras = entregados.filter(r => r.demoraMs > 0).map(r => r.demoraMs)
     const demoraProm = demoras.length ? demoras.reduce((a, b) => a + b, 0) / demoras.length : 0
@@ -415,7 +423,7 @@ export default function Shipments({
         demoraMs ? Math.round(demoraMs / 60000) : '',
         effZone(s) && ZONES[effZone(s)] ? ZONES[effZone(s)].label : '',
         zonePay(s),
-        Number(s.courierPay) || 0,
+        motoPay(s),
         Number(s.buyerPay) || 0,
       ])
     })
@@ -659,7 +667,7 @@ export default function Shipments({
                       <td>
                         <input
                           type="number" min="0" className="rep-input"
-                          defaultValue={s.courierPay || ''}
+                          defaultValue={s.courierPay != null && s.courierPay !== '' ? s.courierPay : (motoPay(s) || '')}
                           placeholder="$"
                           onBlur={e => onUpdateShipment(s.id, { courierPay: parseFloat(e.target.value) || 0 })}
                         />
