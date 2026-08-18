@@ -23,7 +23,40 @@ const ZONES = {
   lejana:    { label: 'Lejana', pay: 8690 },
   muylejana: { label: 'Muy lejana', pay: 9990 },
 }
-const zonePay = (s) => (s.zone && ZONES[s.zone] ? ZONES[s.zone].pay : 0)
+// Zona automática según las coordenadas que da ML. Todo Capital = cercana
+// (polígono aproximado de CABA: Gral. Paz + Riachuelo + costa). Fuera de CABA,
+// por anillos de distancia al Obelisco: 1er cordón ≈ media, 2do ≈ lejana,
+// más allá ≈ muy lejana. Es sugerencia: elegir a mano en el reporte la pisa.
+const CABA_POLY = [
+  [-34.5265, -58.4680], [-34.5420, -58.4995], [-34.5960, -58.5310],
+  [-34.6420, -58.5300], [-34.6870, -58.4710], [-34.7050, -58.4590],
+  [-34.6590, -58.4100], [-34.6390, -58.3560], [-34.6380, -58.3310],
+  [-34.6050, -58.3400], [-34.5760, -58.3560], [-34.5430, -58.4180],
+]
+const inCaba = (lat, lng) => {
+  let inside = false
+  for (let i = 0, j = CABA_POLY.length - 1; i < CABA_POLY.length; j = i++) {
+    const [yi, xi] = CABA_POLY[i], [yj, xj] = CABA_POLY[j]
+    if ((yi > lat) !== (yj > lat) && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside
+  }
+  return inside
+}
+const kmFromObelisco = (lat, lng) => {
+  const R = 6371, rad = Math.PI / 180
+  const dLat = (lat - (-34.6037)) * rad, dLng = (lng - (-58.3816)) * rad
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat * rad) * Math.cos(-34.6037 * rad) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(a))
+}
+const zoneFromCoords = (lat, lng) => {
+  if (!(Number(lat) && Number(lng))) return ''
+  if (inCaba(lat, lng)) return 'cercana'
+  const km = kmFromObelisco(lat, lng)
+  if (km <= 20) return 'media'
+  if (km <= 38) return 'lejana'
+  return 'muylejana'
+}
+const effZone = (s) => s.zone || zoneFromCoords(s.lat, s.lng)
+const zonePay = (s) => { const z = effZone(s); return z && ZONES[z] ? ZONES[z].pay : 0 }
 const fmtMoney = (n) => '$' + (Number(n) || 0).toLocaleString('es-AR')
 
 const parseShipmentCode = (raw) => {
@@ -215,6 +248,24 @@ export default function Shipments({
   // El mapa sigue al filtro: con un estado elegido muestra SOLO ese estado;
   // en "Todos" muestra los activos del día (pendiente, armado, en camino).
   const startOfToday = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime() })()
+
+  // Cantidades del día por motoquero (para el filtro): asignados hoy,
+  // cuántos ya entregó y cuántos le quedan pendientes
+  const courierDayStats = useMemo(() => {
+    const m = new Map()
+    shipments.forEach(s => {
+      if (!s.courierId) return
+      const asignadoHoy = toMillis(s.assignedAt) >= startOfToday
+      const entregadoHoy = toMillis(s.deliveredAt) >= startOfToday
+      if (!asignadoHoy && !entregadoHoy) return
+      const st = m.get(s.courierId) || { asig: 0, entreg: 0, pend: 0 }
+      st.asig++
+      if (['entregado', 'archivado'].includes(s.status) || entregadoHoy) st.entreg++
+      else st.pend++
+      m.set(s.courierId, st)
+    })
+    return m
+  }, [shipments, startOfToday])
   const mapItems = useMemo(() => {
     const q = searchShip.trim().toLowerCase()
     return shipments.filter(s => {
@@ -275,11 +326,12 @@ export default function Shipments({
   const assignCourier = async (s, courierId) => {
     const c = couriers.find(x => x.id === courierId)
     const patch = { courierId: courierId || '', courierName: c?.name || '' }
-    // Asignar motoquero pasa el envío a "En camino"
-    if (courierId && ['pendiente', 'armado', 'demorado'].includes(s.status || 'pendiente')) {
+    // Asignar motoquero pasa el envío a "En camino" — pero un DEMORADO sigue
+    // demorado (solo se registra quién lo tiene), si no desaparece del filtro
+    if (courierId && ['pendiente', 'armado'].includes(s.status || 'pendiente')) {
       patch.status = 'camino'
-      if (!s.assignedAt) patch.assignedAt = new Date()
     }
+    if (courierId && !s.assignedAt) patch.assignedAt = new Date()
     try {
       await onUpdateShipment(s.id, patch)
     } catch (e) {
@@ -361,7 +413,7 @@ export default function Shipments({
         salio ? new Date(salio).toLocaleString('es-AR') : '',
         entrego ? new Date(entrego).toLocaleString('es-AR') : '',
         demoraMs ? Math.round(demoraMs / 60000) : '',
-        s.zone && ZONES[s.zone] ? ZONES[s.zone].label : '',
+        effZone(s) && ZONES[effZone(s)] ? ZONES[effZone(s)].label : '',
         zonePay(s),
         Number(s.courierPay) || 0,
         Number(s.buyerPay) || 0,
@@ -470,7 +522,14 @@ export default function Shipments({
             {couriers.length > 0 && (
               <select value={courierFilter} onChange={e => setCourierFilter(e.target.value)} className="courier-filter">
                 <option value="all">Todos los motoqueros</option>
-                {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {couriers.map(c => {
+                  const st = courierDayStats.get(c.id)
+                  return (
+                    <option key={c.id} value={c.id}>
+                      {c.name}{st ? ` — hoy ${st.asig} (✅ ${st.entreg} · 🛵 ${st.pend})` : ' — hoy 0'}
+                    </option>
+                  )
+                })}
               </select>
             )}
           </div>
@@ -587,7 +646,7 @@ export default function Shipments({
                       <td>
                         <select
                           className="rep-zone"
-                          value={s.zone || ''}
+                          value={effZone(s) || ''}
                           onChange={e => onUpdateShipment(s.id, { zone: e.target.value })}
                         >
                           <option value="">— zona —</option>
