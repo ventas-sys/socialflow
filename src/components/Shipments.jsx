@@ -146,6 +146,9 @@ export default function Shipments({
     const diag = { total: 0, flex: 0, cerrados: 0 }
     let nPend = 0, nCamino = 0, nDemorado = 0, nEntregado = 0
     const H48 = 48 * 3600 * 1000
+    // Estado actual en ML de cada envío (por shipmentId y packId), para
+    // refrescar también los que ya están cargados en el tablero
+    const mlStatus = new Map()
     try {
       for (const key of keys) {
         const token = await ensureToken(key)
@@ -164,6 +167,9 @@ export default function Shipments({
           // SOLO FLEX / Turbo (self_service): lo que repartimos con moto
           if (o.logisticType !== 'self_service') continue
           diag.flex++
+          const info = { st: o.shipmentStatus, sub: o.shipmentSubstatus }
+          if (o.shipmentId) mlStatus.set(String(o.shipmentId), info)
+          if (o.packId) mlStatus.set(String(o.packId), info)
           // Cancelados no se traen; el resto de los últimos 7 días SÍ
           if (['cancelled', 'to_be_agreed'].includes(o.shipmentStatus)) { diag.cerrados++; continue }
           const gkey = String(o.packId || o.shipmentId || '')
@@ -199,9 +205,35 @@ export default function Shipments({
           }
         }
       }
-      if (created || !silent) setSyncMsg(
+      // Refrescar los YA cargados según lo que dice ML: si ML los marca
+      // entregados pasan a Entregado, si no se entregaron a Demorado, y un
+      // "en camino" con más de 48hs también queda Demorado. Lo gestionado a
+      // mano (armado, motoquero) no se toca.
+      let updEnt = 0, updDem = 0
+      const updates = []
+      for (const s of (shipmentsRef.current || [])) {
+        const st = s.status || 'pendiente'
+        if (['entregado', 'archivado'].includes(st)) continue
+        const info = mlStatus.get(String(s.code)) || (s.packId && mlStatus.get(String(s.packId)))
+        if (!info) continue
+        if (info.st === 'delivered') {
+          updates.push([s.id, { status: 'entregado', deliveredAt: new Date() }]); updEnt++
+        } else if (info.st === 'not_delivered' && st !== 'demorado') {
+          updates.push([s.id, { status: 'demorado', demoradoAt: new Date() }]); updDem++
+        } else if (info.st === 'shipped' && st === 'camino' &&
+                   toMillis(s.assignedAt) && Date.now() - toMillis(s.assignedAt) > H48) {
+          updates.push([s.id, { status: 'demorado', demoradoAt: new Date() }]); updDem++
+        }
+      }
+      for (let i = 0; i < updates.length; i += 20) {
+        await Promise.all(updates.slice(i, i + 20).map(([id, patch]) =>
+          onUpdateShipment(id, patch).catch(() => {})))
+      }
+
+      if (created || updEnt || updDem || !silent) setSyncMsg(
         `✅ ${created} envíos nuevos: ${nPend} pendientes, ${nCamino} en camino, ` +
-        `${nEntregado} entregados, ${nDemorado} demorados. (${diag.flex} FLEX de ${diag.total} ventas)`
+        `${nEntregado} entregados, ${nDemorado} demorados. (${diag.flex} FLEX de ${diag.total} ventas)` +
+        (updEnt || updDem ? ` · 🔄 Según ML: ${updEnt} pasaron a entregado y ${updDem} a demorado` : '')
       )
     } catch (e) {
       if (!silent) setSyncMsg('❌ ' + e.message)
