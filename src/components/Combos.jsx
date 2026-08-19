@@ -58,7 +58,7 @@ export function comboAvailable(combo, products) {
   return available === Infinity ? 0 : Math.max(0, available)
 }
 
-export default function Combos({ combos, products, onAdd, onUpdate, onDelete, onImport, editRequest, loadPhotos }) {
+export default function Combos({ combos, products, onAdd, onUpdate, onDelete, onImport, editRequest, loadPhotos, canEdit = true }) {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [formData, setFormData] = useState(EMPTY_FORM)
@@ -505,9 +505,11 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
             style={{ display: 'none' }}
             onChange={handleImportFile}
           />
-          <button onClick={downloadTemplate} className="btn-outline" title="Excel de ejemplo para cargar combos">
-            📄 Plantilla
-          </button>
+          {canEdit && (
+            <button onClick={downloadTemplate} className="btn-outline" title="Excel de ejemplo para cargar combos">
+              📄 Plantilla
+            </button>
+          )}
           <button
             onClick={exportCombos}
             className="btn-outline"
@@ -516,22 +518,26 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
           >
             {exporting ? '⏳ Exportando...' : '⬆️ Exportar'}
           </button>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="btn-import"
-            disabled={importing}
-          >
-            {importing ? '⏳ Importando...' : '📥 Importar Excel'}
-          </button>
-          <button
-            onClick={() => {
-              resetForm()
-              setShowForm(!showForm)
-            }}
-            className="btn-add"
-          >
-            {showForm ? '✕ Cancelar' : '+ Nuevo Combo'}
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="btn-import"
+              disabled={importing}
+            >
+              {importing ? '⏳ Importando...' : '📥 Importar Excel'}
+            </button>
+          )}
+          {canEdit && (
+            <button
+              onClick={() => {
+                resetForm()
+                setShowForm(!showForm)
+              }}
+              className="btn-add"
+            >
+              {showForm ? '✕ Cancelar' : '+ Nuevo Combo'}
+            </button>
+          )}
         </div>
       </div>
 

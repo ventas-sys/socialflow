@@ -191,6 +191,11 @@
 
 /* Responsive */
 @media (max-width: 768px) {
+  /* Elementos solo de PC (ej: solapa 👥 Usuarios) */
+  .pc-only {
+    display: none !important;
+  }
+
   .app-header {
     flex-direction: column;
     gap: 1rem;

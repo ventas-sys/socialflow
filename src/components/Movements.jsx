@@ -11,7 +11,7 @@ const EMPTY_FORM = {
   reference: '',
 }
 
-export default function Movements({ products, combos, movements, onAdd }) {
+export default function Movements({ products, combos, movements, onAdd, canEdit = true }) {
   const [showForm, setShowForm] = useState(false)
   const [showScanner, setShowScanner] = useState(false)
   const [scanMessage, setScanMessage] = useState('')
@@ -212,12 +212,16 @@ export default function Movements({ products, combos, movements, onAdd }) {
           <p>Registra entradas y salidas de mercancía</p>
         </div>
         <div className="header-actions">
-          <button onClick={() => setShowScanner(true)} className="btn-scan">
-            📷 Escanear QR
-          </button>
-          <button onClick={() => setShowForm(!showForm)} className="btn-add">
-            {showForm ? '✕ Cancelar' : '+ Nuevo Movimiento'}
-          </button>
+          {canEdit && (
+            <button onClick={() => setShowScanner(true)} className="btn-scan">
+              📷 Escanear QR
+            </button>
+          )}
+          {canEdit && (
+            <button onClick={() => setShowForm(!showForm)} className="btn-add">
+              {showForm ? '✕ Cancelar' : '+ Nuevo Movimiento'}
+            </button>
+          )}
         </div>
       </div>
 

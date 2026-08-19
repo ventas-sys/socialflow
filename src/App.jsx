@@ -30,6 +30,7 @@ import Reports from './components/Reports'
 import Shipments from './components/Shipments'
 import Packing from './components/Packing'
 import MercadoLibre from './components/MercadoLibre'
+import Users, { PERM_TABS } from './components/Users'
 import Auth from './components/Auth'
 import './App.css'
 
@@ -56,6 +57,21 @@ export default function App() {
   const photoCache = useRef(new Map())
 
   const isAdmin = user?.email === ADMIN_EMAIL
+
+  // Permisos del usuario logueado (documento members/{email}). El master ve
+  // y modifica todo; los ayudantes solo las solapas tildadas en 👥 Usuarios.
+  const [myPerms, setMyPerms] = useState(null)
+  const canSee = (tab) => isAdmin || (myPerms?.tabs?.[tab] !== false)
+  const canEdit = isAdmin || (myPerms?.canEdit !== false)
+
+  // Si la solapa actual quedó prohibida, saltar a la primera permitida
+  useEffect(() => {
+    if (isAdmin || !myPerms?.tabs) return
+    if (currentTab !== 'users' && myPerms.tabs[currentTab] === false) {
+      const first = PERM_TABS.find(t => myPerms.tabs[t.key] !== false)
+      if (first) setCurrentTab(first.key)
+    }
+  }, [myPerms, currentTab, isAdmin])
 
   // Consumo (salidas) de los últimos 2 meses por producto → estimar días de stock
   const consumption = useMemo(() => computeConsumption(movements), [movements])
@@ -95,6 +111,45 @@ export default function App() {
       }
     })
     return unsubscribe
+  }, [])
+
+  // La PWA en celulares quedaba con versiones viejas: se chequea version.json
+  // (fuera del caché) al volver la app al frente y cada 10 min; si hay versión
+  // nueva se actualiza el service worker y se recarga sola (1 vez por minuto
+  // como mucho, para no entrar en loop si algo falla).
+  useEffect(() => {
+    const reload = () => {
+      const last = Number(sessionStorage.getItem('verReloadAt') || 0)
+      if (Date.now() - last < 60_000) return
+      sessionStorage.setItem('verReloadAt', String(Date.now()))
+      window.location.reload()
+    }
+    navigator.serviceWorker?.addEventListener?.('controllerchange', reload)
+    const check = async () => {
+      try {
+        const r = await fetch('/version.json?t=' + Date.now(), { cache: 'no-store' })
+        if (!r.ok) return
+        const { version } = await r.json()
+        if (version && version !== __APP_VERSION__) {
+          const reg = await navigator.serviceWorker?.getRegistration?.()
+          if (reg) {
+            await reg.update().catch(() => {})
+            setTimeout(reload, 4000) // por si controllerchange no llega a dispararse
+          } else {
+            reload()
+          }
+        }
+      } catch {}
+    }
+    const onVisible = () => { if (!document.hidden) check() }
+    document.addEventListener('visibilitychange', onVisible)
+    const t = setInterval(check, 10 * 60 * 1000)
+    check()
+    return () => {
+      clearInterval(t)
+      document.removeEventListener('visibilitychange', onVisible)
+      navigator.serviceWorker?.removeEventListener?.('controllerchange', reload)
+    }
   }, [])
 
   // Retorno del OAuth de MercadoLibre: la URL vuelve con ?code=&state=<cuenta>.
@@ -249,6 +304,12 @@ export default function App() {
       if (currentUser.email === ADMIN_EMAIL) {
         const membersSnap = await getDocs(collection(db, 'members'))
         setMembers(membersSnap.docs.map(d => ({ email: d.id, ...d.data() })))
+      } else {
+        // Ayudante: cargar sus permisos (solapas visibles y si puede modificar)
+        try {
+          const me = await getDoc(doc(db, 'members', currentUser.email.toLowerCase()))
+          if (me.exists()) setMyPerms(me.data())
+        } catch { /* sin doc de permisos → ve todo (compatibilidad) */ }
       }
     } catch (error) {
       console.error('Error loading data:', error)
@@ -274,6 +335,12 @@ export default function App() {
   const removeMember = async (email) => {
     await deleteDoc(doc(db, 'members', email))
     setMembers(members.filter(m => m.email !== email))
+  }
+
+  // Actualiza los permisos de un ayudante (sección 👥 Usuarios, solo master)
+  const updateMember = async (email, patch) => {
+    await setDoc(doc(db, 'members', email), patch, { merge: true })
+    setMembers(members.map(m => (m.email === email ? { ...m, ...patch } : m)))
   }
 
   const handleLogin = async () => {
@@ -771,54 +838,23 @@ export default function App() {
       </header>
 
       <nav className="app-nav">
-        <button
-          className={`nav-btn ${currentTab === 'dashboard' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('dashboard')}
-        >
-          📊 Dashboard
-        </button>
-        <button
-          className={`nav-btn ${currentTab === 'inventory' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('inventory')}
-        >
-          📦 Inventario
-        </button>
-        <button
-          className={`nav-btn ${currentTab === 'combos' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('combos')}
-        >
-          🎁 Combos
-        </button>
-        <button
-          className={`nav-btn ${currentTab === 'movements' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('movements')}
-        >
-          🔄 Movimientos
-        </button>
-        <button
-          className={`nav-btn ${currentTab === 'shipments' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('shipments')}
-        >
-          🚚 Envíos
-        </button>
-        <button
-          className={`nav-btn ${currentTab === 'packing' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('packing')}
-        >
-          📦 Empaque
-        </button>
-        <button
-          className={`nav-btn ${currentTab === 'mercadolibre' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('mercadolibre')}
-        >
-          🛒 ML
-        </button>
-        <button
-          className={`nav-btn ${currentTab === 'reports' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('reports')}
-        >
-          📈 Reportes
-        </button>
+        {PERM_TABS.filter(t => canSee(t.key)).map(t => (
+          <button
+            key={t.key}
+            className={`nav-btn ${currentTab === t.key ? 'active' : ''}`}
+            onClick={() => setCurrentTab(t.key)}
+          >
+            {t.label}
+          </button>
+        ))}
+        {isAdmin && (
+          <button
+            className={`nav-btn pc-only ${currentTab === 'users' ? 'active' : ''}`}
+            onClick={() => setCurrentTab('users')}
+          >
+            👥 Usuarios
+          </button>
+        )}
       </nav>
 
       <main className="app-main">
@@ -829,7 +865,7 @@ export default function App() {
           </div>
         ) : (
           <>
-            {currentTab === 'dashboard' && (
+            {currentTab === 'dashboard' && canSee('dashboard') && (
               <Dashboard
                 products={products}
                 movements={movements}
@@ -842,8 +878,9 @@ export default function App() {
                 onRemoveMember={removeMember}
               />
             )}
-            {currentTab === 'inventory' && (
+            {currentTab === 'inventory' && canSee('inventory') && (
               <Inventory
+                canEdit={canEdit}
                 products={products}
                 combos={combos}
                 onAdd={addProduct}
@@ -860,8 +897,9 @@ export default function App() {
                 }}
               />
             )}
-            {currentTab === 'combos' && (
+            {currentTab === 'combos' && canSee('combos') && (
               <Combos
+                canEdit={canEdit}
                 combos={combos}
                 products={products}
                 onAdd={addCombo}
@@ -872,15 +910,16 @@ export default function App() {
                 loadPhotos={loadPhotos}
               />
             )}
-            {currentTab === 'movements' && (
+            {currentTab === 'movements' && canSee('movements') && (
               <Movements
+                canEdit={canEdit}
                 products={products}
                 combos={combos}
                 movements={movements}
                 onAdd={addMovement}
               />
             )}
-            {currentTab === 'shipments' && (
+            {currentTab === 'shipments' && canSee('shipments') && (
               <Shipments
                 shipments={shipments}
                 couriers={couriers}
@@ -894,7 +933,7 @@ export default function App() {
                 onRemoveCourier={removeCourier}
               />
             )}
-            {currentTab === 'packing' && (
+            {currentTab === 'packing' && canSee('packing') && (
               <Packing
                 products={products}
                 combos={combos}
@@ -903,7 +942,7 @@ export default function App() {
                 onUpdateShipment={updateShipment}
               />
             )}
-            {currentTab === 'mercadolibre' && (
+            {currentTab === 'mercadolibre' && canSee('mercadolibre') && (
               <MercadoLibre
                 products={products}
                 combos={combos}
@@ -912,7 +951,16 @@ export default function App() {
                 onPurchase={registerPurchase}
               />
             )}
-            {currentTab === 'reports' && <Reports products={products} movements={movements} />}
+            {currentTab === 'reports' && canSee('reports') && <Reports products={products} movements={movements} />}
+            {currentTab === 'users' && isAdmin && (
+              <Users
+                members={members}
+                onAddMember={addMember}
+                onRemoveMember={removeMember}
+                onUpdateMember={updateMember}
+                adminEmail={ADMIN_EMAIL}
+              />
+            )}
           </>
         )}
       </main>

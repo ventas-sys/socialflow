@@ -71,6 +71,7 @@ export default function Inventory({
   onPurchase,
   loadPhotos,
   consumption,
+  canEdit = true, // los ayudantes sin permiso de modificar solo consultan
 }) {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
@@ -665,17 +666,21 @@ export default function Inventory({
             style={{ display: 'none' }}
             onChange={handlePurchaseFile}
           />
-          <button onClick={downloadTemplate} className="btn-outline" title="Excel de ejemplo con el formato correcto">
-            📄 Plantilla
-          </button>
-          <button
-            onClick={() => purchaseInputRef.current?.click()}
-            className="btn-purchase"
-            disabled={purchasing}
-            title="Subir un Excel para sumar (+) o restar (−) stock por SKU/código"
-          >
-            {purchasing ? '⏳ Cargando...' : '🧾 Compra / Ajuste'}
-          </button>
+          {canEdit && (
+            <button onClick={downloadTemplate} className="btn-outline" title="Excel de ejemplo con el formato correcto">
+              📄 Plantilla
+            </button>
+          )}
+          {canEdit && (
+            <button
+              onClick={() => purchaseInputRef.current?.click()}
+              className="btn-purchase"
+              disabled={purchasing}
+              title="Subir un Excel para sumar (+) o restar (−) stock por SKU/código"
+            >
+              {purchasing ? '⏳ Cargando...' : '🧾 Compra / Ajuste'}
+            </button>
+          )}
           <button
             onClick={exportExcel}
             className="btn-outline"
@@ -684,22 +689,26 @@ export default function Inventory({
           >
             {exporting ? '⏳ Exportando...' : '⬆️ Exportar'}
           </button>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="btn-import"
-            disabled={importing}
-          >
-            {importing ? '⏳ Importando...' : '📥 Importar Excel'}
-          </button>
-          <button
-            onClick={() => {
-              resetForm()
-              setShowForm(!showForm)
-            }}
-            className="btn-add"
-          >
-            {showForm ? '✕ Cancelar' : '+ Nuevo Producto'}
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="btn-import"
+              disabled={importing}
+            >
+              {importing ? '⏳ Importando...' : '📥 Importar Excel'}
+            </button>
+          )}
+          {canEdit && (
+            <button
+              onClick={() => {
+                resetForm()
+                setShowForm(!showForm)
+              }}
+              className="btn-add"
+            >
+              {showForm ? '✕ Cancelar' : '+ Nuevo Producto'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -1076,22 +1085,24 @@ export default function Inventory({
                     )
                   })()}
                 </div>
-                <div className="found-actions">
-                  <button
-                    onClick={() => (row.kind === 'combo' ? onEditCombo(row) : handleEdit(row))}
-                    className="btn-edit"
-                    title="Editar"
-                  >
-                    ✏️ Editar
-                  </button>
-                  <button
-                    onClick={() => (row.kind === 'combo' ? handleDeleteCombo(row.id) : handleDelete(row.id))}
-                    className="btn-del"
-                    title="Eliminar"
-                  >
-                    🗑️
-                  </button>
-                </div>
+                {canEdit && (
+                  <div className="found-actions">
+                    <button
+                      onClick={() => (row.kind === 'combo' ? onEditCombo(row) : handleEdit(row))}
+                      className="btn-edit"
+                      title="Editar"
+                    >
+                      ✏️ Editar
+                    </button>
+                    <button
+                      onClick={() => (row.kind === 'combo' ? handleDeleteCombo(row.id) : handleDelete(row.id))}
+                      className="btn-del"
+                      title="Eliminar"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -1181,20 +1192,24 @@ export default function Inventory({
                       })()}
                     </td>
                     <td className="actions">
-                      <button
-                        onClick={() => (isCombo ? onEditCombo(row) : handleEdit(row))}
-                        className="btn-edit"
-                        title="Editar"
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        onClick={() => (isCombo ? handleDeleteCombo(row.id) : handleDelete(row.id))}
-                        className="btn-del"
-                        title="Eliminar"
-                      >
-                        🗑️
-                      </button>
+                      {canEdit && (
+                        <>
+                          <button
+                            onClick={() => (isCombo ? onEditCombo(row) : handleEdit(row))}
+                            className="btn-edit"
+                            title="Editar"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            onClick={() => (isCombo ? handleDeleteCombo(row.id) : handleDelete(row.id))}
+                            className="btn-del"
+                            title="Eliminar"
+                          >
+                            🗑️
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 )

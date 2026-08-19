@@ -2,13 +2,25 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// Versión del build (fecha/hora) visible en la app y publicada en version.json
+const APP_VERSION = new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC'
+
 export default defineConfig({
   // Versión visible en la app (fecha/hora del build) para detectar caché vieja
   define: {
-    __APP_VERSION__: JSON.stringify(new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC'),
+    __APP_VERSION__: JSON.stringify(APP_VERSION),
   },
   plugins: [
     react(),
+    {
+      // version.json queda fuera del precache del service worker: la app lo
+      // consulta con no-store para detectar versiones nuevas y recargarse sola
+      name: 'emit-version-json',
+      apply: 'build',
+      generateBundle() {
+        this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify({ version: APP_VERSION }) })
+      },
+    },
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
