@@ -413,7 +413,9 @@ export default function Shipments({
   const actionShipment = shipments.find(s => s.id === actionId)
 
   // ---- Reporte ----
-  const reportRows = useMemo(() => {
+  const [repCourier, setRepCourier] = useState('all')
+  // Filas del período (sin filtro de motoquero, para el resumen por motoquero)
+  const rangeRows = useMemo(() => {
     const now = new Date()
     let from = new Date(now); from.setHours(0, 0, 0, 0)
     if (range === 'semana') from.setDate(from.getDate() - 6)
@@ -432,6 +434,32 @@ export default function Shipments({
       })
       .sort((a, b) => toMillis(b.s.createdAt) - toMillis(a.s.createdAt))
   }, [shipments, range])
+
+  const reportRows = useMemo(() => (
+    repCourier === 'all' ? rangeRows : rangeRows.filter(r => r.s.courierId === repCourier)
+  ), [rangeRows, repCourier])
+
+  // Resumen por motoquero del período: entregados, demorados, demora promedio,
+  // cobro de ML y pago al motoquero
+  const courierReport = useMemo(() => {
+    const m = new Map()
+    rangeRows.forEach(r => {
+      const name = r.s.courierName || '— Sin motoquero —'
+      const st = m.get(name) || { name, envios: 0, entregados: 0, demorados: 0, demoras: [], cobroML: 0, pagoMoto: 0 }
+      st.envios++
+      if (r.s.status === 'entregado' || (r.s.status === 'archivado' && r.s.deliveredAt)) {
+        st.entregados++
+        if (r.demoraMs > 0) st.demoras.push(r.demoraMs)
+      }
+      if (r.s.status === 'demorado') st.demorados++
+      st.cobroML += zonePay(r.s)
+      st.pagoMoto += motoPay(r.s)
+      m.set(name, st)
+    })
+    return [...m.values()]
+      .map(st => ({ ...st, demoraProm: st.demoras.length ? st.demoras.reduce((a, b) => a + b, 0) / st.demoras.length : 0 }))
+      .sort((a, b) => b.envios - a.envios)
+  }, [rangeRows])
 
   const reportTotals = useMemo(() => {
     const entregados = reportRows.filter(r =>
@@ -463,6 +491,16 @@ export default function Shipments({
     ws['!cols'] = [{ wch: 16 }, { wch: 26 }, { wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 14 }]
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Envíos')
+    // Hoja 2: resumen por motoquero del período
+    const cRows = [['Motoquero', 'Envíos', 'Entregados', 'Demorados', 'Demora promedio (min)', 'Cobro ML', 'Pago motoquero']]
+    courierReport.forEach(c => cRows.push([
+      c.name, c.envios, c.entregados, c.demorados,
+      c.demoraProm ? Math.round(c.demoraProm / 60000) : '',
+      c.cobroML, c.pagoMoto,
+    ]))
+    const ws2 = XLSX.utils.aoa_to_sheet(cRows)
+    ws2['!cols'] = [{ wch: 22 }, { wch: 8 }, { wch: 11 }, { wch: 11 }, { wch: 20 }, { wch: 12 }, { wch: 14 }]
+    XLSX.utils.book_append_sheet(wb, ws2, 'Por motoquero')
     XLSX.writeFile(wb, `envios-${range}.xlsx`)
   }
 
@@ -647,6 +685,12 @@ export default function Shipments({
                   {r === 'hoy' ? 'Hoy' : r === 'semana' ? 'Últimos 7 días' : 'Últimos 30 días'}
                 </button>
               ))}
+              {couriers.length > 0 && (
+                <select value={repCourier} onChange={e => setRepCourier(e.target.value)} className="courier-filter">
+                  <option value="all">🏍️ Todos los motoqueros</option>
+                  {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              )}
             </div>
             <button className="rep-export" onClick={exportReport}>⬇️ Exportar Excel</button>
           </div>
@@ -659,6 +703,32 @@ export default function Shipments({
             <div className="rep-total"><span>Pagó comprador</span><strong>{fmtMoney(reportTotals.pagoComprador)}</strong></div>
             <div className="rep-total"><span>Demora promedio</span><strong>{fmtDur(reportTotals.demoraProm)}</strong></div>
           </div>
+
+          {repCourier === 'all' && courierReport.length > 0 && (
+            <div className="rep-table-wrap">
+              <table className="rep-table">
+                <thead>
+                  <tr>
+                    <th>🏍️ Motoquero</th><th>Envíos</th><th>Entregados</th><th>Demorados</th>
+                    <th>Demora prom.</th><th>Cobro ML</th><th>Pago motoquero</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {courierReport.map(c => (
+                    <tr key={c.name}>
+                      <td><strong>{c.name}</strong></td>
+                      <td>{c.envios}</td>
+                      <td>{c.entregados}</td>
+                      <td>{c.demorados}</td>
+                      <td>{fmtDur(c.demoraProm)}</td>
+                      <td className="rep-money">{fmtMoney(c.cobroML)}</td>
+                      <td className="rep-money">{fmtMoney(c.pagoMoto)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           <div className="rep-table-wrap">
             <table className="rep-table">
