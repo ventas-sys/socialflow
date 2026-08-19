@@ -58,6 +58,15 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
   const [okSlips, setOkSlips] = useState(false)
   const [msg, setMsg] = useState('')
   const [countdown, setCountdown] = useState(null)
+  const [zoom, setZoom] = useState(null) // foto ampliada {src, name}
+
+  // Tocar la foto la agranda a pantalla completa (sin marcar el checkbox)
+  const openZoom = async (e, l) => {
+    e.preventDefault(); e.stopPropagation()
+    if (!l.photoId || !l.photoHas) return
+    const ph = await loadPhotos(l.photoId)
+    if (ph?.length) setZoom({ src: ph[0], name: l.name })
+  }
 
   const shipment = shipments.find(s => s.id === shipmentId) || null
 
@@ -189,6 +198,14 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
       {showScanner && <Scanner onScan={handleScan} onClose={() => setShowScanner(false)} />}
       {msg && <div className="pk-msg">{msg}</div>}
 
+      {zoom && (
+        <div className="pk-zoom" onClick={() => setZoom(null)}>
+          <img src={zoom.src} alt={zoom.name} />
+          <div className="pk-zoom-name">{zoom.name}</div>
+          <div className="pk-zoom-hint">Tocá para cerrar</div>
+        </div>
+      )}
+
       {/* ---------- PASO 1: escanear + checklist de artículos ---------- */}
       {step === 1 && !shipment && (
         <div className="pk-start">
@@ -228,7 +245,9 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
                   onChange={e => setChecks(prev => ({ ...prev, [l.key]: e.target.checked }))}
                 />
                 {l.photoId && l.photoHas ? (
-                  <LazyThumb id={l.photoId} hasPhotos kind={l.photoKind} loadPhotos={loadPhotos} className="pk-photo" />
+                  <span className="pk-thumbwrap" onClick={(e) => openZoom(e, l)} title="Tocar para agrandar">
+                    <LazyThumb id={l.photoId} hasPhotos kind={l.photoKind} loadPhotos={loadPhotos} className="pk-photo" />
+                  </span>
                 ) : (
                   <div className="pk-photo pk-photo-none">📦</div>
                 )}
