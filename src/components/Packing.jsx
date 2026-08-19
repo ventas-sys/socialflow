@@ -166,6 +166,34 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
     setMsg(''); setChecks({}); setShipmentId(found.id); setStep(1)
   }
 
+  // Pistola/lector QR (USB, Bluetooth o dongle 2.4G): teclea el código muy
+  // rápido y termina con Enter. Se detecta por la velocidad — nadie tipea a
+  // menos de 50 ms por tecla — así que no hace falta tocar nada en pantalla.
+  useEffect(() => {
+    let buf = ''
+    let start = 0
+    let last = 0
+    const onKey = (e) => {
+      const now = Date.now()
+      if (e.key === 'Enter') {
+        if (buf.length >= 8 && (now - start) / buf.length < 50) {
+          e.preventDefault()
+          handleScan(buf)
+        }
+        buf = ''
+        return
+      }
+      if (e.key.length !== 1) return
+      if (!buf || now - last > 100) { buf = ''; start = now }
+      buf += e.key
+      last = now
+      if (buf.length > 300) buf = ''
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shipments, products, combos])
+
   // Al llegar al paso 2, el paquete queda "Armado" automáticamente
   const goStep2 = () => {
     if (shipment && (shipment.status === 'pendiente' || !shipment.status)) {

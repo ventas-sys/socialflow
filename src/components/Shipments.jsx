@@ -413,6 +413,36 @@ export default function Shipments({
     await onAddCourier(name); setNewCourier('')
   }
 
+  // Pistola/lector QR conectado (USB/Bluetooth): teclea el código muy rápido
+  // y termina con Enter → busca el envío igual que el escáner de cámara.
+  useEffect(() => {
+    let buf = ''
+    let start = 0
+    let last = 0
+    const onKey = (e) => {
+      // No interceptar cuando se está escribiendo en un campo (búsqueda, pagos)
+      const tag = e.target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      const now = Date.now()
+      if (e.key === 'Enter') {
+        if (buf.length >= 8 && (now - start) / buf.length < 50) {
+          e.preventDefault()
+          handleScan(buf)
+        }
+        buf = ''
+        return
+      }
+      if (e.key.length !== 1) return
+      if (!buf || now - last > 100) { buf = ''; start = now }
+      buf += e.key
+      last = now
+      if (buf.length > 300) buf = ''
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shipments])
+
   const counts = useMemo(() => {
     const c = {}; ORDER.forEach(k => c[k] = 0)
     shipments.forEach(s => { c[s.status || 'pendiente'] = (c[s.status || 'pendiente'] || 0) + 1 })
