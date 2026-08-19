@@ -19,6 +19,7 @@ const EMPTY_FORM = {
   location: '',
   stockType: '',
   fragile: false,
+  dims: '', // medidas del artículo en cm "largo x ancho x alto" (para elegir bolsa al empaquetar)
   description: '',
   photos: [],
 }
@@ -108,6 +109,7 @@ export default function Inventory({
       location: product.location || '',
       stockType: product.stockType || '',
       fragile: !!product.fragile,
+      dims: product.dims || '',
       description: product.description || '',
       photos: [],
     })
@@ -890,6 +892,17 @@ export default function Inventory({
                   ))}
                 </select>
               </div>
+            </div>
+
+            <div className="form-group">
+              <label>Medidas del artículo (cm) — para elegir la bolsa al empaquetar</label>
+              <input
+                type="text"
+                value={formData.dims}
+                onChange={e => setFormData({ ...formData, dims: e.target.value })}
+                placeholder="largo x ancho x alto — ej: 25x12x4"
+                disabled={loading}
+              />
             </div>
 
             <div className="form-group">

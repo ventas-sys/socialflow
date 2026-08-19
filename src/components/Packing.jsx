@@ -5,10 +5,12 @@ import './Packing.css'
 
 // Medidas reales de cada bolsa (ancho × largo en cm, dadas por el usuario):
 // verde 20×30, blanca 30×40, gris 40×50. Si no entra en la gris → empaque especial.
+// cap = volumen aproximado que entra en cada bolsa (cm³), para cuando hay que
+// estimar por la suma de varios artículos distintos
 const BAGS = [
-  { key: 'verde',    label: 'BOLSA VERDE (20×30)',  bg: '#16a34a', fg: '#fff', w: 20, l: 30 },
-  { key: 'blanca',   label: 'BOLSA BLANCA (30×40)', bg: '#f9fafb', fg: '#1f2937', w: 30, l: 40 },
-  { key: 'gris',     label: 'BOLSA GRIS (40×50)',   bg: '#6b7280', fg: '#fff', w: 40, l: 50 },
+  { key: 'verde',    label: 'BOLSA VERDE (20×30)',  bg: '#16a34a', fg: '#fff', w: 20, l: 30, cap: 1500 },
+  { key: 'blanca',   label: 'BOLSA BLANCA (30×40)', bg: '#f9fafb', fg: '#1f2937', w: 30, l: 40, cap: 4800 },
+  { key: 'gris',     label: 'BOLSA GRIS (40×50)',   bg: '#6b7280', fg: '#fff', w: 40, l: 50, cap: 11000 },
   { key: 'especial', label: 'EMPAQUE ESPECIAL',     bg: '#7c3aed', fg: '#fff' },
 ]
 
@@ -81,7 +83,7 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
         return
       }
       if (m.type === 'product') {
-        out.push({ key: `${m.p.id}_${idx}`, id: m.p.id, name: m.p.name, qty: it.quantity || 1, hasPhotos: m.p.hasPhotos, fragile: !!m.p.fragile, location: m.p.location })
+        out.push({ key: `${m.p.id}_${idx}`, id: m.p.id, name: m.p.name, qty: it.quantity || 1, hasPhotos: m.p.hasPhotos, fragile: !!m.p.fragile, location: m.p.location, dims: m.p.dims })
       } else {
         m.c.items?.forEach((ci, j) => {
           const bp = products.find(pp => pp.id === ci.productId)
@@ -89,7 +91,7 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
             key: `${bp.id}_${idx}_${j}`, id: bp.id, name: bp.name,
             qty: (ci.quantity || 1) * (it.quantity || 1),
             hasPhotos: bp.hasPhotos, fragile: !!bp.fragile, location: bp.location,
-            comboName: m.c.name,
+            comboName: m.c.name, dims: bp.dims,
           })
         })
       }
@@ -100,7 +102,27 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
 
   const totalUnits = lines.reduce((s, l) => s + l.qty, 0)
   const anyFragile = lines.some(l => l.fragile)
-  const bag = bagFor(shipment?.dims)
+
+  // Si ML no manda las medidas del paquete, se estima con las medidas de los
+  // artículos (campo "Medidas" del producto en Inventario): con un solo
+  // artículo se apilan las unidades y se prueba en qué bolsa entra; con varios
+  // se compara la suma de volúmenes contra la capacidad de cada bolsa.
+  const estimatedBag = useMemo(() => {
+    if (!lines.length || lines.some(l => l.missing)) return null
+    const ds = lines.map(l => ({ d: dimsOf(l.dims), qty: l.qty }))
+    if (ds.some(x => !x.d)) return null
+    if (ds.length === 1) {
+      const [L, W, H] = ds[0].d
+      const st = [L, W, H * ds[0].qty].sort((a, b) => b - a)
+      return BAGS.find(b => !b.w || (st[1] + st[2] + BAG_SLACK <= b.w && st[0] + st[2] + BAG_SLACK <= b.l))
+    }
+    const vol = ds.reduce((s, x) => s + x.d[0] * x.d[1] * x.d[2] * x.qty, 0)
+    return BAGS.find(b => !b.cap || vol <= b.cap)
+  }, [lines])
+
+  const mlBag = bagFor(shipment?.dims)
+  const bag = mlBag || estimatedBag
+  const bagEstimated = !mlBag && !!estimatedBag
   const allChecked = lines.length > 0 && lines.every(l => checks[l.key])
 
   const reset = (openScanner = true) => {
@@ -174,10 +196,13 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
           <div className="pk-topbar">
             {bag ? (
               <div className="pk-bag" style={{ background: bag.bg, color: bag.fg }}>
-                🛍️ {bag.label}
+                🛍️ {bag.label}{bagEstimated ? ' · por tamaño de los artículos' : ''}
               </div>
             ) : (
-              <div className="pk-bag pk-bag-unknown">🛍️ Sin medidas de ML — elegí la bolsa a criterio</div>
+              <div className="pk-bag pk-bag-unknown">
+                🛍️ Sin medidas — elegí la bolsa a criterio.
+                Cargá las "Medidas" de estos artículos en Inventario y la próxima se calcula sola.
+              </div>
             )}
             {anyFragile && <div className="pk-fragile">⚠️ FRÁGIL — embalar con cuidado</div>}
           </div>
