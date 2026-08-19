@@ -44,7 +44,7 @@
 .pk-line.missing { border-color: #f59e0b; background: #fffbeb; }
 .pk-line input { width: 26px; height: 26px; flex-shrink: 0; accent-color: #10b981; }
 .pk-photo { width: 64px; height: 64px; border-radius: 0.5rem; object-fit: cover; flex-shrink: 0; }
-.pk-photo-none { display: flex; align-items: center; justify-content: center; background: #f3f4f6; font-size: 1.6rem; }
+.pk-photo-none, .pk-photo.placeholder { display: flex; align-items: center; justify-content: center; background: #f3f4f6; font-size: 1.6rem; }
 .pk-line-info { flex: 1; min-width: 0; }
 .pk-line-name { font-weight: 700; color: #1f2937; }
 .pk-line-loc { color: #b45309; font-size: 0.85rem; font-weight: 600; }

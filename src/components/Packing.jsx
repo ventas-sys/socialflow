@@ -83,15 +83,23 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
         return
       }
       if (m.type === 'product') {
-        out.push({ key: `${m.p.id}_${idx}`, id: m.p.id, name: m.p.name, qty: it.quantity || 1, hasPhotos: m.p.hasPhotos, fragile: !!m.p.fragile, location: m.p.location, dims: m.p.dims })
+        out.push({
+          key: `${m.p.id}_${idx}`, id: m.p.id, name: m.p.name, qty: it.quantity || 1,
+          fragile: !!m.p.fragile, location: m.p.location, dims: m.p.dims,
+          photoId: m.p.id, photoKind: 'product', photoHas: !!m.p.hasPhotos,
+        })
       } else {
         m.c.items?.forEach((ci, j) => {
           const bp = products.find(pp => pp.id === ci.productId)
+          // Foto: la del producto base; si no tiene, la del combo (la publicación)
           if (bp) out.push({
             key: `${bp.id}_${idx}_${j}`, id: bp.id, name: bp.name,
             qty: (ci.quantity || 1) * (it.quantity || 1),
-            hasPhotos: bp.hasPhotos, fragile: !!bp.fragile, location: bp.location,
+            fragile: !!bp.fragile, location: bp.location,
             comboName: m.c.name, dims: bp.dims,
+            photoId: bp.hasPhotos ? bp.id : (m.c.hasPhotos ? m.c.id : bp.id),
+            photoKind: bp.hasPhotos ? 'product' : 'combo',
+            photoHas: !!(bp.hasPhotos || m.c.hasPhotos),
           })
         })
       }
@@ -219,8 +227,8 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
                   checked={!!checks[l.key]}
                   onChange={e => setChecks(prev => ({ ...prev, [l.key]: e.target.checked }))}
                 />
-                {l.id ? (
-                  <LazyThumb id={l.id} hasPhotos={l.hasPhotos} kind="product" loadPhotos={loadPhotos} className="pk-photo" />
+                {l.photoId && l.photoHas ? (
+                  <LazyThumb id={l.photoId} hasPhotos kind={l.photoKind} loadPhotos={loadPhotos} className="pk-photo" />
                 ) : (
                   <div className="pk-photo pk-photo-none">📦</div>
                 )}
