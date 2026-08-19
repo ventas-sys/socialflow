@@ -21,9 +21,9 @@ const ORDER = ['pendiente', 'armado', 'camino', 'entregado', 'demorado', 'archiv
 // (por ahora solo definido para cercana; las demás se cargan a mano)
 const ZONES = {
   cercana:   { label: 'Cercana', pay: 4490, motoPay: 2750 },
-  media:     { label: 'Media dist.', pay: 6490, motoPay: 0 },
-  lejana:    { label: 'Lejana', pay: 8690, motoPay: 0 },
-  muylejana: { label: 'Muy lejana', pay: 9990, motoPay: 0 },
+  media:     { label: 'Media dist.', pay: 6490, motoPay: 4500 },
+  lejana:    { label: 'Lejana', pay: 8690, motoPay: 6000 },
+  muylejana: { label: 'Muy lejana', pay: 9990, motoPay: 8000 },
 }
 // Zona automática según las coordenadas que da ML. Todo Capital = cercana
 // (polígono aproximado de CABA: Gral. Paz + Riachuelo + costa). Fuera de CABA,
@@ -57,7 +57,16 @@ const zoneFromCoords = (lat, lng) => {
   if (km <= 38) return 'lejana'
   return 'muylejana'
 }
-const effZone = (s) => s.zone || zoneFromCoords(s.lat, s.lng)
+// La localidad que dice la etiqueta de ML manda: todo Capital = cercana.
+// Si no alcanza, se estima por coordenadas.
+const zoneOf = (s) => {
+  const a = String(s.address || '').toLowerCase()
+  if (a.includes('capital federal') || /\bcaba\b/.test(a)) return 'cercana'
+  return zoneFromCoords(s.lat, s.lng)
+}
+// Localidad/barrio de la dirección de ML (lo que sigue a la calle)
+const locOf = (s) => String(s.address || '').split(',').slice(1).join(',').trim()
+const effZone = (s) => s.zone || zoneOf(s)
 const zonePay = (s) => { const z = effZone(s); return z && ZONES[z] ? ZONES[z].pay : 0 }
 // Pago al motoquero: lo cargado a mano pisa el valor automático de la zona
 const motoPay = (s) => {
@@ -474,13 +483,14 @@ export default function Shipments({
   }, [reportRows])
 
   const exportReport = () => {
-    const rows = [['Código', 'Destinatario', 'Motoquero', 'Estado', 'Salió', 'Entregó', 'Demora (min)', 'Zona', 'Cobro ML', 'Pago motoquero', 'Pagó comprador']]
+    const rows = [['Código', 'Destinatario', 'Motoquero', 'Estado', 'Salió', 'Entregó', 'Demora (min)', 'Localidad', 'Zona', 'Cobro ML', 'Pago motoquero', 'Pagó comprador']]
     reportRows.forEach(({ s, salio, entrego, demoraMs }) => {
       rows.push([
         s.code || '', s.recipient || '', s.courierName || '', STATUS[s.status || 'pendiente']?.label || '',
         salio ? new Date(salio).toLocaleString('es-AR') : '',
         entrego ? new Date(entrego).toLocaleString('es-AR') : '',
         demoraMs ? Math.round(demoraMs / 60000) : '',
+        locOf(s),
         effZone(s) && ZONES[effZone(s)] ? ZONES[effZone(s)].label : '',
         zonePay(s),
         motoPay(s),
@@ -488,7 +498,7 @@ export default function Shipments({
       ])
     })
     const ws = XLSX.utils.aoa_to_sheet(rows)
-    ws['!cols'] = [{ wch: 16 }, { wch: 26 }, { wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 14 }]
+    ws['!cols'] = [{ wch: 16 }, { wch: 26 }, { wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 24 }, { wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 14 }]
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Envíos')
     // Hoja 2: resumen por motoquero del período
@@ -764,6 +774,7 @@ export default function Shipments({
                             <option key={k} value={k}>{z.label} ({fmtMoney(z.pay)})</option>
                           ))}
                         </select>
+                        {locOf(s) && <div className="rep-loc">📍 {locOf(s)}</div>}
                       </td>
                       <td className="rep-money">{fmtMoney(zonePay(s))}</td>
                       <td>
