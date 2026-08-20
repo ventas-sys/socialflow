@@ -11,9 +11,12 @@ export const PERM_TABS = [
   { key: 'movements', label: '🔄 Movimientos' },
   { key: 'shipments', label: '🚚 Envíos' },
   { key: 'packing', label: '📦 Empaque' },
-  { key: 'mercadolibre', label: '🛒 ML' },
+  { key: 'mercadolibre', label: '🛒 ML' }, // solo la ve el master — no se asigna a ayudantes
   { key: 'reports', label: '📈 Reportes' },
 ]
+
+// Columnas del cuadro de permisos (ML queda afuera: es solo del master)
+const GRID_TABS = PERM_TABS.filter(t => t.key !== 'mercadolibre')
 
 export default function Users({ members, onAddMember, onRemoveMember, onUpdateMember, adminEmail }) {
   const [newEmail, setNewEmail] = useState('')
@@ -69,7 +72,7 @@ export default function Users({ members, onAddMember, onRemoveMember, onUpdateMe
               <tr>
                 <th>Ayudante</th>
                 <th className="col-edit">✏️ Puede modificar</th>
-                {PERM_TABS.map(t => <th key={t.key}>{t.label}</th>)}
+                {GRID_TABS.map(t => <th key={t.key}>{t.label}</th>)}
                 <th></th>
               </tr>
             </thead>
@@ -84,7 +87,7 @@ export default function Users({ members, onAddMember, onRemoveMember, onUpdateMe
                       onChange={() => onUpdateMember(m.email, { canEdit: m.canEdit === false })}
                     />
                   </td>
-                  {PERM_TABS.map(t => (
+                  {GRID_TABS.map(t => (
                     <td key={t.key}>
                       <input type="checkbox" checked={tabOf(m, t.key)} onChange={() => toggleTab(m, t.key)} />
                     </td>

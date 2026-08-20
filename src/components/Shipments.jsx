@@ -99,6 +99,7 @@ export default function Shipments({
   shipments, couriers, mlAccounts, onSaveAccount,
   onAddShipment, onUpdateShipment, onDeleteShipment, onClearShipments,
   onAddCourier, onRemoveCourier,
+  isAdmin = false, // solo el master conecta ML, trae ventas y vacía el tablero
 }) {
   const mapRef = useRef(null)
   const mapObj = useRef(null)
@@ -145,7 +146,14 @@ export default function Shipments({
     if (syncingRef.current) return // no solapar sincronizaciones
     const accs = mlRef.current || {}
     const keys = Object.keys(accs).filter(k => accs[k]?.accessToken)
-    if (!keys.length) { if (!silent) setSyncMsg('⚠️ Conectá MercadoLibre primero (solapa ML).'); return }
+    if (!keys.length) {
+      // Los ayudantes no tienen acceso a las credenciales de ML (a propósito):
+      // las ventas las trae la sesión del master y el tablero se comparte.
+      if (!silent) setSyncMsg(isAdmin
+        ? '⚠️ Conectá MercadoLibre primero (solapa ML).'
+        : 'ℹ️ Las ventas de ML las trae el usuario master; el tablero se actualiza solo.')
+      return
+    }
     syncingRef.current = true
     setSyncing(true) // avisar SIEMPRE, también en la actualización automática
     // Un envío por COMPRA (pack) o por envío físico; evita duplicar por producto.
@@ -552,12 +560,14 @@ export default function Shipments({
           <p>Entran solos los envíos FLEX / Turbo (los que repartís con moto) como "Pendiente de imprimir" — no el correo ni Full. Escaneá el QR para asignar el motoquero.</p>
         </div>
         <div className="ship-header-actions">
-          <button className="btn-sync-ship" onClick={() => syncFromML(false)} disabled={syncing}>
-            {syncing ? '⏳ Trayendo...' : '🔄 Traer ventas de ML'}
-          </button>
+          {isAdmin && (
+            <button className="btn-sync-ship" onClick={() => syncFromML(false)} disabled={syncing}>
+              {syncing ? '⏳ Trayendo...' : '🔄 Traer ventas de ML'}
+            </button>
+          )}
           <button className="btn-scan-ship" onClick={() => setShowScanner(true)}>📷 Escanear QR</button>
           <button className="btn-couriers" onClick={() => setShowCouriers(v => !v)}>🏍️ Motoqueros ({couriers.length})</button>
-          {onClearShipments && shipments.length > 0 && (
+          {isAdmin && onClearShipments && shipments.length > 0 && (
             <button className="btn-clear-ship" onClick={() => {
               if (window.confirm(`¿Borrar los ${shipments.length} envíos y volver a traerlos de ML bien agrupados?`)) onClearShipments()
             }}>🗑️ Vaciar</button>

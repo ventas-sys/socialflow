@@ -838,7 +838,8 @@ export default function App() {
       </header>
 
       <nav className="app-nav">
-        {PERM_TABS.filter(t => canSee(t.key)).map(t => (
+        {/* La solapa ML (conexión de cuentas, cron) es SOLO del master */}
+        {PERM_TABS.filter(t => canSee(t.key) && (t.key !== 'mercadolibre' || isAdmin)).map(t => (
           <button
             key={t.key}
             className={`nav-btn ${currentTab === t.key ? 'active' : ''}`}
@@ -921,6 +922,7 @@ export default function App() {
             )}
             {currentTab === 'shipments' && canSee('shipments') && (
               <Shipments
+                isAdmin={isAdmin}
                 shipments={shipments}
                 couriers={couriers}
                 mlAccounts={mlAccounts}
@@ -942,7 +944,7 @@ export default function App() {
                 onUpdateShipment={updateShipment}
               />
             )}
-            {currentTab === 'mercadolibre' && canSee('mercadolibre') && (
+            {currentTab === 'mercadolibre' && isAdmin && (
               <MercadoLibre
                 products={products}
                 combos={combos}
