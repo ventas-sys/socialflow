@@ -1,5 +1,5 @@
 import { httpRequest, cors } from '../../lib/http.js';
-import { calcularCostos, mapReputacion } from '../../lib/ml/costos.js';
+import { calcularCostos, mapReputacion, precioSugerido, COMISION_CATEGORIAS_FALLBACK } from '../../lib/ml/costos.js';
 
 const LISTING_TYPE = { 'Clásica': 'gold_special', Premium: 'gold_pro' };
 
@@ -13,11 +13,49 @@ const LISTING_TYPE = { 'Clásica': 'gold_special', Premium: 'gold_pro' };
 // contra los 3 recursos posibles, en orden, hasta encontrar un ítem real.
 function extractMlToken(input) {
   const s = String(input || '').trim();
+  // Los links de "Compartir" y los de catálogo suelen traer el ítem puntual como parámetro
+  // (pdp_filters=item_id:MLA... o wid=MLA...) — ese es el ID más preciso, va primero.
+  const param = s.match(/(?:item_id[:=]|[?&#]wid=)(ML[A-Z]{0,2})-?(\d{6,})/i);
+  if (param) return (param[1] + param[2]).toUpperCase();
   const m = s.match(/\bML[A-Z]{0,2}-?(\d{6,})\b/i);
   if (m) return m[0].replace('-', '').toUpperCase();
   const bare = s.match(/^\d{6,}$/);
   if (bare) return 'MLA' + bare[0];
   return null;
+}
+
+// Busca publicaciones activas parecidas en ML y arma min / promedio / mediana / max.
+// El endpoint de búsqueda de ML puede exigir token según la app — si hay token de
+// /conexiones se usa; si la búsqueda falla se devuelve el motivo en vez de romper.
+async function buscarMercado(query, token) {
+  try {
+    const headers = token ? { Authorization: 'Bearer ' + token } : {};
+    const r = await httpRequest('GET',
+      'https://api.mercadolibre.com/sites/MLA/search?q=' + encodeURIComponent(query) + '&limit=50',
+      headers, null);
+    const results = r.body?.results;
+    if (r.status !== 200 || !Array.isArray(results)) {
+      return { ok: false, motivo: 'Mercado Libre no dejó buscar (HTTP ' + r.status + ')' + (token ? '' : ' — conectá tu cuenta en /conexiones para habilitar el análisis de mercado') };
+    }
+    const items = results
+      .filter(x => Number.isFinite(x.price) && x.price > 0)
+      .map(x => ({ title: x.title, price: x.price, permalink: x.permalink }));
+    if (!items.length) return { ok: false, motivo: 'No encontré publicaciones parecidas' };
+    const orden = [...items].sort((a, b) => a.price - b.price);
+    const precios = orden.map(x => x.price);
+    const mid = Math.floor(precios.length / 2);
+    return {
+      ok: true,
+      consulta: query,
+      cantidad: precios.length,
+      promedio: Math.round(precios.reduce((a, b) => a + b, 0) / precios.length),
+      mediana: Math.round(precios.length % 2 ? precios[mid] : (precios[mid - 1] + precios[mid]) / 2),
+      masBarato: orden[0],
+      masCaro: orden[orden.length - 1],
+    };
+  } catch (e) {
+    return { ok: false, motivo: e.message };
+  }
 }
 
 async function resolveToItem(token) {
@@ -76,7 +114,7 @@ async function fetchComisionMonto(price, listingTypeId, categoryId) {
 }
 
 async function calcularPorItem(body, res) {
-  const { url, cost, otherCosts, installments, condicionFiscal } = body;
+  const { url, cost, otherCosts, installments, condicionFiscal, gananciaPct, mlToken } = body;
   if (!url) return res.status(400).json({ ok: false, error: 'Falta el link de la publicación' });
   const token = extractMlToken(url);
   if (!token) return res.status(400).json({ ok: false, error: 'No pude identificar el ID de la publicación en ese link' });
@@ -101,14 +139,24 @@ async function calcularPorItem(body, res) {
     if (sellerR.status === 200) reputation = mapReputacion(sellerR.body?.seller_reputation);
   } catch (e) { /* la reputación es un dato secundario, seguimos sin ella */ }
 
-  const { comisionMonto, comisionFuente } = await fetchComisionMonto(price, listingTypeId, categoryId);
+  const [{ comisionMonto, comisionFuente }, mercado] = await Promise.all([
+    fetchComisionMonto(price, listingTypeId, categoryId),
+    buscarMercado(item.title, mlToken),
+  ]);
 
-  const calc = calcularCostos({
-    price, cost: Number(cost) || 0, otherCosts: Number(otherCosts) || 0,
+  const opciones = {
+    cost: Number(cost) || 0, otherCosts: Number(otherCosts) || 0,
     weight, full: isFull, freeShipping, reputation,
     installments: Number(installments) || 0, condicionFiscal: condicionFiscal || 'Monotributo',
-    comisionMonto,
-  });
+  };
+  const calc = calcularCostos({ ...opciones, price, comisionMonto });
+
+  let sugerido = null;
+  const g = Number(gananciaPct);
+  if (g > 0 && (opciones.cost + opciones.otherCosts) > 0) {
+    const pct = comisionMonto != null && price > 0 ? comisionMonto / price : COMISION_CATEGORIAS_FALLBACK;
+    sugerido = { gananciaPct: g, ...precioSugerido({ ...opciones, gananciaPct: g, comisionPct: pct }) };
+  }
 
   return res.status(200).json({
     ok: true,
@@ -117,6 +165,8 @@ async function calcularPorItem(body, res) {
       categoryId, listingTypeId, freeShipping, isFull, weight, reputation,
     },
     comisionFuente,
+    mercado,
+    sugerido,
     ...calc,
   });
 }
@@ -124,7 +174,7 @@ async function calcularPorItem(body, res) {
 async function calcularPorArticulo(body, res) {
   const {
     titulo, price, cost, otherCosts, weight, full, freeShipping,
-    reputation, installments, condicionFiscal, tipoPublicacion,
+    reputation, installments, condicionFiscal, tipoPublicacion, gananciaPct, mlToken,
   } = body;
   if (!titulo) return res.status(400).json({ ok: false, error: 'Falta el título/descripción del artículo' });
   if (!price) return res.status(400).json({ ok: false, error: 'Falta el precio de venta estimado' });
@@ -140,18 +190,29 @@ async function calcularPorArticulo(body, res) {
   const path = (predictR.body.path_from_root || []).map(p => p.name).join(' › ');
 
   const listingTypeId = LISTING_TYPE[tipoPublicacion] || 'gold_special';
-  const { comisionMonto, comisionFuente } = await fetchComisionMonto(Number(price), listingTypeId, categoryId);
+  const [{ comisionMonto, comisionFuente }, mercado] = await Promise.all([
+    fetchComisionMonto(Number(price), listingTypeId, categoryId),
+    buscarMercado(titulo, mlToken),
+  ]);
 
-  const calc = calcularCostos({
-    price: Number(price), cost: Number(cost) || 0, otherCosts: Number(otherCosts) || 0,
+  const opciones = {
+    cost: Number(cost) || 0, otherCosts: Number(otherCosts) || 0,
     weight: Number(weight) || 0, full: !!full,
     freeShipping: freeShipping === undefined || freeShipping === '' ? undefined : !!freeShipping,
     reputation: reputation || 'roja', installments: Number(installments) || 0,
-    condicionFiscal: condicionFiscal || 'Monotributo', comisionMonto,
-  });
+    condicionFiscal: condicionFiscal || 'Monotributo',
+  };
+  const calc = calcularCostos({ ...opciones, price: Number(price), comisionMonto });
+
+  let sugerido = null;
+  const g = Number(gananciaPct);
+  if (g > 0 && (opciones.cost + opciones.otherCosts) > 0) {
+    const pct = comisionMonto != null && Number(price) > 0 ? comisionMonto / Number(price) : COMISION_CATEGORIAS_FALLBACK;
+    sugerido = { gananciaPct: g, ...precioSugerido({ ...opciones, gananciaPct: g, comisionPct: pct }) };
+  }
 
   return res.status(200).json({
-    ok: true, categoryId, categoryName, path, listingTypeId, comisionFuente, ...calc,
+    ok: true, categoryId, categoryName, path, listingTypeId, comisionFuente, mercado, sugerido, ...calc,
   });
 }
 

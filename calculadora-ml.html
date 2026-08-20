@@ -91,6 +91,7 @@ table.breakdown tr.total td{font-weight:700;color:#ffb020;border-top:1px solid r
           <select id="l-cuotas"><option value="0">Sin cuotas</option><option value="3">3 cuotas</option><option value="6">6 cuotas</option><option value="12">12 cuotas</option></select>
         </div>
       </div>
+      <div class="field"><label>Quiero ganar (%) sobre el costo — opcional, para sugerir precio</label><input id="l-ganancia" type="number" step="1" placeholder="Ej: 50"></div>
     </div>
     <button class="btn-main" id="l-btn" onclick="calcularPorLink()">🔎 Calcular gastos y ganancia</button>
     <div id="l-result" style="margin-top:14px;">
@@ -139,8 +140,11 @@ table.breakdown tr.total td{font-weight:700;color:#ffb020;border-top:1px solid r
           </select>
         </div>
       </div>
-      <div class="field"><label>Cuotas sin interés que ofrecés</label>
-        <select id="a-cuotas"><option value="0">Sin cuotas</option><option value="3">3 cuotas</option><option value="6">6 cuotas</option><option value="12">12 cuotas</option></select>
+      <div class="row">
+        <div class="field"><label>Cuotas sin interés que ofrecés</label>
+          <select id="a-cuotas"><option value="0">Sin cuotas</option><option value="3">3 cuotas</option><option value="6">6 cuotas</option><option value="12">12 cuotas</option></select>
+        </div>
+        <div class="field"><label>Quiero ganar (%) sobre el costo — opcional</label><input id="a-ganancia" type="number" step="1" placeholder="Ej: 50"></div>
       </div>
     </div>
     <button class="btn-main" id="a-btn" onclick="calcularPorArticulo()">🔎 Detectar categoría y calcular margen</button>
@@ -171,10 +175,48 @@ function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;',
 const fmt$ = n => '$'+Math.round(n||0).toLocaleString('es-AR');
 const fmtPct = n => ((n||0)*100).toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
 
+function mlTokenFromState(){
+  try { return JSON.parse(localStorage.getItem('up_state')||'{}').connections?.ml?.token || null; }
+  catch(e){ return null; }
+}
+
+function renderMercado(m){
+  if(!m) return '';
+  if(!m.ok) return `<div class="card"><span class="sec-lbl">Análisis de mercado</span><div class="note">⚠ ${escapeHtml(m.motivo||'No disponible')}</div></div>`;
+  return `
+    <div class="card">
+      <span class="sec-lbl">Análisis de mercado · ${m.cantidad} publicaciones parecidas</span>
+      <div class="kpis">
+        <div class="kpi"><div class="v">${fmt$(m.masBarato.price)}</div><div class="l">Más barato</div></div>
+        <div class="kpi"><div class="v">${fmt$(m.promedio)}</div><div class="l">Promedio (mediana ${fmt$(m.mediana)})</div></div>
+        <div class="kpi"><div class="v">${fmt$(m.masCaro.price)}</div><div class="l">Más caro</div></div>
+      </div>
+      <div class="note">🥇 Más barato: <a href="${escapeHtml(m.masBarato.permalink||'#')}" target="_blank" style="color:#ffb020;">${escapeHtml(m.masBarato.title)}</a></div>
+      <div class="note">💎 Más caro: <a href="${escapeHtml(m.masCaro.permalink||'#')}" target="_blank" style="color:#ffb020;">${escapeHtml(m.masCaro.title)}</a></div>
+      <div class="note">Búsqueda: "${escapeHtml(m.consulta)}" — incluye variantes y otros modelos; mirá los links para validar que compare lo mismo.</div>
+    </div>`;
+}
+
+function renderSugerido(s){
+  if(!s) return '';
+  return `
+    <div class="card" style="border-color:rgba(46,204,113,0.35);">
+      <span class="sec-lbl" style="color:#2ecc71;">💡 Precio sugerido para ganar ${Math.round(s.gananciaPct*100)}% sobre el costo</span>
+      <div class="kpis">
+        <div class="kpi"><div class="v pos">${fmt$(s.precio)}</div><div class="l">Precio de venta</div></div>
+        <div class="kpi"><div class="v pos">${fmt$(s.detalle.ganancia)}</div><div class="l">Ganancia a ese precio</div></div>
+        <div class="kpi"><div class="v pos">${fmtPct(s.detalle.margen)}</div><div class="l">Margen s/ precio</div></div>
+      </div>
+      <div class="note">Calculado con la misma modalidad de envío, cuotas y condición fiscal de arriba. Compará con el análisis de mercado antes de fijarlo.</div>
+    </div>`;
+}
+
 function renderBreakdown(d, extraHeaderHtml){
   const gananciaClass = d.ganancia >= 0 ? 'pos' : 'neg';
   return `
     ${extraHeaderHtml||''}
+    ${renderSugerido(d.sugerido)}
+    ${renderMercado(d.mercado)}
     <div class="kpis">
       <div class="kpi"><div class="v ${gananciaClass}">${fmt$(d.ganancia)}</div><div class="l">Ganancia</div></div>
       <div class="kpi"><div class="v ${gananciaClass}">${fmtPct(d.margen)}</div><div class="l">Margen s/ precio</div></div>
@@ -212,9 +254,10 @@ async function calcularPorLink(){
   out.innerHTML = '<div class="loading"><span class="spinner"></span>Buscando la publicación y calculando costos...</div>';
 
   try {
+    const gananciaPct = (parseFloat(document.getElementById('l-ganancia').value)||0)/100;
     const r = await fetch('/api/ml/costos', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ mode:'item', url, cost, otherCosts, condicionFiscal, installments })
+      body: JSON.stringify({ mode:'item', url, cost, otherCosts, condicionFiscal, installments, gananciaPct, mlToken: mlTokenFromState() })
     });
     const d = await r.json();
     if(!d.ok) throw new Error(d.error || 'No se pudo calcular');
@@ -262,9 +305,10 @@ async function calcularPorArticulo(){
   out.innerHTML = '<div class="loading"><span class="spinner"></span>Detectando categoría en Mercado Libre y calculando margen...</div>';
 
   try {
+    const gananciaPct = (parseFloat(document.getElementById('a-ganancia').value)||0)/100;
     const r = await fetch('/api/ml/costos', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ mode:'articulo', titulo, price, cost, otherCosts, weight, full, freeShipping, reputation, condicionFiscal, installments, tipoPublicacion })
+      body: JSON.stringify({ mode:'articulo', titulo, price, cost, otherCosts, weight, full, freeShipping, reputation, condicionFiscal, installments, tipoPublicacion, gananciaPct, mlToken: mlTokenFromState() })
     });
     const d = await r.json();
     if(!d.ok) throw new Error(d.error || 'No se pudo calcular');
