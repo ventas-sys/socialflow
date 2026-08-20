@@ -131,6 +131,7 @@ async function calcularPorItem(body, res) {
   const listingTypeId = item.listing_type_id;
   const freeShipping = !!item.shipping?.free_shipping;
   const isFull = item.shipping?.logistic_type === 'fulfillment';
+  const mercadoEnvios = item.shipping?.mode ? item.shipping.mode !== 'not_specified' && item.shipping.mode !== 'custom' : true;
   const weight = extractWeightKg(item);
 
   let reputation = 'roja';
@@ -146,7 +147,7 @@ async function calcularPorItem(body, res) {
 
   const opciones = {
     cost: Number(cost) || 0, otherCosts: Number(otherCosts) || 0,
-    weight, full: isFull, freeShipping, reputation,
+    weight, full: isFull, mercadoEnvios, freeShipping, reputation,
     installments: Number(installments) || 0, condicionFiscal: condicionFiscal || 'Monotributo',
   };
   const calc = calcularCostos({ ...opciones, price, comisionMonto });
@@ -162,7 +163,7 @@ async function calcularPorItem(body, res) {
     ok: true,
     item: {
       id: item.id, title: item.title, price, permalink: item.permalink,
-      categoryId, listingTypeId, freeShipping, isFull, weight, reputation,
+      categoryId, listingTypeId, freeShipping, isFull, mercadoEnvios, weight, reputation,
     },
     comisionFuente,
     mercado,
@@ -173,7 +174,7 @@ async function calcularPorItem(body, res) {
 
 async function calcularPorArticulo(body, res) {
   const {
-    titulo, price, cost, otherCosts, weight, full, freeShipping,
+    titulo, price, cost, otherCosts, weight, full, mercadoEnvios, freeShipping,
     reputation, installments, condicionFiscal, tipoPublicacion, gananciaPct, mlToken,
   } = body;
   if (!titulo) return res.status(400).json({ ok: false, error: 'Falta el título/descripción del artículo' });
@@ -198,6 +199,7 @@ async function calcularPorArticulo(body, res) {
   const opciones = {
     cost: Number(cost) || 0, otherCosts: Number(otherCosts) || 0,
     weight: Number(weight) || 0, full: !!full,
+    mercadoEnvios: mercadoEnvios === undefined ? true : !!mercadoEnvios,
     freeShipping: freeShipping === undefined || freeShipping === '' ? undefined : !!freeShipping,
     reputation: reputation || 'roja', installments: Number(installments) || 0,
     condicionFiscal: condicionFiscal || 'Monotributo',

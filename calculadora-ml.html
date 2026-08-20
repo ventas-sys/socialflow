@@ -118,9 +118,10 @@ table.breakdown tr.total td{font-weight:700;color:#ffb020;border-top:1px solid r
         </div>
         <div class="field"><label>Modalidad de envío</label>
           <select id="a-modalidad" onchange="toggleReputacion()">
-            <option value="full">Full</option>
-            <option value="me">Mercado Envíos (sin Full)</option>
-            <option value="sin_envio">Sin envío gratis (a cargo del comprador)</option>
+            <option value="full">Full (envío gratis)</option>
+            <option value="me_gratis">Mercado Envíos con envío gratis (sin Full)</option>
+            <option value="me_comprador">Mercado Envíos, envío lo paga el comprador</option>
+            <option value="retiro">Retiro en persona / envío propio (sin Mercado Envíos)</option>
           </select>
         </div>
       </div>
@@ -213,6 +214,7 @@ function renderSugerido(s){
 
 function renderBreakdown(d, extraHeaderHtml){
   const gananciaClass = d.ganancia >= 0 ? 'pos' : 'neg';
+  const precioTotal = Math.max(1, (d.totalCostosML||0) + (d.ingresoNeto||0));
   return `
     ${extraHeaderHtml||''}
     ${renderSugerido(d.sugerido)}
@@ -228,7 +230,8 @@ function renderBreakdown(d, extraHeaderHtml){
         <thead><tr><th>Concepto</th><th style="text-align:right;">$</th><th style="text-align:right;">% del precio</th></tr></thead>
         <tbody>
           <tr><td>Comisión ${d._comisionFuente ? '<span class="note">('+escapeHtml(d._comisionFuente)+')</span>' : ''}</td><td class="num">${fmt$(d.comision)}</td><td class="num">${fmtPct(d.comisionPct)}</td></tr>
-          <tr><td>Costo fijo / envío${d.freeShipping ? '' : ' (no aplica, sin envío gratis)'}</td><td class="num">${fmt$(d.costoEnvio)}</td><td class="num">${fmtPct(d.costoEnvioPct)}</td></tr>
+          <tr><td>Costo fijo por unidad (productos &lt; $33.000 por Mercado Envíos)</td><td class="num">${fmt$(d.costoFijoUnidad||0)}</td><td class="num">${fmtPct((d.costoFijoUnidad||0)/precioTotal)}</td></tr>
+          <tr><td>Costo de envío gratis${d.freeShipping ? '' : ' (no aplica)'}</td><td class="num">${fmt$(d.costoEnvioGratis||0)}</td><td class="num">${fmtPct((d.costoEnvioGratis||0)/precioTotal)}</td></tr>
           <tr><td>Cargo por cuotas sin interés</td><td class="num">${fmt$(d.cargoCuotas)}</td><td class="num">${fmtPct(d.cargoCuotasPct)}</td></tr>
           <tr><td>IVA sobre comisión + envío + cuotas</td><td class="num">${fmt$(d.iva)}</td><td class="num">${fmtPct(d.ivaPct)}</td></tr>
           ${d.almacenamiento ? `<tr><td>Almacenamiento Full (estimado/mes)</td><td class="num">${fmt$(d.almacenamiento)}</td><td class="num">—</td></tr>` : ''}
@@ -294,7 +297,8 @@ async function calcularPorArticulo(){
   const tipoPublicacion = document.getElementById('a-tipo').value;
   const modalidad = document.getElementById('a-modalidad').value;
   const full = modalidad === 'full';
-  const freeShipping = modalidad !== 'sin_envio';
+  const mercadoEnvios = modalidad !== 'retiro';
+  const freeShipping = modalidad === 'full' || modalidad === 'me_gratis';
   const reputation = document.getElementById('a-rep').value;
   const condicionFiscal = document.getElementById('a-condfiscal').value;
   const installments = document.getElementById('a-cuotas').value;
@@ -308,7 +312,7 @@ async function calcularPorArticulo(){
     const gananciaPct = (parseFloat(document.getElementById('a-ganancia').value)||0)/100;
     const r = await fetch('/api/ml/costos', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ mode:'articulo', titulo, price, cost, otherCosts, weight, full, freeShipping, reputation, condicionFiscal, installments, tipoPublicacion, gananciaPct, mlToken: mlTokenFromState() })
+      body: JSON.stringify({ mode:'articulo', titulo, price, cost, otherCosts, weight, full, mercadoEnvios, freeShipping, reputation, condicionFiscal, installments, tipoPublicacion, gananciaPct, mlToken: mlTokenFromState() })
     });
     const d = await r.json();
     if(!d.ok) throw new Error(d.error || 'No se pudo calcular');
