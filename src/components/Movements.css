@@ -713,3 +713,31 @@
     font-size: 0.875rem;
   }
 }
+
+/* Buscador de producto del formulario */
+.picker-wrap { position: relative; }
+.picker-list {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 50;
+  background: white; border: 1px solid #d1d5db; border-radius: 0.5rem;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12); overflow: hidden;
+}
+.picker-list button {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.1rem;
+  width: 100%; padding: 0.6rem 0.8rem; background: none; border: none;
+  border-bottom: 1px solid #f3f4f6; cursor: pointer; text-align: left;
+}
+.picker-list button:last-child { border-bottom: none; }
+.picker-list button:hover { background: #eff6ff; }
+.picker-name { font-weight: 600; color: #1f2937; }
+.picker-meta { font-size: 0.78rem; color: #6b7280; }
+.picker-empty { font-size: 0.82rem; color: #b45309; margin-top: 0.35rem; }
+.picker-selected { font-size: 0.85rem; color: #166534; font-weight: 600; margin-top: 0.35rem; }
+
+@media (prefers-color-scheme: dark) {
+  .picker-list { background: #1e293b; border-color: #334155; }
+  .picker-list button { border-color: #334155; }
+  .picker-list button:hover { background: #0f172a; }
+  .picker-name { color: #f1f5f9; }
+  .picker-meta { color: #94a3b8; }
+  .picker-selected { color: #86efac; }
+}

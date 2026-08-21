@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useMemo } from 'react'
 import Scanner from './Scanner'
 import { comboAvailable } from './Combos'
 import './Movements.css'
@@ -21,6 +21,33 @@ export default function Movements({ products, combos, movements, onAdd, canEdit 
   const [loading, setLoading] = useState(false)
   const [filterType, setFilterType] = useState('all') // all | entrada | salida | hoy
   const [searchMov, setSearchMov] = useState('')
+  const [pickSearch, setPickSearch] = useState('') // buscador del formulario
+
+  // Buscador del formulario: SOLO productos (los combos no se cargan a mano;
+  // entran por Excel de compra o por escaneo)
+  const pickResults = useMemo(() => {
+    const q = pickSearch.trim().toLowerCase()
+    if (q.length < 2) return []
+    const bcs = (p) => (p.barcodes?.length ? p.barcodes : (p.barcode ? [p.barcode] : []))
+    return products
+      .filter(p =>
+        (p.name || '').toLowerCase().includes(q) ||
+        (p.code || '').toLowerCase().includes(q) ||
+        bcs(p).some(b => String(b).toLowerCase().includes(q))
+      )
+      .slice(0, 8)
+  }, [pickSearch, products])
+
+  const selectedLabel = (() => {
+    if (!formData.itemKey) return ''
+    const [k, id] = formData.itemKey.split(':')
+    if (k === 'p') {
+      const p = products.find(pp => pp.id === id)
+      return p ? `${p.name} — Stock: ${p.quantity || 0}` : ''
+    }
+    const c = combos.find(cc => cc.id === id)
+    return c ? `🎁 ${c.name} — se pueden armar: ${comboAvailable(c, products)}` : ''
+  })()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -29,7 +56,7 @@ export default function Movements({ products, combos, movements, onAdd, canEdit 
     setScanMessage('')
 
     if (!formData.itemKey) {
-      setError('Debes seleccionar un producto o combo')
+      setError('Elegí un producto del buscador (o escaneá su código)')
       return
     }
 
@@ -94,6 +121,7 @@ export default function Movements({ products, combos, movements, onAdd, canEdit 
 
       setSuccess(`${formData.type === 'entrada' ? 'Entrada' : 'Salida'} registrada correctamente`)
       setFormData(EMPTY_FORM)
+      setPickSearch('')
       setTimeout(() => {
         setShowForm(false)
         setSuccess('')
@@ -138,6 +166,7 @@ export default function Movements({ products, combos, movements, onAdd, canEdit 
         reason: 'Ingreso por escaneo QR',
         reference: code.slice(0, 60),
       }))
+      setPickSearch(name)
       setScanMessage(`✓ Código detectado: ${name}. Revisá la cantidad y confirmá.`)
       setShowForm(true)
       setError('')
@@ -264,32 +293,40 @@ export default function Movements({ products, combos, movements, onAdd, canEdit 
             </div>
 
             <div className="form-grid">
-              <div className="form-group">
-                <label>Producto o Combo *</label>
-                <select
-                  value={formData.itemKey}
-                  onChange={e => setFormData({ ...formData, itemKey: e.target.value })}
+              <div className="form-group picker-wrap">
+                <label>Producto *</label>
+                <input
+                  type="text"
+                  value={pickSearch}
+                  onChange={e => {
+                    setPickSearch(e.target.value)
+                    if (formData.itemKey) setFormData({ ...formData, itemKey: '' })
+                  }}
+                  placeholder="Buscá por nombre, SKU o código de barras…"
                   disabled={loading}
-                  required
-                >
-                  <option value="">-- Selecciona --</option>
-                  <optgroup label="📦 Productos">
-                    {products.map(p => (
-                      <option key={p.id} value={`p:${p.id}`}>
-                        {p.name} (Stock: {p.quantity || 0})
-                      </option>
+                  autoComplete="off"
+                />
+                {!formData.itemKey && pickResults.length > 0 && (
+                  <div className="picker-list">
+                    {pickResults.map(p => (
+                      <button
+                        type="button"
+                        key={p.id}
+                        onClick={() => {
+                          setFormData({ ...formData, itemKey: `p:${p.id}` })
+                          setPickSearch(p.name)
+                        }}
+                      >
+                        <span className="picker-name">{p.name}</span>
+                        <span className="picker-meta">SKU {p.code || '—'} · Stock {p.quantity || 0}</span>
+                      </button>
                     ))}
-                  </optgroup>
-                  {combos.length > 0 && (
-                    <optgroup label="🎁 Combos">
-                      {combos.map(c => (
-                        <option key={c.id} value={`c:${c.id}`}>
-                          {c.name} (Se pueden armar: {comboAvailable(c, products)})
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
+                  </div>
+                )}
+                {!formData.itemKey && pickSearch.trim().length >= 2 && pickResults.length === 0 && (
+                  <div className="picker-empty">Sin resultados — probá con el SKU o escaneá el código.</div>
+                )}
+                {formData.itemKey && <div className="picker-selected">✓ {selectedLabel}</div>}
               </div>
 
               <div className="form-group">
