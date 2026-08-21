@@ -106,6 +106,9 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
             qty: (ci.quantity || 1) * (it.quantity || 1),
             fragile: !!bp.fragile, location: bp.location,
             comboName: m.c.name, dims: bp.dims,
+            // Medidas del COMBO (paquete armado, del Reporte de Planificación):
+            // valen por el ítem entero, no por unidad
+            packDims: m.c.dims || null, packQty: it.quantity || 1, packKey: 'pk' + idx,
             photoId: bp.hasPhotos ? bp.id : (m.c.hasPhotos ? m.c.id : bp.id),
             photoKind: bp.hasPhotos ? 'product' : 'combo',
             photoHas: !!(bp.hasPhotos || m.c.hasPhotos),
@@ -126,14 +129,29 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
   // se compara la suma de volúmenes contra la capacidad de cada bolsa.
   const estimatedBag = useMemo(() => {
     if (!lines.length || lines.some(l => l.missing)) return null
-    const ds = lines.map(l => ({ d: dimsOf(l.dims), qty: l.qty }))
-    if (ds.some(x => !x.d)) return null
-    if (ds.length === 1) {
-      const [L, W, H] = ds[0].d
-      const st = [L, W, H * ds[0].qty].sort((a, b) => b - a)
+    // Si el combo tiene medidas propias (el paquete armado completo), valen
+    // por el ítem entero; si no, se usan las del producto base × unidades
+    const parts = []
+    const seenPack = new Set()
+    for (const l of lines) {
+      if (l.packDims) {
+        if (seenPack.has(l.packKey)) continue
+        seenPack.add(l.packKey)
+        const d = dimsOf(l.packDims)
+        if (!d) return null
+        parts.push({ d, qty: l.packQty })
+      } else {
+        const d = dimsOf(l.dims)
+        if (!d) return null
+        parts.push({ d, qty: l.qty })
+      }
+    }
+    if (parts.length === 1) {
+      const [L, W, H] = parts[0].d
+      const st = [L, W, H * parts[0].qty].sort((a, b) => b - a)
       return BAGS.find(b => !b.w || (st[1] + st[2] + BAG_SLACK <= b.w && st[0] + st[2] + BAG_SLACK <= b.l))
     }
-    const vol = ds.reduce((s, x) => s + x.d[0] * x.d[1] * x.d[2] * x.qty, 0)
+    const vol = parts.reduce((s, x) => s + x.d[0] * x.d[1] * x.d[2] * x.qty, 0)
     return BAGS.find(b => !b.cap || vol <= b.cap)
   }, [lines])
 

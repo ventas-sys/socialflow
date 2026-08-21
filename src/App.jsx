@@ -667,6 +667,24 @@ export default function App() {
     ))
   }
 
+  // Aplicación masiva de parches a productos y combos (importador de medidas/
+  // códigos del Reporte de Planificación de ML): escribe en lotes de 400 y
+  // actualiza el estado UNA vez en forma funcional (miles de updates sueltos
+  // se pisarían entre sí)
+  const bulkApplyPatches = async ({ products: pu = [], combos: cu = [] }) => {
+    if (!user) return
+    const all = [...pu.map(u => ({ col: 'products', ...u })), ...cu.map(u => ({ col: 'combos', ...u }))]
+    for (let i = 0; i < all.length; i += 400) {
+      const batch = writeBatch(db)
+      all.slice(i, i + 400).forEach(u => batch.update(doc(db, u.col, u.id), { ...u.patch, updatedAt: Timestamp.now() }))
+      await batch.commit()
+    }
+    const pMap = new Map(pu.map(u => [u.id, u.patch]))
+    const cMap = new Map(cu.map(u => [u.id, u.patch]))
+    if (pMap.size) setProducts(prev => prev.map(p => (pMap.has(p.id) ? { ...p, ...pMap.get(p.id) } : p)))
+    if (cMap.size) setCombos(prev => prev.map(c => (cMap.has(c.id) ? { ...c, ...cMap.get(c.id) } : c)))
+  }
+
   const deleteCombo = async (comboId) => {
     if (!user) return
     await deleteDoc(doc(db, 'combos', comboId))
@@ -882,6 +900,7 @@ export default function App() {
             {currentTab === 'inventory' && canSee('inventory') && (
               <Inventory
                 canEdit={canEdit}
+                onBulkPatch={bulkApplyPatches}
                 products={products}
                 combos={combos}
                 onAdd={addProduct}

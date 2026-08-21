@@ -72,6 +72,7 @@ export default function Inventory({
   loadPhotos,
   consumption,
   canEdit = true, // los ayudantes sin permiso de modificar solo consultan
+  onBulkPatch,
 }) {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
@@ -89,6 +90,8 @@ export default function Inventory({
   const [purchasePreview, setPurchasePreview] = useState(null)
   const [invoiceScanning, setInvoiceScanning] = useState(false)
   const invoiceInputRef = useRef(null)
+  const [measuring, setMeasuring] = useState(false)
+  const measInputRef = useRef(null)
   const fileInputRef = useRef(null)
   const purchaseInputRef = useRef(null)
   const photoInputRef = useRef(null)
@@ -617,6 +620,73 @@ export default function Inventory({
     }
   }
 
+  // ---- Importar medidas y códigos desde el Reporte de Planificación de ML ----
+  // Formato: columna CODIGO (código de barras/inventario Full), columna SKU
+  // (uno o varios MLA separados por coma) y columna Tamaño ("15 x 20 x 20").
+  // El código se agrega como código de barras del combo/producto, y el tamaño
+  // se guarda como medidas del COMBO (es el paquete armado completo — ponerlo
+  // en el producto base multiplicaría el volumen al empaquetar).
+  const handleMeasuresFile = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setImportResult('')
+    setMeasuring(true)
+    try {
+      const buffer = await file.arrayBuffer()
+      const wb = XLSX.read(buffer)
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' })
+      const hi = rows.findIndex(r => r.some(c => normalize(c) === 'codigo') && r.some(c => normalize(c) === 'sku'))
+      if (hi === -1) throw new Error('No encontré las columnas CODIGO y SKU (¿es el Reporte de Planificación de ML?)')
+      const head = rows[hi].map(c => normalize(c))
+      const iCod = head.indexOf('codigo')
+      const iSku = head.indexOf('sku')
+      const iTam = head.findIndex(c => ['tamano', 'tamaño', 'medidas', 'dimensiones'].includes(c))
+      const prodPatches = new Map()
+      const comboPatches = new Map()
+      const notFound = new Set()
+      let nBar = 0
+      rows.slice(hi + 1).forEach(r => {
+        const barcode = String(r[iCod] || '').trim()
+        const dims = iTam >= 0 ? String(r[iTam] || '').trim() : ''
+        const skus = String(r[iSku] || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean)
+        skus.forEach(ref => {
+          const combo = findComboByRef(ref)
+          const target = combo || findByRef(ref)
+          if (!target) { notFound.add(ref); return }
+          const map = combo ? comboPatches : prodPatches
+          const patch = map.get(target.id) || {}
+          const bcs = patch.barcodes || (target.barcodes?.length ? [...target.barcodes] : (target.barcode ? [target.barcode] : []))
+          if (barcode && !bcs.includes(barcode)) {
+            bcs.push(barcode)
+            patch.barcodes = bcs
+            patch.barcode = bcs[0]
+            nBar++
+          }
+          if (dims) patch.dims = dims
+          if (Object.keys(patch).length) map.set(target.id, patch)
+        })
+      })
+      if (!prodPatches.size && !comboPatches.size) {
+        setImportResult('⚠️ Ningún SKU del reporte existe en el sistema. Ejemplos: ' + [...notFound].slice(0, 6).join(', '))
+        return
+      }
+      await onBulkPatch({
+        products: [...prodPatches].map(([id, patch]) => ({ id, patch })),
+        combos: [...comboPatches].map(([id, patch]) => ({ id, patch })),
+      })
+      setImportResult(
+        `✅ Medidas y códigos aplicados: ${comboPatches.size} combos y ${prodPatches.size} productos ` +
+        `(${nBar} códigos de barras nuevos).` +
+        (notFound.size ? ` ⚠️ ${notFound.size} SKU no encontrados (ej: ${[...notFound].slice(0, 6).join(', ')}…)` : '')
+      )
+    } catch (err) {
+      setImportResult('❌ ' + err.message)
+    } finally {
+      setMeasuring(false)
+    }
+  }
+
   const confirmPurchase = async () => {
     if (!purchasePreview) return
     setPurchasing(true)
@@ -790,6 +860,25 @@ export default function Inventory({
             >
               {purchasing ? '⏳ Cargando...' : '🧾 Compra / Ajuste'}
             </button>
+          )}
+          {canEdit && (
+            <>
+              <input
+                ref={measInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                style={{ display: 'none' }}
+                onChange={handleMeasuresFile}
+              />
+              <button
+                onClick={() => measInputRef.current?.click()}
+                className="btn-outline"
+                disabled={measuring}
+                title="Subir el Reporte de Planificación de ML: agrega el código de barras a cada MLA y guarda el tamaño del paquete para elegir la bolsa al empaquetar"
+              >
+                {measuring ? '⏳ Aplicando...' : '📐 Medidas ML'}
+              </button>
+            </>
           )}
           {canEdit && (
             <>
