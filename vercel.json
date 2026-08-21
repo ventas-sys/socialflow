@@ -9,6 +9,7 @@
     "api/contabilium.js": { "maxDuration": 60 }
   },
   "crons": [
+    { "path": "/api/ml/cron", "schedule": "0 16 * * *" },
     { "path": "/api/ml/cron", "schedule": "0 21 * * *" }
   ]
 }

@@ -276,7 +276,7 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
       </div>
 
       <div className="ml-auto">
-        🤖 <strong>Automático:</strong> todos los días a las <strong>18:00</strong> el sistema descuenta solo
+        🤖 <strong>Automático:</strong> todos los días a las <strong>13:00 y 18:00</strong> el sistema descuenta solo
         las ventas del día de las dos cuentas (menos lo de bodega Full). Igual podés sincronizar a mano cuando quieras.
         <div className="ml-auto-actions">
           <button className="ml-btn-cron" onClick={runCronNow} disabled={cronBusy}>
