@@ -186,11 +186,16 @@ export default function Shipments({
           // SOLO FLEX / Turbo (self_service): lo que repartimos con moto
           if (o.logisticType !== 'self_service') continue
           diag.flex++
-          const info = { st: o.shipmentStatus, sub: o.shipmentSubstatus, tn: o.trackingNumber || null }
+          // Si la ORDEN está cancelada (comprador canceló) cuenta como cancelado
+          // aunque el envío haya quedado en otro estado
+          const info = {
+            st: o.status === 'cancelled' ? 'cancelled' : o.shipmentStatus,
+            sub: o.shipmentSubstatus, tn: o.trackingNumber || null,
+          }
           if (o.shipmentId) mlStatus.set(String(o.shipmentId), info)
           if (o.packId) mlStatus.set(String(o.packId), info)
           // Cancelados no se traen; el resto de los últimos 7 días SÍ
-          if (['cancelled', 'to_be_agreed'].includes(o.shipmentStatus)) { diag.cerrados++; continue }
+          if (o.status === 'cancelled' || ['cancelled', 'to_be_agreed'].includes(o.shipmentStatus)) { diag.cerrados++; continue }
           const gkey = String(o.packId || o.shipmentId || '')
           if (!gkey || seen.has(gkey)) continue
           const g = groups.get(gkey)
@@ -229,7 +234,7 @@ export default function Shipments({
       // entregados pasan a Entregado, si no se entregaron a Demorado, y un
       // "en camino" con más de 48hs también queda Demorado. Lo gestionado a
       // mano (armado, motoquero) no se toca.
-      let updEnt = 0, updDem = 0
+      let updEnt = 0, updDem = 0, updArc = 0
       const updates = []
       for (const s of (shipmentsRef.current || [])) {
         const st = s.status || 'pendiente'
@@ -242,6 +247,9 @@ export default function Shipments({
         if (!s.trackingNumber && info.tn) patch.trackingNumber = info.tn
         if (info.st === 'delivered') {
           patch.status = 'entregado'; patch.deliveredAt = new Date(); updEnt++
+        } else if (info.st === 'cancelled') {
+          // Venta cancelada por el comprador → sale del panel (Archivado)
+          patch.status = 'archivado'; patch.archivedAt = new Date(); updArc++
         } else if (info.st === 'not_delivered' && st !== 'demorado') {
           patch.status = 'demorado'; patch.demoradoAt = new Date(); updDem++
         } else if (info.st === 'shipped' && st === 'camino' &&
@@ -297,10 +305,10 @@ export default function Shipments({
         }
       }
 
-      if (created || updEnt || updDem || oldEnt || oldDem || oldArc || !silent) setSyncMsg(
+      if (created || updEnt || updDem || updArc || oldEnt || oldDem || oldArc || !silent) setSyncMsg(
         `✅ ${created} envíos nuevos: ${nPend} pendientes, ${nCamino} en camino, ` +
         `${nEntregado} entregados, ${nDemorado} demorados. (${diag.flex} FLEX de ${diag.total} ventas)` +
-        (updEnt || updDem ? ` · 🔄 Según ML: ${updEnt} pasaron a entregado y ${updDem} a demorado` : '') +
+        (updEnt || updDem || updArc ? ` · 🔄 Según ML: ${updEnt} entregados, ${updDem} demorados, ${updArc} cancelados→archivados` : '') +
         (oldEnt || oldDem || oldArc ? ` · 🧹 Viejos revisados en ML: ${oldEnt} entregados, ${oldDem} demorados, ${oldArc} cancelados→archivados` : '')
       )
     } catch (e) {
