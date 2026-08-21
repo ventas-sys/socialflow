@@ -154,9 +154,11 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
     const digits = String(raw).replace(/\D/g, '')
     const found = shipments.find(s => {
       const c = String(s.code); const p = String(s.packId || '')
-      return c === code || p === code ||
+      const t = String(s.trackingNumber || '') // el código de barras de la etiqueta trae el tracking
+      return c === code || p === code || (t && t === code) ||
         (code && (c.includes(code) || code.includes(c))) ||
-        (digits && (c === digits || p === digits || c.includes(digits) || digits.includes(c)))
+        (digits && (c === digits || p === digits || (t && t === digits) ||
+          c.includes(digits) || digits.includes(c) || (t && (t.includes(digits) || digits.includes(t)))))
     })
     if (!found) { setMsg(`⚠️ No se encontró la venta del QR (${code}). Sincronizá en Envíos y volvé a intentar.`); return }
     if (!found.items?.length) {

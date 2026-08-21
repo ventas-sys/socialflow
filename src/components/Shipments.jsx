@@ -186,7 +186,7 @@ export default function Shipments({
           // SOLO FLEX / Turbo (self_service): lo que repartimos con moto
           if (o.logisticType !== 'self_service') continue
           diag.flex++
-          const info = { st: o.shipmentStatus, sub: o.shipmentSubstatus }
+          const info = { st: o.shipmentStatus, sub: o.shipmentSubstatus, tn: o.trackingNumber || null }
           if (o.shipmentId) mlStatus.set(String(o.shipmentId), info)
           if (o.packId) mlStatus.set(String(o.packId), info)
           // Cancelados no se traen; el resto de los últimos 7 días SÍ
@@ -211,6 +211,7 @@ export default function Shipments({
             recipient: o.recipient || '', address: o.address || '',
             lat: o.lat ?? null, lng: o.lng ?? null, status, cost: 0, account: key,
             items: o.items || [], dims: o.dimensions || null,
+            trackingNumber: o.trackingNumber || null, // el código de barras de la etiqueta trae este número
             ...(status === 'camino' ? { assignedAt: new Date(o.date) } : {}),
             ...(status === 'demorado' ? { demoradoAt: new Date() } : {}),
             ...(status === 'entregado' ? { deliveredAt: new Date(o.date) } : {}),
@@ -235,14 +236,19 @@ export default function Shipments({
         if (['entregado', 'archivado'].includes(st)) continue
         const info = mlStatus.get(String(s.code)) || (s.packId && mlStatus.get(String(s.packId)))
         if (!info) continue
+        const patch = {}
+        // Completar el tracking a los envíos viejos que no lo tienen (lo
+        // necesita la pistola: el código de barras de la etiqueta trae ese número)
+        if (!s.trackingNumber && info.tn) patch.trackingNumber = info.tn
         if (info.st === 'delivered') {
-          updates.push([s.id, { status: 'entregado', deliveredAt: new Date() }]); updEnt++
+          patch.status = 'entregado'; patch.deliveredAt = new Date(); updEnt++
         } else if (info.st === 'not_delivered' && st !== 'demorado') {
-          updates.push([s.id, { status: 'demorado', demoradoAt: new Date() }]); updDem++
+          patch.status = 'demorado'; patch.demoradoAt = new Date(); updDem++
         } else if (info.st === 'shipped' && st === 'camino' &&
                    toMillis(s.assignedAt) && Date.now() - toMillis(s.assignedAt) > H48) {
-          updates.push([s.id, { status: 'demorado', demoradoAt: new Date() }]); updDem++
+          patch.status = 'demorado'; patch.demoradoAt = new Date(); updDem++
         }
+        if (Object.keys(patch).length) updates.push([s.id, patch])
       }
       for (let i = 0; i < updates.length; i += 20) {
         await Promise.all(updates.slice(i, i + 20).map(([id, patch]) =>
@@ -276,11 +282,14 @@ export default function Shipments({
             if (!s) return
             pending.delete(id)
             const st = s.status || 'pendiente'
-            if (info.status === 'delivered') { ups.push([s.id, { status: 'entregado', deliveredAt: new Date() }]); oldEnt++ }
-            else if (info.status === 'cancelled') { ups.push([s.id, { status: 'archivado', archivedAt: new Date() }]); oldArc++ }
+            const patch = {}
+            if (!s.trackingNumber && info.tracking) patch.trackingNumber = info.tracking
+            if (info.status === 'delivered') { patch.status = 'entregado'; patch.deliveredAt = new Date(); oldEnt++ }
+            else if (info.status === 'cancelled') { patch.status = 'archivado'; patch.archivedAt = new Date(); oldArc++ }
             else if (['not_delivered', 'shipped'].includes(info.status) && st !== 'demorado' && st !== 'camino') {
-              ups.push([s.id, { status: 'demorado', demoradoAt: new Date() }]); oldDem++
+              patch.status = 'demorado'; patch.demoradoAt = new Date(); oldDem++
             }
+            if (Object.keys(patch).length) ups.push([s.id, patch])
           })
           for (let i = 0; i < ups.length; i += 20) {
             await Promise.all(ups.slice(i, i + 20).map(([id, patch]) => onUpdateShipment(id, patch).catch(() => {})))
@@ -445,9 +454,11 @@ export default function Shipments({
     const digits = String(raw).replace(/\D/g, '')
     const existing = shipments.find(s => {
       const c = String(s.code); const p = String(s.packId || '')
-      return c === code || p === code ||
+      const t = String(s.trackingNumber || '') // el código de barras de la etiqueta trae el tracking
+      return c === code || p === code || (t && t === code) ||
         (code && (c.includes(code) || code.includes(c))) ||
-        (digits && (c === digits || p === digits || c.includes(digits) || digits.includes(c)))
+        (digits && (c === digits || p === digits || (t && t === digits) ||
+          c.includes(digits) || digits.includes(c) || (t && (t.includes(digits) || digits.includes(t)))))
     })
     if (existing) { setActionId(existing.id) }
     else setSyncMsg(

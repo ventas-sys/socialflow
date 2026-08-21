@@ -66,6 +66,7 @@ async function orders(req, res) {
         shipCache.set(sid, {
           logisticType: b.logistic_type || null,
           shipmentStatus: b.status || null,       // pending/handling/ready_to_ship/shipped/delivered...
+          trackingNumber: b.tracking_number || null, // el CÓDIGO DE BARRAS de la etiqueta trae este número (≠ id del envío)
           shipmentSubstatus: b.substatus || null,
           dimensions: b.dimensions || null,       // alto/ancho/largo (para elegir bolsa al empaquetar)
           recipient: ra.receiver_name || null,
@@ -99,6 +100,7 @@ async function orders(req, res) {
       logisticType: ship.logisticType, // 'fulfillment' = Full → se EXCLUYE
       shipmentStatus: ship.shipmentStatus || null,
       shipmentSubstatus: ship.shipmentSubstatus || null,
+      trackingNumber: ship.trackingNumber || null,
       shipmentId: shipmentId != null ? String(shipmentId) : null,
       packId: o.pack_id != null ? String(o.pack_id) : null, // agrupa una compra de varios productos
       dimensions: ship.dimensions || null,
@@ -267,7 +269,7 @@ async function shipStatus(req, res) {
       try {
         const r = await httpRequest('GET', 'https://api.mercadolibre.com/shipments/' + id, auth);
         if (r.status === 200 && r.body?.status) {
-          statuses[id] = { status: r.body.status, substatus: r.body.substatus || null };
+          statuses[id] = { status: r.body.status, substatus: r.body.substatus || null, tracking: r.body.tracking_number || null };
         }
       } catch { /* envío de la otra cuenta o error puntual: se omite */ }
     }));
