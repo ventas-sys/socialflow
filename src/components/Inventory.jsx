@@ -536,10 +536,15 @@ export default function Inventory({
     setInvoiceScanning(true)
     try {
       const photoB64 = await compressPhoto(file)
-      const r = await fetch('/api/contabilium?action=extract', {
+      const resp = await fetch('/api/contabilium?action=extract', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ photoB64, mimeType: 'image/jpeg' }),
-      }).then(x => x.json())
+      })
+      const text = await resp.text()
+      let r
+      try { r = JSON.parse(text) } catch {
+        throw new Error('El servidor falló al procesar la foto (' + resp.status + '): ' + text.slice(0, 120))
+      }
       if (!r.ok) throw new Error(r.error || 'No se pudo leer la factura')
       const f = r.factura || {}
       const items = (f.items || []).filter(it => Math.round(Number(it.cantidad)) > 0)

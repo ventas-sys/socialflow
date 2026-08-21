@@ -1,7 +1,9 @@
 import https from 'https';
-import { PDFDocument } from 'pdf-lib';
-import nodemailer from 'nodemailer';
 import { httpRequest, cors } from './_http.js';
+// OJO: pdf-lib y nodemailer NO están en package.json — solo los usa el flujo
+// de mail a Contabilium, así que se importan dinámicamente dentro de
+// handleEmail. Un import estático acá rompe TODA la función (incluido
+// action=extract) con FUNCTION_INVOCATION_FAILED.
 
 function geminiVision(apiKey, body) {
   return new Promise((resolve, reject) => {
@@ -155,6 +157,7 @@ REGLAS:
 // handleEmail toma la foto, la envuelve en un PDF y la manda por Gmail SMTP.
 
 async function imageToPdfBytes(photoB64, mimeType) {
+  const { PDFDocument } = await import('pdf-lib');
   const imgBytes = Buffer.from(photoB64, 'base64');
   const pdf = await PDFDocument.create();
   const isPng = (mimeType || '').toLowerCase().includes('png');
@@ -184,6 +187,7 @@ async function handleEmail(req, res) {
       pdfBuf = await imageToPdfBytes(photoB64, mimeType);
     }
 
+    const nodemailer = (await import('nodemailer')).default;
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: { user: gmailUser, pass: gmailPass }
