@@ -87,6 +87,8 @@ export default function Inventory({
   const [purchasing, setPurchasing] = useState(false)
   const [purchaseResult, setPurchaseResult] = useState('')
   const [purchasePreview, setPurchasePreview] = useState(null)
+  const [invoiceScanning, setInvoiceScanning] = useState(false)
+  const invoiceInputRef = useRef(null)
   const fileInputRef = useRef(null)
   const purchaseInputRef = useRef(null)
   const photoInputRef = useRef(null)
@@ -413,6 +415,17 @@ export default function Inventory({
   }
 
   // Lee el Excel y arma la VISTA PREVIA (no aplica nada todavía)
+  // Buscar combo por SKU o código de barras
+  const findComboByRef = (ref) => {
+    const q = String(ref).trim().toLowerCase()
+    if (!q) return null
+    return combos.find(c =>
+      (c.code && c.code.toLowerCase() === q) ||
+      (c.barcodes?.length ? c.barcodes : (c.barcode ? [c.barcode] : []))
+        .some(b => String(b).toLowerCase() === q)
+    )
+  }
+
   const handlePurchaseFile = async (e) => {
     const file = e.target.files?.[0]
     e.target.value = ''
@@ -428,17 +441,6 @@ export default function Inventory({
         setPurchaseResult('⚠️ El archivo está vacío.')
         return
       }
-      // Buscar combo por SKU o código de barras
-      const findComboByRef = (ref) => {
-        const q = String(ref).trim().toLowerCase()
-        if (!q) return null
-        return combos.find(c =>
-          (c.code && c.code.toLowerCase() === q) ||
-          (c.barcodes?.length ? c.barcodes : (c.barcode ? [c.barcode] : []))
-            .some(b => String(b).toLowerCase() === q)
-        )
-      }
-
       // Agrupar por producto base final. Un COMBO expande a sus productos:
       // cada componente se ajusta por (cantidad del combo × cantidad del ajuste).
       const byProduct = new Map()
@@ -504,6 +506,109 @@ export default function Inventory({
       })
     } catch (err) {
       setPurchaseResult('❌ Error al leer el archivo: ' + err.message)
+    }
+  }
+
+  // ---- Ingreso por FOTO de factura/remito (Gemini lee los renglones) ----
+  // Comprimir la foto en el navegador para no pasarse del límite del servidor
+  const compressPhoto = (file) => new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => {
+      const MAX = 1600
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height))
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(img.width * scale)
+      canvas.height = Math.round(img.height * scale)
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+      resolve(canvas.toDataURL('image/jpeg', 0.85).split(',')[1])
+      URL.revokeObjectURL(img.src)
+    }
+    img.onerror = reject
+    img.src = URL.createObjectURL(file)
+  })
+
+  const handleInvoicePhoto = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setPurchaseResult('')
+    setPurchasePreview(null)
+    setInvoiceScanning(true)
+    try {
+      const photoB64 = await compressPhoto(file)
+      const r = await fetch('/api/contabilium?action=extract', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoB64, mimeType: 'image/jpeg' }),
+      }).then(x => x.json())
+      if (!r.ok) throw new Error(r.error || 'No se pudo leer la factura')
+      const f = r.factura || {}
+      const items = (f.items || []).filter(it => Math.round(Number(it.cantidad)) > 0)
+      if (!items.length) throw new Error('La IA no encontró renglones de artículos. ' + (f.observaciones || 'Probá con una foto más derecha y con buena luz.'))
+
+      // Matching por nombre cuando la factura no trae código: puntúa cuántas
+      // palabras de la descripción aparecen en el nombre del producto
+      const nrm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      const fuzzyProduct = (desc) => {
+        const toks = nrm(desc).split(/[^a-z0-9]+/).filter(t => t.length >= 3)
+        if (!toks.length) return null
+        let best = null, bestScore = 0
+        products.forEach(p => {
+          const name = nrm(p.name)
+          const hits = toks.filter(t => name.includes(t)).length
+          const score = hits / toks.length
+          if ((hits >= 2 || (toks.length === 1 && hits === 1)) && score > bestScore) { best = p; bestScore = score }
+        })
+        return bestScore >= 0.5 ? best : null
+      }
+
+      const byProduct = new Map()
+      const rows = []
+      const notFound = []
+      const reference = [f.tipoComprobante, [f.puntoVenta, f.numeroComprobante].filter(Boolean).join('-'), f.proveedor?.razonSocial]
+        .filter(Boolean).join(' ').trim() || 'Foto de factura'
+      const addDelta = (p, delta, origin, reason) => {
+        rows.push({ productId: p.id, productName: p.name, quantity: delta, reason: reason || `Compra por foto (${reference})` })
+        if (!byProduct.has(p.id)) {
+          byProduct.set(p.id, { productName: p.name, origins: new Set(), current: p.quantity || 0, delta: 0 })
+        }
+        const en = byProduct.get(p.id)
+        en.delta += delta
+        en.origins.add(origin)
+      }
+      items.forEach(it => {
+        const qty = Math.round(Number(it.cantidad))
+        const code = String(it.codigo || '').trim()
+        const desc = String(it.descripcion || '').trim()
+        // 1) por código exacto (producto o combo)
+        if (code) {
+          const p = findByRef(code)
+          if (p) { addDelta(p, qty, code); return }
+          const combo = findComboByRef(code)
+          if (combo) {
+            combo.items?.forEach(item => {
+              const bp = products.find(pp => pp.id === item.productId)
+              if (bp) addDelta(bp, item.quantity * qty, `${code} (combo)`, `Compra por foto — combo ${combo.code}`)
+            })
+            return
+          }
+        }
+        // 2) por descripción (aprox.)
+        const fp = fuzzyProduct(desc)
+        if (fp) { addDelta(fp, qty, `"${desc}" ≈`); return }
+        notFound.push(`${desc || code} (×${qty})`)
+      })
+      if (!rows.length) {
+        setPurchaseResult(
+          `⚠️ Leí la factura (${items.length} renglones) pero no pude asociar ninguno a tus productos. ` +
+          `Renglones: ${notFound.slice(0, 6).join(' · ')}. Cargalos con el buscador de Movimientos o por Excel.`
+        )
+        return
+      }
+      setPurchasePreview({ rows, reference, lines: [...byProduct.values()], notFound })
+    } catch (err) {
+      setPurchaseResult('❌ ' + err.message)
+    } finally {
+      setInvoiceScanning(false)
     }
   }
 
@@ -680,6 +785,26 @@ export default function Inventory({
             >
               {purchasing ? '⏳ Cargando...' : '🧾 Compra / Ajuste'}
             </button>
+          )}
+          {canEdit && (
+            <>
+              <input
+                ref={invoiceInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                style={{ display: 'none' }}
+                onChange={handleInvoicePhoto}
+              />
+              <button
+                onClick={() => invoiceInputRef.current?.click()}
+                className="btn-purchase"
+                disabled={invoiceScanning}
+                title="Sacá una foto de la factura o remito: la IA lee los renglones y te muestra la precarga para confirmar"
+              >
+                {invoiceScanning ? '⏳ Leyendo factura...' : '📷 Foto factura'}
+              </button>
+            </>
           )}
           <button
             onClick={exportExcel}

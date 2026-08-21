@@ -88,7 +88,7 @@ Analiza la imagen adjunta y extraé los datos. Respondé EXCLUSIVAMENTE con un J
     "condicionIva": "Responsable Inscripto" | "Monotributo" | "Exento" | "Consumidor Final" | ""
   },
   "items": [
-    {"descripcion": "...", "cantidad": 1, "precioUnitario": 0, "subtotal": 0}
+    {"codigo": "codigo/SKU del articulo si figura en el renglon, sino vacio", "descripcion": "...", "cantidad": 1, "precioUnitario": 0, "subtotal": 0}
   ],
   "totales": {
     "subtotal": 0,

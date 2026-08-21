@@ -47,7 +47,7 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
 ## Pendiente (no hecho)
 1. **Devoluciones de ML** que SUMAN stock.
 2. **Cargar stock real** de productos base (el usuario lo va ajustando con Compra/Ajuste).
-3. Stock desde **foto de factura (OCR)** — base en `api/contabilium.js` (Gemini Vision), necesita API key.
+3. ~~Stock desde foto de factura~~ **HECHO 21/8**: botón "📷 Foto factura" en Inventario (junto a Compra/Ajuste) → comprime la foto en el navegador (1600px jpg) → `/api/contabilium?action=extract` (Gemini 2.5 Flash, GEMINI_API_KEY cargada en Vercel por el usuario, maxDuration 60) → items {codigo, descripcion, cantidad} → matching: código exacto (producto/combo con expansión) y si no, por descripción (fuzzy: ≥2 palabras y ≥50% en el nombre) → misma vista previa de compra → confirmar. No matcheados se listan y se cargan a mano.
 4. Envíos a bodega **Full** (descuento al enviar).
 5. Si se quiere usar el dominio corto para conectar ML: agregar `https://stock-inventario-sable.vercel.app/` como Redirect URI en ambas apps ML y reconectar.
 6. Valores de zonas FLEX editables desde la app (hoy constantes).
