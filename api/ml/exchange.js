@@ -16,6 +16,7 @@ export default async function handler(req, res) {
     if (action === 'test') return await test(req, res);
     if (action === 'orders') return await orders(req, res);
     if (action === 'items') return await items(req, res);
+    if (action === 'shipstatus') return await shipStatus(req, res);
     return await exchange(req, res);
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message });
@@ -248,4 +249,28 @@ async function test(req, res) {
       sellerReputation: r.body.seller_reputation?.level_id || 'sin reputación'
     }
   });
+}
+
+// Estado actual de envíos puntuales, para refrescar los activos VIEJOS que ya
+// no entran en la ventana de órdenes de 7 días. body: { token, ids: [...] }
+async function shipStatus(req, res) {
+  const { token, ids } = req.body || {};
+  if (!token || !Array.isArray(ids) || !ids.length) {
+    return res.status(400).json({ ok: false, error: 'Falta token o ids' });
+  }
+  const auth = { 'Authorization': 'Bearer ' + token };
+  const statuses = {};
+  const list = ids.slice(0, 400).map(String);
+  const CONC = 10;
+  for (let i = 0; i < list.length; i += CONC) {
+    await Promise.all(list.slice(i, i + CONC).map(async (id) => {
+      try {
+        const r = await httpRequest('GET', 'https://api.mercadolibre.com/shipments/' + id, auth);
+        if (r.status === 200 && r.body?.status) {
+          statuses[id] = { status: r.body.status, substatus: r.body.substatus || null };
+        }
+      } catch { /* envío de la otra cuenta o error puntual: se omite */ }
+    }));
+  }
+  return res.status(200).json({ ok: true, statuses });
 }

@@ -166,10 +166,12 @@ export default function Shipments({
     // Estado actual en ML de cada envío (por shipmentId y packId), para
     // refrescar también los que ya están cargados en el tablero
     const mlStatus = new Map()
+    const tokenByKey = {}
     try {
       for (const key of keys) {
         const token = await ensureToken(key)
         if (!token) continue
+        tokenByKey[key] = token
         // Ventana de 7 días: 48hs para pendientes/en camino, 1 semana para demorados
         const from = new Date(); from.setHours(0, 0, 0, 0); from.setDate(from.getDate() - 7)
         const r = await fetch(`${API}?action=orders`, {
@@ -247,10 +249,50 @@ export default function Shipments({
           onUpdateShipment(id, patch).catch(() => {})))
       }
 
-      if (created || updEnt || updDem || !silent) setSyncMsg(
+      // Los activos VIEJOS (fuera de la ventana de 7 días) no aparecen en las
+      // órdenes y quedaban colgados en Pendiente: se consultan uno por uno
+      // contra ML y se actualizan igual (entregado / demorado / cancelado)
+      let oldEnt = 0, oldDem = 0, oldArc = 0
+      const stale = shipmentsRef.current.filter(s => {
+        const st = s.status || 'pendiente'
+        if (['entregado', 'archivado'].includes(st)) return false
+        return !mlStatus.has(String(s.code)) && !(s.packId && mlStatus.has(String(s.packId)))
+      }).slice(0, 400)
+      if (stale.length) {
+        const pending = new Map(stale.map(s => [String(s.code), s]))
+        for (const key of keys) {
+          if (!pending.size || !tokenByKey[key]) continue
+          // primero los de esta cuenta; los de cuenta desconocida se prueban en ambas
+          const ids = [...pending.values()].filter(s => !s.account || s.account === key).map(s => String(s.code))
+          if (!ids.length) continue
+          const r = await fetch(`${API}?action=shipstatus`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: tokenByKey[key], ids }),
+          }).then(x => x.json()).catch(() => null)
+          if (!r?.ok) continue
+          const ups = []
+          Object.entries(r.statuses || {}).forEach(([id, info]) => {
+            const s = pending.get(id)
+            if (!s) return
+            pending.delete(id)
+            const st = s.status || 'pendiente'
+            if (info.status === 'delivered') { ups.push([s.id, { status: 'entregado', deliveredAt: new Date() }]); oldEnt++ }
+            else if (info.status === 'cancelled') { ups.push([s.id, { status: 'archivado', archivedAt: new Date() }]); oldArc++ }
+            else if (['not_delivered', 'shipped'].includes(info.status) && st !== 'demorado' && st !== 'camino') {
+              ups.push([s.id, { status: 'demorado', demoradoAt: new Date() }]); oldDem++
+            }
+          })
+          for (let i = 0; i < ups.length; i += 20) {
+            await Promise.all(ups.slice(i, i + 20).map(([id, patch]) => onUpdateShipment(id, patch).catch(() => {})))
+          }
+        }
+      }
+
+      if (created || updEnt || updDem || oldEnt || oldDem || oldArc || !silent) setSyncMsg(
         `✅ ${created} envíos nuevos: ${nPend} pendientes, ${nCamino} en camino, ` +
         `${nEntregado} entregados, ${nDemorado} demorados. (${diag.flex} FLEX de ${diag.total} ventas)` +
-        (updEnt || updDem ? ` · 🔄 Según ML: ${updEnt} pasaron a entregado y ${updDem} a demorado` : '')
+        (updEnt || updDem ? ` · 🔄 Según ML: ${updEnt} pasaron a entregado y ${updDem} a demorado` : '') +
+        (oldEnt || oldDem || oldArc ? ` · 🧹 Viejos revisados en ML: ${oldEnt} entregados, ${oldDem} demorados, ${oldArc} cancelados→archivados` : '')
       )
     } catch (e) {
       if (!silent) setSyncMsg('❌ ' + e.message)
