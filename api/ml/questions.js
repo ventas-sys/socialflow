@@ -13,7 +13,7 @@
 //
 // Config: variable de entorno ML_ACCOUNTS (JSON). Ver lib/ml/qa-config.js.
 import { cors } from '../_http.js';
-import { loadAccounts, findAccountByUser, findAccountByLabel, otherAccount } from '../../lib/ml/qa-config.js';
+import { loadAccounts, findAccountByUser, findAccountByLabel, otherAccount, NEGOCIO } from '../../lib/ml/qa-config.js';
 import { getAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, getRecentQuestions, searchSellerItem, postAnswer, itemContext, getMe } from '../../lib/ml/ml-api.js';
 import { generateAnswer } from '../../lib/ml/qa-brain.js';
 import { storeKind, markWebhook, lastWebhook } from '../../lib/ml/token-store.js';
@@ -218,11 +218,17 @@ async function diagAccount(acc) {
     d.sin_responder = un?.total ?? pend.length;
     d.pendientes = pend.slice(0, 5).map(q => ({ id: q.id, fecha: q.date_created, texto: (q.text || '').slice(0, 90) }));
     d.pendiente_mas_vieja = pend.length ? pend[pend.length - 1].date_created : null;
-    const rec = await getRecentQuestions(token, acc.user_id, 10);
-    const ult = (rec?.questions || [])[0];
+    const rec = await getRecentQuestions(token, acc.user_id, 20);
+    const recientes = rec?.questions || [];
+    const ult = recientes[0];
     d.ultima_pregunta = ult ? { fecha: ult.date_created, estado: ult.status, texto: (ult.text || '').slice(0, 90) } : null;
-    const respondida = (rec?.questions || []).find(q => q.answer?.date_created);
+    const respondida = recientes.find(q => q.answer?.date_created);
     d.ultima_respuesta = respondida ? { fecha: respondida.answer.date_created, texto: (respondida.answer.text || '').slice(0, 90) } : null;
+    // ¿Las respuestas las está escribiendo Tatiana o una persona a mano?
+    // Tatiana SIEMPRE firma con su nombre, asi que la firma alcanza para distinguirlas.
+    const conRespuesta = recientes.filter(q => q.answer?.text);
+    d.respuestas_recientes = conRespuesta.length;
+    d.respuestas_de_tatiana = conRespuesta.filter(q => new RegExp(NEGOCIO.agente, 'i').test(q.answer.text)).length;
   } catch (e) {
     d.token = 'FALLA';
     d.error_code = e.code || null;
@@ -232,7 +238,7 @@ async function diagAccount(acc) {
 }
 
 // Traduce la radiografía a conclusiones en castellano (qué está roto y qué hacer).
-function diagConclusiones({ accounts, cuentas, gemini, autoanswer, store, webhook }) {
+function diagConclusiones({ accounts, cuentas, gemini, autoanswer, store, webhook, webhookPreguntas }) {
   const out = [];
   if (!accounts.length) out.push('❌ No hay cuentas cargadas: falta la variable ML_ACCOUNTS en Vercel (o quedó mal el JSON).');
   if (!gemini) out.push('❌ Falta GEMINI_API_KEY: sin eso el agente no puede redactar ninguna respuesta.');
@@ -245,8 +251,17 @@ function diagConclusiones({ accounts, cuentas, gemini, autoanswer, store, webhoo
     }
     if (c.user_id_coincide === false) out.push(`❌ Cuenta "${c.label}": el user_id de ML_ACCOUNTS (${c.user_id}) NO es el del token (${c.user_id_del_token}). El webhook nunca la va a encontrar y las preguntas quedan sin responder.`);
     if (c.sin_responder > 0) out.push(`⚠️ Cuenta "${c.label}": ${c.sin_responder} pregunta(s) sin responder (la más vieja es del ${c.pendiente_mas_vieja || 's/d'}). Usá "Responder pendientes" para ponerse al día.`);
+    if (c.respuestas_recientes > 0 && c.respuestas_de_tatiana === 0) {
+      out.push(`❌ Cuenta "${c.label}": de las últimas ${c.respuestas_recientes} respuestas, NINGUNA lleva la firma de ${NEGOCIO.agente} → las está contestando una persona a mano. El bot no está entrando.`);
+    } else if (c.respuestas_recientes > 0) {
+      out.push(`ℹ️ Cuenta "${c.label}": ${c.respuestas_de_tatiana} de las últimas ${c.respuestas_recientes} respuestas son de ${NEGOCIO.agente}.`);
+    }
   });
-  if (!webhook) out.push('⚠️ No hay registro de ningún webhook recibido de ML. Puede ser que el store esté en memoria (se pierde) o que ML NO esté notificando: revisá en DevCenter que la callback URL sea https://socialflow-flax.vercel.app/api/ml/questions con el topic "questions".');
+  if (!webhook) {
+    out.push('⚠️ No hay registro de ningún webhook recibido de ML. Puede ser que el store esté en memoria (se pierde en cada arranque) o que ML NO esté notificando: revisá en DevCenter que la callback URL sea https://socialflow-flax.vercel.app/api/ml/questions con el topic "questions".');
+  } else if (!webhookPreguntas) {
+    out.push(`❌ ML nos está avisando (llegó un aviso de "${webhook.topic || 'sin topic'}"), pero NO hay registro de NINGÚN aviso de PREGUNTAS. O el topic "questions" no está tildado en la app de DevCenter, o el registro se perdió por guardar en memoria. Ese es el motivo más probable de que el bot no conteste solo.`);
+  }
   if (!out.length) out.push('✅ Todo en orden: cuentas OK, token OK, sin preguntas pendientes y el auto-respondido prendido.');
   return out;
 }
@@ -266,14 +281,19 @@ export default async function handler(req, res) {
   try {
     // DIAGNÓSTICO: qué está pasando con el agente (se puede abrir con GET en el navegador).
     if (action === 'diag') {
-      const cuentas = [];
-      for (const acc of accounts) cuentas.push(await diagAccount(acc));
-      const webhook = await lastWebhook();
+      // En paralelo: en el plan Hobby la función corta a los 10s y una cuenta
+      // sola ya se lleva varias llamadas a la API de ML.
+      const [cuentas, webhook, webhookPreguntas] = await Promise.all([
+        Promise.all(accounts.map(diagAccount)),
+        lastWebhook(),
+        lastWebhook('questions'),
+      ]);
       const info = {
         gemini: !!(process.env.GEMINI_API_KEY || '').trim(),
         autoanswer: autoanswerOn(),
         store: storeKind(),
         webhook,
+        webhookPreguntas,
       };
       return res.status(200).json({
         ok: true,
@@ -283,6 +303,7 @@ export default async function handler(req, res) {
         gemini: info.gemini ? 'OK' : 'FALTA',
         guardado_de_tokens: info.store,
         ultimo_webhook_de_ml: webhook || null,
+        ultimo_webhook_de_preguntas: webhookPreguntas || null,
         cuentas,
         diagnostico: diagConclusiones({ accounts, cuentas, ...info }),
       });
