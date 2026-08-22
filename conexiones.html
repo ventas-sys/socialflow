@@ -590,11 +590,14 @@ async function mlAgentDiag(){
   lineas.push('');
   lineas.push('— Detalle —');
   lineas.push('Auto-respondido: '+d.auto_respondido+' · IA (Gemini): '+d.gemini+' · Guardado de tokens: '+d.guardado_de_tokens);
-  lineas.push('Último aviso de Mercado Libre: '+(d.ultimo_webhook_de_ml?.at || 'sin registro'));
+  lineas.push('Último aviso de Mercado Libre: '+(d.ultimo_webhook_de_ml?.at || 'sin registro')
+    + (d.ultimo_webhook_de_ml?.topic ? ' (topic: '+d.ultimo_webhook_de_ml.topic+')' : ''));
+  lineas.push('Último aviso de PREGUNTAS: '+(d.ultimo_webhook_de_preguntas?.at || '❌ sin registro'));
   (d.cuentas||[]).forEach(c=>{
     lineas.push('• '+c.label+' ('+c.mode+'): token '+c.token
       + (c.nickname ? ' · '+c.nickname : '')
       + ' · sin responder: '+(c.sin_responder ?? 's/d')
+      + (c.respuestas_recientes ? ' · de Tatiana: '+c.respuestas_de_tatiana+'/'+c.respuestas_recientes : '')
       + (c.ultima_respuesta ? ' · última respuesta: '+c.ultima_respuesta.fecha : ' · sin respuestas recientes'));
     if(c.error) lineas.push('   ↳ '+c.error);
   });

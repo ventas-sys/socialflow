@@ -4,6 +4,48 @@
 > multi-cuenta, orientado a **cerrar la venta**. Hermano del bot de WhatsApp (mismo patrón).
 > Estado: **EN VIVO — "Tatiana" 100% automática** (webhook activo, probado con pregunta real).
 
+## 🔎 22-ago-2026, 15:48 UTC — PRIMER DIAGNÓSTICO REAL EN PRODUCCIÓN
+
+Con el fix ya desplegado (PR #113), el `?action=diag` en producción devolvió:
+
+| Chequeo | Resultado |
+|---|---|
+| Cuentas cargadas | **2** (`full` 80460157 · `local` 46539072) |
+| Token de las 2 cuentas | **OK** — refresca bien, `user_id` coincide con el del token |
+| Nicknames | UNIPROVEEDORES / ARBETTER_BY_UNIPROVEEDORES |
+| `GEMINI_API_KEY` | OK |
+| `ML_AUTOANSWER` | on |
+| Guardado de tokens | **memoria** (falta el KV) |
+| Preguntas sin responder | `full`: 1 (¡del **29-may**!) · `local`: 0 |
+| Último webhook de ML | **topic `payments`**, mismo segundo del diag |
+
+**Lo que esto corrige de la hipótesis anterior:**
+- ❌ El `refresh_token` **NO estaba quemado**: las 2 cuentas renuevan token sin problema.
+- ✅ La **callback URL sigue viva**: ML nos estaba pegando en ese mismo momento (llegó un
+  aviso de `payments`), así que no la dieron de baja por los 500.
+
+**Lo que quedó como sospecha principal:** el único webhook registrado era de **`payments`**.
+Como `markWebhook` guardaba un solo registro, las notificaciones de pagos (que son muchísimas)
+**pisaban** el dato y nunca se veía si llegaba alguna de `questions`. No se puede afirmar que
+el topic `questions` esté caído, pero tampoco descartarlo.
+
+Además, las últimas respuestas de las 2 cuentas **no llevaban la firma de Tatiana**
+("Solo lo publicado...", ". Cualquier cosa que necesites..."), lo que apunta a que las
+preguntas las está contestando **una persona a mano** y por eso `sin_responder` queda en 0.
+
+**Cambios de este segundo pase (para cerrar la duda):**
+1. `markWebhook` ahora guarda el último aviso **de cada topic** por separado → el diag muestra
+   **`ultimo_webhook_de_preguntas`**. Si llegan avisos de `payments` pero nunca de `questions`,
+   el diagnóstico lo marca con ❌ y apunta directo a DevCenter.
+2. El diag cuenta **cuántas de las últimas 20 respuestas llevan la firma de Tatiana**. Si son 0,
+   avisa que las está contestando una persona y que el bot no está entrando.
+3. El diag consulta las 2 cuentas **en paralelo** (el plan es Hobby: la función corta a los 10s).
+
+> ⚠️ Ojo: los dos registros de webhook **solo sirven con el KV configurado**. En memoria se
+> pierden en cada arranque en frío, y ahí el diag no puede probar nada. El KV sigue siendo el
+> paso 1.
+
+---
 ## 🚨 22-ago-2026 — POR QUÉ DEJÓ DE RESPONDER (resuelto)
 
 **Síntoma:** las preguntas de Mercado Libre quedaban sin responder.
