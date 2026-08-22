@@ -107,6 +107,11 @@ input:focus{outline:none;border-color:rgba(0,200,100,0.5);}
           <button class="btn" style="background:linear-gradient(135deg,#1d6f42,#0f3d24);color:#d6ffe6;border:none;font-weight:700;" onclick="mlDownloadLog()">📊 Descargar registro (Excel)</button>
         </div>
         <div style="font-size:10px;color:#888;margin-top:4px;">Baja un archivo con las últimas preguntas y respuestas de las 2 cuentas (se abre en Excel).</div>
+        <div class="btn-row" style="margin-top:10px;">
+          <button class="btn" style="background:rgba(255,176,96,0.15);border-color:rgba(255,176,96,0.45);color:#ffb060;font-weight:700;" onclick="mlAgentDiag()">🩺 ¿Por qué no responde?</button>
+          <button class="btn" style="background:linear-gradient(135deg,#c6de00,#7d8c00);color:#111;border:none;font-weight:700;" onclick="mlAgentSweep()">🚀 Responder pendientes</button>
+        </div>
+        <div style="font-size:10px;color:#888;margin-top:4px;">🩺 revisa token, cuentas, preguntas sin responder y si Mercado Libre nos está avisando. 🚀 contesta ahora las que quedaron pendientes (hasta 5 por cuenta).</div>
         <div class="result" id="ml-agent-out" style="margin-top:8px;font-size:10px;font-family:'SF Mono',Menlo,monospace;white-space:pre-wrap;"></div>
       </div>
     </div>
@@ -568,6 +573,56 @@ async function mlAgentAnswer(account, questionId){
   if(!res.ok || d.error){ if(box){ box.style.color='#e66'; box.textContent='❌ '+(d.error||'Error'); } return; }
   if(d.escalated){ if(box){ box.style.color='#ffb060'; box.innerHTML='🙋 <b>No responde el bot:</b> '+mlEsc(d.note||'lo atiende un humano (repetición/loop).'); } return; }
   if(box){ box.style.color='#c6de00'; box.innerHTML='💬 <b>Respuesta sugerida:</b><br>'+mlEsc(d.answer||'(vacía)'); }
+}
+
+// 🩺 Diagnóstico: por qué el agente no está respondiendo.
+async function mlAgentDiag(){
+  const out = document.getElementById('ml-agent-out');
+  out.className='result'; out.textContent='⏳ Revisando el agente (token, cuentas, pendientes)...';
+  const res = await mlAgentCall('diag', {});
+  if(res.netError){ out.className='result err'; out.textContent='❌ Error de red: '+res.netError; return; }
+  const d = res.data || {};
+  if(!res.ok || d.error){ out.className='result err'; out.textContent='❌ '+(d.error||'Error'); return; }
+  const problemas = (d.diagnostico||[]).some(l=>l.startsWith('❌'));
+  out.className = problemas ? 'result err' : 'result ok';
+  const lineas = [];
+  lineas.push((d.diagnostico||[]).join('\n'));
+  lineas.push('');
+  lineas.push('— Detalle —');
+  lineas.push('Auto-respondido: '+d.auto_respondido+' · IA (Gemini): '+d.gemini+' · Guardado de tokens: '+d.guardado_de_tokens);
+  lineas.push('Último aviso de Mercado Libre: '+(d.ultimo_webhook_de_ml?.at || 'sin registro'));
+  (d.cuentas||[]).forEach(c=>{
+    lineas.push('• '+c.label+' ('+c.mode+'): token '+c.token
+      + (c.nickname ? ' · '+c.nickname : '')
+      + ' · sin responder: '+(c.sin_responder ?? 's/d')
+      + (c.ultima_respuesta ? ' · última respuesta: '+c.ultima_respuesta.fecha : ' · sin respuestas recientes'));
+    if(c.error) lineas.push('   ↳ '+c.error);
+  });
+  out.textContent = lineas.join('\n');
+}
+
+// 🚀 Contesta ahora las preguntas que quedaron pendientes en las 2 cuentas.
+async function mlAgentSweep(){
+  const out = document.getElementById('ml-agent-out');
+  if(!confirm('Voy a RESPONDER de verdad las preguntas pendientes (hasta 5 por cuenta). ¿Sigo?')) return;
+  out.className='result'; out.textContent='⏳ Respondiendo pendientes... (puede tardar un rato)';
+  const res = await mlAgentCall('sweep', { limit: 5 });
+  if(res.netError){ out.className='result err'; out.textContent='❌ Error de red: '+res.netError; return; }
+  const d = res.data || {};
+  if(!res.ok || d.error){ out.className='result err'; out.textContent='❌ '+(d.error||'Error'); return; }
+  const lineas = ['✅ Listo: '+(d.posteadas||0)+' respuesta(s) publicada(s).'];
+  if(!d.autopost) lineas.push('⚠️ El auto-respondido está en OFF (ML_AUTOANSWER=off): generé las respuestas pero NO las publiqué.');
+  (d.cuentas||[]).forEach(c=>{
+    if(c.error){ lineas.push('• '+c.account+': ❌ '+c.error); return; }
+    lineas.push('• '+c.account+': '+c.pendientes+' pendiente(s), '+c.procesadas+' procesada(s), '+c.posteadas+' publicada(s)');
+    (c.resultados||[]).forEach(r=>{
+      if(r.error) lineas.push('   ↳ ❌ '+String(r.question||'').slice(0,50)+': '+r.error);
+      else if(r.escalated) lineas.push('   ↳ 🙋 '+String(r.question||'').slice(0,50)+': lo atiende un humano');
+      else if(r.postError) lineas.push('   ↳ ⚠️ ML rechazó la respuesta: '+r.postError);
+      else lineas.push('   ↳ 💬 '+String(r.answer||'').slice(0,90));
+    });
+  });
+  out.className='result ok'; out.textContent = lineas.join('\n');
 }
 
 function mlCsvCell(v){

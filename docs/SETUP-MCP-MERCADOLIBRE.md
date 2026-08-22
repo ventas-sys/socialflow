@@ -195,7 +195,29 @@ Si falla → revisá la tabla de troubleshooting abajo.
 | El agente dice que no ve ninguna cuenta (0 cuentas) | Revisá que `mcp-ml/.env` tenga la variable `ML_ACCOUNTS` bien pegada, en una sola línea, con JSON válido |
 | Error de JSON inválido al levantar el servidor | Probablemente copiaste el valor con los `•••` de la vista enmascarada en vez del valor real del portapapeles. Volvé al Paso 1 y usá el botón "Copiar" |
 | Datos desactualizados o "token expirado" | Los `refresh_token` de ML se renuevan solos al usarse; si el error persiste, reconectá esa cuenta desde `conexiones.html` y volvé a copiar `ML_ACCOUNTS` |
+| "El refresh_token ya no sirve (vencido o YA USADO)" | Falta el KV compartido (ver el aviso de abajo): reconectá la cuenta, actualizá `ML_ACCOUNTS` y cargá `KV_REST_API_URL` / `KV_REST_API_TOKEN` |
 | Cambié `mcp-ml/.env` y no se aplica | Reiniciá Claude Code (o el cliente MCP) para que el proceso del servidor se relance y vuelva a leer el `.env` |
+
+---
+
+---
+
+## ⚠️ IMPORTANTE — compartir el token con el Agente de Preguntas
+
+El `refresh_token` de Mercado Libre es **de un solo uso**: cada renovación devuelve uno nuevo e
+**invalida el anterior**. Si este MCP renueva por su cuenta, **rompe el token que usa el Agente
+de Preguntas en Vercel** y Tatiana deja de responder (fue exactamente lo que pasó el 22-ago-2026).
+
+Para que los dos compartan el mismo token guardado, agregá en `mcp-ml/.env` las **mismas**
+variables de KV que tenés en Vercel:
+
+```
+KV_REST_API_URL=https://...
+KV_REST_API_TOKEN=...
+```
+
+Sin esas variables, usá el MCP con cuidado: después de consultarlo, revisá el botón
+**🩺 ¿Por qué no responde?** en `/conexiones`.
 
 ---
 
