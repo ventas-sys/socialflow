@@ -1,7 +1,7 @@
 import https from 'https';
 import { PDFDocument } from 'pdf-lib';
 import nodemailer from 'nodemailer';
-import { httpRequest, cors } from './_http.js';
+import { httpRequest, cors } from '../lib/http.js';
 
 function geminiVision(apiKey, body) {
   return new Promise((resolve, reject) => {

@@ -1,4 +1,4 @@
-import { httpRequest, cors } from './_http.js';
+import { httpRequest, cors } from '../lib/http.js';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 

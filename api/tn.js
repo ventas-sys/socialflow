@@ -1,4 +1,4 @@
-import { httpRequest, cors } from './_http.js';
+import { httpRequest, cors } from '../lib/http.js';
 
 const UA = 'Uniproveedores Agencia (ventas@distribuidorauniverso.com)';
 
