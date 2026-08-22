@@ -4,18 +4,27 @@
 //   POST /api/ml/questions?action=unanswered   -> lista preguntas sin responder { account }
 //   POST /api/ml/questions?action=answer       -> genera (y opcional postea) 1 respuesta
 //                                                 { account, question_id, autopost }
+//   POST /api/ml/questions?action=sweep        -> responde TODAS las pendientes (red de
+//                                                 seguridad si el webhook no entra)
+//   GET  /api/ml/questions?action=diag         -> diagnóstico: token, cuentas, pendientes,
+//                                                 último webhook y qué está fallando
 //   POST /api/ml/questions   (webhook de ML)    -> ML manda { resource, user_id, topic }
 //                                                 => responde la pregunta automáticamente
 //
 // Config: variable de entorno ML_ACCOUNTS (JSON). Ver lib/ml/qa-config.js.
 import { cors } from '../_http.js';
 import { loadAccounts, findAccountByUser, findAccountByLabel, otherAccount } from '../../lib/ml/qa-config.js';
-import { refreshAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, getRecentQuestions, searchSellerItem, postAnswer, itemContext } from '../../lib/ml/ml-api.js';
+import { getAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, getRecentQuestions, searchSellerItem, postAnswer, itemContext, getMe } from '../../lib/ml/ml-api.js';
 import { generateAnswer } from '../../lib/ml/qa-brain.js';
+import { storeKind, markWebhook, lastWebhook } from '../../lib/ml/token-store.js';
 
+// Access token de la cuenta (con cache + guardado del refresh rotado).
 async function tokenOf(acc) {
-  const t = await refreshAccessToken(acc);
-  return t.access_token;
+  return getAccessToken(acc);
+}
+
+function autoanswerOn() {
+  return process.env.ML_AUTOANSWER !== 'off';
 }
 
 // ¿La pregunta pide retiro/ubicación y estamos en la cuenta Full? -> cross-account.
@@ -154,10 +163,92 @@ async function answerFlow({ acc, accounts, q, autopost }) {
 
   // Anti-repetición: solo posteamos si sigue SIN responder (ML permite 1 sola respuesta).
   let posted = null;
+  let postError = null;
   if (autopost && q.status === 'UNANSWERED') {
     posted = await postAnswer(token, q.id, answer);
+    if (!posted.ok) {
+      // Antes esto quedaba en silencio: ML rechazaba la respuesta y desde afuera
+      // parecía que el bot había contestado. Ahora se ve en la respuesta y en los logs.
+      postError = posted.error;
+      console.error('[ml-questions] ML rechazó la respuesta', {
+        question_id: q.id, item_id: q.item_id, status: posted.status, error: posted.error,
+      });
+    }
   }
-  return { question: q.text, item: ctx.title, answer, status: q.status, posted };
+  return { question: q.text, item: ctx.title, answer, status: q.status, posted, postError };
+}
+
+// Responde en tanda las preguntas pendientes de una cuenta (red de seguridad si
+// el webhook de ML no entra: se procesan igual las que quedaron sin responder).
+async function sweepAccount({ acc, accounts, limit, autopost }) {
+  const token = await tokenOf(acc);
+  const data = await getUnanswered(token, acc.user_id, limit);
+  const pendientes = (data?.questions || []).slice(0, limit);
+  const resultados = [];
+  for (const q of pendientes) {
+    try {
+      const out = await answerFlow({ acc, accounts, q, autopost });
+      resultados.push({ question_id: q.id, item_id: q.item_id, ...out });
+    } catch (e) {
+      console.error('[ml-questions] sweep falló en la pregunta ' + q.id, e.message);
+      resultados.push({ question_id: q.id, item_id: q.item_id, question: q.text, error: e.message });
+    }
+  }
+  return {
+    account: acc.label,
+    pendientes: data?.total ?? pendientes.length,
+    procesadas: resultados.length,
+    posteadas: resultados.filter(r => r.posted?.ok).length,
+    resultados,
+  };
+}
+
+// Radiografía de una cuenta: token, identidad, pendientes y última actividad.
+async function diagAccount(acc) {
+  const d = { label: acc.label, mode: acc.mode, user_id: acc.user_id, tiene_refresh: !!acc.refresh_token };
+  try {
+    const token = await tokenOf(acc);
+    d.token = 'OK';
+    const me = await getMe(token);
+    d.nickname = me?.nickname || null;
+    d.user_id_del_token = me?.id ?? null;
+    d.user_id_coincide = String(me?.id) === String(acc.user_id);
+    const un = await getUnanswered(token, acc.user_id, 10);
+    const pend = un?.questions || [];
+    d.sin_responder = un?.total ?? pend.length;
+    d.pendientes = pend.slice(0, 5).map(q => ({ id: q.id, fecha: q.date_created, texto: (q.text || '').slice(0, 90) }));
+    d.pendiente_mas_vieja = pend.length ? pend[pend.length - 1].date_created : null;
+    const rec = await getRecentQuestions(token, acc.user_id, 10);
+    const ult = (rec?.questions || [])[0];
+    d.ultima_pregunta = ult ? { fecha: ult.date_created, estado: ult.status, texto: (ult.text || '').slice(0, 90) } : null;
+    const respondida = (rec?.questions || []).find(q => q.answer?.date_created);
+    d.ultima_respuesta = respondida ? { fecha: respondida.answer.date_created, texto: (respondida.answer.text || '').slice(0, 90) } : null;
+  } catch (e) {
+    d.token = 'FALLA';
+    d.error_code = e.code || null;
+    d.error = e.message;
+  }
+  return d;
+}
+
+// Traduce la radiografía a conclusiones en castellano (qué está roto y qué hacer).
+function diagConclusiones({ accounts, cuentas, gemini, autoanswer, store, webhook }) {
+  const out = [];
+  if (!accounts.length) out.push('❌ No hay cuentas cargadas: falta la variable ML_ACCOUNTS en Vercel (o quedó mal el JSON).');
+  if (!gemini) out.push('❌ Falta GEMINI_API_KEY: sin eso el agente no puede redactar ninguna respuesta.');
+  if (!autoanswer) out.push('⚠️ ML_AUTOANSWER=off: el auto-respondido está PAUSADO a propósito. Sacá esa variable (o ponela en "on") para que vuelva a responder.');
+  if (store === 'memoria') out.push('⚠️ Los tokens se guardan solo en memoria: ML rota el refresh_token en cada renovación, así que al rato el de ML_ACCOUNTS queda invalidado y el bot deja de responder. Configurá KV_REST_API_URL + KV_REST_API_TOKEN en Vercel.');
+  cuentas.forEach(c => {
+    if (c.token === 'FALLA') {
+      out.push(`❌ Cuenta "${c.label}": no se pudo renovar el token${c.error_code ? ' (' + c.error_code + ')' : ''}. ${c.error}`);
+      return;
+    }
+    if (c.user_id_coincide === false) out.push(`❌ Cuenta "${c.label}": el user_id de ML_ACCOUNTS (${c.user_id}) NO es el del token (${c.user_id_del_token}). El webhook nunca la va a encontrar y las preguntas quedan sin responder.`);
+    if (c.sin_responder > 0) out.push(`⚠️ Cuenta "${c.label}": ${c.sin_responder} pregunta(s) sin responder (la más vieja es del ${c.pendiente_mas_vieja || 's/d'}). Usá "Responder pendientes" para ponerse al día.`);
+  });
+  if (!webhook) out.push('⚠️ No hay registro de ningún webhook recibido de ML. Puede ser que el store esté en memoria (se pierde) o que ML NO esté notificando: revisá en DevCenter que la callback URL sea https://socialflow-flax.vercel.app/api/ml/questions con el topic "questions".');
+  if (!out.length) out.push('✅ Todo en orden: cuentas OK, token OK, sin preguntas pendientes y el auto-respondido prendido.');
+  return out;
 }
 
 export default async function handler(req, res) {
@@ -173,6 +264,63 @@ export default async function handler(req, res) {
   }
 
   try {
+    // DIAGNÓSTICO: qué está pasando con el agente (se puede abrir con GET en el navegador).
+    if (action === 'diag') {
+      const cuentas = [];
+      for (const acc of accounts) cuentas.push(await diagAccount(acc));
+      const webhook = await lastWebhook();
+      const info = {
+        gemini: !!(process.env.GEMINI_API_KEY || '').trim(),
+        autoanswer: autoanswerOn(),
+        store: storeKind(),
+        webhook,
+      };
+      return res.status(200).json({
+        ok: true,
+        fecha: new Date().toISOString(),
+        cuentas_configuradas: accounts.length,
+        auto_respondido: info.autoanswer ? 'on' : 'off (PAUSADO)',
+        gemini: info.gemini ? 'OK' : 'FALTA',
+        guardado_de_tokens: info.store,
+        ultimo_webhook_de_ml: webhook || null,
+        cuentas,
+        diagnostico: diagConclusiones({ accounts, cuentas, ...info }),
+      });
+    }
+
+    // BARRIDO: responde las preguntas que quedaron pendientes (una cuenta o todas).
+    // Sirve como red de seguridad cuando el webhook de ML no llega.
+    if (action === 'sweep') {
+      // Con GET (cron externo) pedimos la key si está configurada ML_SWEEP_KEY.
+      // Por POST entra el botón del panel, igual que el resto de las acciones.
+      const expected = (process.env.ML_SWEEP_KEY || '').trim();
+      if (req.method === 'GET' && expected && (req.query?.key || '').toString() !== expected) {
+        return res.status(401).json({ error: 'key inválida' });
+      }
+      if (!accounts.length) return res.status(400).json({ error: 'No hay cuentas configuradas (ML_ACCOUNTS).' });
+      const limit = Math.min(Number(req.query?.limit || req.body?.limit) || 5, 20);
+      // dry=1 genera las respuestas sin publicarlas (para revisar el tono).
+      const dry = ['1', 'true', 'si'].includes(String(req.query?.dry ?? req.body?.dry ?? '').toLowerCase());
+      const autopost = !dry && autoanswerOn();
+      const label = (req.query?.account || req.body?.account || '').toString();
+      const target = label ? [findAccountByLabel(accounts, label)].filter(Boolean) : accounts;
+      if (!target.length) return res.status(400).json({ error: 'Cuenta desconocida: ' + label });
+      const cuentas = [];
+      for (const acc of target) {
+        try {
+          cuentas.push(await sweepAccount({ acc, accounts, limit, autopost }));
+        } catch (e) {
+          console.error('[ml-questions] sweep falló en la cuenta ' + acc.label, e.message);
+          cuentas.push({ account: acc.label, error: e.message });
+        }
+      }
+      return res.status(200).json({
+        ok: true, autopost, limite_por_cuenta: limit,
+        posteadas: cuentas.reduce((n, c) => n + (c.posteadas || 0), 0),
+        cuentas,
+      });
+    }
+
     // Ver qué cuentas están cargadas (sin exponer secretos).
     if (action === 'test') {
       return res.status(200).json({
@@ -184,19 +332,31 @@ export default async function handler(req, res) {
 
     // WEBHOOK de Mercado Libre: notificación de pregunta nueva.
     // ML manda { resource: "/questions/{id}", user_id, topic }. Respondemos rápido.
+    // SIEMPRE devolvemos 200: si contestamos 5xx, ML reintenta y termina dando de
+    // baja la callback URL de la app (y ahí deja de avisarnos por completo).
     if (req.method === 'POST' && (action === 'webhook' || req.body?.resource)) {
       const { resource, user_id, topic } = req.body || {};
-      if (topic && topic !== 'questions') return res.status(200).json({ ok: true, skipped: topic });
-      const acc = findAccountByUser(accounts, user_id);
-      if (!acc) return res.status(200).json({ ok: false, error: 'cuenta no configurada para user ' + user_id });
-      const qId = String(resource || '').split('/').pop();
-      const token = await tokenOf(acc);
-      const q = await getQuestion(token, qId);
-      if (!q || q.status !== 'UNANSWERED') return res.status(200).json({ ok: true, skipped: 'ya respondida o inexistente' });
-      // Interruptor de seguridad: poné ML_AUTOANSWER=off en Vercel para pausar el auto-respondido.
-      const autopost = process.env.ML_AUTOANSWER !== 'off';
-      const out = await answerFlow({ acc, accounts, q, autopost });
-      return res.status(200).json({ ok: true, autopost, ...out });
+      // Queda registrado para el diagnóstico: así se ve si ML nos está llamando.
+      await markWebhook({ topic: topic || null, user_id: user_id ?? null, resource: resource || null });
+      try {
+        if (topic && topic !== 'questions') return res.status(200).json({ ok: true, skipped: topic });
+        const acc = findAccountByUser(accounts, user_id);
+        if (!acc) {
+          console.error('[ml-questions] webhook de un user sin cuenta en ML_ACCOUNTS', { user_id, resource });
+          return res.status(200).json({ ok: false, error: 'cuenta no configurada para user ' + user_id });
+        }
+        const qId = String(resource || '').split('/').pop();
+        const token = await tokenOf(acc);
+        const q = await getQuestion(token, qId);
+        if (!q || q.status !== 'UNANSWERED') return res.status(200).json({ ok: true, skipped: 'ya respondida o inexistente' });
+        // Interruptor de seguridad: poné ML_AUTOANSWER=off en Vercel para pausar el auto-respondido.
+        const autopost = autoanswerOn();
+        const out = await answerFlow({ acc, accounts, q, autopost });
+        return res.status(200).json({ ok: !out.postError, autopost, ...out });
+      } catch (e) {
+        console.error('[ml-questions] webhook falló', { user_id, resource, error: e.message });
+        return res.status(200).json({ ok: false, error: e.message, hint: 'Abrí /api/ml/questions?action=diag para ver el detalle.' });
+      }
     }
 
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });

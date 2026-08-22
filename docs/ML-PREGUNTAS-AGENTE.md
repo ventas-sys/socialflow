@@ -4,6 +4,60 @@
 > multi-cuenta, orientado a **cerrar la venta**. Hermano del bot de WhatsApp (mismo patrón).
 > Estado: **EN VIVO — "Tatiana" 100% automática** (webhook activo, probado con pregunta real).
 
+## 🚨 22-ago-2026 — POR QUÉ DEJÓ DE RESPONDER (resuelto)
+
+**Síntoma:** las preguntas de Mercado Libre quedaban sin responder.
+
+**Causa raíz:** el `refresh_token` de Mercado Libre es **de un solo uso**. Cada vez que se
+renueva el token, ML devuelve un `refresh_token` NUEVO e **invalida el anterior**. El agente
+leía las cuentas de la variable de entorno `ML_ACCOUNTS` (que no se puede reescribir sola) y
+**tiraba a la basura** el token nuevo → a partir de la 2ª renovación, ML contestaba
+`invalid_grant` y el agente no podía ni leer la pregunta.
+
+Encima, el webhook renovaba el token **dos veces por pregunta** (una en el handler y otra
+dentro de `answerFlow`), así que se rompía en la PRIMERA pregunta después de la primera
+renovación. Reproducido en un test con la API de ML simulada: 2 webhooks → 3 renovaciones →
+los 2 devolvían **HTTP 500**.
+
+Agravantes que lo hacían invisible y difícil de recuperar:
+- **El 500 apagaba el webhook:** ML reintenta y, si el callback sigue fallando, deja de
+  notificar. Por eso no volvía solo aunque se arreglara el token.
+- **El conector MCP (#102, 12-ago) quema el mismo token:** `mcp-ml/server.mjs` renovaba con la
+  misma copia de `ML_ACCOUNTS`, así que cada consulta desde Claude Code **invalidaba** el token
+  de producción.
+- **Los rechazos de ML pasaban en silencio:** `postAnswer` no miraba el status HTTP. Si ML
+  rechazaba la respuesta (p. ej. por el link del catálogo), desde afuera parecía respondida.
+
+**Arreglos (este cambio):**
+1. `lib/ml/token-store.js` — guarda el `refresh_token` rotado + cachea el `access_token`
+   (dura ~6 hs). Con `KV_REST_API_URL` + `KV_REST_API_TOKEN` (Vercel KV / Upstash) queda
+   **persistente**; sin eso, solo memoria (avisa en el diagnóstico).
+2. `getAccessToken()` reemplaza a `refreshAccessToken()` en el webhook y en el MCP: 1 sola
+   renovación cada 6 hs en vez de 2 por pregunta, y si el token guardado falla reintenta
+   con el de `ML_ACCOUNTS`.
+3. El webhook **siempre devuelve 200** (con `ok:false` + el error adentro y en los logs), para
+   que ML no dé de baja el callback.
+4. `postAnswer` devuelve `ok/error` → los rechazos de ML se ven en la respuesta y en los logs.
+5. **`?action=diag`** — botón "🩺 ¿Por qué no responde?" en `/conexiones`: token de cada
+   cuenta, si el `user_id` coincide, preguntas pendientes, última respuesta y **cuándo fue el
+   último aviso de ML**.
+6. **`?action=sweep`** — botón "🚀 Responder pendientes" + `bridge/ml-sweep.sh` para cron en el
+   VPS: contesta lo que quedó pendiente aunque el webhook no entre. Red de seguridad.
+
+### ✅ Qué hacer para dejarlo andando otra vez
+1. **Reautorizar las 2 cuentas** en `/conexiones` (el `refresh_token` viejo ya está quemado) y
+   pegar el `ML_ACCOUNTS` nuevo en Vercel + Redeploy.
+2. **Configurar el KV** en Vercel (`KV_REST_API_URL` + `KV_REST_API_TOKEN`, de Vercel KV o
+   Upstash). Sin esto el token rotado se pierde en cada arranque en frío y el problema vuelve.
+   Las mismas variables van en `mcp-ml/.env` para que el conector MCP no queme el token.
+3. Abrir **🩺 ¿Por qué no responde?** → tiene que decir `✅ Todo en orden`.
+4. **Revisar el webhook en DevCenter** (se pudo haber dado de baja por los 500): callback
+   `https://socialflow-flax.vercel.app/api/ml/questions`, topic `questions`.
+5. Tocar **🚀 Responder pendientes** para ponerse al día con lo acumulado.
+6. (Recomendado) Cron en el VPS cada 5 min: `bridge/ml-sweep.sh` — así, aunque el webhook se
+   caiga de nuevo, nunca queda una pregunta sin responder más de 5 minutos.
+
+---
 ## 📌 Estado al 4-ago-2026 (última sesión)
 - ✅ **Webhook de ML ACTIVO** en la app "Uniproveedores MCP": callback `https://socialflow-flax.vercel.app/api/ml/questions`, topic **Questions** (dentro del grupo **Items**). Probado con pregunta real → Tatiana respondió sola. **Ya está en vivo en las 2 cuentas.**
 - ✅ El endpoint responde 200 a GET (health) y a POST sin acción (ping de ML).
@@ -148,6 +202,11 @@ variable **`ML_ACCOUNTS`** con este JSON (en una línea):
 ```
 - `refresh_token`, `client_id`, `client_secret`, `user_id` salen del OAuth de cada cuenta
   (el flujo que ya existe en `/conexiones`). `GEMINI_API_KEY` ya está.
+- ⚠️ Cargar también **`KV_REST_API_URL`** + **`KV_REST_API_TOKEN`** (Vercel KV o Upstash): ML
+  rota el `refresh_token` en cada renovación y ahí es donde se guarda el nuevo. Sin eso, el
+  agente se cae solo a las pocas horas (ver el bloque del 22-ago).
+- Opcionales: `ML_AUTOANSWER=off` pausa el auto-respondido · `ML_SWEEP_KEY` protege el barrido
+  por GET (para el cron del VPS).
 - Redeploy.
 
 **Paso 2 — Probar (sin webhook todavía):**

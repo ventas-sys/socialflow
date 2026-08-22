@@ -23,7 +23,7 @@ import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprot
 
 import { loadAccounts, findAccountByLabel } from '../lib/ml/qa-config.js';
 import {
-  refreshAccessToken,
+  getAccessToken,
   getItem,
   getUnanswered,
   getItemQuestions,
@@ -42,10 +42,14 @@ import {
 // Helpers de cuenta / token
 // ---------------------------------------------------------------------------
 
+// OJO: usa el MISMO store de tokens que el webhook de Vercel (lib/ml/token-store.js).
+// ML rota el refresh_token en cada renovación, así que si este MCP renueva por su
+// cuenta INVALIDA el refresh_token que usa el agente de preguntas en producción.
+// Para que compartan el token, poné en mcp-ml/.env las mismas
+// KV_REST_API_URL / KV_REST_API_TOKEN que tenés en Vercel.
 async function tokenFor(acc) {
   try {
-    const { access_token } = await refreshAccessToken(acc);
-    return access_token;
+    return await getAccessToken(acc);
   } catch (err) {
     throw new Error(
       `No se pudo obtener un access_token para la cuenta "${acc.label || acc.user_id}": ${err.message || err}`
