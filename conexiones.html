@@ -109,6 +109,7 @@ input:focus{outline:none;border-color:rgba(0,200,100,0.5);}
         <div style="font-size:10px;color:#888;margin-top:4px;">Baja un archivo con las últimas preguntas y respuestas de las 2 cuentas (se abre en Excel).</div>
         <div class="btn-row" style="margin-top:10px;">
           <button class="btn" style="background:linear-gradient(135deg,#00b3e6,#005f7d);color:#eaf9ff;border:none;font-weight:700;" onclick="mlDownloadConversion()">📈 Control de conversión (Excel)</button>
+          <button class="btn" style="background:rgba(198,222,0,0.12);border-color:rgba(198,222,0,0.35);color:#c6de00;" onclick="mlPostventa()">💬 Mensajes post-entrega</button>
         </div>
         <div style="font-size:10px;color:#888;margin-top:4px;">Cruza las preguntas de los últimos 30 días con las VENTAS: por cada SKU dice si convirtió o no, qué le preguntaron (medidas, color, por mayor, retiro...) y qué corregir. Baja 2 archivos para Excel.</div>
         <div class="btn-row" style="margin-top:10px;">
@@ -630,6 +631,29 @@ async function mlAgentSweep(){
     });
   });
   out.className='result ok'; out.textContent = lineas.join('\n');
+}
+
+// 💬 Estado de los mensajes post-entrega (los de "¿llegó todo bien?").
+async function mlPostventa(){
+  const out = document.getElementById('ml-agent-out');
+  out.className='result'; out.textContent='⏳ Mirando la cola de mensajes post-entrega...';
+  const res = await mlAgentCall('postventa', { ver: 1 });
+  if(res.netError){ out.className='result err'; out.textContent='❌ Error de red: '+res.netError; return; }
+  const d = res.data || {};
+  if(!res.ok || d.error){ out.className='result err'; out.textContent='❌ '+(d.error||'Error'); return; }
+  const l = [];
+  l.push(d.activo ? '✅ Activo: se manda a los '+d.demora_minutos+' min de que ML marca el envío como ENTREGADO.'
+                  : '⏸️ APAGADO. Para activarlo poné ML_POSTVENTA=on en Vercel y redeploy.');
+  if(d.falta_kv) l.push('❌ Falta el KV: sin él la cola se pierde en cada arranque y NO se manda nada. Configurá KV_REST_API_URL + KV_REST_API_TOKEN.');
+  l.push('');
+  l.push('En cola (esperando los 5 min): '+d.en_cola);
+  l.push('Ya enviados: '+d.ya_enviados);
+  (d.cola||[]).slice(0,10).forEach(c=>{
+    l.push('  • orden '+c.orderId+' — '+String(c.titulo||'').slice(0,40)+' → sale '+String(c.enviar_a_partir_de||'').replace('T',' ').slice(0,16));
+  });
+  l.push('');
+  l.push('ℹ️ El mensaje NO pide calificación positiva, no ofrece plata ni premios y no manda links (todo eso lo prohíbe ML). Las redes van en el folleto con QR dentro del paquete.');
+  out.className='result ok'; out.textContent = l.join('\n');
 }
 
 // 📈 Control de conversión: preguntas vs ventas, por SKU, con qué corregir.

@@ -4,6 +4,56 @@
 > multi-cuenta, orientado a **cerrar la venta**. Hermano del bot de WhatsApp (mismo patrón).
 > Estado: **EN VIVO — "Tatiana" 100% automática** (webhook activo, probado con pregunta real).
 
+## 💬 Mensaje post-entrega ("¿llegó todo bien?")
+
+`GET/POST /api/ml/questions?action=postventa` · botón **"💬 Mensajes post-entrega"** en
+`/conexiones`. Interruptor: **`ML_POSTVENTA=on`** (arranca APAGADO a propósito).
+
+**Cómo funciona:**
+1. ML avisa por webhook (topic **`shipments`**) que cambió un envío.
+2. Si el envío quedó en **`delivered`**, se busca la orden y se **agenda** el mensaje para
+   **5 minutos después** (cola en el KV).
+3. Un cron cada 5 min (`bridge/ml-sweep.sh`) llama a `?action=postventa` y manda los que ya
+   cumplieron la demora, por la **mensajería post-venta de ML**
+   (`POST /messages/packs/{pack}/sellers/{seller}?tag=post_sale`).
+
+**El mensaje** (editable en `lib/ml/qa-config.js` → `MENSAJE_POSTVENTA`):
+
+> ¡Hola! Soy Tatiana de Uniproveedores. Vi que ya te llegó "{producto}". ¿Llegó todo bien? Si algo
+> no salió como esperabas, escribime por acá y lo resolvemos enseguida. Cuando puedas, dejá tu
+> opinión en la publicación: nos ayuda a mejorar y a que otros compradores se decidan. ¡Gracias
+> por elegirnos!
+
+### ⚠️ Lo que este mensaje NO hace, y por qué
+- **No pide una calificación positiva** ni sugiere qué puntaje poner.
+- **No ofrece plata, descuentos ni premios** a cambio de una reseña. Las **reseñas incentivadas
+  están prohibidas por Mercado Libre** (y son engañosas para el que compra después): es la vía
+  rápida a que caiga la reputación de la cuenta.
+- **No manda links ni invita a las redes.** ML bloquea los links externos en la mensajería y usar
+  los datos del comprador para promoción va contra sus términos.
+  👉 Las redes van en el **folleto con QR adentro del paquete** (canal propio, sin riesgo) y por el
+  bot de WhatsApp. Y si se quiere premiar, que sea por **contenido** (el premio de $15.000 por
+  video que ya existe) o un **sorteo entre clientes**, nunca atado a dejar una reseña.
+
+El efecto buscado igual se consigue: el que quedó conforme califica, y el que tuvo un problema
+**escribe en vez de dejar 1 estrella**, que es lo que más cuida la reputación.
+
+### Recaudos que ya están en el código
+- **Arranca apagado** (`ML_POSTVENTA` sin setear = no manda nada, ni siquiera agenda).
+- **Una sola vez por orden**: lleva registro de encolados y enviados.
+- **Caduca a las 24 h**: si un mensaje quedó colgado en la cola, no se manda. Así, al prender el
+  interruptor, no sale una andanada de mensajes viejos a clientes de hace semanas.
+- **Necesita el KV**: sin `KV_REST_API_URL`/`KV_REST_API_TOKEN` la cola se pierde en cada arranque
+  en frío. El panel lo avisa en rojo.
+
+### Para activarlo
+1. KV configurado (ver más arriba).
+2. En **DevCenter** → app "Uniproveedores MCP" → Notificaciones → tildar el topic **`shipments`**.
+3. En Vercel: **`ML_POSTVENTA=on`** + Redeploy.
+4. Cron en el VPS cada 5 min: `bridge/ml-sweep.sh` (ya llama a `postventa` además de a `sweep`).
+5. Mirar el botón 💬 en `/conexiones` para ver la cola y lo enviado.
+
+---
 ## 📈 Control de conversión (preguntas → ventas, por SKU)
 
 `GET/POST /api/ml/questions?action=conversion&dias=30&limit=100` · botón

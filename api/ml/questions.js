@@ -11,6 +11,8 @@
 //   GET  /api/ml/questions?action=conversion   -> control de conversión: cruza preguntas con
 //                                                 ventas por SKU y dice qué le falta a cada
 //                                                 publicación { dias, limit, account }
+//   GET  /api/ml/questions?action=postventa    -> manda los mensajes post-entrega que ya
+//                                                 cumplieron los 5 min (&ver=1 solo mira la cola)
 //   POST /api/ml/questions   (webhook de ML)    -> ML manda { resource, user_id, topic }
 //                                                 => responde la pregunta automáticamente
 //
@@ -19,6 +21,8 @@ import { cors } from '../_http.js';
 import { loadAccounts, findAccountByUser, findAccountByLabel, otherAccount, NEGOCIO } from '../../lib/ml/qa-config.js';
 import { getAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, getRecentQuestions, searchSellerItem, postAnswer, itemContext, getMe, getOrders, getItemsBulk } from '../../lib/ml/ml-api.js';
 import { construirReporte } from '../../lib/ml/conversion.js';
+import { getShipment, getOrder, sendPostSaleMessage } from '../../lib/ml/ml-api.js';
+import { armarMensaje, encolar, vencidos, marcarEnviado, verCola, verEnviados, necesitaKv, DEMORA_MS } from '../../lib/ml/postventa.js';
 import { generateAnswer } from '../../lib/ml/qa-brain.js';
 import { storeKind, markWebhook, lastWebhook } from '../../lib/ml/token-store.js';
 
@@ -29,6 +33,45 @@ async function tokenOf(acc) {
 
 function autoanswerOn() {
   return process.env.ML_AUTOANSWER !== 'off';
+}
+
+// El mensaje post-entrega arranca APAGADO a propósito: le escribe a clientes
+// reales. Se prende con ML_POSTVENTA=on en Vercel.
+function postventaOn() {
+  return process.env.ML_POSTVENTA === 'on';
+}
+
+// Un mensaje que quedó colgado más de un día ya no se manda (para que al
+// prender el interruptor no salga una andanada de mensajes viejos).
+const POSTVENTA_VENCE_MS = 24 * 60 * 60 * 1000;
+
+// Manda los mensajes post-entrega que ya cumplieron la demora.
+async function procesarPostventa({ accounts, ahora = Date.now() }) {
+  const pendientes = await vencidos(ahora);
+  const salida = [];
+  for (const p of pendientes) {
+    const vencido = ahora - new Date(p.enviar_a_partir_de).getTime() > POSTVENTA_VENCE_MS;
+    if (vencido) {
+      await marcarEnviado(p.orderId, { ok: false, caducado: true });
+      salida.push({ ...p, resultado: 'caducado (más de 24 h en la cola, no se manda)' });
+      continue;
+    }
+    const acc = findAccountByLabel(accounts, p.cuenta) || accounts[0];
+    try {
+      const token = await tokenOf(acc);
+      const texto = armarMensaje({ titulo: p.titulo });
+      const r = await sendPostSaleMessage(token, {
+        packId: p.packId, sellerId: acc.user_id, buyerId: p.buyerId, text: texto,
+      });
+      await marcarEnviado(p.orderId, { ok: r.ok, status: r.status, error: r.error });
+      if (!r.ok) console.error('[ml-postventa] ML rechazó el mensaje', { orden: p.orderId, error: r.error });
+      salida.push({ ...p, resultado: r.ok ? 'enviado' : 'ERROR: ' + r.error, texto });
+    } catch (e) {
+      console.error('[ml-postventa] falló el envío', { orden: p.orderId, error: e.message });
+      salida.push({ ...p, resultado: 'ERROR: ' + e.message });
+    }
+  }
+  return salida;
 }
 
 // ¿La pregunta pide retiro/ubicación y estamos en la cuenta Full? -> cross-account.
@@ -377,6 +420,37 @@ export default async function handler(req, res) {
       });
     }
 
+    // POST-VENTA: manda los mensajes de "¿llegó todo bien?" que ya cumplieron los 5 min.
+    // Pensado para un cron cada 5 minutos (bridge/ml-sweep.sh).
+    if (action === 'postventa') {
+      const expected = (process.env.ML_SWEEP_KEY || '').trim();
+      if (req.method === 'GET' && expected && (req.query?.key || '').toString() !== expected) {
+        return res.status(401).json({ error: 'key inválida' });
+      }
+      const [cola, enviados] = await Promise.all([verCola(), verEnviados()]);
+      const soloVer = ['1', 'true', 'si'].includes(String(req.query?.ver ?? req.body?.ver ?? '').toLowerCase());
+      const base = {
+        activo: postventaOn(),
+        demora_minutos: DEMORA_MS / 60000,
+        falta_kv: necesitaKv(),
+        en_cola: cola.length,
+        ya_enviados: enviados.length,
+        cola,
+      };
+      if (soloVer) return res.status(200).json({ ok: true, ...base });
+      if (!postventaOn()) {
+        return res.status(200).json({ ok: true, ...base, nota: 'Apagado. Poné ML_POSTVENTA=on en Vercel para activarlo.' });
+      }
+      if (!accounts.length) return res.status(400).json({ error: 'No hay cuentas configuradas (ML_ACCOUNTS).' });
+      const procesados = await procesarPostventa({ accounts });
+      return res.status(200).json({
+        ok: true, ...base,
+        procesados: procesados.length,
+        enviados_ahora: procesados.filter(p => p.resultado === 'enviado').length,
+        detalle: procesados,
+      });
+    }
+
     // BARRIDO: responde las preguntas que quedaron pendientes (una cuenta o todas).
     // Sirve como red de seguridad cuando el webhook de ML no llega.
     if (action === 'sweep') {
@@ -428,6 +502,28 @@ export default async function handler(req, res) {
       // Queda registrado para el diagnóstico: así se ve si ML nos está llamando.
       await markWebhook({ topic: topic || null, user_id: user_id ?? null, resource: resource || null });
       try {
+        // ENVÍO ENTREGADO -> agendamos el mensaje post-venta para dentro de 5 min.
+        if (topic === 'shipments') {
+          if (!postventaOn()) return res.status(200).json({ ok: true, skipped: 'postventa apagada (ML_POSTVENTA)' });
+          const acc = findAccountByUser(accounts, user_id);
+          if (!acc) return res.status(200).json({ ok: false, error: 'cuenta no configurada para user ' + user_id });
+          const shipmentId = String(resource || '').split('/').pop();
+          const token = await tokenOf(acc);
+          const envio = await getShipment(token, shipmentId);
+          if (envio?.status !== 'delivered') {
+            return res.status(200).json({ ok: true, skipped: 'envío en estado ' + (envio?.status || 's/d') });
+          }
+          const orden = await getOrder(token, envio.order_id);
+          const r = await encolar({
+            orderId: envio.order_id,
+            packId: orden?.pack_id || envio.order_id,
+            buyerId: orden?.buyer?.id,
+            cuenta: acc.label,
+            titulo: orden?.order_items?.[0]?.item?.title || '',
+          });
+          return res.status(200).json({ ok: true, entregado: true, agendado: r.ok, motivo: r.motivo || null,
+            enviar_a_partir_de: r.item?.enviar_a_partir_de || null });
+        }
         if (topic && topic !== 'questions') return res.status(200).json({ ok: true, skipped: topic });
         const acc = findAccountByUser(accounts, user_id);
         if (!acc) {
