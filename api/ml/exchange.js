@@ -71,6 +71,7 @@ async function orders(req, res) {
           dimensions: b.dimensions || null,       // alto/ancho/largo (para elegir bolsa al empaquetar)
           recipient: ra.receiver_name || null,
           address: [ra.address_line, ra.city?.name, ra.state?.name].filter(Boolean).join(', ') || null,
+          notes: ra.comment || null, // "Referencia" de la etiqueta (puede traer horarios de entrega)
           lat: ra.latitude != null ? Number(ra.latitude) : null,
           lng: ra.longitude != null ? Number(ra.longitude) : null,
         });
@@ -106,6 +107,7 @@ async function orders(req, res) {
       dimensions: ship.dimensions || null,
       recipient: ship.recipient,
       address: ship.address,
+      notes: ship.notes || null,
       lat: ship.lat,
       lng: ship.lng,
       items,

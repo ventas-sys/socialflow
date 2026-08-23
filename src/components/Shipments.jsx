@@ -67,6 +67,31 @@ const zoneOf = (s) => {
 // Localidad/barrio de la dirección de ML (lo que sigue a la calle)
 const locOf = (s) => String(s.address || '').split(',').slice(1).join(',').trim()
 const effZone = (s) => s.zone || zoneOf(s)
+
+// ---- Ruta óptima por motoquero ----
+// Punto de partida del reparto (por ahora el centro; si el usuario pasa la
+// dirección real del depósito, reemplazar estas coordenadas)
+const DEPOT = { lat: -34.6037, lng: -58.3816 }
+const distKm = (a, b) => {
+  const R = 6371, rad = Math.PI / 180
+  const dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(h))
+}
+// Detecta restricciones horarias en la referencia de la etiqueta o la dirección
+// ("horario comercial", "de 9 a 18", "hasta las 17", etc.)
+const timeWindowOf = (s) => {
+  const txt = `${s.notes || ''} ${s.address || ''}`.toLowerCase()
+  if (/horario comercial|hs comercial|horario de oficina/.test(txt)) return { note: 'horario comercial', deadline: 18 }
+  const m = txt.match(/(?:de |entre |desde )?(\d{1,2})(?::\d{2})?\s*(?:a|hasta|y|-)\s*(?:las )?(\d{1,2})(?::\d{2})?\s*(?:hs|hrs|h\b)?/)
+  if (m) {
+    const end = parseInt(m[2], 10)
+    if (end >= 8 && end <= 22) return { note: m[0].trim(), deadline: end }
+  }
+  const h = txt.match(/hasta las? (\d{1,2})/)
+  if (h) { const end = parseInt(h[1], 10); if (end >= 8 && end <= 22) return { note: h[0], deadline: end } }
+  return null
+}
 const zonePay = (s) => { const z = effZone(s); return z && ZONES[z] ? ZONES[z].pay : 0 }
 // Pago al motoquero: lo cargado a mano pisa el valor automático de la zona
 const motoPay = (s) => {
@@ -217,6 +242,7 @@ export default function Shipments({
             lat: o.lat ?? null, lng: o.lng ?? null, status, cost: 0, account: key,
             items: o.items || [], dims: o.dimensions || null,
             trackingNumber: o.trackingNumber || null, // el código de barras de la etiqueta trae este número
+            notes: o.notes || null, // referencia de la etiqueta (horarios, aclaraciones)
             ...(status === 'camino' ? { assignedAt: new Date(o.date) } : {}),
             ...(status === 'demorado' ? { demoradoAt: new Date() } : {}),
             ...(status === 'entregado' ? { deliveredAt: new Date(o.date) } : {}),
@@ -520,6 +546,59 @@ export default function Shipments({
 
   const actionShipment = shipments.find(s => s.id === actionId)
 
+  // ---- Ruta por motoquero (link de Google Maps para pasar por WhatsApp) ----
+  const [routeCourierId, setRouteCourierId] = useState('')
+  const [routeInfo, setRouteInfo] = useState(null)
+
+  const buildRoute = () => {
+    const c = couriers.find(x => x.id === routeCourierId)
+    if (!c) { setRouteInfo({ error: 'Elegí un motoquero primero.' }); return }
+    const mine = shipments.filter(s => s.courierId === c.id && (s.status || '') === 'camino')
+    const located = mine.filter(s => Number(s.lat) && Number(s.lng))
+    const unlocated = mine.filter(s => !(Number(s.lat) && Number(s.lng)))
+    if (!located.length) {
+      setRouteInfo({ error: `${c.name} no tiene envíos EN CAMINO con ubicación en el mapa.`, unlocated })
+      return
+    }
+    // Primero los que tienen horario (ordenados por vencimiento, por cercanía
+    // dentro del mismo horario) y después el resto por vecino más próximo
+    const stops = located.map(s => ({ s, tw: timeWindowOf(s) }))
+    const order = []
+    let cur = DEPOT
+    const nn = (pool) => {
+      const p = [...pool]
+      while (p.length) {
+        let bi = 0, bd = Infinity
+        p.forEach((x, i) => {
+          const d = distKm(cur, { lat: Number(x.s.lat), lng: Number(x.s.lng) })
+          if (d < bd) { bd = d; bi = i }
+        })
+        const [x] = p.splice(bi, 1)
+        order.push(x)
+        cur = { lat: Number(x.s.lat), lng: Number(x.s.lng) }
+      }
+    }
+    const deadlines = [...new Set(stops.filter(x => x.tw).map(x => x.tw.deadline))].sort((a, b) => a - b)
+    deadlines.forEach(dl => nn(stops.filter(x => x.tw && x.tw.deadline === dl)))
+    nn(stops.filter(x => !x.tw))
+    // Google Maps acepta ~10 paradas por link: se parte en tramos encadenados
+    const legs = []
+    for (let i = 0; i < order.length; i += 10) legs.push(order.slice(i, i + 10))
+    const links = legs.map((leg, i) => {
+      const prev = i === 0 ? DEPOT : { lat: legs[i - 1][legs[i - 1].length - 1].s.lat, lng: legs[i - 1][legs[i - 1].length - 1].s.lng }
+      const dest = leg[leg.length - 1].s
+      const wps = leg.slice(0, -1).map(x => `${x.s.lat},${x.s.lng}`).join('|')
+      return `https://www.google.com/maps/dir/?api=1&origin=${prev.lat},${prev.lng}&destination=${dest.lat},${dest.lng}` +
+        (wps ? `&waypoints=${encodeURIComponent(wps)}` : '') + '&travelmode=driving'
+    })
+    const waText =
+      `🏍️ Ruta de ${c.name} — ${order.length} entregas\n` +
+      order.map((x, i) => `${i + 1}. ${x.s.address || x.s.recipient || x.s.code}${x.tw ? ` ⏰ ${x.tw.note}` : ''}`).join('\n') +
+      '\n\n🗺️ Abrí la ruta en Google Maps:\n' +
+      links.map((l, i) => (links.length > 1 ? `Tramo ${i + 1}: ` : '') + l).join('\n')
+    setRouteInfo({ courier: c, order, links, unlocated, waText })
+  }
+
   // ---- Reporte ----
   const [repCourier, setRepCourier] = useState('all')
   // Filas del período (sin filtro de motoquero, para el resumen por motoquero)
@@ -722,6 +801,59 @@ export default function Shipments({
               </select>
             )}
           </div>
+
+          {couriers.length > 0 && (
+            <div className="route-panel pc-only">
+              <div className="route-head">
+                <strong>🗺️ Ruta del motoquero</strong>
+                <select value={routeCourierId} onChange={e => { setRouteCourierId(e.target.value); setRouteInfo(null) }}>
+                  <option value="">— elegir motoquero —</option>
+                  {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <button className="route-build" onClick={buildRoute}>Armar mejor ruta</button>
+                <span className="route-hint">Ordena sus envíos EN CAMINO por cercanía, priorizando los que tienen horario.</span>
+              </div>
+              {routeInfo?.error && <div className="route-warn">⚠️ {routeInfo.error}</div>}
+              {routeInfo?.order && (
+                <div className="route-result">
+                  <ol className="route-stops">
+                    {routeInfo.order.map((x, i) => (
+                      <li key={x.s.id}>
+                        <span className="route-addr">{x.s.address || x.s.recipient || x.s.code}</span>
+                        {x.tw && <span className="route-tw">⏰ {x.tw.note}</span>}
+                      </li>
+                    ))}
+                  </ol>
+                  {routeInfo.unlocated.length > 0 && (
+                    <div className="route-warn">
+                      ⚠️ {routeInfo.unlocated.length} envío(s) sin ubicación quedan fuera de la ruta:{' '}
+                      {routeInfo.unlocated.map(s => s.recipient || s.code).slice(0, 5).join(', ')}
+                    </div>
+                  )}
+                  <div className="route-actions">
+                    {routeInfo.links.map((l, i) => (
+                      <a key={i} href={l} target="_blank" rel="noreferrer" className="route-link">
+                        🗺️ {routeInfo.links.length > 1 ? `Tramo ${i + 1}` : 'Abrir en Google Maps'}
+                      </a>
+                    ))}
+                    <a
+                      className="route-wa"
+                      href={`https://wa.me/?text=${encodeURIComponent(routeInfo.waText)}`}
+                      target="_blank" rel="noreferrer"
+                    >
+                      📲 Enviar por WhatsApp a {routeInfo.courier.name}
+                    </a>
+                    <button
+                      className="route-copy"
+                      onClick={() => navigator.clipboard?.writeText(routeInfo.waText).then(() => setSyncMsg('✅ Ruta copiada — pegala en el chat del motoquero.'))}
+                    >
+                      📋 Copiar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="ship-search">
             <input
