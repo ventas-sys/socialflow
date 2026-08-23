@@ -4,6 +4,46 @@
 > multi-cuenta, orientado a **cerrar la venta**. Hermano del bot de WhatsApp (mismo patrón).
 > Estado: **EN VIVO — "Tatiana" 100% automática** (webhook activo, probado con pregunta real).
 
+## 📈 Control de conversión (preguntas → ventas, por SKU)
+
+`GET/POST /api/ml/questions?action=conversion&dias=30&limit=100` · botón
+**"📈 Control de conversión (Excel)"** en `/conexiones`.
+
+Cruza **cada pregunta con las ventas del período** para responder lo único que importa:
+*¿esta pregunta terminó en venta?* Y agrupa por SKU para decir **qué le falta a cada publicación**.
+
+**Cómo decide si convirtió:** el que preguntó (`from.id`) compró **ese mismo ítem** después de
+haber preguntado (`/orders/search` cruzado por comprador + item + fecha).
+- `convirtio` → preguntó y compró ese producto.
+- `compro_otro` → preguntó por uno y se llevó otro (cross-sell).
+- `post_venta` → ya lo había comprado ANTES de preguntar (típico "¿cuándo llega?").
+  **No cuenta como conversión perdida** y sale del denominador de la tasa.
+
+**Qué le pregunta la gente** (`lib/ml/conversion.js`, una pregunta puede tener varias):
+medidas · cantidad/por mayor · retiro por el local · compatibilidad · material · color · stock ·
+envío · precio/cuotas · factura · garantía · pregunta por otro artículo.
+
+**Qué devuelve por SKU:** `convierte SÍ/NO`, preguntas, convertidas, tasa, `post_venta`,
+`sin_responder`, **cantidad de fotos**, precio, ventas y monto del período, y una lista de
+**recomendaciones concretas**. La regla que pidió el cliente:
+
+> Si la publicación tuvo preguntas y **ninguna terminó en venta** → `❌ SIN CONVERSIÓN — VER FOTOS`,
+> y si además tiene menos de 5 fotos lo dice con el número exacto.
+
+Además marca la demanda que no se está capturando: si preguntan por mayor → sugiere armar packs;
+si preguntan medidas → cargarlas en la ficha y en una foto; etc.
+
+**Salida:** el botón baja **2 CSV** (se abren en Excel):
+- `conversion-por-sku.csv` — una fila por publicación, ordenada **peor primero** (las que tienen
+  preguntas y cero ventas arriba de todo), con la columna `que_corregir`.
+- `conversion-detalle.csv` — una fila por pregunta, con su respuesta, los motivos detectados y si
+  convirtió.
+
+⚠️ **Plan Hobby:** la función corta a los 10 s y esto pega varias veces a la API de ML (preguntas +
+órdenes paginadas + multiget de publicaciones). Si da timeout, bajá la ventana: `&dias=7`, o pedí
+una cuenta sola con `&account=full`.
+
+---
 ## 🔎 22-ago-2026, 15:48 UTC — PRIMER DIAGNÓSTICO REAL EN PRODUCCIÓN
 
 Con el fix ya desplegado (PR #113), el `?action=diag` en producción devolvió:

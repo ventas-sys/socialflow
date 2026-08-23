@@ -8,13 +8,17 @@
 //                                                 seguridad si el webhook no entra)
 //   GET  /api/ml/questions?action=diag         -> diagnóstico: token, cuentas, pendientes,
 //                                                 último webhook y qué está fallando
+//   GET  /api/ml/questions?action=conversion   -> control de conversión: cruza preguntas con
+//                                                 ventas por SKU y dice qué le falta a cada
+//                                                 publicación { dias, limit, account }
 //   POST /api/ml/questions   (webhook de ML)    -> ML manda { resource, user_id, topic }
 //                                                 => responde la pregunta automáticamente
 //
 // Config: variable de entorno ML_ACCOUNTS (JSON). Ver lib/ml/qa-config.js.
 import { cors } from '../_http.js';
 import { loadAccounts, findAccountByUser, findAccountByLabel, otherAccount, NEGOCIO } from '../../lib/ml/qa-config.js';
-import { getAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, getRecentQuestions, searchSellerItem, postAnswer, itemContext, getMe } from '../../lib/ml/ml-api.js';
+import { getAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, getRecentQuestions, searchSellerItem, postAnswer, itemContext, getMe, getOrders, getItemsBulk } from '../../lib/ml/ml-api.js';
+import { construirReporte } from '../../lib/ml/conversion.js';
 import { generateAnswer } from '../../lib/ml/qa-brain.js';
 import { storeKind, markWebhook, lastWebhook } from '../../lib/ml/token-store.js';
 
@@ -203,6 +207,27 @@ async function sweepAccount({ acc, accounts, limit, autopost }) {
   };
 }
 
+// Control de conversión de una cuenta: preguntas + ventas del período + datos
+// de las publicaciones, todo cruzado en lib/ml/conversion.js.
+async function conversionCuenta({ acc, desde, hasta, limitPreguntas }) {
+  const token = await tokenOf(acc);
+  const [qdata, ordenes] = await Promise.all([
+    getRecentQuestions(token, acc.user_id, limitPreguntas),
+    getOrders(token, acc.user_id, desde.toISOString(), hasta.toISOString(), 300),
+  ]);
+  const preguntas = (qdata?.questions || [])
+    .filter(q => new Date(q.date_created).getTime() >= desde.getTime());
+  const ids = preguntas.map(q => q.item_id).filter(Boolean);
+  let items = new Map();
+  try {
+    items = await getItemsBulk(token, ids);
+  } catch { /* sin datos del item igual sale el reporte, solo sin fotos/SKU */ }
+  return construirReporte({
+    cuenta: acc.label, preguntas, ordenes, items,
+    desde: desde.toISOString(), hasta: hasta.toISOString(),
+  });
+}
+
 // Radiografía de una cuenta: token, identidad, pendientes y última actividad.
 async function diagAccount(acc) {
   const d = { label: acc.label, mode: acc.mode, user_id: acc.user_id, tiene_refresh: !!acc.refresh_token };
@@ -306,6 +331,49 @@ export default async function handler(req, res) {
         ultimo_webhook_de_preguntas: webhookPreguntas || null,
         cuentas,
         diagnostico: diagConclusiones({ accounts, cuentas, ...info }),
+      });
+    }
+
+    // CONTROL DE CONVERSIÓN: qué preguntas terminaron en venta, por SKU, y qué le
+    // falta a cada publicación (fotos, medidas, color, retiro, precio por mayor...).
+    if (action === 'conversion') {
+      if (!accounts.length) return res.status(400).json({ error: 'No hay cuentas configuradas (ML_ACCOUNTS).' });
+      const dias = Math.min(Math.max(Number(req.query?.dias || req.body?.dias) || 30, 1), 180);
+      const limitPreguntas = Math.min(Number(req.query?.limit || req.body?.limit) || 100, 200);
+      const hasta = new Date();
+      const desde = new Date(hasta.getTime() - dias * 86400000);
+      const label = (req.query?.account || req.body?.account || '').toString();
+      const target = label ? [findAccountByLabel(accounts, label)].filter(Boolean) : accounts;
+      if (!target.length) return res.status(400).json({ error: 'Cuenta desconocida: ' + label });
+
+      const cuentas = await Promise.all(target.map(async (acc) => {
+        try {
+          return await conversionCuenta({ acc, desde, hasta, limitPreguntas });
+        } catch (e) {
+          console.error('[ml-questions] conversion falló en la cuenta ' + acc.label, e.message);
+          return { cuenta: acc.label, error: e.message, resumen: null, por_sku: [], detalle: [] };
+        }
+      }));
+
+      // Consolidado de las 2 cuentas.
+      const detalle = cuentas.flatMap(c => c.detalle || []);
+      const convertidas = detalle.filter(d => d.convirtio).length;
+      const porSku = cuentas.flatMap(c => (c.por_sku || []).map(s => ({ cuenta: c.cuenta, ...s })));
+      return res.status(200).json({
+        ok: true,
+        dias,
+        desde: desde.toISOString(),
+        hasta: hasta.toISOString(),
+        total: {
+          preguntas: detalle.length,
+          convertidas,
+          tasa_conversion: detalle.length ? Math.round((convertidas / detalle.length) * 100) : 0,
+          publicaciones_con_preguntas: porSku.length,
+          publicaciones_sin_conversion: porSku.filter(s => s.convertidas === 0).length,
+        },
+        cuentas: cuentas.map(c => ({ cuenta: c.cuenta, error: c.error || null, resumen: c.resumen })),
+        por_sku: porSku,
+        detalle,
       });
     }
 
