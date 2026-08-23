@@ -69,9 +69,10 @@ const locOf = (s) => String(s.address || '').split(',').slice(1).join(',').trim(
 const effZone = (s) => s.zone || zoneOf(s)
 
 // ---- Ruta óptima por motoquero ----
-// Punto de partida del reparto (por ahora el centro; si el usuario pasa la
-// dirección real del depósito, reemplazar estas coordenadas)
-const DEPOT = { lat: -34.6037, lng: -58.3816 }
+// Punto de partida del reparto: el depósito — Bacacay 4726, Floresta, CABA.
+// El ORDEN de las paradas se calcula desde acá; el link de Google Maps arranca
+// desde la ubicación actual del motoquero (origen variable).
+const DEPOT = { lat: -34.6309, lng: -58.5004 }
 const distKm = (a, b) => {
   const R = 6371, rad = Math.PI / 180
   const dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad
@@ -585,10 +586,12 @@ export default function Shipments({
     const legs = []
     for (let i = 0; i < order.length; i += 10) legs.push(order.slice(i, i + 10))
     const links = legs.map((leg, i) => {
-      const prev = i === 0 ? DEPOT : { lat: legs[i - 1][legs[i - 1].length - 1].s.lat, lng: legs[i - 1][legs[i - 1].length - 1].s.lng }
+      // Tramo 1 SIN origen: Google Maps arranca desde donde esté el motoquero.
+      // Los tramos siguientes arrancan donde terminó el anterior.
+      const origin = i === 0 ? '' : `&origin=${legs[i - 1][legs[i - 1].length - 1].s.lat},${legs[i - 1][legs[i - 1].length - 1].s.lng}`
       const dest = leg[leg.length - 1].s
       const wps = leg.slice(0, -1).map(x => `${x.s.lat},${x.s.lng}`).join('|')
-      return `https://www.google.com/maps/dir/?api=1&origin=${prev.lat},${prev.lng}&destination=${dest.lat},${dest.lng}` +
+      return `https://www.google.com/maps/dir/?api=1${origin}&destination=${dest.lat},${dest.lng}` +
         (wps ? `&waypoints=${encodeURIComponent(wps)}` : '') + '&travelmode=driving'
     })
     const waText =
@@ -811,7 +814,7 @@ export default function Shipments({
                   {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
                 <button className="route-build" onClick={buildRoute}>Armar mejor ruta</button>
-                <span className="route-hint">Ordena sus envíos EN CAMINO por cercanía, priorizando los que tienen horario.</span>
+                <span className="route-hint">Ordena sus envíos EN CAMINO por cercanía desde el depósito (Bacacay 4726), priorizando los que tienen horario. El mapa arranca desde donde esté el motoquero.</span>
               </div>
               {routeInfo?.error && <div className="route-warn">⚠️ {routeInfo.error}</div>}
               {routeInfo?.order && (
