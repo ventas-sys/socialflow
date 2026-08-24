@@ -234,3 +234,12 @@
     scroll-snap-align: start;
   }
 }
+
+/* Ocultar la barra flotante de Vercel (feedback/toolbar) en todos los
+   dispositivos: no aporta nada al equipo y confunde en el puesto */
+vercel-live-feedback,
+vercel-toolbar,
+#vercel-toolbar,
+[data-vercel-toolbar] {
+  display: none !important;
+}
