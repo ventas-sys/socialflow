@@ -704,6 +704,43 @@ export default function Inventory({
     }
   }
 
+  // Plantilla del importador 📐 Medidas ML (mismo formato que el Reporte de
+  // Planificación que descarga MercadoLibre desde Full → Planificación)
+  const downloadMeasuresTemplate = () => {
+    const mla = combos[0]?.code || 'MLA1234567890'
+    const mla2 = combos[1]?.code || 'MLA9876543210'
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['CODIGO', 'SKU', 'Tamaño'],
+      ['TEEH94301', mla, '15 x 20 x 20'],
+      ['UJVG21180', `${mla2}, MLA1111222333`, '25 x 30 x 10'],
+    ])
+    ws['!cols'] = [{ wch: 14 }, { wch: 34 }, { wch: 14 }]
+    const info = XLSX.utils.aoa_to_sheet([
+      ['CÓMO CARGAR MEDIDAS Y CÓDIGOS (botón 📐 Medidas ML)'],
+      [''],
+      ['Es el MISMO formato del "Reporte de Planificación" que descarga'],
+      ['MercadoLibre (Full → Planificación → descargar reporte): ese archivo'],
+      ['se puede subir DIRECTO, sin tocarlo.'],
+      [''],
+      ['Si lo armás a mano, una fila por código con estas columnas:'],
+      ['1) CODIGO: el código de barras / código de inventario (ej: TEEH94301).'],
+      ['   Se agrega como código de barras del combo o producto.'],
+      ['2) SKU: el MLA de la publicación. Pueden ir VARIOS separados por coma'],
+      ['   (el código y el tamaño se aplican a todos).'],
+      ['3) Tamaño: medidas del paquete armado en cm, "largo x ancho x alto"'],
+      ['   (ej: 15 x 20 x 20). Se guarda en el combo y Empaquetado lo usa'],
+      ['   para decir qué bolsa va.'],
+      [''],
+      ['Los SKU tienen que existir como combo o producto. Los que no se'],
+      ['encuentren se listan al final y no se tocan.'],
+    ])
+    info['!cols'] = [{ wch: 75 }]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Medidas')
+    XLSX.utils.book_append_sheet(wb, info, 'Instrucciones')
+    XLSX.writeFile(wb, 'plantilla-medidas-ml.xlsx')
+  }
+
   const downloadPurchaseTemplate = () => {
     const sku = products[0]?.code || products[0]?.barcode || 'SKU-001'
     const sku2 = products[1]?.code || products[1]?.barcode || 'SKU-002'
@@ -871,10 +908,17 @@ export default function Inventory({
                 onChange={handleMeasuresFile}
               />
               <button
+                onClick={downloadMeasuresTemplate}
+                className="btn-outline"
+                title="Excel de ejemplo con el formato de medidas (es el mismo del Reporte de Planificación de ML)"
+              >
+                📄 Plantilla medidas
+              </button>
+              <button
                 onClick={() => measInputRef.current?.click()}
                 className="btn-outline"
                 disabled={measuring}
-                title="Subir el Reporte de Planificación de ML: agrega el código de barras a cada MLA y guarda el tamaño del paquete para elegir la bolsa al empaquetar"
+                title="Subir el Reporte de Planificación de ML (o la plantilla): agrega el código de barras a cada MLA y guarda el tamaño del paquete para elegir la bolsa al empaquetar"
               >
                 {measuring ? '⏳ Aplicando...' : '📐 Medidas ML'}
               </button>

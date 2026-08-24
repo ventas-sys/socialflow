@@ -51,6 +51,7 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
 2. **Cargar stock real** de productos base (el usuario lo va ajustando con Compra/Ajuste).
 3. ~~Stock desde foto de factura~~ **HECHO 21/8**: botón "📷 Foto factura" en Inventario (junto a Compra/Ajuste) → comprime la foto en el navegador (1600px jpg) → `/api/contabilium?action=extract` (Gemini 2.5 Flash, GEMINI_API_KEY cargada en Vercel por el usuario, maxDuration 60) → items {codigo, descripcion, cantidad} → matching: código exacto (producto/combo con expansión) y si no, por descripción (fuzzy: ≥2 palabras y ≥50% en el nombre) → misma vista previa de compra → confirmar. No matcheados se listan y se cargan a mano.
 4. Envíos a bodega **Full** (descuento al enviar).
+4b. **Mejorar la foto de factura** (24/8: el usuario dijo "algo ayudó, lo mejoramos en unos días" — retomar con sus ejemplos reales de qué matcheó mal). La ruta por WhatsApp y la pistola (por código de barras) YA FUNCIONARON, confirmado por el usuario 24/8. Botón "📄 Plantilla medidas" agregado junto a 📐 Medidas ML.
 5. Si se quiere usar el dominio corto para conectar ML: agregar `https://stock-inventario-sable.vercel.app/` como Redirect URI en ambas apps ML y reconectar.
 6. Valores de zonas FLEX editables desde la app (hoy constantes).
 7. **Verificar el cron de las 18hs** tras el fix de paralelización (5d7314d): el usuario debe abrir `https://stock-inventario-sable.vercel.app/api/ml/cron` y pegar el JSON, o mirar View Logs del cron en stock-inventario.
