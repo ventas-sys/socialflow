@@ -4,6 +4,165 @@
 > multi-cuenta, orientado a **cerrar la venta**. Hermano del bot de WhatsApp (mismo patrón).
 > Estado: **EN VIVO — "Tatiana" 100% automática** (webhook activo, probado con pregunta real).
 
+## 🔴 24-ago-2026 — LA CAUSA REAL: se acabó el crédito de Gemini
+
+El `?action=sweep` en producción devolvió el error exacto, en las 3 preguntas pendientes
+de las 2 cuentas:
+
+```
+"error": "IA sin respuesta: {"error":{"code":429,"message":"Your project has exceeded
+its monthly spending cap. Please go to AI Studio at https://ai.studio/spend to manage
+your project spend cap."}}"
+```
+
+**El proyecto de Google AI Studio llegó al tope de gasto mensual.** Gemini devuelve 429 y
+Tatiana no puede redactar NINGUNA respuesta. Todo lo demás estaba bien: tokens OK, cuentas OK,
+webhook llegando, `ML_AUTOANSWER=on`.
+
+### Por qué tardamos tanto en verlo
+1. El diag decía **`gemini: "OK"`** cuando en realidad solo miraba si **existía** la variable
+   `GEMINI_API_KEY` — nunca probaba que Gemini contestara. **Corregido:** ahora el diag hace una
+   llamada real y mínima (`probarIA()` en `qa-brain.js`) y muestra el error de Gemini tal cual.
+2. El error moría en `console.error` y los logs de Vercel no eran accesibles. **Corregido** en el
+   commit anterior: cada webhook de `questions` deja registrado qué pasó (`que_paso_con_esa_pregunta`).
+
+### ⚠️ La misma API key la usan endpoints MUCHO más caros
+`GEMINI_API_KEY` es compartida por todo el repo:
+
+| Endpoint | Modelo | Costo |
+|---|---|---|
+| `api/ml/questions.js` (Tatiana) | `gemini-2.5-flash` (texto) | centavos |
+| `api/wa/webhook.js`, `api/agent.js`, `api/generate.js` | `gemini-2.5-flash` (texto) | centavos |
+| **`api/image.js`** | **`gemini-2.5-flash-image`, `imagen-4.0-fast`, Veo (video)** | **caro** |
+
+Generar imágenes y videos para las redes es lo que consume el presupuesto, y cuando se agota
+**se lleva puesto al agente de preguntas**, que gasta monedas. Conviene:
+- Subir o sacar el tope en https://ai.studio/spend, y/o
+- **Separar la key**: una `GEMINI_API_KEY` para texto (bot de ML y WhatsApp) y otra para
+  imagen/video, así el contenido de redes no puede dejar muda a Tatiana.
+
+---
+## 📲 El mismo cupo de Gemini dejó mal al bot de WhatsApp
+
+El bot de WhatsApp (`lib/wa/ia-guide.js`, en el VPS) usa **la misma `GEMINI_API_KEY` y el mismo
+`gemini-2.5-flash`**. Con el proyecto pasado de tope, Gemini devuelve 429, `data.candidates`
+viene vacío y el bot caía siempre en la misma rama:
+
+> "Uy, perdón, no te llegué a entender bien 🙈 ¿Me lo repetís de otra forma?"
+
+O sea: **contestaba, pero eso mismo a todo el mundo**, y el cliente entraba en un loop (repite →
+mismo mensaje). No se caía, se degradaba, que es peor porque no se nota.
+
+**Arreglo:** si el que falló es la **API** (hay `data.error`: sin crédito, sin cupo, caída),
+pedirle al cliente que repita no sirve — va a fallar igual. Ahora **deriva a un humano**:
+
+> "Uy, disculpame, se me colgó el sistema un segundo 🙈 Ya le aviso a mi supervisor así te
+> responde él. ¡Perdón!" · `needsHuman: true` → etiqueta HUMANO + aviso al supervisor.
+
+Si en cambio Gemini contestó algo que no era JSON (error de formato, no de API), se mantiene el
+"no te entendí", que ahí sí tiene sentido.
+
+**Para confirmarlo en el VPS:**
+```
+pm2 logs wa-bridge --lines 200 | grep ia-guide
+```
+Si aparece `apiError=...monthly spending cap...`, es exactamente esto.
+
+> 💡 Este caso es el mejor argumento para **separar las API keys**: una para texto (ML +
+> WhatsApp, gasta centavos) y otra para imagen/video (`api/image.js`, que es lo caro). Hoy
+> generar contenido para redes puede dejar mudos a los dos bots que venden.
+
+---
+## 💬 Mensaje post-entrega ("¿llegó todo bien?")
+
+`GET/POST /api/ml/questions?action=postventa` · botón **"💬 Mensajes post-entrega"** en
+`/conexiones`. Interruptor: **`ML_POSTVENTA=on`** (arranca APAGADO a propósito).
+
+**Cómo funciona:**
+1. ML avisa por webhook (topic **`shipments`**) que cambió un envío.
+2. Si el envío quedó en **`delivered`**, se busca la orden y se **agenda** el mensaje para
+   **5 minutos después** (cola en el KV).
+3. Un cron cada 5 min (`bridge/ml-sweep.sh`) llama a `?action=postventa` y manda los que ya
+   cumplieron la demora, por la **mensajería post-venta de ML**
+   (`POST /messages/packs/{pack}/sellers/{seller}?tag=post_sale`).
+
+**El mensaje** (editable en `lib/ml/qa-config.js` → `MENSAJE_POSTVENTA`):
+
+> ¡Hola! Soy Tatiana de Uniproveedores. Vi que ya te llegó "{producto}". ¿Llegó todo bien? Si algo
+> no salió como esperabas, escribime por acá y lo resolvemos enseguida. Cuando puedas, dejá tu
+> opinión en la publicación: nos ayuda a mejorar y a que otros compradores se decidan. ¡Gracias
+> por elegirnos!
+
+### ⚠️ Lo que este mensaje NO hace, y por qué
+- **No pide una calificación positiva** ni sugiere qué puntaje poner.
+- **No ofrece plata, descuentos ni premios** a cambio de una reseña. Las **reseñas incentivadas
+  están prohibidas por Mercado Libre** (y son engañosas para el que compra después): es la vía
+  rápida a que caiga la reputación de la cuenta.
+- **No manda links ni invita a las redes.** ML bloquea los links externos en la mensajería y usar
+  los datos del comprador para promoción va contra sus términos.
+  👉 Las redes van en el **folleto con QR adentro del paquete** (canal propio, sin riesgo) y por el
+  bot de WhatsApp. Y si se quiere premiar, que sea por **contenido** (el premio de $15.000 por
+  video que ya existe) o un **sorteo entre clientes**, nunca atado a dejar una reseña.
+
+El efecto buscado igual se consigue: el que quedó conforme califica, y el que tuvo un problema
+**escribe en vez de dejar 1 estrella**, que es lo que más cuida la reputación.
+
+### Recaudos que ya están en el código
+- **Arranca apagado** (`ML_POSTVENTA` sin setear = no manda nada, ni siquiera agenda).
+- **Una sola vez por orden**: lleva registro de encolados y enviados.
+- **Caduca a las 24 h**: si un mensaje quedó colgado en la cola, no se manda. Así, al prender el
+  interruptor, no sale una andanada de mensajes viejos a clientes de hace semanas.
+- **Necesita el KV**: sin `KV_REST_API_URL`/`KV_REST_API_TOKEN` la cola se pierde en cada arranque
+  en frío. El panel lo avisa en rojo.
+
+### Para activarlo
+1. KV configurado (ver más arriba).
+2. En **DevCenter** → app "Uniproveedores MCP" → Notificaciones → tildar el topic **`shipments`**.
+3. En Vercel: **`ML_POSTVENTA=on`** + Redeploy.
+4. Cron en el VPS cada 5 min: `bridge/ml-sweep.sh` (ya llama a `postventa` además de a `sweep`).
+5. Mirar el botón 💬 en `/conexiones` para ver la cola y lo enviado.
+
+---
+## 📈 Control de conversión (preguntas → ventas, por SKU)
+
+`GET/POST /api/ml/questions?action=conversion&dias=30&limit=100` · botón
+**"📈 Control de conversión (Excel)"** en `/conexiones`.
+
+Cruza **cada pregunta con las ventas del período** para responder lo único que importa:
+*¿esta pregunta terminó en venta?* Y agrupa por SKU para decir **qué le falta a cada publicación**.
+
+**Cómo decide si convirtió:** el que preguntó (`from.id`) compró **ese mismo ítem** después de
+haber preguntado (`/orders/search` cruzado por comprador + item + fecha).
+- `convirtio` → preguntó y compró ese producto.
+- `compro_otro` → preguntó por uno y se llevó otro (cross-sell).
+- `post_venta` → ya lo había comprado ANTES de preguntar (típico "¿cuándo llega?").
+  **No cuenta como conversión perdida** y sale del denominador de la tasa.
+
+**Qué le pregunta la gente** (`lib/ml/conversion.js`, una pregunta puede tener varias):
+medidas · cantidad/por mayor · retiro por el local · compatibilidad · material · color · stock ·
+envío · precio/cuotas · factura · garantía · pregunta por otro artículo.
+
+**Qué devuelve por SKU:** `convierte SÍ/NO`, preguntas, convertidas, tasa, `post_venta`,
+`sin_responder`, **cantidad de fotos**, precio, ventas y monto del período, y una lista de
+**recomendaciones concretas**. La regla que pidió el cliente:
+
+> Si la publicación tuvo preguntas y **ninguna terminó en venta** → `❌ SIN CONVERSIÓN — VER FOTOS`,
+> y si además tiene menos de 5 fotos lo dice con el número exacto.
+
+Además marca la demanda que no se está capturando: si preguntan por mayor → sugiere armar packs;
+si preguntan medidas → cargarlas en la ficha y en una foto; etc.
+
+**Salida:** el botón baja **2 CSV** (se abren en Excel):
+- `conversion-por-sku.csv` — una fila por publicación, ordenada **peor primero** (las que tienen
+  preguntas y cero ventas arriba de todo), con la columna `que_corregir`.
+- `conversion-detalle.csv` — una fila por pregunta, con su respuesta, los motivos detectados y si
+  convirtió.
+
+⚠️ **Plan Hobby:** la función corta a los 10 s y esto pega varias veces a la API de ML (preguntas +
+órdenes paginadas + multiget de publicaciones). Si da timeout, bajá la ventana: `&dias=7`, o pedí
+una cuenta sola con `&account=full`.
+
+---
 ## 🔎 22-ago-2026, 15:48 UTC — PRIMER DIAGNÓSTICO REAL EN PRODUCCIÓN
 
 Con el fix ya desplegado (PR #113), el `?action=diag` en producción devolvió:

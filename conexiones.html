@@ -108,6 +108,11 @@ input:focus{outline:none;border-color:rgba(0,200,100,0.5);}
         </div>
         <div style="font-size:10px;color:#888;margin-top:4px;">Baja un archivo con las últimas preguntas y respuestas de las 2 cuentas (se abre en Excel).</div>
         <div class="btn-row" style="margin-top:10px;">
+          <button class="btn" style="background:linear-gradient(135deg,#00b3e6,#005f7d);color:#eaf9ff;border:none;font-weight:700;" onclick="mlDownloadConversion()">📈 Control de conversión (Excel)</button>
+          <button class="btn" style="background:rgba(198,222,0,0.12);border-color:rgba(198,222,0,0.35);color:#c6de00;" onclick="mlPostventa()">💬 Mensajes post-entrega</button>
+        </div>
+        <div style="font-size:10px;color:#888;margin-top:4px;">Cruza las preguntas de los últimos 30 días con las VENTAS: por cada SKU dice si convirtió o no, qué le preguntaron (medidas, color, por mayor, retiro...) y qué corregir. Baja 2 archivos para Excel.</div>
+        <div class="btn-row" style="margin-top:10px;">
           <button class="btn" style="background:rgba(255,176,96,0.15);border-color:rgba(255,176,96,0.45);color:#ffb060;font-weight:700;" onclick="mlAgentDiag()">🩺 ¿Por qué no responde?</button>
           <button class="btn" style="background:linear-gradient(135deg,#c6de00,#7d8c00);color:#111;border:none;font-weight:700;" onclick="mlAgentSweep()">🚀 Responder pendientes</button>
         </div>
@@ -625,6 +630,75 @@ async function mlAgentSweep(){
       else lineas.push('   ↳ 💬 '+String(r.answer||'').slice(0,90));
     });
   });
+  out.className='result ok'; out.textContent = lineas.join('\n');
+}
+
+// 💬 Estado de los mensajes post-entrega (los de "¿llegó todo bien?").
+async function mlPostventa(){
+  const out = document.getElementById('ml-agent-out');
+  out.className='result'; out.textContent='⏳ Mirando la cola de mensajes post-entrega...';
+  const res = await mlAgentCall('postventa', { ver: 1 });
+  if(res.netError){ out.className='result err'; out.textContent='❌ Error de red: '+res.netError; return; }
+  const d = res.data || {};
+  if(!res.ok || d.error){ out.className='result err'; out.textContent='❌ '+(d.error||'Error'); return; }
+  const l = [];
+  l.push(d.activo ? '✅ Activo: se manda a los '+d.demora_minutos+' min de que ML marca el envío como ENTREGADO.'
+                  : '⏸️ APAGADO. Para activarlo poné ML_POSTVENTA=on en Vercel y redeploy.');
+  if(d.falta_kv) l.push('❌ Falta el KV: sin él la cola se pierde en cada arranque y NO se manda nada. Configurá KV_REST_API_URL + KV_REST_API_TOKEN.');
+  l.push('');
+  l.push('En cola (esperando los 5 min): '+d.en_cola);
+  l.push('Ya enviados: '+d.ya_enviados);
+  (d.cola||[]).slice(0,10).forEach(c=>{
+    l.push('  • orden '+c.orderId+' — '+String(c.titulo||'').slice(0,40)+' → sale '+String(c.enviar_a_partir_de||'').replace('T',' ').slice(0,16));
+  });
+  l.push('');
+  l.push('ℹ️ El mensaje NO pide calificación positiva, no ofrece plata ni premios y no manda links (todo eso lo prohíbe ML). Las redes van en el folleto con QR dentro del paquete.');
+  out.className='result ok'; out.textContent = l.join('\n');
+}
+
+// 📈 Control de conversión: preguntas vs ventas, por SKU, con qué corregir.
+function mlBajarCsv(nombre, lineas){
+  const csv = '\ufeff' + lineas.join('\r\n'); // BOM para que Excel abra bien los acentos
+  const url = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8;'}));
+  const a = document.createElement('a');
+  a.href = url; a.download = nombre;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+async function mlDownloadConversion(){
+  const out = document.getElementById('ml-agent-out');
+  out.className='result'; out.textContent='⏳ Cruzando preguntas con ventas de los últimos 30 días... (puede tardar)';
+  const res = await mlAgentCall('conversion', { dias: 30, limit: 100 });
+  if(res.netError){ out.className='result err'; out.textContent='❌ Error de red: '+res.netError; return; }
+  const d = res.data || {};
+  if(!res.ok || d.error){ out.className='result err'; out.textContent='❌ '+(d.error||'Error')+'\n(si tardó demasiado, probá de nuevo: el plan Hobby corta a los 10s)'; return; }
+
+  const sku = [['cuenta','sku','item_id','titulo','convierte','preguntas','preguntas_preventa','convertidas','tasa_conversion_%','post_venta','sin_responder','fotos','precio','ventas_del_periodo','monto_del_periodo','que_corregir','link'].map(mlCsvCell).join(',')];
+  (d.por_sku||[]).forEach(s=>{
+    sku.push([s.cuenta,s.sku,s.item_id,s.titulo,s.convierte,s.preguntas,s.preguntas_preventa,s.convertidas,s.tasa_conversion,s.post_venta,s.sin_responder,s.fotos,s.precio,s.ventas_del_periodo,s.monto_del_periodo,(s.recomendaciones||[]).join(' | '),s.permalink].map(mlCsvCell).join(','));
+  });
+  mlBajarCsv('conversion-por-sku.csv', sku);
+
+  const det = [['cuenta','fecha','sku','item_id','titulo','pregunta','respuesta','respondida','motivos','convirtio','post_venta','compro_otro','fecha_venta','monto_venta'].map(mlCsvCell).join(',')];
+  (d.detalle||[]).forEach(r=>{
+    det.push([r.cuenta,r.fecha,r.sku,r.item_id,r.titulo,r.pregunta,r.respuesta,r.respondida?'SI':'NO',r.motivos,r.convirtio?'SI':'NO',r.post_venta?'SI':'NO',r.compro_otro?'SI':'NO',r.fecha_venta,r.monto_venta].map(mlCsvCell).join(','));
+  });
+  mlBajarCsv('conversion-detalle.csv', det);
+
+  const t = d.total || {};
+  const lineas = [
+    '✅ Bajé 2 archivos: conversion-por-sku.csv y conversion-detalle.csv',
+    '',
+    'Últimos '+d.dias+' días:',
+    '• Preguntas: '+t.preguntas+' · convirtieron en venta: '+t.convertidas+' ('+t.tasa_conversion+'%)',
+    '• Publicaciones con preguntas: '+t.publicaciones_con_preguntas+' · SIN NINGUNA VENTA: '+t.publicaciones_sin_conversion,
+    '',
+    'Las que peor están (revisar fotos):',
+  ];
+  (d.por_sku||[]).filter(s=>s.convertidas===0).slice(0,5).forEach(s=>{
+    lineas.push('• '+(s.sku||s.item_id)+' — '+String(s.titulo||'').slice(0,45)+' ('+s.preguntas+' preguntas, 0 ventas, '+s.fotos+' fotos)');
+  });
+  (d.cuentas||[]).filter(c=>c.error).forEach(c=> lineas.push('⚠️ '+c.cuenta+': '+c.error));
   out.className='result ok'; out.textContent = lineas.join('\n');
 }
 

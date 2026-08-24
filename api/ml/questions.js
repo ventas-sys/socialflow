@@ -8,15 +8,23 @@
 //                                                 seguridad si el webhook no entra)
 //   GET  /api/ml/questions?action=diag         -> diagnóstico: token, cuentas, pendientes,
 //                                                 último webhook y qué está fallando
+//   GET  /api/ml/questions?action=conversion   -> control de conversión: cruza preguntas con
+//                                                 ventas por SKU y dice qué le falta a cada
+//                                                 publicación { dias, limit, account }
+//   GET  /api/ml/questions?action=postventa    -> manda los mensajes post-entrega que ya
+//                                                 cumplieron los 5 min (&ver=1 solo mira la cola)
 //   POST /api/ml/questions   (webhook de ML)    -> ML manda { resource, user_id, topic }
 //                                                 => responde la pregunta automáticamente
 //
 // Config: variable de entorno ML_ACCOUNTS (JSON). Ver lib/ml/qa-config.js.
 import { cors } from '../_http.js';
 import { loadAccounts, findAccountByUser, findAccountByLabel, otherAccount, NEGOCIO } from '../../lib/ml/qa-config.js';
-import { getAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, getRecentQuestions, searchSellerItem, postAnswer, itemContext, getMe } from '../../lib/ml/ml-api.js';
-import { generateAnswer } from '../../lib/ml/qa-brain.js';
-import { storeKind, markWebhook, lastWebhook } from '../../lib/ml/token-store.js';
+import { getAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, getRecentQuestions, searchSellerItem, postAnswer, itemContext, getMe, getOrders, getItemsBulk } from '../../lib/ml/ml-api.js';
+import { construirReporte } from '../../lib/ml/conversion.js';
+import { getShipment, getOrder, sendPostSaleMessage } from '../../lib/ml/ml-api.js';
+import { armarMensaje, encolar, vencidos, marcarEnviado, verCola, verEnviados, necesitaKv, DEMORA_MS } from '../../lib/ml/postventa.js';
+import { generateAnswer, probarIA } from '../../lib/ml/qa-brain.js';
+import { storeKind, markWebhook, lastWebhook, markWebhookResultado, lastWebhookResultado } from '../../lib/ml/token-store.js';
 
 // Access token de la cuenta (con cache + guardado del refresh rotado).
 async function tokenOf(acc) {
@@ -25,6 +33,45 @@ async function tokenOf(acc) {
 
 function autoanswerOn() {
   return process.env.ML_AUTOANSWER !== 'off';
+}
+
+// El mensaje post-entrega arranca APAGADO a propósito: le escribe a clientes
+// reales. Se prende con ML_POSTVENTA=on en Vercel.
+function postventaOn() {
+  return process.env.ML_POSTVENTA === 'on';
+}
+
+// Un mensaje que quedó colgado más de un día ya no se manda (para que al
+// prender el interruptor no salga una andanada de mensajes viejos).
+const POSTVENTA_VENCE_MS = 24 * 60 * 60 * 1000;
+
+// Manda los mensajes post-entrega que ya cumplieron la demora.
+async function procesarPostventa({ accounts, ahora = Date.now() }) {
+  const pendientes = await vencidos(ahora);
+  const salida = [];
+  for (const p of pendientes) {
+    const vencido = ahora - new Date(p.enviar_a_partir_de).getTime() > POSTVENTA_VENCE_MS;
+    if (vencido) {
+      await marcarEnviado(p.orderId, { ok: false, caducado: true });
+      salida.push({ ...p, resultado: 'caducado (más de 24 h en la cola, no se manda)' });
+      continue;
+    }
+    const acc = findAccountByLabel(accounts, p.cuenta) || accounts[0];
+    try {
+      const token = await tokenOf(acc);
+      const texto = armarMensaje({ titulo: p.titulo });
+      const r = await sendPostSaleMessage(token, {
+        packId: p.packId, sellerId: acc.user_id, buyerId: p.buyerId, text: texto,
+      });
+      await marcarEnviado(p.orderId, { ok: r.ok, status: r.status, error: r.error });
+      if (!r.ok) console.error('[ml-postventa] ML rechazó el mensaje', { orden: p.orderId, error: r.error });
+      salida.push({ ...p, resultado: r.ok ? 'enviado' : 'ERROR: ' + r.error, texto });
+    } catch (e) {
+      console.error('[ml-postventa] falló el envío', { orden: p.orderId, error: e.message });
+      salida.push({ ...p, resultado: 'ERROR: ' + e.message });
+    }
+  }
+  return salida;
 }
 
 // ¿La pregunta pide retiro/ubicación y estamos en la cuenta Full? -> cross-account.
@@ -203,6 +250,27 @@ async function sweepAccount({ acc, accounts, limit, autopost }) {
   };
 }
 
+// Control de conversión de una cuenta: preguntas + ventas del período + datos
+// de las publicaciones, todo cruzado en lib/ml/conversion.js.
+async function conversionCuenta({ acc, desde, hasta, limitPreguntas }) {
+  const token = await tokenOf(acc);
+  const [qdata, ordenes] = await Promise.all([
+    getRecentQuestions(token, acc.user_id, limitPreguntas),
+    getOrders(token, acc.user_id, desde.toISOString(), hasta.toISOString(), 300),
+  ]);
+  const preguntas = (qdata?.questions || [])
+    .filter(q => new Date(q.date_created).getTime() >= desde.getTime());
+  const ids = preguntas.map(q => q.item_id).filter(Boolean);
+  let items = new Map();
+  try {
+    items = await getItemsBulk(token, ids);
+  } catch { /* sin datos del item igual sale el reporte, solo sin fotos/SKU */ }
+  return construirReporte({
+    cuenta: acc.label, preguntas, ordenes, items,
+    desde: desde.toISOString(), hasta: hasta.toISOString(),
+  });
+}
+
 // Radiografía de una cuenta: token, identidad, pendientes y última actividad.
 async function diagAccount(acc) {
   const d = { label: acc.label, mode: acc.mode, user_id: acc.user_id, tiene_refresh: !!acc.refresh_token };
@@ -238,10 +306,14 @@ async function diagAccount(acc) {
 }
 
 // Traduce la radiografía a conclusiones en castellano (qué está roto y qué hacer).
-function diagConclusiones({ accounts, cuentas, gemini, autoanswer, store, webhook, webhookPreguntas }) {
+function diagConclusiones({ accounts, cuentas, gemini, iaError, autoanswer, store, webhook, webhookPreguntas, resultadoPreguntas }) {
   const out = [];
   if (!accounts.length) out.push('❌ No hay cuentas cargadas: falta la variable ML_ACCOUNTS en Vercel (o quedó mal el JSON).');
-  if (!gemini) out.push('❌ Falta GEMINI_API_KEY: sin eso el agente no puede redactar ninguna respuesta.');
+  if (!gemini) {
+    out.push(/spending cap|quota|RESOURCE_EXHAUSTED|429/i.test(iaError || '')
+      ? `❌ LA IA NO RESPONDE — se acabó el crédito/cupo de Gemini: "${iaError}". Sin esto Tatiana no puede redactar NINGUNA respuesta, aunque todo lo demás esté bien. Entrá a https://ai.studio/spend y subí o sacá el tope de gasto mensual del proyecto.`
+      : `❌ LA IA NO RESPONDE: ${iaError}. Sin esto el agente no puede redactar ninguna respuesta.`);
+  }
   if (!autoanswer) out.push('⚠️ ML_AUTOANSWER=off: el auto-respondido está PAUSADO a propósito. Sacá esa variable (o ponela en "on") para que vuelva a responder.');
   if (store === 'memoria') out.push('⚠️ Los tokens se guardan solo en memoria: ML rota el refresh_token en cada renovación, así que al rato el de ML_ACCOUNTS queda invalidado y el bot deja de responder. Configurá KV_REST_API_URL + KV_REST_API_TOKEN en Vercel.');
   cuentas.forEach(c => {
@@ -259,6 +331,10 @@ function diagConclusiones({ accounts, cuentas, gemini, autoanswer, store, webhoo
   });
   if (!webhook) {
     out.push('⚠️ No hay registro de ningún webhook recibido de ML. Puede ser que el store esté en memoria (se pierde en cada arranque) o que ML NO esté notificando: revisá en DevCenter que la callback URL sea https://socialflow-flax.vercel.app/api/ml/questions con el topic "questions".');
+  } else if (webhookPreguntas && resultadoPreguntas && !resultadoPreguntas.ok) {
+    out.push(`❌ ML avisó de la pregunta ${resultadoPreguntas.question_id || ''} pero el bot NO la contestó → ${resultadoPreguntas.resultado}`);
+  } else if (webhookPreguntas && !resultadoPreguntas) {
+    out.push('⚠️ Llegan avisos de PREGUNTAS pero no hay registro de qué pasó con ellos (se pierde sin KV). Configurá el KV para ver el error.');
   } else if (!webhookPreguntas) {
     out.push(`❌ ML nos está avisando (llegó un aviso de "${webhook.topic || 'sin topic'}"), pero NO hay registro de NINGÚN aviso de PREGUNTAS. O el topic "questions" no está tildado en la app de DevCenter, o el registro se perdió por guardar en memoria. Ese es el motivo más probable de que el bot no conteste solo.`);
   }
@@ -283,29 +359,108 @@ export default async function handler(req, res) {
     if (action === 'diag') {
       // En paralelo: en el plan Hobby la función corta a los 10s y una cuenta
       // sola ya se lleva varias llamadas a la API de ML.
-      const [cuentas, webhook, webhookPreguntas] = await Promise.all([
+      const [cuentas, webhook, webhookPreguntas, resultadoPreguntas, ia] = await Promise.all([
         Promise.all(accounts.map(diagAccount)),
         lastWebhook(),
         lastWebhook('questions'),
+        lastWebhookResultado('questions'),
+        probarIA(),
       ]);
       const info = {
-        gemini: !!(process.env.GEMINI_API_KEY || '').trim(),
+        gemini: ia.ok,
+        iaError: ia.ok ? null : ia.error,
         autoanswer: autoanswerOn(),
         store: storeKind(),
         webhook,
         webhookPreguntas,
+        resultadoPreguntas,
       };
       return res.status(200).json({
         ok: true,
         fecha: new Date().toISOString(),
         cuentas_configuradas: accounts.length,
         auto_respondido: info.autoanswer ? 'on' : 'off (PAUSADO)',
-        gemini: info.gemini ? 'OK' : 'FALTA',
+        gemini: ia.ok ? 'OK (probada de verdad)' : 'FALLA: ' + ia.error,
         guardado_de_tokens: info.store,
         ultimo_webhook_de_ml: webhook || null,
         ultimo_webhook_de_preguntas: webhookPreguntas || null,
+        que_paso_con_esa_pregunta: resultadoPreguntas || null,
         cuentas,
         diagnostico: diagConclusiones({ accounts, cuentas, ...info }),
+      });
+    }
+
+    // CONTROL DE CONVERSIÓN: qué preguntas terminaron en venta, por SKU, y qué le
+    // falta a cada publicación (fotos, medidas, color, retiro, precio por mayor...).
+    if (action === 'conversion') {
+      if (!accounts.length) return res.status(400).json({ error: 'No hay cuentas configuradas (ML_ACCOUNTS).' });
+      const dias = Math.min(Math.max(Number(req.query?.dias || req.body?.dias) || 30, 1), 180);
+      const limitPreguntas = Math.min(Number(req.query?.limit || req.body?.limit) || 100, 200);
+      const hasta = new Date();
+      const desde = new Date(hasta.getTime() - dias * 86400000);
+      const label = (req.query?.account || req.body?.account || '').toString();
+      const target = label ? [findAccountByLabel(accounts, label)].filter(Boolean) : accounts;
+      if (!target.length) return res.status(400).json({ error: 'Cuenta desconocida: ' + label });
+
+      const cuentas = await Promise.all(target.map(async (acc) => {
+        try {
+          return await conversionCuenta({ acc, desde, hasta, limitPreguntas });
+        } catch (e) {
+          console.error('[ml-questions] conversion falló en la cuenta ' + acc.label, e.message);
+          return { cuenta: acc.label, error: e.message, resumen: null, por_sku: [], detalle: [] };
+        }
+      }));
+
+      // Consolidado de las 2 cuentas.
+      const detalle = cuentas.flatMap(c => c.detalle || []);
+      const convertidas = detalle.filter(d => d.convirtio).length;
+      const porSku = cuentas.flatMap(c => (c.por_sku || []).map(s => ({ cuenta: c.cuenta, ...s })));
+      return res.status(200).json({
+        ok: true,
+        dias,
+        desde: desde.toISOString(),
+        hasta: hasta.toISOString(),
+        total: {
+          preguntas: detalle.length,
+          convertidas,
+          tasa_conversion: detalle.length ? Math.round((convertidas / detalle.length) * 100) : 0,
+          publicaciones_con_preguntas: porSku.length,
+          publicaciones_sin_conversion: porSku.filter(s => s.convertidas === 0).length,
+        },
+        cuentas: cuentas.map(c => ({ cuenta: c.cuenta, error: c.error || null, resumen: c.resumen })),
+        por_sku: porSku,
+        detalle,
+      });
+    }
+
+    // POST-VENTA: manda los mensajes de "¿llegó todo bien?" que ya cumplieron los 5 min.
+    // Pensado para un cron cada 5 minutos (bridge/ml-sweep.sh).
+    if (action === 'postventa') {
+      const expected = (process.env.ML_SWEEP_KEY || '').trim();
+      if (req.method === 'GET' && expected && (req.query?.key || '').toString() !== expected) {
+        return res.status(401).json({ error: 'key inválida' });
+      }
+      const [cola, enviados] = await Promise.all([verCola(), verEnviados()]);
+      const soloVer = ['1', 'true', 'si'].includes(String(req.query?.ver ?? req.body?.ver ?? '').toLowerCase());
+      const base = {
+        activo: postventaOn(),
+        demora_minutos: DEMORA_MS / 60000,
+        falta_kv: necesitaKv(),
+        en_cola: cola.length,
+        ya_enviados: enviados.length,
+        cola,
+      };
+      if (soloVer) return res.status(200).json({ ok: true, ...base });
+      if (!postventaOn()) {
+        return res.status(200).json({ ok: true, ...base, nota: 'Apagado. Poné ML_POSTVENTA=on en Vercel para activarlo.' });
+      }
+      if (!accounts.length) return res.status(400).json({ error: 'No hay cuentas configuradas (ML_ACCOUNTS).' });
+      const procesados = await procesarPostventa({ accounts });
+      return res.status(200).json({
+        ok: true, ...base,
+        procesados: procesados.length,
+        enviados_ahora: procesados.filter(p => p.resultado === 'enviado').length,
+        detalle: procesados,
       });
     }
 
@@ -360,22 +515,60 @@ export default async function handler(req, res) {
       // Queda registrado para el diagnóstico: así se ve si ML nos está llamando.
       await markWebhook({ topic: topic || null, user_id: user_id ?? null, resource: resource || null });
       try {
+        // ENVÍO ENTREGADO -> agendamos el mensaje post-venta para dentro de 5 min.
+        if (topic === 'shipments') {
+          if (!postventaOn()) return res.status(200).json({ ok: true, skipped: 'postventa apagada (ML_POSTVENTA)' });
+          const acc = findAccountByUser(accounts, user_id);
+          if (!acc) return res.status(200).json({ ok: false, error: 'cuenta no configurada para user ' + user_id });
+          const shipmentId = String(resource || '').split('/').pop();
+          const token = await tokenOf(acc);
+          const envio = await getShipment(token, shipmentId);
+          if (envio?.status !== 'delivered') {
+            return res.status(200).json({ ok: true, skipped: 'envío en estado ' + (envio?.status || 's/d') });
+          }
+          const orden = await getOrder(token, envio.order_id);
+          const r = await encolar({
+            orderId: envio.order_id,
+            packId: orden?.pack_id || envio.order_id,
+            buyerId: orden?.buyer?.id,
+            cuenta: acc.label,
+            titulo: orden?.order_items?.[0]?.item?.title || '',
+          });
+          return res.status(200).json({ ok: true, entregado: true, agendado: r.ok, motivo: r.motivo || null,
+            enviar_a_partir_de: r.item?.enviar_a_partir_de || null });
+        }
         if (topic && topic !== 'questions') return res.status(200).json({ ok: true, skipped: topic });
+        const qId = String(resource || '').split('/').pop();
         const acc = findAccountByUser(accounts, user_id);
         if (!acc) {
           console.error('[ml-questions] webhook de un user sin cuenta en ML_ACCOUNTS', { user_id, resource });
+          await markWebhookResultado('questions', { question_id: qId, ok: false, resultado: 'cuenta no configurada para user ' + user_id });
           return res.status(200).json({ ok: false, error: 'cuenta no configurada para user ' + user_id });
         }
-        const qId = String(resource || '').split('/').pop();
         const token = await tokenOf(acc);
         const q = await getQuestion(token, qId);
-        if (!q || q.status !== 'UNANSWERED') return res.status(200).json({ ok: true, skipped: 'ya respondida o inexistente' });
+        if (!q || q.status !== 'UNANSWERED') {
+          await markWebhookResultado('questions', { question_id: qId, cuenta: acc.label, ok: true, resultado: 'ya respondida o inexistente' });
+          return res.status(200).json({ ok: true, skipped: 'ya respondida o inexistente' });
+        }
         // Interruptor de seguridad: poné ML_AUTOANSWER=off en Vercel para pausar el auto-respondido.
         const autopost = autoanswerOn();
         const out = await answerFlow({ acc, accounts, q, autopost });
+        await markWebhookResultado('questions', {
+          question_id: qId, cuenta: acc.label, pregunta: (q.text || '').slice(0, 80),
+          ok: !out.postError && !out.escalated,
+          resultado: out.escalated ? ('no se responde: ' + out.note)
+            : out.postError ? ('ML rechazó la respuesta: ' + out.postError)
+            : autopost ? 'respondida por el bot' : 'generada pero NO posteada (ML_AUTOANSWER=off)',
+          respuesta: (out.answer || '').slice(0, 120),
+        });
         return res.status(200).json({ ok: !out.postError, autopost, ...out });
       } catch (e) {
         console.error('[ml-questions] webhook falló', { user_id, resource, error: e.message });
+        await markWebhookResultado('questions', {
+          question_id: String(resource || '').split('/').pop(),
+          ok: false, resultado: 'ERROR: ' + e.message,
+        });
         return res.status(200).json({ ok: false, error: e.message, hint: 'Abrí /api/ml/questions?action=diag para ver el detalle.' });
       }
     }

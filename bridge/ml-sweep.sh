@@ -17,4 +17,11 @@ URL="$BASE/api/ml/questions?action=sweep&limit=$LIMIT"
 [ -n "$KEY" ] && URL="$URL&key=$KEY"
 
 RES=$(curl -sS --max-time 120 "$URL")
-echo "$(date '+%F %T') $RES"
+echo "$(date '+%F %T') preguntas: $RES"
+
+# Mensajes post-entrega: los que ya cumplieron los 5 minutos desde que ML marcó
+# el envío como entregado. Solo hace algo si ML_POSTVENTA=on en Vercel.
+PV="$BASE/api/ml/questions?action=postventa"
+[ -n "$KEY" ] && PV="$PV&key=$KEY"
+RESPV=$(curl -sS --max-time 120 "$PV")
+echo "$(date '+%F %T') postventa: $RESPV"
