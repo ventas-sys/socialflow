@@ -1,4 +1,5 @@
 import https from 'https';
+import { keyTexto } from '../lib/gemini-keys.js';
 
 function makeRequest(url, body) {
   return new Promise((resolve, reject) => {
@@ -176,8 +177,8 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { agent, input } = req.body || {};
-  const GK = (process.env.GEMINI_API_KEY || '').trim();
-  if (!GK) return res.status(500).json({ error: 'GEMINI_API_KEY no configurada en Vercel' });
+  const GK = keyTexto();
+  if (!GK) return res.status(500).json({ error: 'GEMINI_API_KEY no configurada en Vercel (ni GEMINI_API_KEY_TEXTO)' });
   if (!agent || !input) return res.status(400).json({ error: 'Faltan parámetros: agent + input' });
 
   const prompt = buildPrompt(agent, input);

@@ -21,7 +21,8 @@ import { cors } from '../_http.js';
 import { loadAccounts, findAccountByUser, findAccountByLabel, otherAccount, NEGOCIO } from '../../lib/ml/qa-config.js';
 import { getAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, getRecentQuestions, searchSellerItem, postAnswer, itemContext, getMe, getOrders, getItemsBulk } from '../../lib/ml/ml-api.js';
 import { construirReporte } from '../../lib/ml/conversion.js';
-import { getShipment, getOrder, sendPostSaleMessage } from '../../lib/ml/ml-api.js';
+import { resumenKeys } from '../../lib/gemini-keys.js';
+import { getShipment, getOrder, sendPostSaleMessage, getUnreadMessages } from '../../lib/ml/ml-api.js';
 import { armarMensaje, encolar, vencidos, marcarEnviado, verCola, verEnviados, necesitaKv, DEMORA_MS } from '../../lib/ml/postventa.js';
 import { generateAnswer, probarIA } from '../../lib/ml/qa-brain.js';
 import { storeKind, markWebhook, lastWebhook, markWebhookResultado, lastWebhookResultado } from '../../lib/ml/token-store.js';
@@ -59,6 +60,22 @@ async function procesarPostventa({ accounts, ahora = Date.now() }) {
     const acc = findAccountByLabel(accounts, p.cuenta) || accounts[0];
     try {
       const token = await tokenOf(acc);
+
+      // Si el comprador YA escribió algo que nadie leyó, no nos metemos: mandar
+      // "¿llegó todo bien?" encima de su consulta la entierra y arma lío. Lo
+      // dejamos en la cola: si el equipo le contesta, sale en la próxima
+      // pasada; si no, caduca solo a las 24 h.
+      // Este chequeo NO marca nada como leído (ver getUnreadMessages).
+      let sinLeer = 0;
+      try {
+        const unread = await getUnreadMessages(token, p.packId, acc.user_id);
+        sinLeer = Number(unread?.count ?? (Array.isArray(unread?.results) ? unread.results.length : 0)) || 0;
+      } catch { /* si no se puede consultar, seguimos y mandamos igual */ }
+      if (sinLeer > 0) {
+        salida.push({ ...p, resultado: `en espera: el comprador escribió ${sinLeer} mensaje(s) sin leer, lo atiende una persona` });
+        continue;
+      }
+
       const texto = armarMensaje({ titulo: p.titulo });
       const r = await sendPostSaleMessage(token, {
         packId: p.packId, sellerId: acc.user_id, buyerId: p.buyerId, text: texto,
@@ -164,6 +181,18 @@ async function answerFlow({ acc, accounts, q, autopost }) {
   }
 
   const item = await getItem(token, q.item_id);
+
+  // Si la publicación no está ACTIVA (pausada o finalizada), ML rechaza la
+  // respuesta con "Item must be active" (not_active_item). Cortamos ACÁ, antes
+  // de llamar a la IA: si no, cada barrido del cron vuelve a redactar una
+  // respuesta que nunca se va a poder publicar y quema crédito de Gemini al
+  // pedo -- justo el recurso que se nos agotó el 24/8.
+  if (item?.status && item.status !== 'active') {
+    return { question: q.text, item: item.title || null, answer: null, status: q.status,
+             posted: null, omitida: true,
+             note: `La publicación está ${item.status === 'paused' ? 'PAUSADA' : 'FINALIZADA'}: Mercado Libre no permite responder preguntas ahí. Si querés contestarla, reactivá la publicación.` };
+  }
+
   const ctx = itemContext(item);
 
   let cross = null;        // link exacto del MISMO producto en la cuenta LOCAL
@@ -246,6 +275,7 @@ async function sweepAccount({ acc, accounts, limit, autopost }) {
     pendientes: data?.total ?? pendientes.length,
     procesadas: resultados.length,
     posteadas: resultados.filter(r => r.posted?.ok).length,
+    omitidas_publicacion_inactiva: resultados.filter(r => r.omitida).length,
     resultados,
   };
 }
@@ -306,13 +336,16 @@ async function diagAccount(acc) {
 }
 
 // Traduce la radiografía a conclusiones en castellano (qué está roto y qué hacer).
-function diagConclusiones({ accounts, cuentas, gemini, iaError, autoanswer, store, webhook, webhookPreguntas, resultadoPreguntas }) {
+function diagConclusiones({ accounts, cuentas, gemini, iaError, keys, autoanswer, store, webhook, webhookPreguntas, resultadoPreguntas }) {
   const out = [];
   if (!accounts.length) out.push('❌ No hay cuentas cargadas: falta la variable ML_ACCOUNTS en Vercel (o quedó mal el JSON).');
   if (!gemini) {
     out.push(/spending cap|quota|RESOURCE_EXHAUSTED|429/i.test(iaError || '')
       ? `❌ LA IA NO RESPONDE — se acabó el crédito/cupo de Gemini: "${iaError}". Sin esto Tatiana no puede redactar NINGUNA respuesta, aunque todo lo demás esté bien. Entrá a https://ai.studio/spend y subí o sacá el tope de gasto mensual del proyecto.`
       : `❌ LA IA NO RESPONDE: ${iaError}. Sin esto el agente no puede redactar ninguna respuesta.`);
+  }
+  if (gemini && keys && !keys.separadas) {
+    out.push('⚠️ Los bots (ML y WhatsApp) comparten la key de Gemini con la generación de imágenes y video, que es MUCHO más cara. Si se agota el crédito haciendo contenido, los dos bots dejan de atender. Separalas: GEMINI_API_KEY_TEXTO para los bots y GEMINI_API_KEY_MEDIA para imagen/video.');
   }
   if (!autoanswer) out.push('⚠️ ML_AUTOANSWER=off: el auto-respondido está PAUSADO a propósito. Sacá esa variable (o ponela en "on") para que vuelva a responder.');
   if (store === 'memoria') out.push('⚠️ Los tokens se guardan solo en memoria: ML rota el refresh_token en cada renovación, así que al rato el de ML_ACCOUNTS queda invalidado y el bot deja de responder. Configurá KV_REST_API_URL + KV_REST_API_TOKEN en Vercel.');
@@ -369,6 +402,7 @@ export default async function handler(req, res) {
       const info = {
         gemini: ia.ok,
         iaError: ia.ok ? null : ia.error,
+        keys: resumenKeys(),
         autoanswer: autoanswerOn(),
         store: storeKind(),
         webhook,
@@ -381,6 +415,7 @@ export default async function handler(req, res) {
         cuentas_configuradas: accounts.length,
         auto_respondido: info.autoanswer ? 'on' : 'off (PAUSADO)',
         gemini: ia.ok ? 'OK (probada de verdad)' : 'FALLA: ' + ia.error,
+        keys_de_gemini: resumenKeys(),
         guardado_de_tokens: info.store,
         ultimo_webhook_de_ml: webhook || null,
         ultimo_webhook_de_preguntas: webhookPreguntas || null,
