@@ -578,6 +578,19 @@ export default function App() {
     return docRef.id
   }
 
+  // Recarga el tablero desde Firestore: el sync corre en el servidor y esta
+  // sesión necesita traerse lo que el servidor escribió
+  const reloadShipments = async () => {
+    if (!user) return
+    try {
+      const snap = await getDocs(query(collection(db, 'shipments'), where('userId', '==', ORG_ID)))
+      const tm = (t) => (t?.toMillis ? t.toMillis() : new Date(t || 0).getTime())
+      setShipments(
+        snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => tm(b.createdAt) - tm(a.createdAt))
+      )
+    } catch { /* sin permisos o sin red: se mantiene lo que hay */ }
+  }
+
   const updateShipment = async (id, data) => {
     if (!user) return
     await updateDoc(doc(db, 'shipments', id), { ...data, updatedAt: Timestamp.now() })
@@ -948,6 +961,7 @@ export default function App() {
                 isAdmin={isAdmin}
                 shipments={flexShipments}
                 allShipments={shipments}
+                onReloadShipments={reloadShipments}
                 couriers={couriers}
                 mlAccounts={mlAccounts}
                 onSaveAccount={saveMlAccount}

@@ -6,6 +6,7 @@
   "functions": {
     "api/ml/cron.js": { "maxDuration": 300 },
     "api/ml/exchange.js": { "maxDuration": 300 },
+    "api/ml/envios.js": { "maxDuration": 300 },
     "api/contabilium.js": { "maxDuration": 60 }
   },
   "crons": [

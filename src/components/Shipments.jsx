@@ -119,14 +119,13 @@ const fmtDur = (ms) => {
 }
 const fmtDateTime = (t) => t ? new Date(toMillis(t)).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
 
-const API = '/api/ml/exchange'
-
 export default function Shipments({
   shipments, couriers, mlAccounts, onSaveAccount,
   onAddShipment, onUpdateShipment, onDeleteShipment, onClearShipments,
   onAddCourier, onRemoveCourier,
   isAdmin = false, // solo el master conecta ML, trae ventas y vacía el tablero
   allShipments, // incluye los de CORREO (solo para dedup del sync; el tablero recibe solo FLEX)
+  onReloadShipments, // recarga el tablero después de que el servidor sincroniza
 }) {
   const mapRef = useRef(null)
   const mapObj = useRef(null)
@@ -147,220 +146,34 @@ export default function Shipments({
   const syncingRef = useRef(false)
   const shipmentsRef = useRef(shipments); shipmentsRef.current = shipments
   const allShipmentsRef = useRef(allShipments); allShipmentsRef.current = allShipments || shipments
-  const mlRef = useRef(mlAccounts); mlRef.current = mlAccounts
-
-  // Renueva el token de ML si está por vencer (usa el actual si no puede)
-  const ensureToken = async (key) => {
-    const acc = mlRef.current?.[key]
-    if (!acc?.accessToken) return null
-    const expMs = acc.expiresAt?.toMillis ? acc.expiresAt.toMillis() : new Date(acc.expiresAt || 0).getTime()
-    if (expMs && expMs - Date.now() > 5 * 60 * 1000) return acc.accessToken
-    try {
-      const r = await fetch(`${API}?action=refresh`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId: acc.clientId, clientSecret: acc.clientSecret, refreshToken: acc.refreshToken }),
-      }).then(x => x.json())
-      if (r.ok) {
-        try { await onSaveAccount(key, { accessToken: r.accessToken, refreshToken: r.refreshToken, expiresAt: new Date(Date.now() + (r.expiresIn || 21600) * 1000) }) } catch {}
-        return r.accessToken
-      }
-    } catch {}
-    return acc.accessToken
-  }
-
-  // Trae las ventas de ML (ambas cuentas), excluye Full y crea los envíos
-  // que falten en estado "Pendiente de imprimir".
   const syncFromML = async (silent = false) => {
     if (syncingRef.current) return // no solapar sincronizaciones
-    const accs = mlRef.current || {}
-    const keys = Object.keys(accs).filter(k => accs[k]?.accessToken)
-    if (!keys.length) {
-      // Los ayudantes no tienen acceso a las credenciales de ML (a propósito):
-      // las ventas las trae la sesión del master y el tablero se comparte.
-      if (!silent) setSyncMsg(isAdmin
-        ? '⚠️ Conectá MercadoLibre primero (solapa ML).'
-        : 'ℹ️ Las ventas de ML las trae el usuario master; el tablero se actualiza solo.')
-      return
-    }
     syncingRef.current = true
     setSyncing(true) // avisar SIEMPRE, también en la actualización automática
-    // Un envío por COMPRA (pack) o por envío físico; evita duplicar por producto.
-    // Solo AGREGA ventas nuevas: nunca toca el estado de las ya gestionadas.
-    const seen = new Set((allShipmentsRef.current || []).map(s => String(s.packId || s.code)))
-    let created = 0
-    const diag = { total: 0, flex: 0, correo: 0, cerrados: 0 }
-    let nPend = 0, nCamino = 0, nDemorado = 0, nEntregado = 0, nCorreo = 0
-    const H48 = 48 * 3600 * 1000
-    // Estado actual en ML de cada envío (por shipmentId y packId), para
-    // refrescar también los que ya están cargados en el tablero
-    const mlStatus = new Map()
-    const tokenByKey = {}
     try {
-      for (const key of keys) {
-        const token = await ensureToken(key)
-        if (!token) continue
-        tokenByKey[key] = token
-        // Ventana de 7 días: 48hs para pendientes/en camino, 1 semana para demorados
-        const from = new Date(); from.setHours(0, 0, 0, 0); from.setDate(from.getDate() - 7)
-        const r = await fetch(`${API}?action=orders`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, from: from.toISOString() }),
-        }).then(x => x.json())
-        if (!r.ok) continue
-        diag.total += r.orders.length
-        // Agrupar por compra (pack) juntando los artículos de todas sus órdenes
-        const groups = new Map()
-        for (const o of r.orders) {
-          // SOLO FLEX / Turbo (self_service): lo que repartimos con moto
-          // CORREO se trae SOLO para Empaquetado (entra archivado, con canal
-          // 'correo': nunca aparece en tablero, mapa ni reporte)
-          const isCorreo = ['cross_docking', 'drop_off', 'xd_drop_off'].includes(o.logisticType)
-          if (o.logisticType !== 'self_service' && !isCorreo) continue
-          if (isCorreo) {
-            diag.correo++
-          } else {
-            diag.flex++
-            // Si la ORDEN está cancelada (comprador canceló) cuenta como cancelado
-            // aunque el envío haya quedado en otro estado
-            const info = {
-              st: o.status === 'cancelled' ? 'cancelled' : o.shipmentStatus,
-              sub: o.shipmentSubstatus, tn: o.trackingNumber || null,
-            }
-            if (o.shipmentId) mlStatus.set(String(o.shipmentId), info)
-            if (o.packId) mlStatus.set(String(o.packId), info)
-          }
-          // Cancelados no se traen; el resto de los últimos 7 días SÍ
-          if (o.status === 'cancelled' || ['cancelled', 'to_be_agreed'].includes(o.shipmentStatus)) { diag.cerrados++; continue }
-          const gkey = String(o.packId || o.shipmentId || '')
-          if (!gkey || seen.has(gkey)) continue
-          const g = groups.get(gkey)
-          if (g) g.items = [...(g.items || []), ...(o.items || [])]
-          else groups.set(gkey, { ...o, correo: isCorreo, items: [...(o.items || [])] })
-        }
-        for (const o of groups.values()) {
-          if (o.correo) {
-            seen.add(String(o.packId || o.shipmentId))
-            const id = await onAddShipment({
-              code: String(o.shipmentId || o.packId), packId: o.packId || null,
-              recipient: o.recipient || '', address: o.address || '',
-              lat: o.lat ?? null, lng: o.lng ?? null,
-              status: 'archivado', archivedAt: new Date(), channel: 'correo',
-              cost: 0, account: key, items: o.items || [], dims: o.dimensions || null,
-              trackingNumber: o.trackingNumber || null, notes: o.notes || null,
-            })
-            if (id) nCorreo++
-            continue
-          }
-          const ageMs = Date.now() - new Date(o.date).getTime()
-          // Estado inicial según ML y antigüedad
-          let status
-          if (o.shipmentStatus === 'delivered') status = 'entregado'
-          else if (o.shipmentStatus === 'shipped') status = ageMs <= H48 ? 'camino' : 'demorado'
-          else if (o.shipmentStatus === 'not_delivered') status = 'demorado'
-          else status = ageMs <= H48 ? 'pendiente' : 'demorado'
-          seen.add(String(o.packId || o.shipmentId))
-          const id = await onAddShipment({
-            code: String(o.shipmentId || o.packId), packId: o.packId || null,
-            recipient: o.recipient || '', address: o.address || '',
-            lat: o.lat ?? null, lng: o.lng ?? null, status, cost: 0, account: key,
-            items: o.items || [], dims: o.dimensions || null,
-            trackingNumber: o.trackingNumber || null, // el código de barras de la etiqueta trae este número
-            notes: o.notes || null, // referencia de la etiqueta (horarios, aclaraciones)
-            ...(status === 'camino' ? { assignedAt: new Date(o.date) } : {}),
-            ...(status === 'demorado' ? { demoradoAt: new Date() } : {}),
-            ...(status === 'entregado' ? { deliveredAt: new Date(o.date) } : {}),
-          })
-          if (id) {
-            created++
-            if (status === 'pendiente') nPend++
-            else if (status === 'camino') nCamino++
-            else if (status === 'entregado') nEntregado++
-            else nDemorado++
-          }
-        }
+      // La sincronización corre EN EL SERVIDOR (con las credenciales del cron):
+      // la puede disparar cualquier sesión sin exponer los tokens de ML, y un
+      // candado del lado del servidor evita corridas duplicadas o muy seguidas.
+      const r = await fetch('/api/ml/envios', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force: !silent }),
+      }).then(x => x.json())
+      if (!r.ok) throw new Error(r.error || 'Error del servidor')
+      const s = r.summary || {}
+      if (r.skipped) {
+        if (!silent) setSyncMsg('ℹ️ Ya se sincronizó hace un momento — el tablero está al día.')
+      } else {
+        const hayCambios = (s.created || s.nCorreo || s.updEnt || s.updDem || s.updArc || s.oldEnt || s.oldDem || s.oldArc)
+        if (hayCambios || !silent) setSyncMsg(
+          `✅ ${s.created || 0} envíos nuevos: ${s.nPend || 0} pendientes, ${s.nCamino || 0} en camino, ` +
+          `${s.nEntregado || 0} entregados, ${s.nDemorado || 0} demorados. (${s.flex || 0} FLEX de ${s.total || 0} ventas)` +
+          (s.nCorreo ? ` · 📮 ${s.nCorreo} de correo cargados solo para Empaque` : '') +
+          (s.updEnt || s.updDem || s.updArc ? ` · 🔄 Según ML: ${s.updEnt || 0} entregados, ${s.updDem || 0} demorados, ${s.updArc || 0} cancelados→archivados` : '') +
+          (s.oldEnt || s.oldDem || s.oldArc ? ` · 🧹 Viejos revisados: ${s.oldEnt || 0} entregados, ${s.oldDem || 0} demorados, ${s.oldArc || 0} archivados` : '')
+        )
       }
-      // Refrescar los YA cargados según lo que dice ML: si ML los marca
-      // entregados pasan a Entregado, si no se entregaron a Demorado, y un
-      // "en camino" con más de 48hs también queda Demorado. Lo gestionado a
-      // mano (armado, motoquero) no se toca.
-      let updEnt = 0, updDem = 0, updArc = 0
-      const updates = []
-      for (const s of (shipmentsRef.current || [])) {
-        const st = s.status || 'pendiente'
-        if (['entregado', 'archivado'].includes(st)) continue
-        const info = mlStatus.get(String(s.code)) || (s.packId && mlStatus.get(String(s.packId)))
-        if (!info) continue
-        const patch = {}
-        // Completar el tracking a los envíos viejos que no lo tienen (lo
-        // necesita la pistola: el código de barras de la etiqueta trae ese número)
-        if (!s.trackingNumber && info.tn) patch.trackingNumber = info.tn
-        if (info.st === 'delivered') {
-          patch.status = 'entregado'; patch.deliveredAt = new Date(); updEnt++
-        } else if (info.st === 'cancelled') {
-          // Venta cancelada por el comprador → sale del panel (Archivado)
-          patch.status = 'archivado'; patch.archivedAt = new Date(); updArc++
-        } else if (info.st === 'not_delivered' && st !== 'demorado') {
-          patch.status = 'demorado'; patch.demoradoAt = new Date(); updDem++
-        } else if (info.st === 'shipped' && st === 'camino' &&
-                   toMillis(s.assignedAt) && Date.now() - toMillis(s.assignedAt) > H48) {
-          patch.status = 'demorado'; patch.demoradoAt = new Date(); updDem++
-        }
-        if (Object.keys(patch).length) updates.push([s.id, patch])
-      }
-      for (let i = 0; i < updates.length; i += 20) {
-        await Promise.all(updates.slice(i, i + 20).map(([id, patch]) =>
-          onUpdateShipment(id, patch).catch(() => {})))
-      }
-
-      // Los activos VIEJOS (fuera de la ventana de 7 días) no aparecen en las
-      // órdenes y quedaban colgados en Pendiente: se consultan uno por uno
-      // contra ML y se actualizan igual (entregado / demorado / cancelado)
-      let oldEnt = 0, oldDem = 0, oldArc = 0
-      const stale = shipmentsRef.current.filter(s => {
-        const st = s.status || 'pendiente'
-        if (['entregado', 'archivado'].includes(st)) return false
-        return !mlStatus.has(String(s.code)) && !(s.packId && mlStatus.has(String(s.packId)))
-      }).slice(0, 400)
-      if (stale.length) {
-        const pending = new Map(stale.map(s => [String(s.code), s]))
-        for (const key of keys) {
-          if (!pending.size || !tokenByKey[key]) continue
-          // primero los de esta cuenta; los de cuenta desconocida se prueban en ambas
-          const ids = [...pending.values()].filter(s => !s.account || s.account === key).map(s => String(s.code))
-          if (!ids.length) continue
-          const r = await fetch(`${API}?action=shipstatus`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: tokenByKey[key], ids }),
-          }).then(x => x.json()).catch(() => null)
-          if (!r?.ok) continue
-          const ups = []
-          Object.entries(r.statuses || {}).forEach(([id, info]) => {
-            const s = pending.get(id)
-            if (!s) return
-            pending.delete(id)
-            const st = s.status || 'pendiente'
-            const patch = {}
-            if (!s.trackingNumber && info.tracking) patch.trackingNumber = info.tracking
-            if (info.status === 'delivered') { patch.status = 'entregado'; patch.deliveredAt = new Date(); oldEnt++ }
-            else if (info.status === 'cancelled') { patch.status = 'archivado'; patch.archivedAt = new Date(); oldArc++ }
-            else if (['not_delivered', 'shipped'].includes(info.status) && st !== 'demorado' && st !== 'camino') {
-              patch.status = 'demorado'; patch.demoradoAt = new Date(); oldDem++
-            }
-            if (Object.keys(patch).length) ups.push([s.id, patch])
-          })
-          for (let i = 0; i < ups.length; i += 20) {
-            await Promise.all(ups.slice(i, i + 20).map(([id, patch]) => onUpdateShipment(id, patch).catch(() => {})))
-          }
-        }
-      }
-
-      if (created || nCorreo || updEnt || updDem || updArc || oldEnt || oldDem || oldArc || !silent) setSyncMsg(
-        `✅ ${created} envíos nuevos: ${nPend} pendientes, ${nCamino} en camino, ` +
-        `${nEntregado} entregados, ${nDemorado} demorados. (${diag.flex} FLEX de ${diag.total} ventas)` +
-        (nCorreo ? ` · 📮 ${nCorreo} de correo cargados solo para Empaque` : '') +
-        (updEnt || updDem || updArc ? ` · 🔄 Según ML: ${updEnt} entregados, ${updDem} demorados, ${updArc} cancelados→archivados` : '') +
-        (oldEnt || oldDem || oldArc ? ` · 🧹 Viejos revisados en ML: ${oldEnt} entregados, ${oldDem} demorados, ${oldArc} cancelados→archivados` : '')
-      )
+      // Traer a esta sesión lo que el servidor escribió
+      await onReloadShipments?.()
     } catch (e) {
       if (!silent) setSyncMsg('❌ ' + e.message)
     } finally {

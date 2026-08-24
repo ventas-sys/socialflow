@@ -1,7 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Administrador: puede todo y gestiona el equipo desde el Dashboard
+    // Administrador: puede todo y gestiona el equipo desde 👥 Usuarios
     function isAdmin() {
       return request.auth != null && (
         request.auth.token.email == 'ventas@distribuidorauniverso.com'
@@ -17,11 +17,25 @@ service cloud.firestore {
       );
     }
 
-    // Inventario compartido: todos los miembros ven y modifican lo mismo
-    match /products/{id}  { allow read, write: if isMember(); }
-    match /combos/{id}    { allow read, write: if isMember(); }
-    match /movements/{id} { allow read, write: if isMember(); }
-    match /photos/{id}    { allow read, write: if isMember(); }
+    // Puede MODIFICAR el inventario: el admin siempre; un ayudante solo si su
+    // permiso "Puede modificar" (canEdit) no está apagado en 👥 Usuarios.
+    // Sin el campo (miembros viejos) se considera permitido, igual que en la app.
+    function canEdit() {
+      return isAdmin() || (
+        isMember()
+        && get(/databases/$(database)/documents/members/$(request.auth.token.email)).data.get('canEdit', true) != false
+      );
+    }
+
+    // Inventario compartido: todos los miembros lo VEN; lo MODIFICAN solo
+    // el admin y los ayudantes con "Puede modificar"
+    match /products/{id}  { allow read: if isMember(); allow write: if canEdit(); }
+    match /combos/{id}    { allow read: if isMember(); allow write: if canEdit(); }
+    match /movements/{id} { allow read: if isMember(); allow write: if canEdit(); }
+    match /photos/{id}    { allow read: if isMember(); allow write: if canEdit(); }
+
+    // Operación de reparto y empaquetado: la usan TODOS los miembros
+    // (armar, asignar motoquero, entregar) aunque no puedan tocar el stock
     match /shipments/{id} { allow read, write: if isMember(); }
     match /couriers/{id}  { allow read, write: if isMember(); }
     // Órdenes de ML ya procesadas (para no descontar dos veces)
@@ -31,7 +45,7 @@ service cloud.firestore {
     // El mapa del depósito lo ve todo el equipo pero solo lo modifica el admin
     match /settings/{id}  { allow read: if isMember(); allow write: if isAdmin(); }
 
-    // Solo el administrador agrega o quita miembros
+    // Solo el administrador agrega o quita miembros y cambia permisos
     match /members/{email} {
       allow read: if isMember();
       allow write: if isAdmin();

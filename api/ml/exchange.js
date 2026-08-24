@@ -29,11 +29,22 @@ export default async function handler(req, res) {
 async function orders(req, res) {
   const { token, from } = req.body || {};
   if (!token) return res.status(400).json({ ok: false, error: 'Falta access_token' });
+  try {
+    const r = await fetchOrdersDetailed(token, from);
+    return res.status(200).json({ ok: true, sellerId: r.sellerId, nickname: r.nickname, count: r.orders.length, orders: r.orders });
+  } catch (e) {
+    return res.status(200).json({ ok: false, error: e.message });
+  }
+}
+
+// Núcleo reutilizable (lo usan el handler orders y el sync del tablero en
+// api/ml/envios.js): órdenes + detalle de cada envío en paralelo.
+export async function fetchOrdersDetailed(token, from) {
   const auth = { 'Authorization': 'Bearer ' + token };
 
   const me = await httpRequest('GET', 'https://api.mercadolibre.com/users/me', auth);
   if (me.status !== 200) {
-    return res.status(200).json({ ok: false, error: me.body?.message || ('HTTP ' + me.status) });
+    throw new Error(me.body?.message || ('HTTP ' + me.status));
   }
   const sellerId = me.body.id;
   const nickname = me.body.nickname;
@@ -45,7 +56,7 @@ async function orders(req, res) {
     const url = `https://api.mercadolibre.com/orders/search?seller=${sellerId}&sort=date_desc&limit=50&offset=${offset}${fromParam}`;
     const r = await httpRequest('GET', url, auth);
     if (r.status !== 200) {
-      return res.status(200).json({ ok: false, error: r.body?.message || ('HTTP ' + r.status), details: r.body });
+      throw new Error(r.body?.message || ('HTTP ' + r.status));
     }
     const results = r.body?.results || [];
     raw.push(...results);
@@ -114,7 +125,7 @@ async function orders(req, res) {
     });
   }
 
-  return res.status(200).json({ ok: true, sellerId, nickname, count: out.length, orders: out });
+  return { sellerId, nickname, orders: out };
 }
 
 // Lista TODAS las publicaciones activas del vendedor (para detectar cuáles no
