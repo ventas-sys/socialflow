@@ -165,6 +165,18 @@ async function answerFlow({ acc, accounts, q, autopost }) {
   }
 
   const item = await getItem(token, q.item_id);
+
+  // Si la publicación no está ACTIVA (pausada o finalizada), ML rechaza la
+  // respuesta con "Item must be active" (not_active_item). Cortamos ACÁ, antes
+  // de llamar a la IA: si no, cada barrido del cron vuelve a redactar una
+  // respuesta que nunca se va a poder publicar y quema crédito de Gemini al
+  // pedo -- justo el recurso que se nos agotó el 24/8.
+  if (item?.status && item.status !== 'active') {
+    return { question: q.text, item: item.title || null, answer: null, status: q.status,
+             posted: null, omitida: true,
+             note: `La publicación está ${item.status === 'paused' ? 'PAUSADA' : 'FINALIZADA'}: Mercado Libre no permite responder preguntas ahí. Si querés contestarla, reactivá la publicación.` };
+  }
+
   const ctx = itemContext(item);
 
   let cross = null;        // link exacto del MISMO producto en la cuenta LOCAL
@@ -247,6 +259,7 @@ async function sweepAccount({ acc, accounts, limit, autopost }) {
     pendientes: data?.total ?? pendientes.length,
     procesadas: resultados.length,
     posteadas: resultados.filter(r => r.posted?.ok).length,
+    omitidas_publicacion_inactiva: resultados.filter(r => r.omitida).length,
     resultados,
   };
 }
