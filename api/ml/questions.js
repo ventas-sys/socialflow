@@ -22,7 +22,7 @@ import { loadAccounts, findAccountByUser, findAccountByLabel, otherAccount, NEGO
 import { getAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, getRecentQuestions, searchSellerItem, postAnswer, itemContext, getMe, getOrders, getItemsBulk } from '../../lib/ml/ml-api.js';
 import { construirReporte } from '../../lib/ml/conversion.js';
 import { resumenKeys } from '../../lib/gemini-keys.js';
-import { getShipment, getOrder, sendPostSaleMessage } from '../../lib/ml/ml-api.js';
+import { getShipment, getOrder, sendPostSaleMessage, getUnreadMessages } from '../../lib/ml/ml-api.js';
 import { armarMensaje, encolar, vencidos, marcarEnviado, verCola, verEnviados, necesitaKv, DEMORA_MS } from '../../lib/ml/postventa.js';
 import { generateAnswer, probarIA } from '../../lib/ml/qa-brain.js';
 import { storeKind, markWebhook, lastWebhook, markWebhookResultado, lastWebhookResultado } from '../../lib/ml/token-store.js';
@@ -60,6 +60,22 @@ async function procesarPostventa({ accounts, ahora = Date.now() }) {
     const acc = findAccountByLabel(accounts, p.cuenta) || accounts[0];
     try {
       const token = await tokenOf(acc);
+
+      // Si el comprador YA escribió algo que nadie leyó, no nos metemos: mandar
+      // "¿llegó todo bien?" encima de su consulta la entierra y arma lío. Lo
+      // dejamos en la cola: si el equipo le contesta, sale en la próxima
+      // pasada; si no, caduca solo a las 24 h.
+      // Este chequeo NO marca nada como leído (ver getUnreadMessages).
+      let sinLeer = 0;
+      try {
+        const unread = await getUnreadMessages(token, p.packId, acc.user_id);
+        sinLeer = Number(unread?.count ?? (Array.isArray(unread?.results) ? unread.results.length : 0)) || 0;
+      } catch { /* si no se puede consultar, seguimos y mandamos igual */ }
+      if (sinLeer > 0) {
+        salida.push({ ...p, resultado: `en espera: el comprador escribió ${sinLeer} mensaje(s) sin leer, lo atiende una persona` });
+        continue;
+      }
+
       const texto = armarMensaje({ titulo: p.titulo });
       const r = await sendPostSaleMessage(token, {
         packId: p.packId, sellerId: acc.user_id, buyerId: p.buyerId, text: texto,

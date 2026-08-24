@@ -128,6 +128,25 @@ Si aparece `apiError=...monthly spending cap...`, es exactamente esto.
 El efecto buscado igual se consigue: el que quedó conforme califica, y el que tuvo un problema
 **escribe en vez de dejar 1 estrella**, que es lo que más cuida la reputación.
 
+### 🔕 Por qué NO deja la conversación "leída"
+
+Preocupación del cliente: *que el mensaje del bot no marque la conversación como leída, para no
+hacer lío cuando el comprador escriba por otra consulta.*
+
+Según la documentación de ML, **el único recurso que marca los mensajes como leídos es
+`GET /messages/packs/{pack}/sellers/{seller}`** — el resto no toca el estado de lectura.
+Y el bot **nunca hace ese GET**: solo hace el POST para mandar el mensaje, que no marca nada.
+Así que lo que el comprador escriba queda **sin leer**, esperando al equipo, como debe ser.
+
+Dos resguardos para que siga siendo así:
+- `getPackMessages()` (por si algún día hace falta leer la conversación) lleva
+  **`mark_as_read=false` fijo en el código**, no como parámetro opcional que alguien pueda olvidar.
+- Antes de mandar, el bot consulta `GET /messages/unread/packs/{pack}/sellers/{seller}` — que
+  **tampoco marca como leído**. Si el comprador ya escribió algo que nadie leyó, **no manda nada**:
+  el mensaje se queda en la cola, y si el equipo le contesta sale en la próxima pasada; si no,
+  caduca solo a las 24 h. Un "¿llegó todo bien?" encima de una consulta real la entierra, que es
+  justo el lío que había que evitar.
+
 ### Recaudos que ya están en el código
 - **Arranca apagado** (`ML_POSTVENTA` sin setear = no manda nada, ni siquiera agenda).
 - **Una sola vez por orden**: lleva registro de encolados y enviados.
