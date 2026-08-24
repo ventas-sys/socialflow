@@ -37,6 +37,15 @@ const REMINDER_DAYS = Number(process.env.WA_REMINDER_DAYS || RECORDATORIO.diasDe
 const SEND_NEW_CLIENT_EMAIL = (process.env.WA_NEW_CLIENT_EMAIL || '').toLowerCase() === 'true';
 const NEW_CLIENTS_CSV = path.join(__dirname, 'new-clients.csv');
 
+// Códigos Unicode de los emojis de un texto, para distinguir etiquetas que en
+// el terminal se ven parecidas (ej: dos "HUMANO" con emojis distintos).
+function emojiCodes(name) {
+  const codes = [...String(name || '')]
+    .filter(c => c.codePointAt(0) > 0x2000)
+    .map(c => 'U+' + c.codePointAt(0).toString(16).toUpperCase());
+  return codes.length ? ` [${codes.join(' ')}]` : '';
+}
+
 // Día calendario local (YYYY-MM-DD) para limitar follow-up a 1 por día por chat.
 function dayKey(ts) {
   return new Date(ts).toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
@@ -381,9 +390,17 @@ async function resolveHumanLabel(client) {
       const list = labels || [];
       if (list.length) {
         console.log(`📋 Intento ${i}: ${list.length} etiqueta(s) detectada(s):`);
-        for (const l of list) console.log(`   • "${l.name}" → id=${l.id}`);
+        // Los emojis se ven distinto en cada terminal, así que dos etiquetas que
+        // parecen iguales pueden no serlo. Mostramos el código de cada emoji
+        // (U+XXXX) para poder identificarlas sin lugar a dudas.
+        for (const l of list) console.log(`   • "${l.name}"${emojiCodes(l.name)} → id=${l.id}`);
         const target = HUMAN_LABEL_NAME.toUpperCase();
-        const found = list.find(l => (l.name || '').toUpperCase().includes(target));
+        const candidatos = list.filter(l => (l.name || '').toUpperCase().includes(target));
+        if (candidatos.length > 1) {
+          console.log(`⚠️  Hay ${candidatos.length} etiquetas que dicen "${HUMAN_LABEL_NAME}": ${candidatos.map(l => `id=${l.id} "${l.name}"${emojiCodes(l.name)}`).join(' · ')}`);
+          console.log(`   Si el bot está usando la que NO ves en WhatsApp, fijate cuál tiene el emoji correcto acá arriba y ponela en el .env: WA_HUMAN_LABEL_ID="<id>"`);
+        }
+        const found = candidatos[0];
         if (found) {
           humanLabelId = found.id;
           console.log(`✅ Usando etiqueta "${found.name}" (id=${humanLabelId}) para marcar chats que necesitan asesor humano.`);
