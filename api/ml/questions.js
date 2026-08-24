@@ -23,7 +23,7 @@ import { getAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, 
 import { construirReporte } from '../../lib/ml/conversion.js';
 import { getShipment, getOrder, sendPostSaleMessage } from '../../lib/ml/ml-api.js';
 import { armarMensaje, encolar, vencidos, marcarEnviado, verCola, verEnviados, necesitaKv, DEMORA_MS } from '../../lib/ml/postventa.js';
-import { generateAnswer } from '../../lib/ml/qa-brain.js';
+import { generateAnswer, probarIA } from '../../lib/ml/qa-brain.js';
 import { storeKind, markWebhook, lastWebhook, markWebhookResultado, lastWebhookResultado } from '../../lib/ml/token-store.js';
 
 // Access token de la cuenta (con cache + guardado del refresh rotado).
@@ -306,10 +306,14 @@ async function diagAccount(acc) {
 }
 
 // Traduce la radiografía a conclusiones en castellano (qué está roto y qué hacer).
-function diagConclusiones({ accounts, cuentas, gemini, autoanswer, store, webhook, webhookPreguntas, resultadoPreguntas }) {
+function diagConclusiones({ accounts, cuentas, gemini, iaError, autoanswer, store, webhook, webhookPreguntas, resultadoPreguntas }) {
   const out = [];
   if (!accounts.length) out.push('❌ No hay cuentas cargadas: falta la variable ML_ACCOUNTS en Vercel (o quedó mal el JSON).');
-  if (!gemini) out.push('❌ Falta GEMINI_API_KEY: sin eso el agente no puede redactar ninguna respuesta.');
+  if (!gemini) {
+    out.push(/spending cap|quota|RESOURCE_EXHAUSTED|429/i.test(iaError || '')
+      ? `❌ LA IA NO RESPONDE — se acabó el crédito/cupo de Gemini: "${iaError}". Sin esto Tatiana no puede redactar NINGUNA respuesta, aunque todo lo demás esté bien. Entrá a https://ai.studio/spend y subí o sacá el tope de gasto mensual del proyecto.`
+      : `❌ LA IA NO RESPONDE: ${iaError}. Sin esto el agente no puede redactar ninguna respuesta.`);
+  }
   if (!autoanswer) out.push('⚠️ ML_AUTOANSWER=off: el auto-respondido está PAUSADO a propósito. Sacá esa variable (o ponela en "on") para que vuelva a responder.');
   if (store === 'memoria') out.push('⚠️ Los tokens se guardan solo en memoria: ML rota el refresh_token en cada renovación, así que al rato el de ML_ACCOUNTS queda invalidado y el bot deja de responder. Configurá KV_REST_API_URL + KV_REST_API_TOKEN en Vercel.');
   cuentas.forEach(c => {
@@ -355,14 +359,16 @@ export default async function handler(req, res) {
     if (action === 'diag') {
       // En paralelo: en el plan Hobby la función corta a los 10s y una cuenta
       // sola ya se lleva varias llamadas a la API de ML.
-      const [cuentas, webhook, webhookPreguntas, resultadoPreguntas] = await Promise.all([
+      const [cuentas, webhook, webhookPreguntas, resultadoPreguntas, ia] = await Promise.all([
         Promise.all(accounts.map(diagAccount)),
         lastWebhook(),
         lastWebhook('questions'),
         lastWebhookResultado('questions'),
+        probarIA(),
       ]);
       const info = {
-        gemini: !!(process.env.GEMINI_API_KEY || '').trim(),
+        gemini: ia.ok,
+        iaError: ia.ok ? null : ia.error,
         autoanswer: autoanswerOn(),
         store: storeKind(),
         webhook,
@@ -374,7 +380,7 @@ export default async function handler(req, res) {
         fecha: new Date().toISOString(),
         cuentas_configuradas: accounts.length,
         auto_respondido: info.autoanswer ? 'on' : 'off (PAUSADO)',
-        gemini: info.gemini ? 'OK' : 'FALTA',
+        gemini: ia.ok ? 'OK (probada de verdad)' : 'FALLA: ' + ia.error,
         guardado_de_tokens: info.store,
         ultimo_webhook_de_ml: webhook || null,
         ultimo_webhook_de_preguntas: webhookPreguntas || null,

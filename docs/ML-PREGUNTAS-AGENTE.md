@@ -4,6 +4,44 @@
 > multi-cuenta, orientado a **cerrar la venta**. Hermano del bot de WhatsApp (mismo patrón).
 > Estado: **EN VIVO — "Tatiana" 100% automática** (webhook activo, probado con pregunta real).
 
+## 🔴 24-ago-2026 — LA CAUSA REAL: se acabó el crédito de Gemini
+
+El `?action=sweep` en producción devolvió el error exacto, en las 3 preguntas pendientes
+de las 2 cuentas:
+
+```
+"error": "IA sin respuesta: {"error":{"code":429,"message":"Your project has exceeded
+its monthly spending cap. Please go to AI Studio at https://ai.studio/spend to manage
+your project spend cap."}}"
+```
+
+**El proyecto de Google AI Studio llegó al tope de gasto mensual.** Gemini devuelve 429 y
+Tatiana no puede redactar NINGUNA respuesta. Todo lo demás estaba bien: tokens OK, cuentas OK,
+webhook llegando, `ML_AUTOANSWER=on`.
+
+### Por qué tardamos tanto en verlo
+1. El diag decía **`gemini: "OK"`** cuando en realidad solo miraba si **existía** la variable
+   `GEMINI_API_KEY` — nunca probaba que Gemini contestara. **Corregido:** ahora el diag hace una
+   llamada real y mínima (`probarIA()` en `qa-brain.js`) y muestra el error de Gemini tal cual.
+2. El error moría en `console.error` y los logs de Vercel no eran accesibles. **Corregido** en el
+   commit anterior: cada webhook de `questions` deja registrado qué pasó (`que_paso_con_esa_pregunta`).
+
+### ⚠️ La misma API key la usan endpoints MUCHO más caros
+`GEMINI_API_KEY` es compartida por todo el repo:
+
+| Endpoint | Modelo | Costo |
+|---|---|---|
+| `api/ml/questions.js` (Tatiana) | `gemini-2.5-flash` (texto) | centavos |
+| `api/wa/webhook.js`, `api/agent.js`, `api/generate.js` | `gemini-2.5-flash` (texto) | centavos |
+| **`api/image.js`** | **`gemini-2.5-flash-image`, `imagen-4.0-fast`, Veo (video)** | **caro** |
+
+Generar imágenes y videos para las redes es lo que consume el presupuesto, y cuando se agota
+**se lleva puesto al agente de preguntas**, que gasta monedas. Conviene:
+- Subir o sacar el tope en https://ai.studio/spend, y/o
+- **Separar la key**: una `GEMINI_API_KEY` para texto (bot de ML y WhatsApp) y otra para
+  imagen/video, así el contenido de redes no puede dejar muda a Tatiana.
+
+---
 ## 💬 Mensaje post-entrega ("¿llegó todo bien?")
 
 `GET/POST /api/ml/questions?action=postventa` · botón **"💬 Mensajes post-entrega"** en
