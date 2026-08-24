@@ -57,9 +57,21 @@ a ciegas en la parte de layout/texto/logo.
 - **El panel NO usa Higgsfield**: usa Google Veo. La cuenta Plus web le sirve al
   cliente para hacer videos manualmente en higgsfield.ai si quiere.
 
+## ✍️ COPY de venta (`api/generate.js`) — HECHO (2026-08-01)
+- Genera el texto por red con **Gemini** (`gemini-2.5-flash`). Mejora aplicada:
+  - **HOOK** siempre en la 1ª línea (frase que frena el scroll).
+  - **Hashtags optimizados por red** (`tips`): IG 8-12, FB 3-5, X 2-3, LinkedIn
+    3-4 pro, TikTok 4-6 virales (#fyp/#parati), YouTube #Shorts, **WhatsApp sin
+    hashtags**.
+  - El **link de Mercado Libre se incluye EXACTO** (no se cambia ni acorta), con
+    CTA "Comprá acá 👉". Castellano de Argentina.
+
+## ⚠️ VIDEO Veo — tope de gasto de Google (2026-08-01)
+- Si el video tira **"Your project has exceeded its monthly spending cap"**, NO
+  es bug: es el **spend cap mensual del proyecto de Google**. Se sube en
+  **AI Studio → https://ai.studio/spend**. Veo cuesta ~US$1-3 por clip de ~8s.
+
 ## Pendientes / próximos pasos
-- **Hook + hashtags por red** en el copy (`api/generate.js`) — mejora opcional
-  charlada, no ejecutada aún.
 - **Publicar/Programar en TODAS las redes**: recomendado usar un publicador
   open-source self-hosted (**Mixpost** o **Postiz**) en el VPS; el panel manda
   imagen+video+copy y desde ahí se programa. No implementado.
