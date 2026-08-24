@@ -24,7 +24,7 @@ import { construirReporte } from '../../lib/ml/conversion.js';
 import { getShipment, getOrder, sendPostSaleMessage } from '../../lib/ml/ml-api.js';
 import { armarMensaje, encolar, vencidos, marcarEnviado, verCola, verEnviados, necesitaKv, DEMORA_MS } from '../../lib/ml/postventa.js';
 import { generateAnswer } from '../../lib/ml/qa-brain.js';
-import { storeKind, markWebhook, lastWebhook } from '../../lib/ml/token-store.js';
+import { storeKind, markWebhook, lastWebhook, markWebhookResultado, lastWebhookResultado } from '../../lib/ml/token-store.js';
 
 // Access token de la cuenta (con cache + guardado del refresh rotado).
 async function tokenOf(acc) {
@@ -306,7 +306,7 @@ async function diagAccount(acc) {
 }
 
 // Traduce la radiografía a conclusiones en castellano (qué está roto y qué hacer).
-function diagConclusiones({ accounts, cuentas, gemini, autoanswer, store, webhook, webhookPreguntas }) {
+function diagConclusiones({ accounts, cuentas, gemini, autoanswer, store, webhook, webhookPreguntas, resultadoPreguntas }) {
   const out = [];
   if (!accounts.length) out.push('❌ No hay cuentas cargadas: falta la variable ML_ACCOUNTS en Vercel (o quedó mal el JSON).');
   if (!gemini) out.push('❌ Falta GEMINI_API_KEY: sin eso el agente no puede redactar ninguna respuesta.');
@@ -327,6 +327,10 @@ function diagConclusiones({ accounts, cuentas, gemini, autoanswer, store, webhoo
   });
   if (!webhook) {
     out.push('⚠️ No hay registro de ningún webhook recibido de ML. Puede ser que el store esté en memoria (se pierde en cada arranque) o que ML NO esté notificando: revisá en DevCenter que la callback URL sea https://socialflow-flax.vercel.app/api/ml/questions con el topic "questions".');
+  } else if (webhookPreguntas && resultadoPreguntas && !resultadoPreguntas.ok) {
+    out.push(`❌ ML avisó de la pregunta ${resultadoPreguntas.question_id || ''} pero el bot NO la contestó → ${resultadoPreguntas.resultado}`);
+  } else if (webhookPreguntas && !resultadoPreguntas) {
+    out.push('⚠️ Llegan avisos de PREGUNTAS pero no hay registro de qué pasó con ellos (se pierde sin KV). Configurá el KV para ver el error.');
   } else if (!webhookPreguntas) {
     out.push(`❌ ML nos está avisando (llegó un aviso de "${webhook.topic || 'sin topic'}"), pero NO hay registro de NINGÚN aviso de PREGUNTAS. O el topic "questions" no está tildado en la app de DevCenter, o el registro se perdió por guardar en memoria. Ese es el motivo más probable de que el bot no conteste solo.`);
   }
@@ -351,10 +355,11 @@ export default async function handler(req, res) {
     if (action === 'diag') {
       // En paralelo: en el plan Hobby la función corta a los 10s y una cuenta
       // sola ya se lleva varias llamadas a la API de ML.
-      const [cuentas, webhook, webhookPreguntas] = await Promise.all([
+      const [cuentas, webhook, webhookPreguntas, resultadoPreguntas] = await Promise.all([
         Promise.all(accounts.map(diagAccount)),
         lastWebhook(),
         lastWebhook('questions'),
+        lastWebhookResultado('questions'),
       ]);
       const info = {
         gemini: !!(process.env.GEMINI_API_KEY || '').trim(),
@@ -362,6 +367,7 @@ export default async function handler(req, res) {
         store: storeKind(),
         webhook,
         webhookPreguntas,
+        resultadoPreguntas,
       };
       return res.status(200).json({
         ok: true,
@@ -372,6 +378,7 @@ export default async function handler(req, res) {
         guardado_de_tokens: info.store,
         ultimo_webhook_de_ml: webhook || null,
         ultimo_webhook_de_preguntas: webhookPreguntas || null,
+        que_paso_con_esa_pregunta: resultadoPreguntas || null,
         cuentas,
         diagnostico: diagConclusiones({ accounts, cuentas, ...info }),
       });
@@ -525,21 +532,37 @@ export default async function handler(req, res) {
             enviar_a_partir_de: r.item?.enviar_a_partir_de || null });
         }
         if (topic && topic !== 'questions') return res.status(200).json({ ok: true, skipped: topic });
+        const qId = String(resource || '').split('/').pop();
         const acc = findAccountByUser(accounts, user_id);
         if (!acc) {
           console.error('[ml-questions] webhook de un user sin cuenta en ML_ACCOUNTS', { user_id, resource });
+          await markWebhookResultado('questions', { question_id: qId, ok: false, resultado: 'cuenta no configurada para user ' + user_id });
           return res.status(200).json({ ok: false, error: 'cuenta no configurada para user ' + user_id });
         }
-        const qId = String(resource || '').split('/').pop();
         const token = await tokenOf(acc);
         const q = await getQuestion(token, qId);
-        if (!q || q.status !== 'UNANSWERED') return res.status(200).json({ ok: true, skipped: 'ya respondida o inexistente' });
+        if (!q || q.status !== 'UNANSWERED') {
+          await markWebhookResultado('questions', { question_id: qId, cuenta: acc.label, ok: true, resultado: 'ya respondida o inexistente' });
+          return res.status(200).json({ ok: true, skipped: 'ya respondida o inexistente' });
+        }
         // Interruptor de seguridad: poné ML_AUTOANSWER=off en Vercel para pausar el auto-respondido.
         const autopost = autoanswerOn();
         const out = await answerFlow({ acc, accounts, q, autopost });
+        await markWebhookResultado('questions', {
+          question_id: qId, cuenta: acc.label, pregunta: (q.text || '').slice(0, 80),
+          ok: !out.postError && !out.escalated,
+          resultado: out.escalated ? ('no se responde: ' + out.note)
+            : out.postError ? ('ML rechazó la respuesta: ' + out.postError)
+            : autopost ? 'respondida por el bot' : 'generada pero NO posteada (ML_AUTOANSWER=off)',
+          respuesta: (out.answer || '').slice(0, 120),
+        });
         return res.status(200).json({ ok: !out.postError, autopost, ...out });
       } catch (e) {
         console.error('[ml-questions] webhook falló', { user_id, resource, error: e.message });
+        await markWebhookResultado('questions', {
+          question_id: String(resource || '').split('/').pop(),
+          ok: false, resultado: 'ERROR: ' + e.message,
+        });
         return res.status(200).json({ ok: false, error: e.message, hint: 'Abrí /api/ml/questions?action=diag para ver el detalle.' });
       }
     }
