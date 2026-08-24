@@ -2,6 +2,7 @@ import https from 'https';
 import { PDFDocument } from 'pdf-lib';
 import nodemailer from 'nodemailer';
 import { httpRequest, cors } from './_http.js';
+import { keyTexto } from '../lib/gemini-keys.js';
 
 function geminiVision(apiKey, body) {
   return new Promise((resolve, reject) => {
@@ -68,8 +69,8 @@ async function handleTest(req, res) {
 
 async function handleExtract(req, res) {
   const { photoB64, mimeType } = req.body || {};
-  const GK = (process.env.GEMINI_API_KEY || '').trim();
-  if (!GK) return res.status(500).json({ error: 'GEMINI_API_KEY no configurada' });
+  const GK = keyTexto();
+  if (!GK) return res.status(500).json({ error: 'GEMINI_API_KEY no configurada (ni GEMINI_API_KEY_TEXTO)' });
   if (!photoB64) return res.status(400).json({ error: 'Falta photoB64' });
 
   const prompt = `Sos un experto en lectura de facturas argentinas (Facturas A, B, C, E, M, ticket fiscal, recibos).

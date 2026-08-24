@@ -1,5 +1,6 @@
 import https from 'https';
 import { LOGO_B64, LOGO_MIME } from '../lib/brand-logo.js';
+import { keyMedia } from '../lib/gemini-keys.js';
 
 // Genera el CARTEL PUBLICITARIO del producto.
 //
@@ -28,8 +29,8 @@ export default async function handler(req, res) {
   // --- VIDEO (Veo, imagen->video): mismo endpoint para no pasar el límite de
   // funciones serverless de Vercel. action='video-start' | 'video-poll'.
   if (action === 'video-start' || action === 'video-poll' || action === 'video-models') {
-    const GKv = (process.env.GEMINI_API_KEY || '').trim();
-    if (!GKv) return res.status(500).json({ error: 'Falta GEMINI_API_KEY' });
+    const GKv = keyMedia();
+    if (!GKv) return res.status(500).json({ error: 'Falta GEMINI_API_KEY (o GEMINI_API_KEY_MEDIA)' });
     if (action === 'video-models') return await veoListModels(res, GKv);
     if (action === 'video-poll') return await veoPoll(res, GKv, req.body.operation);
     return await veoStart(res, GKv, req.body);
@@ -37,9 +38,11 @@ export default async function handler(req, res) {
 
   const q = (['high', 'medium', 'low'].includes(quality)) ? quality : 'high';
   const OK = (process.env.OPENAI_API_KEY || '').trim();
-  const GK = (process.env.GEMINI_API_KEY || '').trim();
-  if (!briefOnly && !OK && !GK) return res.status(500).json({ error: 'Falta OPENAI_API_KEY o GEMINI_API_KEY' });
-  if (briefOnly && !GK) return res.status(500).json({ error: 'Falta GEMINI_API_KEY' });
+  // Imagen y video van con la key de MEDIA: si se queda sin crédito, que NO
+  // arrastre a los bots de Mercado Libre y WhatsApp (ver lib/gemini-keys.js).
+  const GK = keyMedia();
+  if (!briefOnly && !OK && !GK) return res.status(500).json({ error: 'Falta OPENAI_API_KEY o GEMINI_API_KEY (o GEMINI_API_KEY_MEDIA)' });
+  if (briefOnly && !GK) return res.status(500).json({ error: 'Falta GEMINI_API_KEY (o GEMINI_API_KEY_MEDIA)' });
 
   // --- PASO 1: brief del producto (Gemini texto lee la foto + desc ML) -----
   // Devuelve: producto, spec (medida estrella), tagline, features[4], usos[].

@@ -4,6 +4,27 @@
 > multi-cuenta, orientado a **cerrar la venta**. Hermano del bot de WhatsApp (mismo patrón).
 > Estado: **EN VIVO — "Tatiana" 100% automática** (webhook activo, probado con pregunta real).
 
+## 🔑 Keys de Gemini separadas: que el contenido no calle a los bots
+
+Después del incidente del 24/8, el repo dejó de usar **una sola** `GEMINI_API_KEY`
+(ver `lib/gemini-keys.js`):
+
+| Variable | La usan | Costo |
+|---|---|---|
+| **`GEMINI_API_KEY_TEXTO`** | Tatiana (`lib/ml/qa-brain.js`), bot de WhatsApp (`lib/wa/ia-guide.js`, `api/wa/webhook.js`), copys de redes (`api/generate.js`), `api/agent.js`, `api/contabilium.js` | centavos |
+| **`GEMINI_API_KEY_MEDIA`** | Imágenes y video (`api/image.js`: `imagen-4.0`, `gemini-2.5-flash-image`, Veo) | **caro** |
+| `GEMINI_API_KEY` | Respaldo de las dos, para no romper nada | — |
+
+**Nada se rompe si no se configuran las nuevas:** las dos funciones caen a
+`GEMINI_API_KEY` y todo sigue como antes. La separación se activa recién cuando se cargan
+`GEMINI_API_KEY_TEXTO` y `GEMINI_API_KEY_MEDIA` (dos proyectos distintos de AI Studio, cada
+uno con su propio tope de gasto).
+
+Con eso, quemar el presupuesto generando contenido para las redes **ya no puede dejar sin
+atención a los clientes de Mercado Libre y WhatsApp**. El diag muestra en
+`keys_de_gemini` si están separadas o si siguen compartiendo, y lo avisa mientras compartan.
+
+---
 ## 🔴 24-ago-2026 — LA CAUSA REAL: se acabó el crédito de Gemini
 
 El `?action=sweep` en producción devolvió el error exacto, en las 3 preguntas pendientes

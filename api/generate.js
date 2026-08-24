@@ -1,4 +1,5 @@
 import https from 'https';
+import { keyTexto } from '../lib/gemini-keys.js';
 
 function makeRequest(url, body) {
           return new Promise((resolve, reject) => {
@@ -36,7 +37,7 @@ export default async function handler(req, res) {
           if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { platform, info, tone, photoB64 } = req.body;
-          const GK = (process.env.GEMINI_API_KEY || '').trim();
+          const GK = keyTexto();
 
   if (!GK) return res.status(500).json({ error: 'API key no configurada' });
           if (!info) return res.status(400).json({ error: 'Falta nombre del producto' });

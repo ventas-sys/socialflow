@@ -2,13 +2,14 @@ import https from 'node:https';
 import nodemailer from 'nodemailer';
 import { processMessage } from '../../lib/wa/brain.js';
 import { loadRules, menuOptionsAt } from '../../lib/wa/rules.js';
+import { keyTexto } from '../../lib/gemini-keys.js';
 
 let lastBotHeartbeat = null;
 
 // Transcribe una nota de voz de WhatsApp con Gemini 2.5 (soporta audio nativo).
 function transcribeAudio(audioB64, mime) {
   return new Promise((resolve, reject) => {
-    const key = (process.env.GEMINI_API_KEY || '').trim();
+    const key = keyTexto();
     if (!key) return resolve('');
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
     const body = JSON.stringify({

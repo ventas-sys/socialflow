@@ -21,6 +21,7 @@ import { cors } from '../_http.js';
 import { loadAccounts, findAccountByUser, findAccountByLabel, otherAccount, NEGOCIO } from '../../lib/ml/qa-config.js';
 import { getAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, getRecentQuestions, searchSellerItem, postAnswer, itemContext, getMe, getOrders, getItemsBulk } from '../../lib/ml/ml-api.js';
 import { construirReporte } from '../../lib/ml/conversion.js';
+import { resumenKeys } from '../../lib/gemini-keys.js';
 import { getShipment, getOrder, sendPostSaleMessage } from '../../lib/ml/ml-api.js';
 import { armarMensaje, encolar, vencidos, marcarEnviado, verCola, verEnviados, necesitaKv, DEMORA_MS } from '../../lib/ml/postventa.js';
 import { generateAnswer, probarIA } from '../../lib/ml/qa-brain.js';
@@ -306,13 +307,16 @@ async function diagAccount(acc) {
 }
 
 // Traduce la radiografía a conclusiones en castellano (qué está roto y qué hacer).
-function diagConclusiones({ accounts, cuentas, gemini, iaError, autoanswer, store, webhook, webhookPreguntas, resultadoPreguntas }) {
+function diagConclusiones({ accounts, cuentas, gemini, iaError, keys, autoanswer, store, webhook, webhookPreguntas, resultadoPreguntas }) {
   const out = [];
   if (!accounts.length) out.push('❌ No hay cuentas cargadas: falta la variable ML_ACCOUNTS en Vercel (o quedó mal el JSON).');
   if (!gemini) {
     out.push(/spending cap|quota|RESOURCE_EXHAUSTED|429/i.test(iaError || '')
       ? `❌ LA IA NO RESPONDE — se acabó el crédito/cupo de Gemini: "${iaError}". Sin esto Tatiana no puede redactar NINGUNA respuesta, aunque todo lo demás esté bien. Entrá a https://ai.studio/spend y subí o sacá el tope de gasto mensual del proyecto.`
       : `❌ LA IA NO RESPONDE: ${iaError}. Sin esto el agente no puede redactar ninguna respuesta.`);
+  }
+  if (gemini && keys && !keys.separadas) {
+    out.push('⚠️ Los bots (ML y WhatsApp) comparten la key de Gemini con la generación de imágenes y video, que es MUCHO más cara. Si se agota el crédito haciendo contenido, los dos bots dejan de atender. Separalas: GEMINI_API_KEY_TEXTO para los bots y GEMINI_API_KEY_MEDIA para imagen/video.');
   }
   if (!autoanswer) out.push('⚠️ ML_AUTOANSWER=off: el auto-respondido está PAUSADO a propósito. Sacá esa variable (o ponela en "on") para que vuelva a responder.');
   if (store === 'memoria') out.push('⚠️ Los tokens se guardan solo en memoria: ML rota el refresh_token en cada renovación, así que al rato el de ML_ACCOUNTS queda invalidado y el bot deja de responder. Configurá KV_REST_API_URL + KV_REST_API_TOKEN en Vercel.');
@@ -369,6 +373,7 @@ export default async function handler(req, res) {
       const info = {
         gemini: ia.ok,
         iaError: ia.ok ? null : ia.error,
+        keys: resumenKeys(),
         autoanswer: autoanswerOn(),
         store: storeKind(),
         webhook,
@@ -381,6 +386,7 @@ export default async function handler(req, res) {
         cuentas_configuradas: accounts.length,
         auto_respondido: info.autoanswer ? 'on' : 'off (PAUSADO)',
         gemini: ia.ok ? 'OK (probada de verdad)' : 'FALLA: ' + ia.error,
+        keys_de_gemini: resumenKeys(),
         guardado_de_tokens: info.store,
         ultimo_webhook_de_ml: webhook || null,
         ultimo_webhook_de_preguntas: webhookPreguntas || null,
