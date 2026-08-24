@@ -200,6 +200,49 @@ Dos resguardos para que siga siendo así:
 5. Mirar el botón 💬 en `/conexiones` para ver la cola y lo enviado.
 
 ---
+## 📊 24-ago-2026 — Análisis de 2.025 preguntas reales (jun-jul)
+
+El cliente exportó de Mercado Libre **2.025 preguntas de las 2 cuentas** (1-jun a 31-jul) con
+el texto, la respuesta y la columna **"Efectuó compra"**. Resultados:
+
+**Conversión general: 11,7%** (236 ventas). Full 12,7% · Local 8,8%.
+
+| Tema | Preguntas | Conversión |
+|---|---|---|
+| Factura / CUIT | 35 | **31,4%** ✅ (3× el promedio: es un negocio que ya decidió) |
+| Cantidad / por mayor | 59 | **16,9%** ✅ |
+| Compatibilidad | 413 | 12,3% |
+| Medidas | 410 | 10,7% |
+| **¿Tenés este otro?** | **422** | **8,5%** ⚠️ el tema más grande y debajo del promedio |
+| Retiro por el local | 108 | 8,3% |
+| Precio / cuotas | 37 | 5,4% ⚠️ |
+| Repuestos | 22 | 4,5% ⚠️ |
+| **Marca / modelo** | 81 | **3,7%** ⚠️ el peor de todos |
+
+**Otras palancas medidas:**
+- **Tiempo de respuesta:** dentro de los 15 min → 12-13%. Pasadas 3 h → **6,5%, la mitad**.
+- **Tatiana 12,4% vs personas 11,5%**: el bot convierte igual o mejor (muestra chica, pero
+  descarta que venda menos).
+- **Largo de la respuesta:** 150-300 caracteres → 12,1%; más de 300 → 10,9%. El límite de 250
+  de Tatiana está bien calibrado, no tocarlo.
+
+**El patrón que explica casi todo:** los repuestos donde el comprador necesita saber *"¿entra
+en el mío?"* juntan preguntas y no venden. Tapón Cebador Stanley: **13 preguntas, 0 ventas**.
+Tapón termo 1L: 20 preguntas, 5%. Tapa de arranque Gamma: 24 preguntas, 8%. Y el disco flap
+por grano (32 preguntas, 6%) es distinto: **piden un pack surtido y no existe la publicación**.
+
+### Lo que se cambió en el código
+`ETIQUETAS` en `lib/ml/conversion.js` estaba armada a ojo y dejaba el **46% de las preguntas
+sin clasificar**. Releyendo esas 933, salieron categorías que no existían y términos que
+faltaban. Ahora quedan **25%** sin clasificar. Categorías nuevas:
+`foto_publicacion` (¿coincide con la foto?), `link_cantidad` (piden un link por X cantidad),
+`repuestos`, `marca_modelo`, `posventa`. Y se ampliaron `medidas` (rosca, encastre, 1/2",
+amp, volt, grano), `compatibilidad` (sirve/funciona/apto/entra en), `retiro` (estación, cerca,
+horarios) y `otro_producto` (tenés/tienen/tendrán/venden).
+
+> Informe completo para el cliente: artifact "Preguntas que no venden".
+
+---
 ## 📈 Control de conversión (preguntas → ventas, por SKU)
 
 `GET/POST /api/ml/questions?action=conversion&dias=30&limit=100` · botón
