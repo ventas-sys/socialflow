@@ -34,6 +34,10 @@
 .pk-shipinfo { display: flex; gap: 0.75rem; align-items: baseline; flex-wrap: wrap; margin-bottom: 0.75rem; }
 .pk-code { font-family: monospace; font-weight: 800; color: #1f2937; }
 .pk-recipient { color: #6b7280; }
+.pk-correo {
+  background: #fef3c7; color: #92400e; border-radius: 9999px;
+  padding: 0.15rem 0.7rem; font-size: 0.78rem; font-weight: 800;
+}
 
 .pk-lines { display: flex; flex-direction: column; gap: 0.6rem; }
 .pk-line {

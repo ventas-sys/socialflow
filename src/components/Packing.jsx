@@ -282,6 +282,7 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
           <div className="pk-shipinfo">
             <span className="pk-code">{shipment.code}</span>
             {shipment.recipient && <span className="pk-recipient">{shipment.recipient}</span>}
+            {shipment.channel === 'correo' && <span className="pk-correo">📮 CORREO</span>}
           </div>
 
           <div className="pk-lines">

@@ -76,6 +76,10 @@ export default function App() {
   // Consumo (salidas) de los últimos 2 meses por producto → estimar días de stock
   const consumption = useMemo(() => computeConsumption(movements), [movements])
 
+  // El tablero de Envíos es SOLO FLEX; los de correo (channel 'correo') se
+  // guardan aparte únicamente para que Empaquetado los encuentre al escanear
+  const flexShipments = useMemo(() => shipments.filter(s => s.channel !== 'correo'), [shipments])
+
   // Lee las fotos de un producto/combo solo cuando se necesitan (búsqueda, edición,
   // miniatura visible). Así abrir la app no descarga miles de fotos de golpe.
   const loadPhotos = useCallback(async (id) => {
@@ -942,7 +946,8 @@ export default function App() {
             {currentTab === 'shipments' && canSee('shipments') && (
               <Shipments
                 isAdmin={isAdmin}
-                shipments={shipments}
+                shipments={flexShipments}
+                allShipments={shipments}
                 couriers={couriers}
                 mlAccounts={mlAccounts}
                 onSaveAccount={saveMlAccount}

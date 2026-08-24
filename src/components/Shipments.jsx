@@ -126,6 +126,7 @@ export default function Shipments({
   onAddShipment, onUpdateShipment, onDeleteShipment, onClearShipments,
   onAddCourier, onRemoveCourier,
   isAdmin = false, // solo el master conecta ML, trae ventas y vacía el tablero
+  allShipments, // incluye los de CORREO (solo para dedup del sync; el tablero recibe solo FLEX)
 }) {
   const mapRef = useRef(null)
   const mapObj = useRef(null)
@@ -145,6 +146,7 @@ export default function Shipments({
   const [syncing, setSyncing] = useState(false)
   const syncingRef = useRef(false)
   const shipmentsRef = useRef(shipments); shipmentsRef.current = shipments
+  const allShipmentsRef = useRef(allShipments); allShipmentsRef.current = allShipments || shipments
   const mlRef = useRef(mlAccounts); mlRef.current = mlAccounts
 
   // Renueva el token de ML si está por vencer (usa el actual si no puede)
@@ -184,10 +186,10 @@ export default function Shipments({
     setSyncing(true) // avisar SIEMPRE, también en la actualización automática
     // Un envío por COMPRA (pack) o por envío físico; evita duplicar por producto.
     // Solo AGREGA ventas nuevas: nunca toca el estado de las ya gestionadas.
-    const seen = new Set(shipmentsRef.current.map(s => String(s.packId || s.code)))
+    const seen = new Set((allShipmentsRef.current || []).map(s => String(s.packId || s.code)))
     let created = 0
-    const diag = { total: 0, flex: 0, cerrados: 0 }
-    let nPend = 0, nCamino = 0, nDemorado = 0, nEntregado = 0
+    const diag = { total: 0, flex: 0, correo: 0, cerrados: 0 }
+    let nPend = 0, nCamino = 0, nDemorado = 0, nEntregado = 0, nCorreo = 0
     const H48 = 48 * 3600 * 1000
     // Estado actual en ML de cada envío (por shipmentId y packId), para
     // refrescar también los que ya están cargados en el tablero
@@ -210,25 +212,45 @@ export default function Shipments({
         const groups = new Map()
         for (const o of r.orders) {
           // SOLO FLEX / Turbo (self_service): lo que repartimos con moto
-          if (o.logisticType !== 'self_service') continue
-          diag.flex++
-          // Si la ORDEN está cancelada (comprador canceló) cuenta como cancelado
-          // aunque el envío haya quedado en otro estado
-          const info = {
-            st: o.status === 'cancelled' ? 'cancelled' : o.shipmentStatus,
-            sub: o.shipmentSubstatus, tn: o.trackingNumber || null,
+          // CORREO se trae SOLO para Empaquetado (entra archivado, con canal
+          // 'correo': nunca aparece en tablero, mapa ni reporte)
+          const isCorreo = ['cross_docking', 'drop_off', 'xd_drop_off'].includes(o.logisticType)
+          if (o.logisticType !== 'self_service' && !isCorreo) continue
+          if (isCorreo) {
+            diag.correo++
+          } else {
+            diag.flex++
+            // Si la ORDEN está cancelada (comprador canceló) cuenta como cancelado
+            // aunque el envío haya quedado en otro estado
+            const info = {
+              st: o.status === 'cancelled' ? 'cancelled' : o.shipmentStatus,
+              sub: o.shipmentSubstatus, tn: o.trackingNumber || null,
+            }
+            if (o.shipmentId) mlStatus.set(String(o.shipmentId), info)
+            if (o.packId) mlStatus.set(String(o.packId), info)
           }
-          if (o.shipmentId) mlStatus.set(String(o.shipmentId), info)
-          if (o.packId) mlStatus.set(String(o.packId), info)
           // Cancelados no se traen; el resto de los últimos 7 días SÍ
           if (o.status === 'cancelled' || ['cancelled', 'to_be_agreed'].includes(o.shipmentStatus)) { diag.cerrados++; continue }
           const gkey = String(o.packId || o.shipmentId || '')
           if (!gkey || seen.has(gkey)) continue
           const g = groups.get(gkey)
           if (g) g.items = [...(g.items || []), ...(o.items || [])]
-          else groups.set(gkey, { ...o, items: [...(o.items || [])] })
+          else groups.set(gkey, { ...o, correo: isCorreo, items: [...(o.items || [])] })
         }
         for (const o of groups.values()) {
+          if (o.correo) {
+            seen.add(String(o.packId || o.shipmentId))
+            const id = await onAddShipment({
+              code: String(o.shipmentId || o.packId), packId: o.packId || null,
+              recipient: o.recipient || '', address: o.address || '',
+              lat: o.lat ?? null, lng: o.lng ?? null,
+              status: 'archivado', archivedAt: new Date(), channel: 'correo',
+              cost: 0, account: key, items: o.items || [], dims: o.dimensions || null,
+              trackingNumber: o.trackingNumber || null, notes: o.notes || null,
+            })
+            if (id) nCorreo++
+            continue
+          }
           const ageMs = Date.now() - new Date(o.date).getTime()
           // Estado inicial según ML y antigüedad
           let status
@@ -332,9 +354,10 @@ export default function Shipments({
         }
       }
 
-      if (created || updEnt || updDem || updArc || oldEnt || oldDem || oldArc || !silent) setSyncMsg(
+      if (created || nCorreo || updEnt || updDem || updArc || oldEnt || oldDem || oldArc || !silent) setSyncMsg(
         `✅ ${created} envíos nuevos: ${nPend} pendientes, ${nCamino} en camino, ` +
         `${nEntregado} entregados, ${nDemorado} demorados. (${diag.flex} FLEX de ${diag.total} ventas)` +
+        (nCorreo ? ` · 📮 ${nCorreo} de correo cargados solo para Empaque` : '') +
         (updEnt || updDem || updArc ? ` · 🔄 Según ML: ${updEnt} entregados, ${updDem} demorados, ${updArc} cancelados→archivados` : '') +
         (oldEnt || oldDem || oldArc ? ` · 🧹 Viejos revisados en ML: ${oldEnt} entregados, ${oldDem} demorados, ${oldArc} cancelados→archivados` : '')
       )
