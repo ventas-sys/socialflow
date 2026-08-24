@@ -25,6 +25,12 @@ const SESSION_NAME = process.env.WA_SESSION || 'uniproveedores';
 const HUMAN_LABEL_NAME = process.env.WA_HUMAN_LABEL || 'HUMANO';
 const HUMAN_LABEL_ID_OVERRIDE = (process.env.WA_HUMAN_LABEL_ID || '').trim();
 const HUMAN_TAKEOVER_HOURS = Number(process.env.WA_HUMAN_TAKEOVER_HOURS || 3);
+// Cuando el asesor toma un chat, el bot se calla por HUMAN_TAKEOVER_HOURS para
+// no escribirle encima. El problema: si después el asesor se olvida, el cliente
+// escribe y NO le contesta nadie (ni el bot, que está en silencio, ni la
+// persona). Pasados estos minutos sin que el asesor hable, avisamos al
+// supervisor para que alguien lo agarre. El bot sigue sin hablar.
+const AVISO_SIN_ATENDER_MIN = Number(process.env.WA_AVISO_SIN_ATENDER_MIN || 20);
 const AUTOREPLY_WINDOW_MS = Number(process.env.WA_AUTOREPLY_MS || 3000);
 const FOLLOWUP_MINUTES = Number(process.env.WA_FOLLOWUP_MINUTES || 120);
 const REMINDER_DAYS = Number(process.env.WA_REMINDER_DAYS || RECORDATORIO.diasDespues || 5);
@@ -142,7 +148,9 @@ function isAsesorActive(chatId) {
 
 function markAsesorActive(chatId) {
   const until = Date.now() + HUMAN_TAKEOVER_HOURS * 3_600_000;
-  humanHandled.set(chatId, { until });
+  // asesorAt se refresca en cada mensaje manual del asesor: sirve para saber
+  // hace cuánto que no atiende el chat (ver el aviso más abajo).
+  humanHandled.set(chatId, { until, asesorAt: Date.now() });
   followupSent.delete(chatId);
   const mins = HUMAN_TAKEOVER_HOURS * 60;
   console.log(`[${chatId}] 🧑 asesor humano respondió — bot silenciado por ${mins}min`);
@@ -471,6 +479,7 @@ function motivoHumano(reason) {
   if (reason === 'ia_mayorista') return 'Consulta mayorista 🧾';
   if (reason === 'ia_escalate_human') return 'Pidió hablar con una persona 🧑';
   if (reason === 'loop_repetido') return 'Posible loop: el bot repitió la misma respuesta 🔁 (¿otro bot del otro lado?)';
+  if (reason === 'cliente_sin_atender') return 'El cliente escribió y NO le contestó nadie ⏳ (el bot está en silencio porque un asesor tomó el chat)';
   return 'Necesita atención';
 }
 
@@ -625,6 +634,13 @@ async function handleIncoming(client, msg) {
         } catch {}
       } else {
         recordHistory(from, 'user', text);
+      }
+      // El bot NO habla (el asesor tiene el chat), pero si hace rato que el
+      // asesor no dice nada, que no quede el cliente esperando al vacío.
+      const minsSinAsesor = Math.round((now - (h.asesorAt || 0)) / 60000);
+      if (h.asesorAt && minsSinAsesor >= AVISO_SIN_ATENDER_MIN) {
+        console.log(`[${from}] ⏳ cliente escribió y el asesor no contesta hace ${minsSinAsesor}min — avisando al supervisor`);
+        await notifySupervisor(client, from, 'cliente_sin_atender', text);
       }
       console.log(`[${from}] -> ${(text || '🎤audio').slice(0, 60)} [silenciado: asesor activo ${minsLeft}min restantes]`);
       return;

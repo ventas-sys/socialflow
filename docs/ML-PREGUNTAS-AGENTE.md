@@ -63,6 +63,35 @@ Generar imágenes y videos para las redes es lo que consume el presupuesto, y cu
   imagen/video, así el contenido de redes no puede dejar muda a Tatiana.
 
 ---
+## ⏳ WhatsApp: el hueco del silencio de 3 horas
+
+Cuando alguien del equipo escribe a mano en un chat, el bot se calla **3 horas**
+(`WA_HUMAN_TAKEOVER_HOURS`) para no hablarle encima. Es correcto, pero tenía un agujero:
+si después el asesor se olvida del chat, **el cliente escribe y no le contesta nadie** — ni el
+bot (silenciado) ni la persona.
+
+Caso real del 24/8:
+
+| Hora | Qué pasó |
+|---|---|
+| 11:41 | Cliente: *"Buenos dias"* → el bot contestó *"no te llegué a entender bien"* (Gemini sin crédito) |
+| 11:57 | Alguien del equipo escribió a mano *"hola que paso?"* → **bot silenciado hasta las 14:57** |
+| 14:21 | Cliente: *"Que saber si venden este producto"* → **silencio total** |
+
+El bot no estaba roto: hacía exactamente lo que se le pidió. Pero se perdió una consulta de venta.
+
+**Arreglo:** si llega un mensaje mientras el bot está en silencio y **el asesor no escribe hace
+más de `WA_AVISO_SIN_ATENDER_MIN` minutos (20 por defecto)**, se le avisa al supervisor con el
+teléfono, el motivo y el último mensaje. **El bot sigue sin hablar** — no se mete en la
+conversación, solo levanta la mano.
+
+Los 20 minutos evitan el ruido: si el asesor está charlando en vivo (respondió hace 5 min), no
+avisa nada. Y `notifySupervisor` ya trae un tope de 1 aviso por chat cada 6 h.
+
+> Requiere **`WA_SUPERVISOR_NUMBER`** en el `.env` del VPS. Sin esa variable, la función sale
+> sin hacer nada y el agujero sigue abierto.
+
+---
 ## 📲 El mismo cupo de Gemini dejó mal al bot de WhatsApp
 
 El bot de WhatsApp (`lib/wa/ia-guide.js`, en el VPS) usa **la misma `GEMINI_API_KEY` y el mismo
