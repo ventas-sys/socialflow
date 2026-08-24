@@ -826,6 +826,12 @@ client.on('ready', async () => {
   console.log(`📋 Follow-up "¿algo más?" cada 5min para chats con ${FOLLOWUP_MINUTES}min sin actividad (máx 1/día por chat)`);
   console.log(`🎁 Recordatorio a los ${REMINDER_DAYS} días del primer contacto (chequeo cada 1h)`);
   console.log(`💓 Heartbeat al panel cada 60s`);
+  // Que se vea en el arranque si el aviso al supervisor va a salir o no: sin
+  // WA_SUPERVISOR_NUMBER, notifySupervisor sale sin hacer nada y el cliente que
+  // escribe durante el silencio del asesor queda sin atender y sin aviso.
+  console.log(SUPERVISOR_NUMBER
+    ? `🔔 Avisos al supervisor (+${SUPERVISOR_NUMBER}) · también si el cliente escribe y el asesor no contesta hace ${AVISO_SIN_ATENDER_MIN}min`
+    : `⚠️ SIN avisos al supervisor: falta WA_SUPERVISOR_NUMBER en el .env — si un cliente escribe mientras el bot está en silencio, nadie se entera`);
 });
 
 client.on('disconnected', reason => {
