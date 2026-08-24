@@ -25,7 +25,7 @@ import { resumenKeys } from '../../lib/gemini-keys.js';
 import { getShipment, getOrder, sendPostSaleMessage, getUnreadMessages } from '../../lib/ml/ml-api.js';
 import { armarMensaje, encolar, vencidos, marcarEnviado, verCola, verEnviados, necesitaKv, DEMORA_MS } from '../../lib/ml/postventa.js';
 import { generateAnswer, probarIA } from '../../lib/ml/qa-brain.js';
-import { storeKind, markWebhook, lastWebhook, markWebhookResultado, lastWebhookResultado } from '../../lib/ml/token-store.js';
+import { storeKind, kvDetalle, markWebhook, lastWebhook, markWebhookResultado, lastWebhookResultado } from '../../lib/ml/token-store.js';
 
 // Access token de la cuenta (con cache + guardado del refresh rotado).
 async function tokenOf(acc) {
@@ -348,7 +348,10 @@ function diagConclusiones({ accounts, cuentas, gemini, iaError, keys, autoanswer
     out.push('⚠️ Los bots (ML y WhatsApp) comparten la key de Gemini con la generación de imágenes y video, que es MUCHO más cara. Si se agota el crédito haciendo contenido, los dos bots dejan de atender. Separalas: GEMINI_API_KEY_TEXTO para los bots y GEMINI_API_KEY_MEDIA para imagen/video.');
   }
   if (!autoanswer) out.push('⚠️ ML_AUTOANSWER=off: el auto-respondido está PAUSADO a propósito. Sacá esa variable (o ponela en "on") para que vuelva a responder.');
-  if (store === 'memoria') out.push('⚠️ Los tokens se guardan solo en memoria: ML rota el refresh_token en cada renovación, así que al rato el de ML_ACCOUNTS queda invalidado y el bot deja de responder. Configurá KV_REST_API_URL + KV_REST_API_TOKEN en Vercel.');
+  if (store === 'memoria') {
+    const d = kvDetalle();
+    out.push(`⚠️ Los tokens y el registro de webhooks se guardan solo en memoria (se pierden en cada arranque). ${d.problema || ''} Variables que SÍ llegan: ${d.variables_encontradas.length ? d.variables_encontradas.join(', ') : 'ninguna'}.`);
+  }
   cuentas.forEach(c => {
     if (c.token === 'FALLA') {
       out.push(`❌ Cuenta "${c.label}": no se pudo renovar el token${c.error_code ? ' (' + c.error_code + ')' : ''}. ${c.error}`);
@@ -417,6 +420,7 @@ export default async function handler(req, res) {
         gemini: ia.ok ? 'OK (probada de verdad)' : 'FALLA: ' + ia.error,
         keys_de_gemini: resumenKeys(),
         guardado_de_tokens: info.store,
+        kv: kvDetalle(),
         ultimo_webhook_de_ml: webhook || null,
         ultimo_webhook_de_preguntas: webhookPreguntas || null,
         que_paso_con_esa_pregunta: resultadoPreguntas || null,
