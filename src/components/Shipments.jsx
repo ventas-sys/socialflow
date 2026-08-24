@@ -369,11 +369,28 @@ export default function Shipments({
     }
   }
 
-  // Al abrir la sección y cada 30 minutos, traer las ventas de ML
+  // Frecuencia de actualización según la hora del día (hora argentina):
+  // 0-8hs cada 4hs · 8-10 cada 1h · 10-12 cada 15min · 12-18 cada 30min · 18-24 cada 3hs
+  const syncDelayMs = () => {
+    const h = Number(new Intl.DateTimeFormat('es-AR', {
+      timeZone: 'America/Argentina/Buenos_Aires', hour: 'numeric', hour12: false,
+    }).format(new Date()))
+    if (h < 8) return 4 * 3600 * 1000
+    if (h < 10) return 3600 * 1000
+    if (h < 12) return 15 * 60 * 1000
+    if (h < 18) return 30 * 60 * 1000
+    return 3 * 3600 * 1000
+  }
+
+  // Al abrir la sección y después según el horario, traer las ventas de ML
   useEffect(() => {
     syncFromML(true)
-    const t = setInterval(() => syncFromML(true), 30 * 60 * 1000)
-    return () => clearInterval(t)
+    let t
+    const loop = () => {
+      t = setTimeout(() => { syncFromML(true); loop() }, syncDelayMs())
+    }
+    loop()
+    return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
