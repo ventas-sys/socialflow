@@ -623,9 +623,9 @@ export default function Inventory({
   // ---- Importar medidas y códigos desde el Reporte de Planificación de ML ----
   // Formato: columna CODIGO (código de barras/inventario Full), columna SKU
   // (uno o varios MLA separados por coma) y columna Tamaño ("15 x 20 x 20").
-  // El código se agrega como código de barras del combo/producto, y el tamaño
-  // se guarda como medidas del COMBO (es el paquete armado completo — ponerlo
-  // en el producto base multiplicaría el volumen al empaquetar).
+  // El código se agrega como código de barras del combo o producto que matchee
+  // (un combo puede acumular varios códigos), y el tamaño se guarda como
+  // medidas del PRODUCTO base (aclarado por el usuario el 24/8).
   const handleMeasuresFile = async (e) => {
     const file = e.target.files?.[0]
     e.target.value = ''
@@ -654,6 +654,7 @@ export default function Inventory({
           const combo = findComboByRef(ref)
           const target = combo || findByRef(ref)
           if (!target) { notFound.add(ref); return }
+          // Código de barras → al que matchea (combo o producto); acumula varios
           const map = combo ? comboPatches : prodPatches
           const patch = map.get(target.id) || {}
           const bcs = patch.barcodes || (target.barcodes?.length ? [...target.barcodes] : (target.barcode ? [target.barcode] : []))
@@ -663,8 +664,19 @@ export default function Inventory({
             patch.barcode = bcs[0]
             nBar++
           }
-          if (dims) patch.dims = dims
           if (Object.keys(patch).length) map.set(target.id, patch)
+          // Medidas → SIEMPRE al PRODUCTO: directo si es producto, o a los
+          // productos base si el SKU es un combo
+          if (dims) {
+            const baseIds = combo
+              ? (combo.items || []).map(ci => ci.productId).filter(pid => products.some(pp => pp.id === pid))
+              : [target.id]
+            baseIds.forEach(pid => {
+              const pPatch = prodPatches.get(pid) || {}
+              pPatch.dims = dims
+              prodPatches.set(pid, pPatch)
+            })
+          }
         })
       })
       if (!prodPatches.size && !comboPatches.size) {
@@ -724,12 +736,14 @@ export default function Inventory({
       [''],
       ['Si lo armás a mano, una fila por código con estas columnas:'],
       ['1) CODIGO: el código de barras / código de inventario (ej: TEEH94301).'],
-      ['   Se agrega como código de barras del combo o producto.'],
+      ['   Se agrega como código de barras del combo o producto que corresponda'],
+      ['   (un combo puede tener varios códigos: se van sumando, no se pisan).'],
       ['2) SKU: el MLA de la publicación. Pueden ir VARIOS separados por coma'],
       ['   (el código y el tamaño se aplican a todos).'],
-      ['3) Tamaño: medidas del paquete armado en cm, "largo x ancho x alto"'],
-      ['   (ej: 15 x 20 x 20). Se guarda en el combo y Empaquetado lo usa'],
-      ['   para decir qué bolsa va.'],
+      ['3) Tamaño: medidas DEL PRODUCTO en cm, "largo x ancho x alto"'],
+      ['   (ej: 15 x 20 x 20). Se guardan SIEMPRE en el producto: si el SKU es'],
+      ['   un combo, van a su producto base. Empaquetado las usa para decir'],
+      ['   qué bolsa va.'],
       [''],
       ['Los SKU tienen que existir como combo o producto. Los que no se'],
       ['encuentren se listan al final y no se tocan.'],

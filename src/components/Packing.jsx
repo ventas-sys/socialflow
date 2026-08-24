@@ -106,9 +106,6 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
             qty: (ci.quantity || 1) * (it.quantity || 1),
             fragile: !!bp.fragile, location: bp.location,
             comboName: m.c.name, dims: bp.dims,
-            // Medidas del COMBO (paquete armado, del Reporte de Planificación):
-            // valen por el ítem entero, no por unidad
-            packDims: m.c.dims || null, packQty: it.quantity || 1, packKey: 'pk' + idx,
             photoId: bp.hasPhotos ? bp.id : (m.c.hasPhotos ? m.c.id : bp.id),
             photoKind: bp.hasPhotos ? 'product' : 'combo',
             photoHas: !!(bp.hasPhotos || m.c.hasPhotos),
@@ -129,22 +126,13 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
   // se compara la suma de volúmenes contra la capacidad de cada bolsa.
   const estimatedBag = useMemo(() => {
     if (!lines.length || lines.some(l => l.missing)) return null
-    // Si el combo tiene medidas propias (el paquete armado completo), valen
-    // por el ítem entero; si no, se usan las del producto base × unidades
+    // Medidas POR UNIDAD del producto: un solo artículo apila las unidades y
+    // prueba encaje; varios artículos comparan la suma de volúmenes
     const parts = []
-    const seenPack = new Set()
     for (const l of lines) {
-      if (l.packDims) {
-        if (seenPack.has(l.packKey)) continue
-        seenPack.add(l.packKey)
-        const d = dimsOf(l.packDims)
-        if (!d) return null
-        parts.push({ d, qty: l.packQty })
-      } else {
-        const d = dimsOf(l.dims)
-        if (!d) return null
-        parts.push({ d, qty: l.qty })
-      }
+      const d = dimsOf(l.dims)
+      if (!d) return null
+      parts.push({ d, qty: l.qty })
     }
     if (parts.length === 1) {
       const [L, W, H] = parts[0].d
