@@ -42,6 +42,37 @@ Generar imágenes y videos para las redes es lo que consume el presupuesto, y cu
   imagen/video, así el contenido de redes no puede dejar muda a Tatiana.
 
 ---
+## 📲 El mismo cupo de Gemini dejó mal al bot de WhatsApp
+
+El bot de WhatsApp (`lib/wa/ia-guide.js`, en el VPS) usa **la misma `GEMINI_API_KEY` y el mismo
+`gemini-2.5-flash`**. Con el proyecto pasado de tope, Gemini devuelve 429, `data.candidates`
+viene vacío y el bot caía siempre en la misma rama:
+
+> "Uy, perdón, no te llegué a entender bien 🙈 ¿Me lo repetís de otra forma?"
+
+O sea: **contestaba, pero eso mismo a todo el mundo**, y el cliente entraba en un loop (repite →
+mismo mensaje). No se caía, se degradaba, que es peor porque no se nota.
+
+**Arreglo:** si el que falló es la **API** (hay `data.error`: sin crédito, sin cupo, caída),
+pedirle al cliente que repita no sirve — va a fallar igual. Ahora **deriva a un humano**:
+
+> "Uy, disculpame, se me colgó el sistema un segundo 🙈 Ya le aviso a mi supervisor así te
+> responde él. ¡Perdón!" · `needsHuman: true` → etiqueta HUMANO + aviso al supervisor.
+
+Si en cambio Gemini contestó algo que no era JSON (error de formato, no de API), se mantiene el
+"no te entendí", que ahí sí tiene sentido.
+
+**Para confirmarlo en el VPS:**
+```
+pm2 logs wa-bridge --lines 200 | grep ia-guide
+```
+Si aparece `apiError=...monthly spending cap...`, es exactamente esto.
+
+> 💡 Este caso es el mejor argumento para **separar las API keys**: una para texto (ML +
+> WhatsApp, gasta centavos) y otra para imagen/video (`api/image.js`, que es lo caro). Hoy
+> generar contenido para redes puede dejar mudos a los dos bots que venden.
+
+---
 ## 💬 Mensaje post-entrega ("¿llegó todo bien?")
 
 `GET/POST /api/ml/questions?action=postventa` · botón **"💬 Mensajes post-entrega"** en
