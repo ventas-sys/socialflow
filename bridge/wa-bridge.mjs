@@ -24,6 +24,11 @@ const TOKEN = process.env.WA_BRIDGE_TOKEN || '';
 const SESSION_NAME = process.env.WA_SESSION || 'uniproveedores';
 const HUMAN_LABEL_NAME = process.env.WA_HUMAN_LABEL || 'HUMANO';
 const HUMAN_LABEL_ID_OVERRIDE = (process.env.WA_HUMAN_LABEL_ID || '').trim();
+// En la cuenta hay DOS etiquetas que dicen "HUMANO" y el equipo solo ve una.
+// El bot venía usando la otra (id=18, "HUMANO ☹️"), así que marcaba chats con
+// una etiqueta invisible para el equipo. Elegimos por el EMOJI, que es lo único
+// que las distingue. Se puede cambiar con WA_HUMAN_LABEL_EMOJI en el .env.
+const HUMAN_LABEL_EMOJI = process.env.WA_HUMAN_LABEL_EMOJI || '🧐';
 const HUMAN_TAKEOVER_HOURS = Number(process.env.WA_HUMAN_TAKEOVER_HOURS || 3);
 // Cuando el asesor toma un chat, el bot se calla por HUMAN_TAKEOVER_HOURS para
 // no escribirle encima. El problema: si después el asesor se olvida, el cliente
@@ -36,6 +41,14 @@ const FOLLOWUP_MINUTES = Number(process.env.WA_FOLLOWUP_MINUTES || 120);
 const REMINDER_DAYS = Number(process.env.WA_REMINDER_DAYS || RECORDATORIO.diasDespues || 5);
 const SEND_NEW_CLIENT_EMAIL = (process.env.WA_NEW_CLIENT_EMAIL || '').toLowerCase() === 'true';
 const NEW_CLIENTS_CSV = path.join(__dirname, 'new-clients.csv');
+
+// De todas las etiquetas que dicen "HUMANO", elegí la del emoji configurado.
+// Si ninguna lo tiene, cae en la primera (comportamiento de antes).
+function pickHumanLabel(list) {
+  const target = HUMAN_LABEL_NAME.toUpperCase();
+  const candidatos = (list || []).filter(l => (l.name || '').toUpperCase().includes(target));
+  return candidatos.find(l => (l.name || '').includes(HUMAN_LABEL_EMOJI)) || candidatos[0] || null;
+}
 
 // Códigos Unicode de los emojis de un texto, para distinguir etiquetas que en
 // el terminal se ven parecidas (ej: dos "HUMANO" con emojis distintos).
@@ -59,6 +72,7 @@ if (!WEBHOOK_URL) {
 const states = new Map();
 const histories = new Map();
 const labeledChats = new Set();
+const chatOpenFail = new Map();  // chatId -> último aviso de "no se pudo abrir el chat"
 const humanHandled = new Map();
 const lastActivityAt = new Map();
 const lastIncomingAt = new Map();
@@ -398,9 +412,9 @@ async function resolveHumanLabel(client) {
         const candidatos = list.filter(l => (l.name || '').toUpperCase().includes(target));
         if (candidatos.length > 1) {
           console.log(`⚠️  Hay ${candidatos.length} etiquetas que dicen "${HUMAN_LABEL_NAME}": ${candidatos.map(l => `id=${l.id} "${l.name}"${emojiCodes(l.name)}`).join(' · ')}`);
-          console.log(`   Si el bot está usando la que NO ves en WhatsApp, fijate cuál tiene el emoji correcto acá arriba y ponela en el .env: WA_HUMAN_LABEL_ID="<id>"`);
+          console.log(`   Se elige la del emoji ${HUMAN_LABEL_EMOJI} (WA_HUMAN_LABEL_EMOJI). Para forzar otra: WA_HUMAN_LABEL_ID="<id>" en el .env.`);
         }
-        const found = candidatos[0];
+        const found = pickHumanLabel(list);
         if (found) {
           humanLabelId = found.id;
           console.log(`✅ Usando etiqueta "${found.name}" (id=${humanLabelId}) para marcar chats que necesitan asesor humano.`);
@@ -433,7 +447,15 @@ async function markChatForHuman(client, chatId) {
   if (chatId.endsWith('@newsletter') || chatId.endsWith('@broadcast')) return;
   let chat = null;
   try { chat = await client.getChatById(chatId); } catch (e) {
-    console.error(`[${chatId}] no se pudo abrir el chat:`, e.message);
+    // Pasa con los chats migrados a "@lid": la librería no puede abrirlos, así
+    // que NO se puede marcar como no leído ni etiquetar. El aviso al supervisor
+    // sí sale (no necesita el objeto chat). Se loguea 1 vez por hora por chat
+    // para no tapar el log, que es lo que venía pasando.
+    const ultimo = chatOpenFail.get(chatId) || 0;
+    if (Date.now() - ultimo > 3_600_000) {
+      chatOpenFail.set(chatId, Date.now());
+      console.error(`[${chatId}] no se pudo abrir el chat (${e.message}) — sin marca de NO LEÍDO ni etiqueta. El aviso al supervisor sale igual. Típico de chats @lid: requiere actualizar whatsapp-web.js.`);
+    }
     return;
   }
 
@@ -451,8 +473,7 @@ async function markChatForHuman(client, chatId) {
     lastLabelResolveAt = Date.now();
     try {
       const labels = await client.getLabels();
-      const target = HUMAN_LABEL_NAME.toUpperCase();
-      const found = (labels || []).find(l => (l.name || '').toUpperCase().includes(target));
+      const found = pickHumanLabel(labels);
       if (found) {
         humanLabelId = found.id;
         console.log(`✅ Etiqueta "${found.name}" re-detectada (id=${humanLabelId}) tras la migración a Listas.`);
