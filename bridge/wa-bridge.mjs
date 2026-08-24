@@ -25,11 +25,26 @@ const SESSION_NAME = process.env.WA_SESSION || 'uniproveedores';
 const HUMAN_LABEL_NAME = process.env.WA_HUMAN_LABEL || 'HUMANO';
 const HUMAN_LABEL_ID_OVERRIDE = (process.env.WA_HUMAN_LABEL_ID || '').trim();
 const HUMAN_TAKEOVER_HOURS = Number(process.env.WA_HUMAN_TAKEOVER_HOURS || 3);
+// Cuando el asesor toma un chat, el bot se calla por HUMAN_TAKEOVER_HOURS para
+// no escribirle encima. El problema: si después el asesor se olvida, el cliente
+// escribe y NO le contesta nadie (ni el bot, que está en silencio, ni la
+// persona). Pasados estos minutos sin que el asesor hable, avisamos al
+// supervisor para que alguien lo agarre. El bot sigue sin hablar.
+const AVISO_SIN_ATENDER_MIN = Number(process.env.WA_AVISO_SIN_ATENDER_MIN || 20);
 const AUTOREPLY_WINDOW_MS = Number(process.env.WA_AUTOREPLY_MS || 3000);
 const FOLLOWUP_MINUTES = Number(process.env.WA_FOLLOWUP_MINUTES || 120);
 const REMINDER_DAYS = Number(process.env.WA_REMINDER_DAYS || RECORDATORIO.diasDespues || 5);
 const SEND_NEW_CLIENT_EMAIL = (process.env.WA_NEW_CLIENT_EMAIL || '').toLowerCase() === 'true';
 const NEW_CLIENTS_CSV = path.join(__dirname, 'new-clients.csv');
+
+// Códigos Unicode de los emojis de un texto, para distinguir etiquetas que en
+// el terminal se ven parecidas (ej: dos "HUMANO" con emojis distintos).
+function emojiCodes(name) {
+  const codes = [...String(name || '')]
+    .filter(c => c.codePointAt(0) > 0x2000)
+    .map(c => 'U+' + c.codePointAt(0).toString(16).toUpperCase());
+  return codes.length ? ` [${codes.join(' ')}]` : '';
+}
 
 // Día calendario local (YYYY-MM-DD) para limitar follow-up a 1 por día por chat.
 function dayKey(ts) {
@@ -142,7 +157,9 @@ function isAsesorActive(chatId) {
 
 function markAsesorActive(chatId) {
   const until = Date.now() + HUMAN_TAKEOVER_HOURS * 3_600_000;
-  humanHandled.set(chatId, { until });
+  // asesorAt se refresca en cada mensaje manual del asesor: sirve para saber
+  // hace cuánto que no atiende el chat (ver el aviso más abajo).
+  humanHandled.set(chatId, { until, asesorAt: Date.now() });
   followupSent.delete(chatId);
   const mins = HUMAN_TAKEOVER_HOURS * 60;
   console.log(`[${chatId}] 🧑 asesor humano respondió — bot silenciado por ${mins}min`);
@@ -373,9 +390,17 @@ async function resolveHumanLabel(client) {
       const list = labels || [];
       if (list.length) {
         console.log(`📋 Intento ${i}: ${list.length} etiqueta(s) detectada(s):`);
-        for (const l of list) console.log(`   • "${l.name}" → id=${l.id}`);
+        // Los emojis se ven distinto en cada terminal, así que dos etiquetas que
+        // parecen iguales pueden no serlo. Mostramos el código de cada emoji
+        // (U+XXXX) para poder identificarlas sin lugar a dudas.
+        for (const l of list) console.log(`   • "${l.name}"${emojiCodes(l.name)} → id=${l.id}`);
         const target = HUMAN_LABEL_NAME.toUpperCase();
-        const found = list.find(l => (l.name || '').toUpperCase().includes(target));
+        const candidatos = list.filter(l => (l.name || '').toUpperCase().includes(target));
+        if (candidatos.length > 1) {
+          console.log(`⚠️  Hay ${candidatos.length} etiquetas que dicen "${HUMAN_LABEL_NAME}": ${candidatos.map(l => `id=${l.id} "${l.name}"${emojiCodes(l.name)}`).join(' · ')}`);
+          console.log(`   Si el bot está usando la que NO ves en WhatsApp, fijate cuál tiene el emoji correcto acá arriba y ponela en el .env: WA_HUMAN_LABEL_ID="<id>"`);
+        }
+        const found = candidatos[0];
         if (found) {
           humanLabelId = found.id;
           console.log(`✅ Usando etiqueta "${found.name}" (id=${humanLabelId}) para marcar chats que necesitan asesor humano.`);
@@ -471,13 +496,39 @@ function motivoHumano(reason) {
   if (reason === 'ia_mayorista') return 'Consulta mayorista 🧾';
   if (reason === 'ia_escalate_human') return 'Pidió hablar con una persona 🧑';
   if (reason === 'loop_repetido') return 'Posible loop: el bot repitió la misma respuesta 🔁 (¿otro bot del otro lado?)';
+  if (reason === 'cliente_sin_atender') return 'El cliente escribió y NO le contestó nadie ⏳ (el bot está en silencio porque un asesor tomó el chat)';
   return 'Necesita atención';
+}
+
+// Chat real del supervisor. Armar "<numero>@c.us" a mano no siempre funciona:
+// WhatsApp migró cuentas al formato "@lid" y ahí el envío falla ("no se pudo
+// abrir el chat"). getNumberId() devuelve el ID que WhatsApp usa de verdad.
+// Se cachea porque no cambia, y si falla queda el @c.us de siempre.
+let supervisorChatId = null;
+async function resolveSupervisorChat(client) {
+  if (supervisorChatId) return supervisorChatId;
+  try {
+    const r = await client.getNumberId(SUPERVISOR_NUMBER);
+    if (r?._serialized) {
+      supervisorChatId = r._serialized;
+      if (supervisorChatId !== SUPERVISOR_NUMBER + '@c.us') {
+        console.log(`🔔 supervisor resuelto como ${supervisorChatId} (no ${SUPERVISOR_NUMBER}@c.us)`);
+      }
+      return supervisorChatId;
+    }
+    console.error(`aviso a supervisor: getNumberId(+${SUPERVISOR_NUMBER}) no devolvió ID — ¿el número tiene WhatsApp?`);
+  } catch (e) {
+    console.error(`aviso a supervisor: no se pudo resolver el número (${e.message}) — se prueba con @c.us`);
+  }
+  supervisorChatId = SUPERVISOR_NUMBER + '@c.us';
+  return supervisorChatId;
 }
 
 async function notifySupervisor(client, chatId, reason, lastText) {
   if (!SUPERVISOR_NUMBER) return;
-  const supervisorChat = SUPERVISOR_NUMBER + '@c.us';
-  if (chatId === supervisorChat) return;
+  const supervisorChat = await resolveSupervisorChat(client);
+  // No avisarle al supervisor sobre su propio chat, en cualquiera de los dos formatos.
+  if (chatId === supervisorChat || chatId === SUPERVISOR_NUMBER + '@c.us') return;
   const last = supervisorNotified.get(chatId) || 0;
   if (Date.now() - last < 6 * 3_600_000) return;
   const phone = chatId.split('@')[0];
@@ -625,6 +676,13 @@ async function handleIncoming(client, msg) {
         } catch {}
       } else {
         recordHistory(from, 'user', text);
+      }
+      // El bot NO habla (el asesor tiene el chat), pero si hace rato que el
+      // asesor no dice nada, que no quede el cliente esperando al vacío.
+      const minsSinAsesor = Math.round((now - (h.asesorAt || 0)) / 60000);
+      if (h.asesorAt && minsSinAsesor >= AVISO_SIN_ATENDER_MIN) {
+        console.log(`[${from}] ⏳ cliente escribió y el asesor no contesta hace ${minsSinAsesor}min — avisando al supervisor`);
+        await notifySupervisor(client, from, 'cliente_sin_atender', text);
       }
       console.log(`[${from}] -> ${(text || '🎤audio').slice(0, 60)} [silenciado: asesor activo ${minsLeft}min restantes]`);
       return;
@@ -810,6 +868,12 @@ client.on('ready', async () => {
   console.log(`📋 Follow-up "¿algo más?" cada 5min para chats con ${FOLLOWUP_MINUTES}min sin actividad (máx 1/día por chat)`);
   console.log(`🎁 Recordatorio a los ${REMINDER_DAYS} días del primer contacto (chequeo cada 1h)`);
   console.log(`💓 Heartbeat al panel cada 60s`);
+  // Que se vea en el arranque si el aviso al supervisor va a salir o no: sin
+  // WA_SUPERVISOR_NUMBER, notifySupervisor sale sin hacer nada y el cliente que
+  // escribe durante el silencio del asesor queda sin atender y sin aviso.
+  console.log(SUPERVISOR_NUMBER
+    ? `🔔 Avisos al supervisor (+${SUPERVISOR_NUMBER}) · también si el cliente escribe y el asesor no contesta hace ${AVISO_SIN_ATENDER_MIN}min`
+    : `⚠️ SIN avisos al supervisor: falta WA_SUPERVISOR_NUMBER en el .env — si un cliente escribe mientras el bot está en silencio, nadie se entera`);
 });
 
 client.on('disconnected', reason => {
