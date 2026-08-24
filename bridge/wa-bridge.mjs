@@ -483,10 +483,35 @@ function motivoHumano(reason) {
   return 'Necesita atención';
 }
 
+// Chat real del supervisor. Armar "<numero>@c.us" a mano no siempre funciona:
+// WhatsApp migró cuentas al formato "@lid" y ahí el envío falla ("no se pudo
+// abrir el chat"). getNumberId() devuelve el ID que WhatsApp usa de verdad.
+// Se cachea porque no cambia, y si falla queda el @c.us de siempre.
+let supervisorChatId = null;
+async function resolveSupervisorChat(client) {
+  if (supervisorChatId) return supervisorChatId;
+  try {
+    const r = await client.getNumberId(SUPERVISOR_NUMBER);
+    if (r?._serialized) {
+      supervisorChatId = r._serialized;
+      if (supervisorChatId !== SUPERVISOR_NUMBER + '@c.us') {
+        console.log(`🔔 supervisor resuelto como ${supervisorChatId} (no ${SUPERVISOR_NUMBER}@c.us)`);
+      }
+      return supervisorChatId;
+    }
+    console.error(`aviso a supervisor: getNumberId(+${SUPERVISOR_NUMBER}) no devolvió ID — ¿el número tiene WhatsApp?`);
+  } catch (e) {
+    console.error(`aviso a supervisor: no se pudo resolver el número (${e.message}) — se prueba con @c.us`);
+  }
+  supervisorChatId = SUPERVISOR_NUMBER + '@c.us';
+  return supervisorChatId;
+}
+
 async function notifySupervisor(client, chatId, reason, lastText) {
   if (!SUPERVISOR_NUMBER) return;
-  const supervisorChat = SUPERVISOR_NUMBER + '@c.us';
-  if (chatId === supervisorChat) return;
+  const supervisorChat = await resolveSupervisorChat(client);
+  // No avisarle al supervisor sobre su propio chat, en cualquiera de los dos formatos.
+  if (chatId === supervisorChat || chatId === SUPERVISOR_NUMBER + '@c.us') return;
   const last = supervisorNotified.get(chatId) || 0;
   if (Date.now() - last < 6 * 3_600_000) return;
   const phone = chatId.split('@')[0];

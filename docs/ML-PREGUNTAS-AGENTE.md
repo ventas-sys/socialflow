@@ -89,7 +89,15 @@ Los 20 minutos evitan el ruido: si el asesor está charlando en vivo (respondió
 avisa nada. Y `notifySupervisor` ya trae un tope de 1 aviso por chat cada 6 h.
 
 > Requiere **`WA_SUPERVISOR_NUMBER`** en el `.env` del VPS. Sin esa variable, la función sale
-> sin hacer nada y el agujero sigue abierto.
+> sin hacer nada y el agujero sigue abierto. El `+` y los espacios del número no molestan: se
+> limpian antes de usarlo. El arranque del bridge ahora dice si los avisos están activos o no.
+
+**El aviso ya no depende de `@c.us`.** `notifySupervisor` armaba el destino a mano como
+`<numero>@c.us`, y con las cuentas migradas a `@lid` eso falla ("no se pudo abrir el chat" —
+error que aparece en `wa-bridge-error.log`). Ahora resuelve el chat con `client.getNumberId()`,
+que devuelve el ID que WhatsApp usa de verdad, lo cachea, y si falla vuelve al `@c.us` de antes.
+Era el pendiente anotado el 5-ago ("vigilar `aviso a supervisor fail: No LID`"), y había que
+resolverlo sí o sí: sin eso, el aviso nuevo se escribía en el vacío.
 
 ---
 ## 📲 El mismo cupo de Gemini dejó mal al bot de WhatsApp
