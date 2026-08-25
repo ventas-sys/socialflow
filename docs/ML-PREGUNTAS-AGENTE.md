@@ -63,6 +63,39 @@ Generar imágenes y videos para las redes es lo que consume el presupuesto, y cu
   imagen/video, así el contenido de redes no puede dejar muda a Tatiana.
 
 ---
+## 🏷️ WhatsApp: la etiqueta HUMANO equivocada (y cómo limpiar lo marcado)
+
+En la cuenta hay **dos etiquetas que dicen HUMANO**, del mismo color amarillo, y solo se
+distinguen por el emoji:
+
+```
+"HUMANO ☹️" [U+2639 U+FE0F] → id=18   ← la que usaba el bot (el equipo NO la ve en Listas)
+"HUMANO 🧐" [U+1F9D0]       → id=19   ← la que el equipo tiene
+```
+
+El bot marcaba con la 18. Desde la lista de chats se ve un punto amarillo igual, pero al abrir
+"Selecciona una lista" **no hay nada tildado**: la lista que puso el punto no aparece en el menú.
+O sea que la marca de "este chat necesita una persona" **no la veía nadie**.
+
+- **Qué marca de ahora en más:** `pickHumanLabel()` elige por el **emoji**
+  (`WA_HUMAN_LABEL_EMOJI`, default `🧐`). Para forzar un id puntual sigue estando
+  `WA_HUMAN_LABEL_ID`.
+- **Cómo limpiar lo ya marcado:** los chats marcados antes conservan la etiqueta vieja, y como
+  no aparece en el menú **no se puede destildar a mano**. Para eso está `WA_LIMPIAR_HUMANO`:
+
+  | Valor | Qué hace |
+  |---|---|
+  | `contar` | Recorre los chats y dice cuántos tienen la etiqueta vieja. **No toca nada.** |
+  | `si` | Se la saca de verdad, conservando el resto de las etiquetas del chat. |
+
+  Corre una sola vez al arranque, después de resolver la etiqueta. Los chats que ya tienen la
+  etiqueta correcta no se tocan; los que tienen las dos quedan solo con la buena. Cuando
+  termina, sacar la variable del `.env`.
+
+> ⚠️ Los chats migrados a `@lid` pueden no dejarse leer (la librería no los abre): la limpieza
+> los cuenta aparte y sigue con el resto.
+
+---
 ## ⏳ WhatsApp: el hueco del silencio de 3 horas
 
 Cuando alguien del equipo escribe a mano en un chat, el bot se calla **3 horas**
