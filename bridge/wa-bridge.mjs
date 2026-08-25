@@ -423,9 +423,38 @@ async function limpiarHumanoViejo(client) {
   const ids = viejas.map(v => v.id);
   console.log(`🧹 limpieza ${soloContar ? 'EN MODO PRUEBA (no toca nada)' : 'REAL'}: sacando ${viejas.map(v => `"${v.name}" (id=${v.id})`).join(', ')} · se conserva id=${humanLabelId}`);
 
+  // Conseguir los chats a revisar. getChats() está roto con la versión actual
+  // de WhatsApp Web (mismo problema que los @lid), así que primero le pedimos a
+  // WhatsApp directamente los chats que TIENEN la etiqueta vieja: es otra
+  // llamada, trae muchos menos chats y no recorre el listado completo.
   let chats = [];
-  try { chats = await client.getChats(); }
-  catch (e) { console.error('🧹 limpieza: no se pudo listar los chats:', e.message); return; }
+  let porEtiqueta = false;
+  try {
+    if (typeof client.getChatsByLabelId === 'function') {
+      const vistos = new Set();
+      for (const v of viejas) {
+        for (const c of (await client.getChatsByLabelId(v.id)) || []) {
+          const id = c?.id?._serialized || Math.random();
+          if (!vistos.has(id)) { vistos.add(id); chats.push(c); }
+        }
+      }
+      porEtiqueta = true;
+      console.log(`🧹 limpieza: WhatsApp reporta ${chats.length} chat(s) con la etiqueta vieja (consulta directa por etiqueta).`);
+    }
+  } catch (e) {
+    console.error(`🧹 limpieza: la consulta por etiqueta falló (${e.message}) — se intenta con el listado completo`);
+    chats = [];
+    porEtiqueta = false;
+  }
+  if (!porEtiqueta && !chats.length) {
+    try { chats = await client.getChats(); }
+    catch (e) {
+      console.error(`🧹 limpieza: tampoco se pudo listar los chats (${e.message}).`);
+      console.error('   La librería no puede leer el listado con esta versión de WhatsApp Web (mismo problema que los chats @lid).');
+      console.error('   Alternativa SIN código: en el CELULAR → WhatsApp Business → ⋮ → Herramientas para la empresa → Etiquetas → borrar la etiqueta HUMANO vieja. Eso la saca de TODOS los chats de una.');
+      return;
+    }
+  }
 
   let conEtiqueta = 0, limpiados = 0, ilegibles = 0;
   for (const chat of chats) {
