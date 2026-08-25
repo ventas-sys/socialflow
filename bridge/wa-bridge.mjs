@@ -29,6 +29,12 @@ const HUMAN_LABEL_ID_OVERRIDE = (process.env.WA_HUMAN_LABEL_ID || '').trim();
 // una etiqueta invisible para el equipo. Elegimos por el EMOJI, que es lo único
 // que las distingue. Se puede cambiar con WA_HUMAN_LABEL_EMOJI en el .env.
 const HUMAN_LABEL_EMOJI = process.env.WA_HUMAN_LABEL_EMOJI || '🧐';
+// Limpieza única de la etiqueta HUMANO vieja. Los chats que el bot marcó cuando
+// usaba la etiqueta equivocada quedaron con un punto de color que el equipo ve
+// pero NO puede destildar, porque esa lista no le aparece en WhatsApp.
+//   WA_LIMPIAR_HUMANO=contar  -> solo dice cuántos chats la tienen, no toca nada
+//   WA_LIMPIAR_HUMANO=si      -> se la saca de verdad
+const LIMPIAR_HUMANO = (process.env.WA_LIMPIAR_HUMANO || '').trim().toLowerCase();
 const HUMAN_TAKEOVER_HOURS = Number(process.env.WA_HUMAN_TAKEOVER_HOURS || 3);
 // Cuando el asesor toma un chat, el bot se calla por HUMAN_TAKEOVER_HOURS para
 // no escribirle encima. El problema: si después el asesor se olvida, el cliente
@@ -388,6 +394,62 @@ function recordHistory(from, role, text) {
   arr.push({ role, text, at: Date.now() });
   if (arr.length > 30) arr.splice(0, arr.length - 30);
   histories.set(from, arr);
+}
+
+// Saca de todos los chats cualquier etiqueta "HUMANO" que NO sea la elegida.
+// Corre una sola vez al arranque y solo si WA_LIMPIAR_HUMANO está seteada.
+async function limpiarHumanoViejo(client) {
+  if (!LIMPIAR_HUMANO) return;
+  if (!humanLabelId) {
+    console.log('🧹 limpieza: no se pudo resolver la etiqueta HUMANO, no se limpia nada.');
+    return;
+  }
+  const soloContar = LIMPIAR_HUMANO !== 'si';
+  let viejas = [];
+  try {
+    const labels = await client.getLabels();
+    const target = HUMAN_LABEL_NAME.toUpperCase();
+    viejas = (labels || [])
+      .filter(l => (l.name || '').toUpperCase().includes(target) && String(l.id) !== String(humanLabelId))
+      .map(l => ({ id: String(l.id), name: l.name }));
+  } catch (e) {
+    console.error('🧹 limpieza: no se pudieron leer las etiquetas:', e.message);
+    return;
+  }
+  if (!viejas.length) {
+    console.log('🧹 limpieza: no hay ninguna otra etiqueta HUMANO para sacar. Todo en orden.');
+    return;
+  }
+  const ids = viejas.map(v => v.id);
+  console.log(`🧹 limpieza ${soloContar ? 'EN MODO PRUEBA (no toca nada)' : 'REAL'}: sacando ${viejas.map(v => `"${v.name}" (id=${v.id})`).join(', ')} · se conserva id=${humanLabelId}`);
+
+  let chats = [];
+  try { chats = await client.getChats(); }
+  catch (e) { console.error('🧹 limpieza: no se pudo listar los chats:', e.message); return; }
+
+  let conEtiqueta = 0, limpiados = 0, ilegibles = 0;
+  for (const chat of chats) {
+    try {
+      if (typeof chat.getLabels !== 'function' || typeof chat.changeLabels !== 'function') continue;
+      const actuales = ((await chat.getLabels()) || []).map(l => String(l.id));
+      if (!actuales.some(id => ids.includes(id))) continue;
+      conEtiqueta++;
+      const quedan = actuales.filter(id => !ids.includes(id));
+      const quien = chat.name || chat.id?._serialized || '?';
+      if (soloContar) {
+        console.log(`   · ${String(quien).slice(0, 40)} — le quedarían ${quedan.length} etiqueta(s)`);
+      } else {
+        await chat.changeLabels(quedan);
+        limpiados++;
+        console.log(`   ✓ ${String(quien).slice(0, 40)} — limpiado`);
+      }
+    } catch { ilegibles++; }
+  }
+  console.log(`🧹 limpieza terminada: ${conEtiqueta} chat(s) tenían la etiqueta vieja` +
+    (ilegibles ? ` · ${ilegibles} chat(s) no se pudieron leer (típico de los @lid)` : '') +
+    (soloContar
+      ? `. No se tocó nada: poné WA_LIMPIAR_HUMANO=si en el .env y reiniciá para aplicarlo.`
+      : ` · ${limpiados} limpiado(s). Ya podés sacar WA_LIMPIAR_HUMANO del .env.`));
 }
 
 async function resolveHumanLabel(client) {
@@ -882,6 +944,7 @@ client.on('auth_failure', e => console.error('❌ Falló auth:', e));
 client.on('ready', async () => {
   console.log('✅ Bridge listo. Esperando mensajes...');
   await resolveHumanLabel(client);
+  await limpiarHumanoViejo(client);
   setInterval(() => sendFollowupIfDue(client).catch(e => console.error('followup tick fail:', e.message)), 5 * 60_000);
   setInterval(() => sendRemindersIfDue(client).catch(e => console.error('reminder tick fail:', e.message)), 60 * 60_000);
   sendHeartbeat();
