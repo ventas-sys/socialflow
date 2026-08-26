@@ -625,3 +625,54 @@ texto que decide modelo, pensamiento y reintentos:
 - El diagnóstico ahora dice con qué modelo respondió: `modelo_de_ia`.
 
 El flujo de preguntas de ML (prompt, validaciones, publicación) no se tocó.
+
+## 26-ago-2026 (cierre del día) — estado del sistema y pendientes
+
+### Segundo bug del día: thoughtSignature (#126)
+
+Con el modelo nuevo andando, Tatiana seguía muda: Gemini 3 le pega
+`thoughtSignature` TAMBIÉN a la parte que trae la respuesta buena (es una firma
+para conversaciones multi-turno, no una marca de razonamiento). El filtro
+anti-pensamiento la usaba como criterio y tiraba la respuesta entera — el sweep
+mostraba la respuesta perfecta adentro del error "IA sin respuesta".
+Arreglo: `textoDe()` filtra SOLO por `thought: true`. Verificado con el body
+exacto de producción y después con preguntas reales: **respondió y posteó**.
+
+### Estado final confirmado (todo verde)
+
+- **Tatiana responde en ML** con `gemini-3.6-flash`; respaldo automático
+  `gemini-flash-latest` → `gemini-2.5-flash`, forzable con `GEMINI_MODEL_TEXTO`.
+- **Cron del barrido instalado en el VPS** (verificado en `crontab -l`):
+  `*/5 * * * * /opt/socialflow/bridge/ml-sweep.sh >> /var/log/ml-sweep.log 2>&1`
+  Corre sweep + postventa cada 5 min. Es la red de seguridad: ninguna pregunta
+  espera más de 5 min aunque el webhook o Gemini fallen un rato.
+- **Keys de Gemini separadas** (texto vs media) en Vercel y en el VPS.
+- **Etiqueta HUMANO se saca sola** cuando contesta un asesor (#125).
+  `WA_DESMARCAR_ATENDIDO=no` lo apaga; `WA_LIMPIAR_HUMANO=todo` vacía la lista.
+- **Avisos al supervisor** activos (+54 11 5834-9893), incluido el de cliente
+  sin atender a los 20 min.
+
+### Reglas que explican "no responde" SIN que haya nada roto
+
+- **Escalada a humano**: 4ta pregunta del mismo comprador en la misma
+  publicación, o pregunta repetida textual → `escalated: true`, el bot no la
+  toca nunca. La responde una persona desde ML.
+- Publicación pausada/finalizada → se omite antes de llamar a la IA.
+- El aviso de ML llega UNA vez: si el bot falla en ese momento, la pregunta
+  queda para el barrido (máx. 5 min).
+
+### Pendientes de Rodo (recordatorio agendado para el 27-ago 11:00 ART)
+
+1. **Acciones de negocio del reporte de conversión** (las que dan plata):
+   - Publicar el pack surtido de discos flap (demanda mayorista sin publicación).
+   - Escribir compatibilidades de los 3 repuestos con preguntas sin conversión.
+   - Agregar la marca en las fichas técnicas que la omiten.
+   - El reporte se regenera desde el panel: 📈 "Control de conversión (Excel)".
+2. Contestar a mano la escalada "que medida es mas grande???" (MLA1506247473).
+3. Vaciar la lista HUMANO (`WA_LIMPIAR_HUMANO=todo` + reinicio + sacar la var),
+   o desmarcar los 8 chats viejos desde el celular.
+
+### Opcional sin fecha
+
+- Activar mensaje post-entrega: topic `shipments` en DevCenter + `ML_POSTVENTA=on`
+  + probar con una venta real. El código ya está desplegado.
