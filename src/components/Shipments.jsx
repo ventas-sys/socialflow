@@ -245,18 +245,19 @@ export default function Shipments({
   // en "Todos" muestra los activos del día (pendiente, armado, en camino).
   const startOfToday = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime() })()
 
-  // Cantidades del día por motoquero (para el filtro): asignados hoy,
-  // cuántos ya entregó y cuántos le quedan pendientes
+  // Cantidades del día por motoquero (para el filtro): SOLO lo que se le
+  // asignó HOY (courierAssignedAt, la fecha real de la asignación). Antes
+  // también sumaba envíos viejos que ML confirmaba como entregados hoy y el
+  // contador daba mucho más que los paquetes que realmente se llevó.
   const courierDayStats = useMemo(() => {
     const m = new Map()
     shipments.forEach(s => {
       if (!s.courierId) return
-      const asignadoHoy = toMillis(s.assignedAt) >= startOfToday
-      const entregadoHoy = toMillis(s.deliveredAt) >= startOfToday
-      if (!asignadoHoy && !entregadoHoy) return
+      const cuando = toMillis(s.courierAssignedAt || s.assignedAt)
+      if (cuando < startOfToday) return
       const st = m.get(s.courierId) || { asig: 0, entreg: 0, pend: 0 }
       st.asig++
-      if (['entregado', 'archivado'].includes(s.status) || entregadoHoy) st.entreg++
+      if (['entregado', 'archivado'].includes(s.status)) st.entreg++
       else st.pend++
       m.set(s.courierId, st)
     })
@@ -328,6 +329,9 @@ export default function Shipments({
       patch.status = 'camino'
     }
     if (courierId && !s.assignedAt) patch.assignedAt = new Date()
+    // Fecha REAL de la asignación al motoquero (assignedAt puede venir de ML
+    // con la fecha de la venta): la usa el contador "hoy" del filtro
+    if (courierId) patch.courierAssignedAt = new Date()
     try {
       await onUpdateShipment(s.id, patch)
     } catch (e) {
