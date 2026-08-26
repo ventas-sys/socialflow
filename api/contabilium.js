@@ -122,8 +122,12 @@ REGLAS:
       }],
       generationConfig: {
         temperature: 0.2,
-        maxOutputTokens: 4000,
-        responseMimeType: 'application/json'
+        // Tope amplio y SIN "thinking": gemini-2.5-flash piensa por defecto y
+        // esos tokens consumen el tope de salida — con 4000 una factura larga
+        // quedaba cortada a la mitad y el JSON salía inválido
+        maxOutputTokens: 32000,
+        responseMimeType: 'application/json',
+        thinkingConfig: { thinkingBudget: 0 }
       }
     });
     if (data?.error) return res.status(500).json({ error: data.error.message || 'Error Gemini', detail: data.error });
@@ -143,7 +147,12 @@ REGLAS:
     }
 
     const parsed = extractJson(text);
-    if (!parsed) return res.status(500).json({ error: 'IA no devolvio JSON valido', raw: text.substring(0,500), finishReason });
+    if (!parsed) {
+      const motivo = finishReason === 'MAX_TOKENS'
+        ? 'La respuesta se corto por longitud (factura muy larga): proba con una foto por hoja.'
+        : 'IA no devolvio JSON valido (motivo: ' + (finishReason || 'desconocido') + ')';
+      return res.status(500).json({ error: motivo, raw: text.substring(0, 300), finishReason });
+    }
     return res.status(200).json({ ok: true, factura: parsed });
   } catch(e) {
     return res.status(500).json({ error: e.message });
