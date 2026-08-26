@@ -586,3 +586,42 @@ variable **`ML_ACCOUNTS`** con este JSON (en una línea):
 Todo lo público en ML respeta las políticas: precio igual dentro/fuera, sin venta externa,
 sin pedir contacto por afuera. El retiro por local se ofrece **vía Mercado Libre**.
 </content>
+
+## 26-ago-2026 — Tatiana muda otra vez: cambió el modelo de Gemini
+
+El diagnóstico mostró:
+
+```
+"gemini": "FALLA: This model models/gemini-2.5-flash is no longer available
+           to new users. Please update your code to use models/gemini-3.6-flash"
+```
+
+Efecto colateral de separar las keys (24/8): la key nueva vive en un proyecto
+NUEVO de Google, y a los proyectos nuevos ya no les habilitan `gemini-2.5-flash`.
+La key vieja lo seguía usando solo porque su proyecto era anterior al corte.
+
+Cambiar el nombre del modelo NO alcanzaba. Gemini 3 no deja apagar el
+"pensamiento":
+
+- `thinkingConfig: { thinkingBudget: 0 }` devuelve **400** en un modelo 3.x.
+- Los tokens que el modelo "piensa" se descuentan de `maxOutputTokens`, así que
+  con los 512 que teníamos la respuesta volvía **vacía** (el mismo síntoma que
+  ya nos había pasado con 2.5 y por el que habíamos puesto el presupuesto en 0).
+- El razonamiento puede volver como una parte más de la respuesta, marcada con
+  `thought: true`. Sin filtrarla, Tatiana le publicaría al cliente lo que estuvo
+  pensando en vez de la respuesta.
+
+**Arreglo:** `lib/gemini-texto.js`, una sola puerta de entrada a Gemini para
+texto que decide modelo, pensamiento y reintentos:
+
+- Modelos en orden: `gemini-3.6-flash` → `gemini-flash-latest` → `gemini-2.5-flash`.
+  El del medio es el alias que Google mantiene apuntando al flash vigente: es la
+  red de seguridad para la próxima vez que cambien los nombres.
+- Se puede forzar uno con `GEMINI_MODEL_TEXTO` sin tocar código.
+- Si el modelo no existe, prueba el siguiente. Si se queja del `thinkingConfig`,
+  reintenta sin él. Si es cuota o key inválida, corta y lo reporta (no tiene
+  sentido quemar 3 modelos con el mismo 429).
+- Recuerda el modelo que funcionó mientras la función sigue caliente.
+- El diagnóstico ahora dice con qué modelo respondió: `modelo_de_ia`.
+
+El flujo de preguntas de ML (prompt, validaciones, publicación) no se tocó.

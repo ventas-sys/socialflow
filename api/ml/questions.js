@@ -22,6 +22,7 @@ import { loadAccounts, findAccountByUser, findAccountByLabel, otherAccount, NEGO
 import { getAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, getRecentQuestions, searchSellerItem, postAnswer, itemContext, getMe, getOrders, getItemsBulk } from '../../lib/ml/ml-api.js';
 import { construirReporte } from '../../lib/ml/conversion.js';
 import { resumenKeys } from '../../lib/gemini-keys.js';
+import { modeloTexto } from '../../lib/gemini-texto.js';
 import { getShipment, getOrder, sendPostSaleMessage, getUnreadMessages } from '../../lib/ml/ml-api.js';
 import { armarMensaje, encolar, vencidos, marcarEnviado, verCola, verEnviados, necesitaKv, DEMORA_MS } from '../../lib/ml/postventa.js';
 import { generateAnswer, probarIA } from '../../lib/ml/qa-brain.js';
@@ -417,7 +418,8 @@ export default async function handler(req, res) {
         fecha: new Date().toISOString(),
         cuentas_configuradas: accounts.length,
         auto_respondido: info.autoanswer ? 'on' : 'off (PAUSADO)',
-        gemini: ia.ok ? 'OK (probada de verdad)' : 'FALLA: ' + ia.error,
+        gemini: ia.ok ? `OK (probada de verdad, modelo ${ia.modelo})` : 'FALLA: ' + ia.error,
+        modelo_de_ia: ia.modelo || modeloTexto(),
         keys_de_gemini: resumenKeys(),
         guardado_de_tokens: info.store,
         kv: kvDetalle(),

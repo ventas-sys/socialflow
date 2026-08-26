@@ -3,13 +3,14 @@ import { PDFDocument } from 'pdf-lib';
 import nodemailer from 'nodemailer';
 import { httpRequest, cors } from './_http.js';
 import { keyTexto } from '../lib/gemini-keys.js';
+import { modeloTexto } from '../lib/gemini-texto.js';
 
 function geminiVision(apiKey, body) {
   return new Promise((resolve, reject) => {
     const payload = JSON.stringify(body);
     const opts = {
       hostname: 'generativelanguage.googleapis.com',
-      path: '/v1beta/models/gemini-2.5-flash:generateContent?key=' + apiKey,
+      path: `/v1beta/models/${modeloTexto()}:generateContent?key=` + apiKey,
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
     };
