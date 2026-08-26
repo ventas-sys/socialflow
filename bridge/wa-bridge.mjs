@@ -35,6 +35,9 @@ const HUMAN_LABEL_EMOJI = process.env.WA_HUMAN_LABEL_EMOJI || '🧐';
 //   WA_LIMPIAR_HUMANO=contar  -> solo dice cuántos chats la tienen, no toca nada
 //   WA_LIMPIAR_HUMANO=si      -> se la saca de verdad
 const LIMPIAR_HUMANO = (process.env.WA_LIMPIAR_HUMANO || '').trim().toLowerCase();
+// Sacar la etiqueta HUMANO cuando contesta un asesor. Activo por defecto;
+// WA_DESMARCAR_ATENDIDO=no lo apaga sin tocar código.
+const DESMARCAR_ATENDIDO = (process.env.WA_DESMARCAR_ATENDIDO || 'si').trim().toLowerCase() !== 'no';
 const HUMAN_TAKEOVER_HOURS = Number(process.env.WA_HUMAN_TAKEOVER_HOURS || 3);
 // Cuando el asesor toma un chat, el bot se calla por HUMAN_TAKEOVER_HOURS para
 // no escribirle encima. El problema: si después el asesor se olvida, el cliente
@@ -398,8 +401,56 @@ function recordHistory(from, role, text) {
 
 // Saca de todos los chats cualquier etiqueta "HUMANO" que NO sea la elegida.
 // Corre una sola vez al arranque y solo si WA_LIMPIAR_HUMANO está seteada.
+// Vacía la lista HUMANO de una: le saca la etiqueta ACTIVA a todos los chats
+// que la tengan. Es el borrón y cuenta nueva para los chats que se acumularon
+// mientras el bot ponía la etiqueta y nadie la sacaba. De ahí en adelante la
+// lista se mantiene sola (ver desmarcarChatAtendido).
+//   WA_LIMPIAR_HUMANO=contar-todo -> solo dice cuántos y quiénes son
+//   WA_LIMPIAR_HUMANO=todo        -> los desmarca de verdad
+async function vaciarListaHumano(client, soloContar) {
+  if (!humanLabelId) {
+    console.log('🧹 lista HUMANO: no se pudo resolver la etiqueta, no se toca nada.');
+    return;
+  }
+  if (typeof client.getChatsByLabelId !== 'function') {
+    console.log('🧹 lista HUMANO: esta versión de whatsapp-web.js no permite consultar por etiqueta.');
+    console.log('   Alternativa SIN código: en el CELULAR → abrí la lista HUMANO y desmarcá los chats ya resueltos.');
+    return;
+  }
+  let chats = [];
+  try {
+    chats = (await client.getChatsByLabelId(humanLabelId)) || [];
+  } catch (e) {
+    console.error('🧹 lista HUMANO: la consulta por etiqueta falló:', e.message);
+    return;
+  }
+  console.log(`🧹 lista HUMANO: ${chats.length} chat(s) marcados hoy.`);
+  if (soloContar) {
+    for (const c of chats) console.log(`   · ${String(c?.name || c?.id?._serialized || '?').slice(0, 40)}`);
+    console.log('   No se tocó nada: poné WA_LIMPIAR_HUMANO=todo en el .env y reiniciá para vaciarla.');
+    return;
+  }
+  let limpiados = 0;
+  for (const chat of chats) {
+    try {
+      const ids = ((await chat.getLabels()) || []).map(l => String(l.id));
+      const quedan = ids.filter(id => id !== String(humanLabelId));
+      if (quedan.length === ids.length) continue;
+      await chat.changeLabels(quedan);
+      labeledChats.delete(chat?.id?._serialized);
+      limpiados++;
+    } catch (e) {
+      console.error(`🧹 lista HUMANO: no se pudo desmarcar ${chat?.id?._serialized}:`, e.message);
+    }
+  }
+  console.log(`🧹 lista HUMANO vaciada: ${limpiados} chat(s) desmarcado(s). Ya podés sacar WA_LIMPIAR_HUMANO del .env.`);
+}
+
 async function limpiarHumanoViejo(client) {
   if (!LIMPIAR_HUMANO) return;
+  if (LIMPIAR_HUMANO === 'todo' || LIMPIAR_HUMANO === 'contar-todo') {
+    return vaciarListaHumano(client, LIMPIAR_HUMANO === 'contar-todo');
+  }
   if (!humanLabelId) {
     console.log('🧹 limpieza: no se pudo resolver la etiqueta HUMANO, no se limpia nada.');
     return;
@@ -594,6 +645,41 @@ async function markChatForHuman(client, chatId) {
     console.log(`[${chatId}] 🟡 etiqueta HUMANO aplicada (se conservan ${existingIds.length} existentes)`);
   } catch (e) {
     console.error(`[${chatId}] no se pudo etiquetar:`, e.message);
+  }
+}
+
+// La etiqueta HUMANO significa "este chat necesita una persona". En cuanto una
+// persona contesta, ya no la necesita: se la sacamos para que la lista muestre
+// solo lo que falta atender de verdad.
+//
+// Antes el bot se la APLICABA también cuando respondía el asesor, así que los
+// chats se acumulaban ahí para siempre y la lista dejaba de servir (26-ago-2026:
+// 8 chats marcados, todos ya cerrados con "¿Te puedo ayudar en algo más?").
+//
+// Solo saca la etiqueta HUMANO: las demás del chat quedan intactas.
+// Se puede desactivar con WA_DESMARCAR_ATENDIDO=no en el .env.
+async function desmarcarChatAtendido(client, chatId) {
+  if (!DESMARCAR_ATENDIDO) return;
+  if (!humanLabelId) return;
+  if (chatId.endsWith('@newsletter') || chatId.endsWith('@broadcast')) return;
+  let chat = null;
+  try { chat = await client.getChatById(chatId); } catch { return; }  // típico de @lid
+  if (typeof chat.changeLabels !== 'function') return;
+  try {
+    let existingIds = [];
+    try {
+      const existing = await chat.getLabels();
+      existingIds = (existing || []).map(l => String(l.id));
+    } catch { return; }
+    const humanIdStr = String(humanLabelId);
+    if (!existingIds.includes(humanIdStr)) return;
+    const quedan = existingIds.filter(id => id !== humanIdStr);
+    await chat.changeLabels(quedan);
+    // Sin esto el chat nunca volvería a marcarse si más adelante pide un humano.
+    labeledChats.delete(chatId);
+    console.log(`[${chatId}] ⚪ etiqueta HUMANO sacada: lo atendió un asesor (quedan ${quedan.length} etiqueta(s))`);
+  } catch (e) {
+    console.error(`[${chatId}] no se pudo sacar la etiqueta:`, e.message);
   }
 }
 
@@ -934,7 +1020,8 @@ async function handleOutgoing(client, msg) {
     lastActivityAt.set(chatId, Date.now());
     productFollowup.delete(chatId);
     markAsesorActive(chatId);
-    await markChatForHuman(client, chatId);
+    // Lo atendió una persona: la etiqueta "necesita humano" ya no corresponde.
+    await desmarcarChatAtendido(client, chatId);
 
     if (isClosingMessage(body)) {
       marcarCierre(chatId, 'asesor');
@@ -987,6 +1074,9 @@ client.on('ready', async () => {
   console.log(SUPERVISOR_NUMBER
     ? `🔔 Avisos al supervisor (+${SUPERVISOR_NUMBER}) · también si el cliente escribe y el asesor no contesta hace ${AVISO_SIN_ATENDER_MIN}min`
     : `⚠️ SIN avisos al supervisor: falta WA_SUPERVISOR_NUMBER en el .env — si un cliente escribe mientras el bot está en silencio, nadie se entera`);
+  console.log(DESMARCAR_ATENDIDO
+    ? '⚪ La etiqueta HUMANO se saca sola en cuanto contesta un asesor'
+    : '⚠️ La etiqueta HUMANO NO se saca sola (WA_DESMARCAR_ATENDIDO=no): la lista se va a ir llenando');
 });
 
 client.on('disconnected', reason => {
