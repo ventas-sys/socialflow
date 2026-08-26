@@ -1,5 +1,6 @@
 import https from 'https';
 import { keyTexto } from '../lib/gemini-keys.js';
+import { modeloTexto } from '../lib/gemini-texto.js';
 
 function makeRequest(url, body) {
           return new Promise((resolve, reject) => {
@@ -53,7 +54,7 @@ export default async function handler(req, res) {
   };
 
   const platNames = { ig: 'Instagram', fb: 'Facebook', wa: 'WhatsApp', li: 'LinkedIn', tw: 'X/Twitter', tk: 'TikTok', yt: 'YouTube Shorts' };
-          const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GK}`;
+          const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${modeloTexto()}:generateContent?key=${GK}`;
 
   try {
               let photoDesc = '';

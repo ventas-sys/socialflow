@@ -1,6 +1,7 @@
 import https from 'https';
 import { LOGO_B64, LOGO_MIME } from '../lib/brand-logo.js';
 import { keyMedia } from '../lib/gemini-keys.js';
+import { modeloTexto } from '../lib/gemini-texto.js';
 
 // Genera el CARTEL PUBLICITARIO del producto.
 //
@@ -231,7 +232,7 @@ function geminiBrief(GK, { productName, price, photoDesc, mlDesc, photoB64, phot
     });
     const opts = {
       hostname: 'generativelanguage.googleapis.com',
-      path: '/v1beta/models/gemini-2.5-flash:generateContent?key=' + GK,
+      path: `/v1beta/models/${modeloTexto()}:generateContent?key=` + GK,
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
     };

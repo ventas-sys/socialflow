@@ -3,6 +3,7 @@ import nodemailer from 'nodemailer';
 import { processMessage } from '../../lib/wa/brain.js';
 import { loadRules, menuOptionsAt } from '../../lib/wa/rules.js';
 import { keyTexto } from '../../lib/gemini-keys.js';
+import { modeloTexto } from '../../lib/gemini-texto.js';
 
 let lastBotHeartbeat = null;
 
@@ -11,7 +12,7 @@ function transcribeAudio(audioB64, mime) {
   return new Promise((resolve, reject) => {
     const key = keyTexto();
     if (!key) return resolve('');
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modeloTexto()}:generateContent?key=${key}`;
     const body = JSON.stringify({
       contents: [{
         parts: [
