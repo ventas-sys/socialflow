@@ -108,6 +108,20 @@
   background: #dc2626;
 }
 
+/* Banner de instalación como app (solo aparece si Chrome la ofrece) */
+.install-banner {
+  display: block;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  background: linear-gradient(135deg, #2563eb, #1e40af);
+  color: white;
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+
 /* Navigation */
 .app-nav {
   background: white;

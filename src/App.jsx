@@ -61,6 +61,28 @@ export default function App() {
   // Permisos del usuario logueado (documento members/{email}). El master ve
   // y modifica todo; los ayudantes solo las solapas tildadas en 👥 Usuarios.
   const [myPerms, setMyPerms] = useState(null)
+  const [installEvt, setInstallEvt] = useState(null) // beforeinstallprompt para "📲 Instalar app"
+
+  // Instalación como app (ícono en pantalla principal): Chrome dispara
+  // beforeinstallprompt solo si aún no está instalada; lo guardamos para
+  // ofrecer el botón. En modo standalone (ya instalada) nunca llega.
+  useEffect(() => {
+    const onPrompt = (e) => { e.preventDefault(); setInstallEvt(e) }
+    const onInstalled = () => setInstallEvt(null)
+    window.addEventListener('beforeinstallprompt', onPrompt)
+    window.addEventListener('appinstalled', onInstalled)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onPrompt)
+      window.removeEventListener('appinstalled', onInstalled)
+    }
+  }, [])
+
+  const promptInstall = async () => {
+    if (!installEvt) return
+    installEvt.prompt()
+    try { await installEvt.userChoice } catch {}
+    setInstallEvt(null)
+  }
   const canSee = (tab) => isAdmin || (myPerms?.tabs?.[tab] !== false)
   const canEdit = isAdmin || (myPerms?.canEdit !== false)
 
@@ -871,6 +893,12 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {installEvt && (
+        <button className="install-banner" onClick={promptInstall}>
+          📲 Instalar la app en este teléfono (ícono en la pantalla principal)
+        </button>
+      )}
 
       <nav className="app-nav">
         {/* La solapa ML (conexión de cuentas, cron) es SOLO del master */}

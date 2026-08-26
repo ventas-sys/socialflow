@@ -25,20 +25,21 @@ export default defineConfig({
       registerType: 'autoUpdate',
       manifest: {
         name: 'Stock & ML Inventory',
-        short_name: 'Stock Inventory',
-        description: 'Gestión de inventario con escaneo QR',
+        short_name: 'Stock',
+        description: 'Gestión de inventario y envíos - Distribuidora Universo',
+        lang: 'es',
         theme_color: '#2563eb',
-        background_color: '#ffffff',
+        background_color: '#f3f4f6',
         display: 'standalone',
+        orientation: 'portrait',
         scope: '/',
         start_url: '/',
+        // Chrome exige PNG reales de 192 y 512 para ofrecer "Instalar app";
+        // con el SVG data-URI anterior nunca aparecía la opción
         icons: [
-          {
-            src: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect fill="%232563eb" width="192" height="192"/><text x="96" y="110" font-size="80" font-weight="bold" text-anchor="middle" fill="white" font-family="Arial">📦</text></svg>',
-            sizes: '192x192',
-            type: 'image/svg+xml',
-            purpose: 'any'
-          }
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
         ]
       },
       workbox: {
