@@ -6,13 +6,33 @@ import {
 } from 'firebase/firestore';
 import { httpRequest } from '../_http.js';
 
-// Cron diario (18hs ART / 21:00 UTC): descuenta stock de las ventas del día de
-// ambas cuentas de MercadoLibre, EXCLUYENDO la bodega (Full). Usa el SDK cliente
+// Cron dos veces por día (13 y 18hs ART): descuenta stock de las ventas de
+// ambas cuentas de MercadoLibre, EXCLUYENDO las ventas Full (bodega de ML). Usa el SDK cliente
 // de Firebase autenticado con una cuenta admin dedicada (CRON_EMAIL/CRON_PASSWORD),
 // para no depender de una service account key (bloqueada por política de la org).
 
 const ORG_ID = 'distribuidora-universo';
-const isDescontable = (t) => t !== 'fulfillment';
+
+// QUE SE DESCUENTA Y QUE NO
+// - FLEX (self_service) de cualquiera de las dos cuentas: SI, sale del deposito.
+// - Correo / colecta (drop_off, xd_drop_off, cross_docking) de ambas: SI.
+// - "Acordar con el comprador" (sin envio de ML): SI, tambien sale del deposito.
+// - FULL (fulfillment): NO, esa mercaderia ya esta en la bodega de ML y se
+//   descuenta cuando se envia a bodega, no cuando se vende.
+// Si ML no nos dice el tipo de envio NO se descuenta: preferimos dejarla para la
+// corrida siguiente antes que descontar por las dudas una venta de Full.
+const TIPO_FULL = 'fulfillment';
+const clasificar = (o) => {
+  if (o.sinEnvio) return 'sin_envio';       // acordar con el comprador -> descuenta
+  if (!o.logisticType) return 'desconocido'; // no se pudo leer -> NO descuenta
+  if (o.logisticType === TIPO_FULL) return 'full';
+  if (o.logisticType === 'self_service') return 'flex';
+  return 'correo';
+};
+const descuenta = (c) => c === 'flex' || c === 'correo' || c === 'sin_envio';
+// Solo ventas cobradas: canceladas/invalidas nunca; las que estan procesando el
+// pago quedan para la corrida siguiente (siguen dentro de la ventana de 48hs).
+const PAGADAS = new Set(['paid', 'partially_paid']);
 
 const firebaseConfig = {
   apiKey: 'AIzaSyDnIYGZF37XaTetiG3a_0jrk4DvpKlF8JY',
@@ -57,18 +77,27 @@ async function fetchOrders(token, fromISO) {
     offset += 50;
   }
   // logistic_type de cada envío en PARALELO (lotes de 10): secuencial con
-  // ~300 ventas/día superaba el tiempo máximo de la función y el cron moría
+  // ~300 ventas/día superaba el tiempo máximo de la función y el cron moría.
+  // Se reintenta una vez el que falla: un tipo de envío sin leer significa una
+  // venta que no se descuenta, así que conviene insistir antes de saltearla.
   const shipCache = new Map();
   const shipIds = [...new Set(raw.map(o => o.shipping?.id).filter(Boolean))];
   const CONC = 10;
+  const pedirEnvio = async (sid) => {
+    try {
+      const s = await httpRequest('GET', `https://api.mercadolibre.com/shipments/${sid}`, auth);
+      return s.body?.logistic_type || s.body?.logistic?.type || null;
+    } catch { return null; }
+  };
   for (let i = 0; i < shipIds.length; i += CONC) {
     await Promise.all(shipIds.slice(i, i + CONC).map(async (sid) => {
-      try {
-        const s = await httpRequest('GET', `https://api.mercadolibre.com/shipments/${sid}`, auth);
-        shipCache.set(sid, s.body?.logistic_type || null);
-      } catch {
-        shipCache.set(sid, null);
-      }
+      shipCache.set(sid, await pedirEnvio(sid));
+    }));
+  }
+  const fallaron = shipIds.filter(sid => !shipCache.get(sid));
+  for (let i = 0; i < fallaron.length; i += CONC) {
+    await Promise.all(fallaron.slice(i, i + CONC).map(async (sid) => {
+      shipCache.set(sid, await pedirEnvio(sid));
     }));
   }
   const out = [];
@@ -79,7 +108,13 @@ async function fetchOrders(token, fromISO) {
       quantity: it.quantity || 0,
     }));
     const sid = o.shipping?.id;
-    out.push({ id: String(o.id), logisticType: (sid && shipCache.get(sid)) || null, items });
+    out.push({
+      id: String(o.id),
+      status: o.status || '',
+      sinEnvio: !sid,
+      logisticType: (sid && shipCache.get(sid)) || null,
+      items,
+    });
   }
   return out;
 }
@@ -130,10 +165,18 @@ export default async function handler(req, res) {
       const deltas = new Map();
       const names = new Map();
       const processed = [];
-      let skippedFull = 0;
-      // Chequear en PARALELO qué órdenes ya fueron procesadas
-      const candidates = orders.filter(o => isDescontable(o.logisticType));
-      skippedFull = orders.length - candidates.length;
+      // Clasificar cada venta por tipo de envío y quedarse solo con las que
+      // descuentan (flex + correo/colecta + sin envío) y están cobradas
+      const conteo = { flex: 0, correo: 0, sin_envio: 0, full: 0, desconocido: 0, canceladas: 0, sinCobrar: 0 };
+      const candidates = [];
+      for (const o of orders) {
+        if (o.status === 'cancelled' || o.status === 'invalid') { conteo.canceladas++; continue; }
+        const clase = clasificar(o);
+        conteo[clase]++;
+        if (!descuenta(clase)) continue;
+        if (!PAGADAS.has(o.status)) { conteo.sinCobrar++; continue; }
+        candidates.push(o);
+      }
       const seenSet = new Set();
       for (let i = 0; i < candidates.length; i += 25) {
         await Promise.all(candidates.slice(i, i + 25).map(async (o) => {
@@ -167,7 +210,7 @@ export default async function handler(req, res) {
             productId: pid, productName: names.get(pid) || '', type: 'salida',
             quantity: Math.abs(deltas.get(pid)), reason: `Venta ML ${key.toUpperCase()} (auto)`,
             reference: 'ML', userId: ORG_ID, date: Timestamp.now(),
-            userName: 'Automático 18hs', userEmail: 'cron',
+            userName: 'Automático (13 y 18hs)', userEmail: 'cron',
           });
         });
         await batch.commit();
@@ -184,7 +227,12 @@ export default async function handler(req, res) {
       await setDoc(doc(db, 'ml_accounts', key), { lastSyncAt: Timestamp.now() }, { merge: true });
       const unidades = ids.reduce((s, pid) => s + Math.abs(deltas.get(pid)), 0);
       summary[key] = {
-        enVentana48hs: orders.length, salteadasFull: skippedFull,
+        enVentana48hs: orders.length,
+        descuentan: { flex: conteo.flex, correoColecta: conteo.correo, sinEnvioML: conteo.sin_envio },
+        noDescuentan: {
+          full: conteo.full, canceladas: conteo.canceladas,
+          sinCobrar: conteo.sinCobrar, tipoDeEnvioDesconocido: conteo.desconocido,
+        },
         yaProcesadas: seenSet.size, ordenesNuevas: processed.length,
         productos: ids.length, unidadesDescontadas: unidades,
       };

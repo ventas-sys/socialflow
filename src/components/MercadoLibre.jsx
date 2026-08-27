@@ -213,16 +213,26 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
   const [cronMsg, setCronMsg] = useState('')
   const [cronBusy, setCronBusy] = useState(false)
   const runCronNow = async () => {
-    if (!window.confirm('Esto descuenta ahora las ventas de hoy de las 2 cuentas (menos bodega Full). ¿Seguir?')) return
+    if (!window.confirm('Descuenta las ventas Flex y de Correo/Colecta de las 2 cuentas (las ventas Full NO se descuentan). ¿Seguir?')) return
     setCronBusy(true); setCronMsg('')
     try {
       const r = await fetch('/api/ml/cron', { method: 'POST' }).then(x => x.json())
       if (!r.ok) throw new Error(r.error || 'Error')
-      const parts = Object.entries(r.summary || {}).map(([k, v]) =>
-        typeof v === 'string' ? `${k.toUpperCase()}: ${v}` :
-        `${k.toUpperCase()}: ${v.enVentana48hs} ventas en 48hs → ${v.ordenesNuevas} nuevas descontadas (${v.unidadesDescontadas} unidades de ${v.productos} productos)` +
-        `${v.salteadasFull ? `, ${v.salteadasFull} de Full salteadas` : ''}${v.yaProcesadas ? `, ${v.yaProcesadas} ya procesadas` : ''}`
-      )
+      const parts = Object.entries(r.summary || {}).map(([k, v]) => {
+        if (typeof v === 'string') return `${k.toUpperCase()}: ${v}`
+        const d = v.descuentan || {}, n = v.noDescuentan || {}
+        const noDesc = [
+          n.full ? `${n.full} Full` : '',
+          n.canceladas ? `${n.canceladas} canceladas` : '',
+          n.sinCobrar ? `${n.sinCobrar} sin cobrar` : '',
+          n.tipoDeEnvioDesconocido ? `${n.tipoDeEnvioDesconocido} sin tipo de envío` : '',
+        ].filter(Boolean).join(', ')
+        return `${k.toUpperCase()}: ${v.enVentana48hs} ventas en 48hs · descuentan ${d.flex || 0} flex + ${d.correoColecta || 0} correo` +
+          `${d.sinEnvioML ? ` + ${d.sinEnvioML} sin envío ML` : ''}` +
+          ` → ${v.ordenesNuevas} nuevas (${v.unidadesDescontadas} unidades de ${v.productos} productos)` +
+          `${v.yaProcesadas ? `, ${v.yaProcesadas} ya procesadas` : ''}` +
+          `${noDesc ? ` · NO descuentan: ${noDesc}` : ''}`
+      })
       setCronMsg('✅ ' + parts.join(' · '))
     } catch (err) {
       setCronMsg('❌ ' + err.message)
