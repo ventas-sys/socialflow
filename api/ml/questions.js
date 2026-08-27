@@ -21,6 +21,8 @@ import { cors } from '../_http.js';
 import { loadAccounts, findAccountByUser, findAccountByLabel, otherAccount, NEGOCIO } from '../../lib/ml/qa-config.js';
 import { getAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, getRecentQuestions, searchSellerItem, postAnswer, itemContext, getMe, getOrders, getItemsBulk } from '../../lib/ml/ml-api.js';
 import { construirReporte } from '../../lib/ml/conversion.js';
+import { filaMedidas, ordenarFilas, medidasCsv } from '../../lib/ml/medidas.js';
+import { searchMyItems, getItemsFichaBulk } from '../../lib/ml/ml-api.js';
 import { resumenKeys } from '../../lib/gemini-keys.js';
 import { modeloTexto } from '../../lib/gemini-texto.js';
 import { getShipment, getOrder, sendPostSaleMessage, getUnreadMessages } from '../../lib/ml/ml-api.js';
@@ -433,6 +435,44 @@ export default async function handler(req, res) {
 
     // CONTROL DE CONVERSIÓN: qué preguntas terminaron en venta, por SKU, y qué le
     // falta a cada publicación (fotos, medidas, color, retiro, precio por mayor...).
+    // MEDIDAS POR SKU: recorre las publicaciones de una cuenta y baja un CSV
+    // (se abre directo en Excel) con las medidas de la ficha técnica de cada
+    // una. Las que NO tienen medidas salen primero: ésas son las que generan
+    // preguntas de "¿cuánto mide?" sin conversión. Solo lectura.
+    if (action === 'medidas') {
+      if (!accounts.length) return res.status(400).json({ error: 'No hay cuentas configuradas (ML_ACCOUNTS).' });
+      const label = (req.query?.account || 'full').toString();
+      const acc = findAccountByLabel(accounts, label);
+      if (!acc) return res.status(400).json({ error: 'Cuenta desconocida: ' + label });
+      const token = await tokenOf(acc);
+
+      // IDs de todas las publicaciones (el search pagina de a 100, tope 1000
+      // por offset clásico de ML; con más de 1000 lo decimos en el reporte).
+      const ids = [];
+      let total = 0;
+      for (let offset = 0; offset < 1000; offset += 100) {
+        const r = await searchMyItems(token, acc.user_id, { limit: 100, offset });
+        total = r?.paging?.total ?? total;
+        const lote = r?.results || [];
+        ids.push(...lote);
+        if (!lote.length || ids.length >= total) break;
+      }
+
+      const items = await getItemsFichaBulk(token, ids);
+      const filas = ordenarFilas([...items.values()].map(filaMedidas));
+      const sinMedidas = filas.filter(f => f.tiene_medidas === 'NO').length;
+      const notas = [];
+      if (total > ids.length) notas.push(`OJO: la cuenta tiene ${total} publicaciones y este reporte cubre las primeras ${ids.length}.`);
+
+      if ((req.query?.formato || '').toString() === 'json') {
+        return res.status(200).json({ ok: true, cuenta: acc.label, publicaciones: filas.length, sin_medidas: sinMedidas, notas, filas });
+      }
+      const hoy = new Date().toISOString().slice(0, 10);
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="medidas-${acc.label}-${hoy}.csv"`);
+      return res.status(200).send(medidasCsv(filas, notas));
+    }
+
     if (action === 'conversion') {
       if (!accounts.length) return res.status(400).json({ error: 'No hay cuentas configuradas (ML_ACCOUNTS).' });
       const dias = Math.min(Math.max(Number(req.query?.dias || req.body?.dias) || 30, 1), 180);

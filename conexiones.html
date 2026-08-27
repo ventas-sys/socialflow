@@ -113,6 +113,11 @@ input:focus{outline:none;border-color:rgba(0,200,100,0.5);}
         </div>
         <div style="font-size:10px;color:#888;margin-top:4px;">Cruza las preguntas de los últimos 30 días con las VENTAS: por cada SKU dice si convirtió o no, qué le preguntaron (medidas, color, por mayor, retiro...) y qué corregir. Baja 2 archivos para Excel.</div>
         <div class="btn-row" style="margin-top:10px;">
+          <button class="btn" style="background:rgba(255,159,67,0.12);border-color:rgba(255,159,67,0.4);color:#ff9f43;" onclick="mlDownloadMedidas('full')">📏 Medidas por SKU — FULL (Excel)</button>
+          <button class="btn" style="background:rgba(255,159,67,0.08);border-color:rgba(255,159,67,0.25);color:#ffbe76;" onclick="mlDownloadMedidas('local')">📏 Medidas — LOCAL</button>
+        </div>
+        <div style="font-size:10px;color:#888;margin-top:4px;">Baja un Excel con las medidas de la ficha técnica de TODAS las publicaciones. Las que no tienen medidas salen primero: ésas son las que hay que completar.</div>
+        <div class="btn-row" style="margin-top:10px;">
           <button class="btn" style="background:rgba(255,176,96,0.15);border-color:rgba(255,176,96,0.45);color:#ffb060;font-weight:700;" onclick="mlAgentDiag()">🩺 ¿Por qué no responde?</button>
           <button class="btn" style="background:linear-gradient(135deg,#c6de00,#7d8c00);color:#111;border:none;font-weight:700;" onclick="mlAgentSweep()">🚀 Responder pendientes</button>
         </div>
@@ -654,6 +659,11 @@ async function mlPostventa(){
   l.push('');
   l.push('ℹ️ El mensaje NO pide calificación positiva, no ofrece plata ni premios y no manda links (todo eso lo prohíbe ML). Las redes van en el folleto con QR dentro del paquete.');
   out.className='result ok'; out.textContent = l.join('\n');
+}
+
+// 📏 Medidas por SKU: el server arma el CSV, acá solo se abre la descarga.
+function mlDownloadMedidas(cuenta){
+  window.open('/api/ml/questions?action=medidas&account='+encodeURIComponent(cuenta||'full'), '_blank');
 }
 
 // 📈 Control de conversión: preguntas vs ventas, por SKU, con qué corregir.
