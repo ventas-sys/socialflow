@@ -18,6 +18,10 @@
 //
 // Config: variable de entorno ML_ACCOUNTS (JSON). Ver lib/ml/qa-config.js.
 import { cors } from '../_http.js';
+
+// El reporte de medidas recorre TODO el catálogo (2000+ publicaciones); con los
+// 10s por defecto del plan Hobby se cortaba en la mitad. Igual que api/image.js.
+export const config = { maxDuration: 60 };
 import { loadAccounts, findAccountByUser, findAccountByLabel, otherAccount, NEGOCIO } from '../../lib/ml/qa-config.js';
 import { getAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, getRecentQuestions, searchSellerItem, postAnswer, itemContext, getMe, getOrders, getItemsBulk } from '../../lib/ml/ml-api.js';
 import { construirReporte } from '../../lib/ml/conversion.js';
@@ -446,16 +450,31 @@ export default async function handler(req, res) {
       if (!acc) return res.status(400).json({ error: 'Cuenta desconocida: ' + label });
       const token = await tokenOf(acc);
 
-      // IDs de todas las publicaciones (el search pagina de a 100, tope 1000
-      // por offset clásico de ML; con más de 1000 lo decimos en el reporte).
+      // IDs de TODAS las publicaciones. El offset clásico de ML corta en 1000
+      // (la cuenta FULL tiene 2078), así que se usa search_type=scan, que
+      // recorre el catálogo completo con un scroll_id. Si el scan fallara,
+      // se cae al offset clásico y el reporte avisa que quedó incompleto.
       const ids = [];
       let total = 0;
-      for (let offset = 0; offset < 1000; offset += 100) {
-        const r = await searchMyItems(token, acc.user_id, { limit: 100, offset });
+      let scrollId = null;
+      for (let vuelta = 0; vuelta < 60; vuelta++) {
+        const extra = 'search_type=scan' + (scrollId ? `&scroll_id=${encodeURIComponent(scrollId)}` : '');
+        const r = await searchMyItems(token, acc.user_id, { limit: 100, extra });
         total = r?.paging?.total ?? total;
+        scrollId = r?.scroll_id || scrollId;
         const lote = r?.results || [];
+        if (!lote.length) break;
         ids.push(...lote);
-        if (!lote.length || ids.length >= total) break;
+        if (total && ids.length >= total) break;
+      }
+      if (!ids.length) {
+        for (let offset = 0; offset < 1000; offset += 100) {
+          const r = await searchMyItems(token, acc.user_id, { limit: 100, offset });
+          total = r?.paging?.total ?? total;
+          const lote = r?.results || [];
+          ids.push(...lote);
+          if (!lote.length || ids.length >= total) break;
+        }
       }
 
       const items = await getItemsFichaBulk(token, ids);
