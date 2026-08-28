@@ -620,20 +620,29 @@ export default function Inventory({
     try {
       const buffer = await file.arrayBuffer()
       const wb = XLSX.read(buffer)
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' })
-      const hi = rows.findIndex(r => r.some(c => normalize(c) === 'codigo') && r.some(c => normalize(c) === 'sku'))
-      if (hi === -1) throw new Error('No encontré las columnas CODIGO y SKU (¿es el Reporte de Planificación de ML?)')
+      // La hoja con los datos es la que tiene la columna SKU, esté donde esté
+      // (así una hoja de instrucciones adelante no rompe la importación)
+      let rows = [], hi = -1
+      for (const nombre of wb.SheetNames) {
+        const r = XLSX.utils.sheet_to_json(wb.Sheets[nombre], { header: 1, defval: '' })
+        const i = r.findIndex(f => f.some(c => normalize(c) === 'sku'))
+        if (i !== -1) { rows = r; hi = i; break }
+      }
+      // Alcanza con la columna SKU: CODIGO, MEDIDAS y UBICACION son opcionales
+      if (hi === -1) throw new Error('No encontré la columna SKU (¿es el Reporte de Planificación de ML o la plantilla de medidas?)')
       const head = rows[hi].map(c => normalize(c))
       const iCod = head.indexOf('codigo')
       const iSku = head.indexOf('sku')
       const iTam = head.findIndex(c => ['tamano', 'tamaño', 'medidas', 'dimensiones'].includes(c))
+      const iUbi = head.findIndex(c => ['ubicacion', 'ubicación', 'deposito', 'lugar'].includes(c))
       const prodPatches = new Map()
       const comboPatches = new Map()
       const notFound = new Set()
-      let nBar = 0
+      let nBar = 0, nUbi = 0, nMed = 0, packMulti = 0
       rows.slice(hi + 1).forEach(r => {
-        const barcode = String(r[iCod] || '').trim()
+        const barcode = iCod >= 0 ? String(r[iCod] || '').trim() : ''
         const dims = iTam >= 0 ? String(r[iTam] || '').trim() : ''
+        const ubic = iUbi >= 0 ? String(r[iUbi] || '').trim() : ''
         const skus = String(r[iSku] || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean)
         skus.forEach(ref => {
           const combo = findComboByRef(ref)
@@ -650,15 +659,33 @@ export default function Inventory({
             nBar++
           }
           if (Object.keys(patch).length) map.set(target.id, patch)
-          // Medidas → SIEMPRE al PRODUCTO: directo si es producto, o a los
-          // productos base si el SKU es un combo
+          const baseIds = combo
+            ? (combo.items || []).map(ci => ci.productId).filter(pid => products.some(pp => pp.id === pid))
+            : [target.id]
+
+          // Medidas → SIEMPRE al PRODUCTO (son POR UNIDAD; Empaquetado las
+          // multiplica por la cantidad). Por eso la medida del paquete solo
+          // sirve si ese SKU es UNA unidad de UN producto: la caja de un pack
+          // de 10 no es la medida de una unidad.
           if (dims) {
-            const baseIds = combo
-              ? (combo.items || []).map(ci => ci.productId).filter(pid => products.some(pp => pp.id === pid))
-              : [target.id]
+            const items = combo?.items || []
+            const unaUnidad = !combo || (items.length === 1 && (items[0].quantity || 1) === 1)
+            if (unaUnidad) {
+              baseIds.forEach(pid => {
+                const pPatch = prodPatches.get(pid) || {}
+                pPatch.dims = dims
+                prodPatches.set(pid, pPatch)
+                nMed++
+              })
+            } else packMulti++
+          }
+
+          // Ubicación → a los productos base: donde está el combo está el
+          // producto que lo compone
+          if (ubic) {
             baseIds.forEach(pid => {
               const pPatch = prodPatches.get(pid) || {}
-              pPatch.dims = dims
+              if (!pPatch.location) { pPatch.location = ubic; nUbi++ }
               prodPatches.set(pid, pPatch)
             })
           }
@@ -672,9 +699,14 @@ export default function Inventory({
         products: [...prodPatches].map(([id, patch]) => ({ id, patch })),
         combos: [...comboPatches].map(([id, patch]) => ({ id, patch })),
       })
+      const detalle = [
+        nMed ? `${nMed} medidas` : '',
+        nUbi ? `${nUbi} ubicaciones` : '',
+        nBar ? `${nBar} códigos de barras` : '',
+      ].filter(Boolean).join(', ')
       setImportResult(
-        `✅ Medidas y códigos aplicados: ${comboPatches.size} combos y ${prodPatches.size} productos ` +
-        `(${nBar} códigos de barras nuevos).` +
+        `✅ Aplicado a ${prodPatches.size} productos y ${comboPatches.size} combos${detalle ? ': ' + detalle : ''}.` +
+        (packMulti ? ` ⚠️ ${packMulti} medidas NO se usaron porque el SKU es un pack de varias unidades (la caja del pack no es la medida de una unidad).` : '') +
         (notFound.size ? ` ⚠️ ${notFound.size} SKU no encontrados (ej: ${[...notFound].slice(0, 6).join(', ')}…)` : '')
       )
     } catch (err) {
