@@ -31,7 +31,7 @@ export default function LazyThumb({ id, hasPhotos, kind, loadPhotos, className =
     }
   }, [id, hasPhotos, loadPhotos])
 
-  const placeholder = kind === 'combo' ? '🎁' : '📦'
+  const placeholder = kind === 'combo' ? '🧩' : '🏷️'
 
   if (src) {
     return <img ref={ref} className={className} src={src} alt="" />

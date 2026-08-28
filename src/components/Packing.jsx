@@ -278,12 +278,12 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
                     <LazyThumb id={l.photoId} hasPhotos kind={l.photoKind} loadPhotos={loadPhotos} className="pk-photo" />
                   </span>
                 ) : (
-                  <div className="pk-photo pk-photo-none">📦</div>
+                  <div className="pk-photo pk-photo-none">🏷️</div>
                 )}
                 <div className="pk-line-info">
                   <div className="pk-line-name">{l.name}</div>
                   {l.location && <div className="pk-line-loc">📍 {l.location}</div>}
-                  {l.comboName && <div className="pk-line-combo">🎁 {l.comboName}</div>}
+                  {l.comboName && <div className="pk-line-combo">🧩 {l.comboName}</div>}
                   {l.missing && <div className="pk-line-warn">No está en el sistema — verificá con la etiqueta</div>}
                 </div>
                 <div className="pk-line-qty">×{l.qty}</div>

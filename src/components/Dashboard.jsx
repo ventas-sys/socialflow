@@ -126,7 +126,7 @@ export default function Dashboard({
     <div className="dashboard">
       <div className="stats-grid">
         <div className="stat-card">
-          <div className="stat-icon">📦</div>
+          <div className="stat-icon">🏷️</div>
           <div className="stat-content">
             <div className="stat-label">Productos</div>
             <div className="stat-value">{stats.totalProducts}</div>

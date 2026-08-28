@@ -519,7 +519,7 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
     <div className="combos-container">
       <div className="combos-header">
         <div>
-          <h1>🎁 Combos</h1>
+          <h1>🧩 Combos</h1>
           <p>Armá paquetes de varios productos. Al vender un combo se descuenta el stock de cada producto que lo compone.</p>
         </div>
         <div className="header-buttons">
@@ -763,7 +763,7 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
 
       {combos.length === 0 ? (
         <div className="empty-state">
-          <p>🎁</p>
+          <p>🧩</p>
           <p>No hay combos todavía. Creá uno combinando productos del inventario.</p>
         </div>
       ) : (
@@ -782,7 +782,7 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
                       className="combo-photo"
                     />
                     <div>
-                      <div className="combo-name">🎁 {combo.name}</div>
+                      <div className="combo-name">🧩 {combo.name}</div>
                       <div className="combo-meta">
                         {combo.code && <span>SKU: {combo.code} · </span>}
                         {combo.barcode && (

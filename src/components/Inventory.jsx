@@ -1267,13 +1267,13 @@ export default function Inventory({
           className={`chip-btn ${kindFilter === 'products' ? 'active' : ''}`}
           onClick={() => setKindFilter('products')}
         >
-          📦 Productos ({products.length})
+          🏷️ Productos ({products.length})
         </button>
         <button
           className={`chip-btn ${kindFilter === 'combos' ? 'active' : ''}`}
           onClick={() => setKindFilter('combos')}
         >
-          🎁 Combos ({combos.length})
+          🧩 Combos ({combos.length})
         </button>
       </div>
 
@@ -1317,7 +1317,7 @@ export default function Inventory({
               <div className="found-body">
                 <div className="found-top">
                   <div className="found-name">
-                    {row.kind === 'combo' ? '🎁 ' : ''}{row.name}
+                    {row.kind === 'combo' ? '🧩 ' : ''}{row.name}
                   </div>
                   <div className={`found-location ${row.location ? '' : 'empty'}`}>
                     {row.location ? (
@@ -1373,7 +1373,7 @@ export default function Inventory({
 
       {allRows.length === 0 ? (
         <div className="empty-state">
-          <p>📦</p>
+          <p>🏷️</p>
           <p>{searchTerm ? 'No se encontraron resultados' : 'No hay productos. Creá uno o importá tu Excel para empezar.'}</p>
           {!searchTerm && (
             <button className="btn-template" onClick={downloadTemplate}>
@@ -1416,7 +1416,7 @@ export default function Inventory({
                     </td>
                     <td>
                       <span className={`kind-badge ${row.kind}`}>
-                        {isCombo ? '🎁 Combo' : '📦 Producto'}
+                        {isCombo ? '🧩 Combo' : '🏷️ Producto'}
                       </span>
                     </td>
                     <td className="bold">{row.name}</td>

@@ -78,7 +78,7 @@ export default function Reports({ products, movements }) {
       {/* KPI Grid */}
       <div className="kpi-grid">
         <div className="kpi-card">
-          <div className="kpi-icon">📦</div>
+          <div className="kpi-icon">🏷️</div>
           <div className="kpi-info">
             <div className="kpi-label">Productos Totales</div>
             <div className="kpi-value">{reportData.totalProducts}</div>
@@ -183,7 +183,7 @@ export default function Reports({ products, movements }) {
 
         {/* Top por Cantidad */}
         <div className="report-panel">
-          <h2>📦 Top 5 Productos por Cantidad</h2>
+          <h2>🏷️ Top 5 Productos por Cantidad</h2>
           {reportData.topByQuantity.length === 0 ? (
             <p className="empty">No hay productos</p>
           ) : (

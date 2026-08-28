@@ -46,7 +46,7 @@ export default function Movements({ products, combos, movements, onAdd, canEdit 
       return p ? `${p.name} — Stock: ${p.quantity || 0}` : ''
     }
     const c = combos.find(cc => cc.id === id)
-    return c ? `🎁 ${c.name} — se pueden armar: ${comboAvailable(c, products)}` : ''
+    return c ? `🧩 ${c.name} — se pueden armar: ${comboAvailable(c, products)}` : ''
   })()
 
   const handleSubmit = async (e) => {
@@ -88,7 +88,7 @@ export default function Movements({ products, combos, movements, onAdd, canEdit 
         await onAdd({
           comboId: combo.id,
           comboName: combo.name,
-          productName: `🎁 ${combo.name}`,
+          productName: `🧩 ${combo.name}`,
           type: formData.type,
           quantity,
           reason: formData.reason,
@@ -345,7 +345,7 @@ export default function Movements({ products, combos, movements, onAdd, canEdit 
 
             {formData.itemKey.startsWith('c:') && (
               <div className="combo-hint">
-                🎁 Al registrar este movimiento se {formData.type === 'entrada' ? 'sumará' : 'descontará'} el
+                🧩 Al registrar este movimiento se {formData.type === 'entrada' ? 'sumará' : 'descontará'} el
                 stock de <strong>cada producto</strong> que compone el combo, multiplicado por la cantidad.
               </div>
             )}
@@ -471,7 +471,7 @@ export default function Movements({ products, combos, movements, onAdd, canEdit 
                     {m.productName || 'Producto'}
                   </div>
                   <div className="movement-sub">
-                    {m.comboId && <span className="chip-combo">🎁 Combo</span>}
+                    {m.comboId && <span className="chip-combo">🧩 Combo</span>}
                     {sku && <span className="movement-sku">SKU: {sku}</span>}
                     {m.reason && <span className="reason">{m.reason}</span>}
                   </div>

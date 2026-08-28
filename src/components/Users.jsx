@@ -7,7 +7,7 @@ import './Users.css'
 export const PERM_TABS = [
   { key: 'dashboard', label: '📊 Dashboard' },
   { key: 'inventory', label: '📦 Inventario' },
-  { key: 'combos', label: '🎁 Combos' },
+  { key: 'combos', label: '🧩 Combos' },
   { key: 'movements', label: '🔄 Movimientos' },
   { key: 'shipments', label: '🚚 Envíos' },
   { key: 'packing', label: '📦 Empaque' },
