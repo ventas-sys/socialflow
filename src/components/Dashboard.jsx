@@ -1,12 +1,10 @@
 import React, { useMemo, useState, useRef } from 'react'
 import { compressImage } from '../utils/images'
-import { stockStatus, daysLeftText, HORIZON_DAYS } from '../utils/stock'
 import './Dashboard.css'
 
 export default function Dashboard({
   products,
   movements,
-  consumption,
   depositMap,
   onSaveMap,
   isAdmin,
@@ -21,16 +19,6 @@ export default function Dashboard({
   const [newMemberEmail, setNewMemberEmail] = useState('')
   const [memberError, setMemberError] = useState('')
   const [addingMember, setAddingMember] = useState(false)
-
-  // Productos que se terminan primero (según consumo de los últimos 2 meses)
-  const endingSoon = useMemo(() => {
-    if (!consumption) return []
-    return products
-      .map(p => ({ p, h: stockStatus(p, consumption.get(p.id) || 0) }))
-      .filter(x => x.h.status === 'bajo' || x.h.status === 'sin')
-      .sort((a, b) => (a.h.daysLeft ?? 0) - (b.h.daysLeft ?? 0))
-      .slice(0, 12)
-  }, [products, consumption])
 
   const handleAddMember = async (e) => {
     e.preventDefault()
@@ -100,27 +88,41 @@ export default function Dashboard({
       return mDate.getTime() === today.getTime()
     })
 
-    const recentMovements = movements.slice(0, 5)
+    // Unidades vendidas hoy: las salidas suman unidades, no movimientos
+    const unidadesVendidas = todayMovements
+      .filter(m => m.type === 'salida')
+      .reduce((sum, m) => sum + (m.quantity || 0), 0)
+
+    // Los 5 ingresos más grandes del día, juntando por producto
+    const porProducto = new Map()
+    todayMovements.filter(m => m.type === 'entrada').forEach(m => {
+      const key = m.productId || m.productName || m.id
+      const acc = porProducto.get(key) || { nombre: m.productName || 'Producto', unidades: 0 }
+      acc.unidades += m.quantity || 0
+      porProducto.set(key, acc)
+    })
+    const topIngresos = [...porProducto.values()]
+      .sort((a, b) => b.unidades - a.unidades)
+      .slice(0, 5)
+
+    // Los 5 más bajos: primero el que está más lejos de su mínimo
+    const topBajos = [...lowStockProducts]
+      .sort((a, b) => {
+        const ra = (a.quantity || 0) / (a.minStock || 5)
+        const rb = (b.quantity || 0) / (b.minStock || 5)
+        return ra - rb || (a.quantity || 0) - (b.quantity || 0)
+      })
+      .slice(0, 5)
 
     return {
       totalProducts,
       totalStock,
       lowStockProducts: lowStockProducts.length,
-      todayMovements: todayMovements.length,
-      recentMovements,
+      unidadesVendidas,
+      topIngresos,
+      topBajos,
     }
   }, [products, movements])
-
-  const formatDate = (timestamp) => {
-    if (!timestamp) return '-'
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
-    return date.toLocaleString('es-AR', {
-      day: '2-digit',
-      month: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  }
 
   return (
     <div className="dashboard">
@@ -152,10 +154,10 @@ export default function Dashboard({
         </div>
 
         <div className="stat-card">
-          <div className="stat-icon">🔄</div>
+          <div className="stat-icon">🛒</div>
           <div className="stat-content">
-            <div className="stat-label">Movimientos Hoy</div>
-            <div className="stat-value">{stats.todayMovements}</div>
+            <div className="stat-label">Unidades vendidas hoy</div>
+            <div className="stat-value">{stats.unidadesVendidas}</div>
           </div>
         </div>
       </div>
@@ -245,24 +247,16 @@ export default function Dashboard({
 
       <div className="dashboard-grid">
         <div className="dashboard-panel">
-          <h2>Movimientos Recientes</h2>
-          {stats.recentMovements.length === 0 ? (
-            <p className="empty-message">No hay movimientos registrados</p>
+          <h2>📥 Ingresos de hoy</h2>
+          <p className="panel-sub">Los 5 productos que más stock sumaron hoy.</p>
+          {stats.topIngresos.length === 0 ? (
+            <p className="empty-message">Hoy todavía no entró mercadería.</p>
           ) : (
-            <div className="movements-list">
-              {stats.recentMovements.map(m => (
-                <div key={m.id} className="movement-item">
-                  <div className="movement-icon">
-                    {m.type === 'entrada' ? '📥' : '📤'}
-                  </div>
-                  <div className="movement-info">
-                    <div className="movement-product">{m.productName || 'Producto'}</div>
-                    <div className="movement-details">
-                      {m.type === 'entrada' ? 'Entrada' : 'Salida'} · {m.quantity} unidades
-                    </div>
-                    <div className="movement-time">{formatDate(m.date)}</div>
-                  </div>
-                  <div className="movement-user">{m.userName}</div>
+            <div className="low-stock-list">
+              {stats.topIngresos.map((x, i) => (
+                <div key={i} className="low-stock-item">
+                  <div className="product-name">{x.nombre}</div>
+                  <div className="stock-badge entrada">+{x.unidades}</div>
                 </div>
               ))}
             </div>
@@ -270,55 +264,26 @@ export default function Dashboard({
         </div>
 
         <div className="dashboard-panel">
-          <h2>⏳ Se terminan primero</h2>
-          <p className="panel-sub">Según lo que salió en los últimos {HORIZON_DAYS} días.</p>
-          {endingSoon.length === 0 ? (
-            <p className="empty-message">Ningún producto en riesgo de quedarse sin stock.</p>
-          ) : (
-            <div className="ending-list">
-              {endingSoon.map(({ p, h }) => (
-                <div key={p.id} className="ending-item">
-                  <div>
-                    <div className="product-name">{p.name}</div>
-                    <div className="product-code">
-                      {p.code ? `SKU: ${p.code}` : ''}{p.location ? ` · 📍 ${p.location}` : ''}
-                    </div>
-                  </div>
-                  <div className="ending-right">
-                    <span className={`health health-${h.status}`}>{h.label}</span>
-                    <span className="ending-days">
-                      {h.status === 'sin' ? 'Sin stock' : daysLeftText(h)}
-                    </span>
-                    <span className="ending-stock">Stock: {p.quantity || 0}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="dashboard-panel">
-          <h2>Productos con Stock Bajo</h2>
-          {stats.lowStockProducts.length === 0 ? (
+          <h2>⚠️ Los 5 más bajos de stock</h2>
+          <p className="panel-sub">Cantidad que queda sobre el mínimo de cada producto.</p>
+          {stats.topBajos.length === 0 ? (
             <p className="empty-message">Todos los productos tienen buen stock</p>
           ) : (
             <div className="low-stock-list">
-              {products
-                .filter(p => (p.quantity || 0) < (p.minStock || 5))
-                .map(p => (
-                  <div key={p.id} className="low-stock-item">
-                    <div>
-                      <div className="product-name">{p.name}</div>
-                      <div className="product-code">
-                        Código: {p.code || '-'}
-                        {p.location ? ` · 📍 ${p.location}` : ''}
-                      </div>
-                    </div>
-                    <div className="stock-badge">
-                      {p.quantity || 0} / {p.minStock || 5}
+              {stats.topBajos.map(p => (
+                <div key={p.id} className="low-stock-item">
+                  <div>
+                    <div className="product-name">{p.name}</div>
+                    <div className="product-code">
+                      {p.code ? `SKU: ${p.code}` : 'Sin SKU'}
+                      {p.location ? ` · 📍 ${p.location}` : ''}
                     </div>
                   </div>
-                ))}
+                  <div className="stock-badge">
+                    {p.quantity || 0} / {p.minStock || 5}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

@@ -933,7 +933,6 @@ export default function App() {
               <Dashboard
                 products={products}
                 movements={movements}
-                consumption={consumption}
                 depositMap={depositMap}
                 onSaveMap={saveDepositMap}
                 isAdmin={isAdmin}
