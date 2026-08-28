@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react'
 import { findProductOrCombo } from '../utils/refMatch'
-import { IconEmpaque } from './Icons'
 import Scanner from './Scanner'
 import LazyThumb from './LazyThumb'
 import './Packing.css'
@@ -220,7 +219,7 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
   return (
     <div className="packing-container">
       <div className="pk-header">
-        <h1><IconEmpaque /> Empaquetado</h1>
+        <h1>🗳️ Empaquetado</h1>
         <p>Escaneá el QR de la venta y seguí los pasos. Al terminar vuelve solo para escanear la siguiente.</p>
       </div>
 
