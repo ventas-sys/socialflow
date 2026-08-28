@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import * as XLSX from 'xlsx'
+import { findByRef } from '../utils/refMatch'
 import { compressImage, MAX_PHOTOS, MAX_PHOTOS_BYTES, photosSize } from '../utils/images'
 import { extractImagesByRow } from '../utils/excelImages'
 import LazyThumb from './LazyThumb'
@@ -72,13 +73,12 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
 
   // Busca un producto por SKU, código de barras o nombre exacto
   const findProduct = (ref) => {
-    const q = String(ref).trim().toLowerCase()
+    const q = String(ref ?? '').trim().toLowerCase()
     if (!q) return null
-    return products.find(p =>
-      (p.code && p.code.toLowerCase() === q) ||
-      (p.barcode && p.barcode.toLowerCase() === q) ||
-      (p.name && p.name.toLowerCase() === q)
-    )
+    // Por código / código de barras (tolera los ceros que se come el Excel)
+    const porCodigo = findByRef(products, q)
+    if (porCodigo) return porCodigo
+    return products.find(p => p.name && p.name.toLowerCase() === q) || null
   }
 
   // Abre el formulario cuando se pide editar un combo desde Inventario

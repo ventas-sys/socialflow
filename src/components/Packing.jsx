@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react'
+import { findProductOrCombo } from '../utils/refMatch'
 import Scanner from './Scanner'
 import LazyThumb from './LazyThumb'
 import './Packing.css'
@@ -70,16 +71,7 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
 
   const shipment = shipments.find(s => s.id === shipmentId) || null
 
-  const barcodesOf = (x) => (x.barcodes?.length ? x.barcodes : (x.barcode ? [x.barcode] : []))
-  const findByRef = (ref) => {
-    const q = String(ref || '').trim().toLowerCase()
-    if (!q) return null
-    const p = products.find(pp => (pp.code && pp.code.toLowerCase() === q) || barcodesOf(pp).some(b => String(b).toLowerCase() === q))
-    if (p) return { type: 'product', p }
-    const c = combos.find(cc => (cc.code && cc.code.toLowerCase() === q) || barcodesOf(cc).some(b => String(b).toLowerCase() === q))
-    if (c) return { type: 'combo', c }
-    return null
-  }
+  const findByRef = (ref) => findProductOrCombo(products, combos, ref)
 
   // Expande los artículos de la venta a productos base con foto y cantidad total
   const lines = useMemo(() => {

@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react'
 import * as XLSX from 'xlsx'
+import { findByRef as matchRef } from '../utils/refMatch'
 import { compressImage, MAX_PHOTOS, MAX_PHOTOS_BYTES, photosSize } from '../utils/images'
 import { extractImagesByRow } from '../utils/excelImages'
 import { comboAvailable, STOCK_TYPES } from './Combos'
@@ -407,27 +408,11 @@ export default function Inventory({
   }
 
   // Carga de compra: suma stock a productos existentes (por SKU o código de barras)
-  const findByRef = (ref) => {
-    const q = String(ref).trim().toLowerCase()
-    if (!q) return null
-    return products.find(p =>
-      (p.code && p.code.toLowerCase() === q) ||
-      (p.barcodes?.length ? p.barcodes : (p.barcode ? [p.barcode] : []))
-        .some(b => String(b).toLowerCase() === q)
-    )
-  }
+  const findByRef = (ref) => matchRef(products, ref)
 
   // Lee el Excel y arma la VISTA PREVIA (no aplica nada todavía)
   // Buscar combo por SKU o código de barras
-  const findComboByRef = (ref) => {
-    const q = String(ref).trim().toLowerCase()
-    if (!q) return null
-    return combos.find(c =>
-      (c.code && c.code.toLowerCase() === q) ||
-      (c.barcodes?.length ? c.barcodes : (c.barcode ? [c.barcode] : []))
-        .some(b => String(b).toLowerCase() === q)
-    )
-  }
+  const findComboByRef = (ref) => matchRef(combos, ref)
 
   const handlePurchaseFile = async (e) => {
     const file = e.target.files?.[0]

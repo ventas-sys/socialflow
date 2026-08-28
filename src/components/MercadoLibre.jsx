@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import * as XLSX from 'xlsx'
+import { findProductOrCombo } from '../utils/refMatch'
 import { db } from '../firebase'
 import { doc, getDoc, writeBatch, Timestamp } from 'firebase/firestore'
 import { ORG_ID } from '../config'
@@ -36,21 +37,7 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
   const redirectUri = `${window.location.origin}/`
 
   // Mapear un item de ML (por SKU o MLA) a producto/combo → lista de deltas de stock
-  const findByRef = (ref) => {
-    const q = String(ref || '').trim().toLowerCase()
-    if (!q) return null
-    const p = products.find(pp =>
-      (pp.code && pp.code.toLowerCase() === q) ||
-      (pp.barcodes?.length ? pp.barcodes : (pp.barcode ? [pp.barcode] : [])).some(b => String(b).toLowerCase() === q)
-    )
-    if (p) return { type: 'product', p }
-    const c = combos.find(cc =>
-      (cc.code && cc.code.toLowerCase() === q) ||
-      (cc.barcodes?.length ? cc.barcodes : (cc.barcode ? [cc.barcode] : [])).some(b => String(b).toLowerCase() === q)
-    )
-    if (c) return { type: 'combo', c }
-    return null
-  }
+  const findByRef = (ref) => findProductOrCombo(products, combos, ref)
 
   const setForm = (key, field, value) =>
     setForms(f => ({ ...f, [key]: { ...f[key], [field]: value } }))

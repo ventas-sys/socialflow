@@ -139,12 +139,25 @@ export default async function handler(req, res) {
     ]);
     const products = prodSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     const combos = comboSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Si no hay coincidencia exacta se compara sin los ceros de adelante
+    // ("0558" vs "558", que es como quedan los códigos cargados desde Excel),
+    // pero solo si queda un único candidato: con dos, mejor no descontar nada.
+    const refsOf = (x) => [x.code, ...barcodesOf(x)].filter(Boolean).map(v => String(v));
+    const sinCeros = (v) => String(v).replace(/^0+/, '');
+    const buscar = (lista, q) => {
+      const exacto = lista.find(x => refsOf(x).some(v => v.toLowerCase() === q));
+      if (exacto) return exacto;
+      if (!/^\d+$/.test(q)) return null;
+      const n = sinCeros(q);
+      const cands = lista.filter(x => refsOf(x).some(v => /^\d+$/.test(v) && sinCeros(v) === n));
+      return cands.length === 1 ? cands[0] : null;
+    };
     const findByRef = (ref) => {
       const q = String(ref || '').trim().toLowerCase();
       if (!q) return null;
-      const p = products.find(pp => (pp.code && pp.code.toLowerCase() === q) || barcodesOf(pp).some(b => String(b).toLowerCase() === q));
+      const p = buscar(products, q);
       if (p) return { type: 'product', p };
-      const c = combos.find(cc => (cc.code && cc.code.toLowerCase() === q) || barcodesOf(cc).some(b => String(b).toLowerCase() === q));
+      const c = buscar(combos, q);
       if (c) return { type: 'combo', c };
       return null;
     };
