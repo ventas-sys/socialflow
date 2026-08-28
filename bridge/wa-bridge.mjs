@@ -336,6 +336,12 @@ async function sendFollowupIfDue(client) {
 // Recordatorio a los N días del primer contacto: promo + incentivo de calificación.
 // Solo aplica a contactos que escribieron DESPUÉS del deploy (firstContactAt vacío al inicio),
 // así no se dispara masivamente sobre clientes viejos.
+// Chats a los que el recordatorio no les puede escribir (típico: @lid que la
+// librería no abre, cada intento cuelga ~3 minutos en un timeout de puppeteer
+// y el log se llenaba del mismo error en loop). Un fallo = 24hs sin reintentar
+// ese chat; a los 3 fallos se lo da por imposible hasta el próximo reinicio.
+const reminderCuarentena = new Map(); // chatId -> { hasta, fallos }
+
 async function sendRemindersIfDue(client) {
   const now = Date.now();
   const cutoff = REMINDER_DAYS * 86_400_000;
@@ -343,13 +349,18 @@ async function sendRemindersIfDue(client) {
     if (reminderSent.has(chatId)) continue;
     if (now - firstAt < cutoff) continue;
     if (isAsesorActive(chatId)) continue; // no interrumpir una charla con humano
+    const q = reminderCuarentena.get(chatId);
+    if (q && (q.fallos >= 3 || now < q.hasta)) continue;
     try {
       await botSend(client, chatId, RECORDATORIO.mensaje);
       reminderSent.add(chatId);
+      reminderCuarentena.delete(chatId);
       lastActivityAt.set(chatId, Date.now());
       console.log(`[${chatId}] 🎁 recordatorio ${REMINDER_DAYS}d enviado (promo + calificación)`);
     } catch (e) {
-      console.error(`recordatorio fail ${chatId}:`, e.message);
+      const fallos = (q?.fallos || 0) + 1;
+      reminderCuarentena.set(chatId, { hasta: now + 24 * 3_600_000, fallos });
+      console.error(`recordatorio fail ${chatId} (fallo ${fallos}${fallos >= 3 ? ', no se reintenta más' : ', reintento en 24h'}):`, e.message);
     }
   }
 }
