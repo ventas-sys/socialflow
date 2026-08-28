@@ -196,6 +196,84 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
     }
   }
 
+  // Ranking de lo más vendido (las 2 cuentas, todos los tipos de envío) para
+  // priorizar qué cargar primero: medidas, foto y ubicación
+  const [topMsg, setTopMsg] = useState('')
+  const [topBusy, setTopBusy] = useState(false)
+
+  const exportTopSold = async () => {
+    setTopBusy(true); setTopMsg('')
+    try {
+      const juntos = new Map()
+      let ordenes = 0, truncado = false
+      for (const key of ['full', 'ferre']) {
+        if (!mlAccounts[key]?.accessToken) continue
+        const token = await ensureToken(key)
+        const r = await fetch(`${API}?action=topsold`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, days: 30, limit: 400 }),
+        }).then(x => x.json())
+        if (!r.ok) throw new Error(`${key.toUpperCase()}: ${r.error || 'Error'}`)
+        ordenes += r.ordenes || 0
+        if (r.truncado) truncado = true
+        for (const t of r.top) {
+          const k = t.mla || t.sku
+          const x = juntos.get(k) || { ...t, unidades: 0, ventas: 0, cuentas: new Set() }
+          x.unidades += t.unidades; x.ventas += t.ventas; x.cuentas.add(key.toUpperCase())
+          if (!x.titulo && t.titulo) x.titulo = t.titulo
+          juntos.set(k, x)
+        }
+      }
+      if (!juntos.size) throw new Error('No hubo ventas en los últimos 30 días (¿las cuentas están conectadas?)')
+
+      const top = [...juntos.values()].sort((a, b) => b.unidades - a.unidades).slice(0, 200)
+      const si = v => (v ? 'SI' : 'FALTA')
+      const filas = top.map((t, i) => {
+        const m = findByRef(t.mla) || (t.sku ? findByRef(t.sku) : null)
+        const combo = m?.type === 'combo' ? m.c : null
+        const prod = m?.type === 'product' ? m.p : null
+        const bases = combo
+          ? (combo.items || []).map(ci => products.find(p => p.id === ci.productId)).filter(Boolean)
+          : (prod ? [prod] : [])
+        const sinMedida = bases.filter(p => !p.dims)
+        const sinUbic = bases.filter(p => !p.location)
+        const conFoto = combo ? combo.hasPhotos : prod?.hasPhotos
+        return {
+          '#': i + 1,
+          'SKU (ML)': t.mla || t.sku,
+          'Publicación': t.titulo,
+          'Unidades vendidas (30 días)': t.unidades,
+          'Ventas': t.ventas,
+          'Cuenta': [...t.cuentas].join(' + '),
+          'En el sistema': combo ? 'Combo' : (prod ? 'Producto' : 'NO ESTÁ'),
+          'Nombre en el sistema': combo?.name || prod?.name || '',
+          'Foto': m ? si(conFoto) : '',
+          'Medidas': bases.length ? si(!sinMedida.length) : '',
+          'Ubicación': bases.length ? si(!sinUbic.length) : '',
+          'Productos que faltan completar': [...new Set([
+            ...sinMedida.map(p => `${p.code || p.name} (medidas)`),
+            ...sinUbic.map(p => `${p.code || p.name} (ubicación)`),
+          ])].join(' · '),
+        }
+      })
+
+      const ws = XLSX.utils.json_to_sheet(filas)
+      ws['!cols'] = [{ wch: 5 }, { wch: 16 }, { wch: 55 }, { wch: 12 }, { wch: 8 }, { wch: 12 },
+                     { wch: 13 }, { wch: 40 }, { wch: 8 }, { wch: 9 }, { wch: 10 }, { wch: 50 }]
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Top 200')
+      XLSX.writeFile(wb, `top200-vendidos-${new Date().toISOString().slice(0, 10)}.xlsx`)
+
+      const faltan = filas.filter(f => f.Medidas === 'FALTA' || f.Ubicación === 'FALTA' || f.Foto === 'FALTA').length
+      setTopMsg(`✅ ${ordenes} ventas de 30 días · top 200 exportado. ${faltan} de los 200 tienen algo sin cargar.`
+        + (truncado ? ' ⚠️ Alguna semana superó el máximo de 10.000 ventas que deja leer ML y quedó incompleta.' : ''))
+    } catch (err) {
+      setTopMsg('❌ ' + err.message)
+    } finally {
+      setTopBusy(false)
+    }
+  }
+
   // Dispara el proceso automático (el mismo del cron de las 18hs) una vez
   const [cronMsg, setCronMsg] = useState('')
   const [cronBusy, setCronBusy] = useState(false)
@@ -280,6 +358,12 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
             {cronBusy ? '⏳ Procesando...' : '▶️ Probar automático ahora'}
           </button>
           {cronMsg && <span className={`ml-cron-msg ${cronMsg.startsWith('✅') ? 'ok' : 'warn'}`}>{cronMsg}</span>}
+          <div className="ml-top-row">
+            <button className="ml-btn-missing" onClick={exportTopSold} disabled={topBusy}>
+              {topBusy ? '⏳ Leyendo las ventas del mes...' : '🏆 Top 200 más vendidos (30 días)'}
+            </button>
+            {topMsg && <span className={`ml-cron-msg ${topMsg.startsWith('✅') ? 'ok' : 'warn'}`}>{topMsg}</span>}
+          </div>
         </div>
       </div>
 

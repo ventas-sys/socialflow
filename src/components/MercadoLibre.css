@@ -124,3 +124,12 @@
   .ml-preview-table td { color: #f1f5f9; border-bottom-color: #1e293b; }
   .ml-btn-cancel { background: #334155; color: #f1f5f9; }
 }
+
+/* Fila del botón de "más vendidos" (debajo del bloque del automático) */
+.ml-top-row {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}

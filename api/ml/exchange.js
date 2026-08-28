@@ -17,6 +17,7 @@ export default async function handler(req, res) {
     if (action === 'orders') return await orders(req, res);
     if (action === 'items') return await items(req, res);
     if (action === 'shipstatus') return await shipStatus(req, res);
+    if (action === 'topsold') return await topSold(req, res);
     return await exchange(req, res);
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message });
@@ -35,6 +36,75 @@ async function orders(req, res) {
   } catch (e) {
     return res.status(200).json({ ok: false, error: e.message });
   }
+}
+
+// Ranking de lo más vendido en un período (para priorizar la carga de medidas,
+// fotos y ubicaciones). Cuenta TODAS las ventas: flex, correo y Full.
+//
+// /orders/search corta en offset 10.000, y un mes puede tener más ventas que
+// eso, así que el período se parte en ventanas de 7 días y cada ventana se
+// pagina en paralelo (secuencial tardaría minutos y la función se corta).
+async function topSold(req, res) {
+  const { token, days = 30, limit = 300 } = req.body || {};
+  if (!token) return res.status(400).json({ ok: false, error: 'Falta access_token' });
+  const auth = { 'Authorization': 'Bearer ' + token };
+
+  const me = await httpRequest('GET', 'https://api.mercadolibre.com/users/me', auth);
+  if (me.status !== 200) throw new Error(me.body?.message || ('HTTP ' + me.status));
+  const sellerId = me.body.id;
+
+  const pedir = async (desde, hasta, offset) => {
+    const url = 'https://api.mercadolibre.com/orders/search'
+      + `?seller=${sellerId}&sort=date_desc&limit=50&offset=${offset}`
+      + `&order.date_created.from=${encodeURIComponent(desde)}`
+      + `&order.date_created.to=${encodeURIComponent(hasta)}`;
+    const r = await httpRequest('GET', url, auth);
+    if (r.status !== 200) throw new Error(r.body?.message || ('HTTP ' + r.status));
+    return r.body;
+  };
+
+  const acc = new Map();
+  let ordenes = 0, canceladas = 0, truncado = false;
+  const sumar = (orders) => {
+    for (const o of orders) {
+      if (o.status === 'cancelled' || o.status === 'invalid') { canceladas++; continue; }
+      ordenes++;
+      for (const it of (o.order_items || [])) {
+        const mla = it.item?.id || '';
+        const sku = it.item?.seller_sku || it.item?.seller_custom_field || '';
+        const key = mla || sku;
+        if (!key) continue;
+        const x = acc.get(key) || { mla, sku, titulo: it.item?.title || '', unidades: 0, ventas: 0 };
+        x.unidades += it.quantity || 0;
+        x.ventas += 1;
+        if (!x.titulo && it.item?.title) x.titulo = it.item.title;
+        if (!x.sku && sku) x.sku = sku;
+        acc.set(key, x);
+      }
+    }
+  };
+
+  const ahora = Date.now();
+  const VENTANA = 7 * 24 * 3600 * 1000;
+  for (let ini = ahora - days * 24 * 3600 * 1000; ini < ahora; ini += VENTANA) {
+    const desde = new Date(ini).toISOString();
+    const hasta = new Date(Math.min(ini + VENTANA, ahora)).toISOString();
+    const primera = await pedir(desde, hasta, 0);
+    sumar(primera.results || []);
+    const total = primera.paging?.total || 0;
+    if (total > 10000) truncado = true;
+    const tope = Math.min(total, 10000);
+    const offsets = [];
+    for (let off = 50; off < tope; off += 50) offsets.push(off);
+    const CONC = 8;
+    for (let i = 0; i < offsets.length; i += CONC) {
+      const lote = await Promise.all(offsets.slice(i, i + CONC).map(off => pedir(desde, hasta, off)));
+      lote.forEach(b => sumar(b.results || []));
+    }
+  }
+
+  const top = [...acc.values()].sort((a, b) => b.unidades - a.unidades).slice(0, limit);
+  return res.status(200).json({ ok: true, ordenes, canceladas, truncado, publicaciones: acc.size, top });
 }
 
 // Núcleo reutilizable (lo usan el handler orders y el sync del tablero en
