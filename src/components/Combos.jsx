@@ -312,6 +312,8 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
       const allNotFound = new Set()
       const noItems = []
       const valid = []
+      // Filas sin armado (solo foto / ubicación / código de barras): sirven para
+      // ACTUALIZAR un combo que ya existe, no para crearlo
       for (const g of groups.values()) {
         // Deduplicar componentes por producto: filas repetidas del mismo producto
         // son por los distintos códigos de barras del combo, NO cantidades a sumar
@@ -322,7 +324,6 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
           if (items.some(it => it.productId === p.id)) continue
           items.push({ productId: p.id, quantity: r.qty })
         }
-        if (!items.length) { noItems.push(g.name || g.code); continue }
         const itemBarcodes = items.flatMap(item => {
           const p = products.find(pp => pp.id === item.productId)
           return [...(p?.barcodes || (p?.barcode ? [p.barcode] : [])), p?.code].filter(Boolean)
@@ -338,6 +339,8 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
           items,
           itemBarcodes,
           photos: photosByRow.get(g.firstRowNum) || [],
+          soloDatos: !items.length,
+          tieneNombre: !!g.name,
         })
       }
 
@@ -364,9 +367,31 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
         if (ex) r.existingId = ex.id
       })
 
-      const result = await onImport(valid)
-      let msg = `✅ ${result.created} combos nuevos, ${result.updated} actualizados.`
-      if (noItems.length) msg += ` ⚠️ ${noItems.length} sin productos válidos (${noItems.slice(0, 3).join(', ')}${noItems.length > 3 ? '…' : ''}).`
+      // Un combo NUEVO necesita sí o sí su armado; sin armado solo se actualiza
+      const sinCrear = valid.filter(r => r.soloDatos && !r.existingId)
+      sinCrear.forEach(r => noItems.push(r.name || r.code))
+      const aGuardar = valid.filter(r => !(r.soloDatos && !r.existingId))
+
+      // Al ACTUALIZAR, lo que el Excel no trae no se pisa: sin armado se
+      // respeta el que ya tiene, y un precio/ubicación/nombre/código vacío no
+      // borra el que está cargado
+      let soloDatos = 0
+      aGuardar.forEach(r => {
+        if (r.existingId) {
+          if (r.soloDatos) { delete r.items; delete r.itemBarcodes; soloDatos++ }
+          if (!r.tieneNombre) delete r.name
+          if (!r.barcodes.length) { delete r.barcodes; delete r.barcode }
+          if (!r.price) delete r.price
+          if (!r.location) delete r.location
+          if (!r.stockType) delete r.stockType
+        }
+        delete r.soloDatos; delete r.tieneNombre
+      })
+
+      const result = await onImport(aGuardar)
+      let msg = `✅ ${result.created} combos nuevos, ${result.updated} actualizados`
+      msg += soloDatos ? ` (${soloDatos} solo con foto/ubicación/código, sin tocar el armado).` : '.'
+      if (noItems.length) msg += ` ⚠️ ${noItems.length} no se pudieron crear porque no existen y el Excel no trae el armado (${noItems.slice(0, 3).join(', ')}${noItems.length > 3 ? '…' : ''}).`
       if (allNotFound.size) msg += ` No se encontraron estos códigos: ${[...allNotFound].slice(0, 5).join(', ')}${allNotFound.size > 5 ? '…' : ''}.`
       setImportResult(msg)
     } catch (err) {
