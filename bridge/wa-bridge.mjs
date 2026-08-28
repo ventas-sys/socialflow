@@ -695,6 +695,7 @@ function motivoHumano(reason) {
   if (reason === 'ia_escalate_human') return 'Pidió hablar con una persona 🧑';
   if (reason === 'loop_repetido') return 'Posible loop: el bot repitió la misma respuesta 🔁 (¿otro bot del otro lado?)';
   if (reason === 'cliente_sin_atender') return 'El cliente escribió y NO le contestó nadie ⏳ (el bot está en silencio porque un asesor tomó el chat)';
+  if (reason === 'mensaje_perdido_viejo') return 'Mensaje que el bot NUNCA vio (bug de WhatsApp Web) y ya es viejo para auto-responder 🩹 — contestarle una persona';
   return 'Necesita atención';
 }
 
@@ -807,11 +808,105 @@ async function telefonoReal(client, msg, from) {
   return null;
 }
 
+// ─── Recuperador de mensajes perdidos ────────────────────────────────────────
+// whatsapp-web.js 1.34.x tiene un bug conocido (issue #5765): a veces el evento
+// 'message' directamente NO se dispara y el mensaje del cliente queda invisible
+// para el bot aunque el teléfono lo muestre (28-ago: un comprador escribió por
+// un producto mal entregado y el bridge nunca se enteró). No hay versión más
+// nueva que lo arregle, así que hacemos lo mismo que el barrido de ML: cada
+// tanto se buscan los chats CON MENSAJES SIN LEER y se procesa lo que los
+// eventos se perdieron.
+//
+// Guardas para no hacer lío:
+//   - Solo mensajes de los últimos RECUPERADOR_VENTANA_MIN minutos y que no
+//     hayamos procesado ya (dedupe por id de mensaje).
+//   - Un mensaje sin leer MÁS VIEJO que la ventana no se responde (contestar
+//     horas después confunde): se avisa al supervisor una sola vez por chat.
+//   - Si la consulta de chats falla (la librería viene frágil), se loguea a lo
+//     sumo una vez por hora y se sigue.
+const RECUPERADOR_SEG = Number(process.env.WA_RECUPERADOR_SEG || 60);
+const RECUPERADOR_VENTANA_MIN = Number(process.env.WA_RECUPERADOR_VENTANA_MIN || 10);
+const recupProcesados = new Set();   // ids de mensajes ya vistos (evento o recuperador)
+const recupAvisados = new Set();     // chats con "sin leer viejo" ya avisados al supervisor
+let recupUltimoErrorLog = 0;
+
+function recordarMensajeVisto(id) {
+  if (!id) return;
+  recupProcesados.add(id);
+  if (recupProcesados.size > 3000) {
+    for (const viejo of recupProcesados) {
+      recupProcesados.delete(viejo);
+      if (recupProcesados.size <= 2000) break;
+    }
+  }
+}
+
+// Chats con mensajes sin leer. Primero por la API normal; si está rota (como
+// getChats() en la limpieza de etiquetas), directo contra el Store de la página.
+async function chatsSinLeer(client) {
+  try {
+    const chats = await client.getChats();
+    return chats.filter(c => (c.unreadCount || 0) > 0)
+      .map(c => ({ id: c.id?._serialized, unread: c.unreadCount }));
+  } catch { /* probamos por el Store */ }
+  return client.pupPage.evaluate(() => {
+    const modelos = window.Store?.Chat?.getModelsArray?.() || [];
+    return modelos
+      .filter(c => (c.unreadCount || 0) > 0 && !c.isGroup)
+      .map(c => ({ id: c.id?._serialized, unread: c.unreadCount }))
+      .filter(c => c.id);
+  });
+}
+
+async function recuperarMensajesPerdidos(client) {
+  let pendientes = [];
+  try {
+    pendientes = (await chatsSinLeer(client)) || [];
+  } catch (e) {
+    if (Date.now() - recupUltimoErrorLog > 3_600_000) {
+      recupUltimoErrorLog = Date.now();
+      console.error(`🩹 recuperador: no se pudieron listar los chats sin leer (${e.message}). Reintento silencioso cada ${RECUPERADOR_SEG}s.`);
+    }
+    return;
+  }
+  const ventana = Date.now() - RECUPERADOR_VENTANA_MIN * 60_000;
+  for (const p of pendientes) {
+    const chatId = p.id;
+    if (!chatId || chatId.endsWith('@g.us') || chatId.endsWith('@newsletter') || chatId.endsWith('@broadcast')) continue;
+    let chat;
+    try { chat = await client.getChatById(chatId); } catch { continue; } // @lid sin abrir: no hay nada que hacer acá
+    let msgs = [];
+    try { msgs = await chat.fetchMessages({ limit: Math.min(Math.max(p.unread || 1, 1), 5) }); } catch { continue; }
+    for (const msg of msgs) {
+      if (msg.fromMe) continue;
+      const id = msg.id?._serialized;
+      if (!id || recupProcesados.has(id)) continue;
+      const ts = (msg.timestamp || 0) * 1000;
+      if (ts < ventana) {
+        // Demasiado viejo para contestarlo como si nada: que lo tome una persona.
+        if (!recupAvisados.has(chatId)) {
+          recupAvisados.add(chatId);
+          console.log(`🩹 [${chatId}] mensaje sin leer VIEJO (${new Date(ts).toISOString()}) — no se auto-responde, aviso al supervisor`);
+          try { await notifySupervisor(client, chatId, 'mensaje_perdido_viejo', (msg.body || '🎤/📷 adjunto').slice(0, 120)); } catch {}
+        }
+        recordarMensajeVisto(id);
+        continue;
+      }
+      console.log(`🩹 [${chatId}] mensaje recuperado (el evento no llegó): "${(msg.body || '').slice(0, 50)}"`);
+      recordarMensajeVisto(id);
+      try { await handleIncoming(client, msg); } catch (e) {
+        console.error(`🩹 [${chatId}] falló el procesado del recuperado:`, e.message);
+      }
+    }
+  }
+}
+
 async function handleIncoming(client, msg) {
   try {
     if (msg.fromMe) return;
     if (msg.from === 'status@broadcast') return;
     const from = msg.from;
+    recordarMensajeVisto(msg.id?._serialized);
     const now = Date.now();
     lastIncomingAt.set(from, now);
     lastActivityAt.set(from, now);
@@ -1065,6 +1160,8 @@ client.on('ready', async () => {
   setInterval(() => sendRemindersIfDue(client).catch(e => console.error('reminder tick fail:', e.message)), 60 * 60_000);
   sendHeartbeat();
   setInterval(() => sendHeartbeat(), 60_000);
+  setInterval(() => recuperarMensajesPerdidos(client).catch(e => console.error('recuperador tick fail:', e.message)), RECUPERADOR_SEG * 1000);
+  console.log(`🩹 Recuperador de mensajes perdidos cada ${RECUPERADOR_SEG}s (bug de eventos de whatsapp-web.js): procesa lo de los últimos ${RECUPERADOR_VENTANA_MIN}min; lo más viejo va al supervisor`);
   console.log(`📋 Follow-up "¿algo más?" cada 5min para chats con ${FOLLOWUP_MINUTES}min sin actividad (máx 1/día por chat)`);
   console.log(`🎁 Recordatorio a los ${REMINDER_DAYS} días del primer contacto (chequeo cada 1h)`);
   console.log(`💓 Heartbeat al panel cada 60s`);
