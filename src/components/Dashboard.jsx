@@ -88,9 +88,14 @@ export default function Dashboard({
       return mDate.getTime() === today.getTime()
     })
 
-    // Unidades vendidas hoy: las salidas suman unidades, no movimientos
+    // Unidades vendidas hoy: SOLO las ventas (las de ML llevan reason "Venta ML"
+    // y reference "ML"). Antes sumaba cualquier salida, así que los ajustes de
+    // stock cargados a mano inflaban el número.
+    const esVenta = (m) =>
+      (m.reason || '').trim().toLowerCase().startsWith('venta') ||
+      (m.reference || '').trim().toUpperCase() === 'ML'
     const unidadesVendidas = todayMovements
-      .filter(m => m.type === 'salida')
+      .filter(m => m.type === 'salida' && esVenta(m))
       .reduce((sum, m) => sum + (m.quantity || 0), 0)
 
     // Los 5 ingresos más grandes del día, juntando por producto
