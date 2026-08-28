@@ -1,16 +1,17 @@
 import React, { useState } from 'react'
 import './Users.css'
+import { IconCajas, IconEmpaque } from './Icons'
 
 // Sección SOLO PC y SOLO para el master (admin): alta/baja de ayudantes y
 // permisos por solapa + permiso de modificar. Los cambios aplican cuando el
 // ayudante recarga la app (o en su próximo ingreso).
 export const PERM_TABS = [
   { key: 'dashboard', label: '📊 Dashboard' },
-  { key: 'inventory', label: '📦 Inventario' },
+  { key: 'inventory', label: <><IconCajas />Inventario</> },
   { key: 'combos', label: '🧩 Combos' },
   { key: 'movements', label: '🔄 Movimientos' },
   { key: 'shipments', label: '🚚 Envíos' },
-  { key: 'packing', label: '📦 Empaque' },
+  { key: 'packing', label: <><IconEmpaque />Empaque</> },
   { key: 'mercadolibre', label: '🛒 ML' }, // solo la ve el master — no se asigna a ayudantes
   { key: 'reports', label: '📈 Reportes' },
 ]

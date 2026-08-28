@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react'
 import * as XLSX from 'xlsx'
 import { findByRef as matchRef } from '../utils/refMatch'
+import { IconCajas } from './Icons'
 import { compressImage, MAX_PHOTOS, MAX_PHOTOS_BYTES, photosSize } from '../utils/images'
 import { extractImagesByRow } from '../utils/excelImages'
 import { comboAvailable, STOCK_TYPES } from './Combos'
@@ -896,7 +897,7 @@ export default function Inventory({
     <div className="inventory-container">
       <div className="inventory-header">
         <div>
-          <h1>📦 Inventario</h1>
+          <h1><IconCajas /> Inventario</h1>
           <p>Gestiona tus productos y stock</p>
         </div>
         <div className="header-buttons">
