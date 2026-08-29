@@ -140,6 +140,7 @@ export default function Shipments({
   const [showCouriers, setShowCouriers] = useState(false)
   const [newCourier, setNewCourier] = useState('')
   const [actionId, setActionId] = useState(null) // envío enfocado tras escanear
+  const [scanCamara, setScanCamara] = useState(false) // el último escaneo fue con la cámara
   const [range, setRange] = useState('hoy') // reporte: hoy | semana | mes
   const [syncMsg, setSyncMsg] = useState('')
   const [syncing, setSyncing] = useState(false)
@@ -339,8 +340,12 @@ export default function Shipments({
     }
   }
 
-  const handleScan = async (raw) => {
+  const handleScan = async (raw, desdeCamara = false) => {
     setShowScanner(false)
+    setScanCamara(desdeCamara)
+    // Soltar el foco: si quedó en el desplegable de motoqueros, la pistola no
+    // vuelve a leer nunca más
+    document.activeElement?.blur?.()
     const code = parseShipmentCode(raw)
     // Búsqueda flexible: por código exacto, por pack, o por coincidencia parcial
     const digits = String(raw).replace(/\D/g, '')
@@ -360,6 +365,16 @@ export default function Shipments({
     )
   }
 
+  // Después de marcar algo en el panel: soltar el foco (si no, el desplegable
+  // se queda con él y la pistola deja de leer), cerrar el panel y —si se venía
+  // escaneando con la cámara— volver a abrirla para seguir sin tocar nada.
+  const cerrarPanel = (aviso) => {
+    document.activeElement?.blur?.()
+    setActionId(null)
+    if (aviso) setSyncMsg(aviso)
+    if (scanCamara) setTimeout(() => setShowScanner(true), 400)
+  }
+
   const handleAddCourier = async (e) => {
     e.preventDefault()
     const name = newCourier.trim(); if (!name) return
@@ -373,9 +388,11 @@ export default function Shipments({
     let start = 0
     let last = 0
     const onKey = (e) => {
-      // No interceptar cuando se está escribiendo en un campo (búsqueda, pagos)
+      // No interceptar cuando se está ESCRIBIENDO (búsqueda, pagos). El
+      // desplegable de motoqueros sí se intercepta: si no, después de asignar
+      // una moto el foco queda ahí y la pistola no vuelve a leer.
       const tag = e.target?.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
       const now = Date.now()
       if (e.key === 'Enter') {
         if (buf.length >= 8 && (now - start) / buf.length < 50) {
@@ -389,6 +406,9 @@ export default function Shipments({
       if (!buf || now - last > 100) { buf = ''; start = now }
       buf += e.key
       last = now
+      // Si el foco quedó en el desplegable, el tecleo de la pistola no tiene
+      // que cambiar el motoquero elegido
+      if (tag === 'SELECT') e.preventDefault()
       if (buf.length > 300) buf = ''
     }
     window.addEventListener('keydown', onKey)
@@ -586,7 +606,7 @@ export default function Shipments({
         <button className={`tab-rep ${view === 'reporte' ? 'active' : ''}`} onClick={() => setView('reporte')}>📊 Reporte</button>
       </div>
 
-      {showScanner && <Scanner onScan={handleScan} onClose={() => setShowScanner(false)} />}
+      {showScanner && <Scanner onScan={(raw) => handleScan(raw, true)} onClose={() => { setShowScanner(false); setScanCamara(false) }} />}
 
       {showCouriers && (
         <div className="couriers-panel">
@@ -618,15 +638,32 @@ export default function Shipments({
             <button className="sa-close" onClick={() => setActionId(null)}>✕</button>
           </div>
           <div className="sa-buttons">
-            <button onClick={() => changeStatus(actionShipment, 'armado')}>📦 Armado</button>
-            <select value={actionShipment.courierId || ''} onChange={e => assignCourier(actionShipment, e.target.value)}>
+            <button onClick={async () => {
+              await changeStatus(actionShipment, 'armado')
+              cerrarPanel(`📦 ${actionShipment.code} · armado`)
+            }}>📦 Armado</button>
+            <select value={actionShipment.courierId || ''} onChange={async e => {
+              const id = e.target.value
+              const nombre = couriers.find(c => c.id === id)?.name || ''
+              await assignCourier(actionShipment, id)
+              cerrarPanel(id ? `🏍️ ${actionShipment.code} → ${nombre}` : `🏍️ ${actionShipment.code} · sin motoquero`)
+            }}>
               <option value="">🏍️ Asignar motoquero…</option>
               {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-            <button className="ok" onClick={() => changeStatus(actionShipment, 'entregado')}>✅ Entregado</button>
-            <button className="warn" onClick={() => changeStatus(actionShipment, 'demorado')}>⏰ Demorado</button>
+            <button className="ok" onClick={async () => {
+              await changeStatus(actionShipment, 'entregado')
+              cerrarPanel(`✅ ${actionShipment.code} · entregado`)
+            }}>✅ Entregado</button>
+            <button className="warn" onClick={async () => {
+              await changeStatus(actionShipment, 'demorado')
+              cerrarPanel(`⏰ ${actionShipment.code} · demorado`)
+            }}>⏰ Demorado</button>
             {actionShipment.status === 'entregado' && (
-              <button onClick={() => changeStatus(actionShipment, 'archivado')}>🗄️ Archivar</button>
+              <button onClick={async () => {
+                await changeStatus(actionShipment, 'archivado')
+                cerrarPanel(`🗄️ ${actionShipment.code} · archivado`)
+              }}>🗄️ Archivar</button>
             )}
           </div>
         </div>
