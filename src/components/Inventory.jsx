@@ -98,6 +98,7 @@ export default function Inventory({
   const fileInputRef = useRef(null)
   const purchaseInputRef = useRef(null)
   const photoInputRef = useRef(null)
+  const cameraInputRef = useRef(null)
 
   const resetForm = () => {
     setFormData(EMPTY_FORM)
@@ -1245,11 +1246,22 @@ export default function Inventory({
 
             <div className="form-group">
               <label>Fotos ({formData.photos.length}/{MAX_PHOTOS})</label>
+              {/* Dos entradas: la de la cámara lleva "capture", que en el
+                  celular abre directamente la cámara de atrás; sin "capture"
+                  el celular abre la galería */}
               <input
                 ref={photoInputRef}
                 type="file"
                 accept="image/*"
                 multiple
+                style={{ display: 'none' }}
+                onChange={handleAddPhotos}
+              />
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
                 style={{ display: 'none' }}
                 onChange={handleAddPhotos}
               />
@@ -1268,14 +1280,26 @@ export default function Inventory({
                   </div>
                 ))}
                 {formData.photos.length < MAX_PHOTOS && (
-                  <button
-                    type="button"
-                    className="photo-add"
-                    onClick={() => photoInputRef.current?.click()}
-                    disabled={loading}
-                  >
-                    📷<br />Agregar
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      className="photo-add"
+                      onClick={() => cameraInputRef.current?.click()}
+                      disabled={loading}
+                      title="Sacar una foto ahora"
+                    >
+                      📷<br />Cámara
+                    </button>
+                    <button
+                      type="button"
+                      className="photo-add"
+                      onClick={() => photoInputRef.current?.click()}
+                      disabled={loading}
+                      title="Elegir fotos ya guardadas"
+                    >
+                      🖼️<br />Galería
+                    </button>
+                  </>
                 )}
               </div>
             </div>

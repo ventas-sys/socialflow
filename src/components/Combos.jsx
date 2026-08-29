@@ -70,6 +70,7 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
   const [exporting, setExporting] = useState(false)
   const [importResult, setImportResult] = useState('')
   const photoInputRef = useRef(null)
+  const cameraInputRef = useRef(null)
   const fileInputRef = useRef(null)
 
   // Busca un producto por SKU, código de barras o nombre exacto
@@ -736,11 +737,22 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
 
             <div className="form-group">
               <label>Fotos ({formData.photos.length}/{MAX_PHOTOS})</label>
+              {/* Dos entradas: la de la cámara lleva "capture", que en el
+                  celular abre directamente la cámara de atrás; sin "capture"
+                  el celular abre la galería */}
               <input
                 ref={photoInputRef}
                 type="file"
                 accept="image/*"
                 multiple
+                style={{ display: 'none' }}
+                onChange={handleAddPhotos}
+              />
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
                 style={{ display: 'none' }}
                 onChange={handleAddPhotos}
               />
@@ -759,14 +771,26 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
                   </div>
                 ))}
                 {formData.photos.length < MAX_PHOTOS && (
-                  <button
-                    type="button"
-                    className="photo-add"
-                    onClick={() => photoInputRef.current?.click()}
-                    disabled={loading}
-                  >
-                    📷<br />Agregar
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      className="photo-add"
+                      onClick={() => cameraInputRef.current?.click()}
+                      disabled={loading}
+                      title="Sacar una foto ahora"
+                    >
+                      📷<br />Cámara
+                    </button>
+                    <button
+                      type="button"
+                      className="photo-add"
+                      onClick={() => photoInputRef.current?.click()}
+                      disabled={loading}
+                      title="Elegir fotos ya guardadas"
+                    >
+                      🖼️<br />Galería
+                    </button>
+                  </>
                 )}
               </div>
             </div>
