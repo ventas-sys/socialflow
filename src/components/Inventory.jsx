@@ -69,6 +69,7 @@ export default function Inventory({
   onImport,
   onDeleteCombo,
   onEditCombo,
+  onDuplicateCombo,
   onPurchase,
   loadPhotos,
   consumption,
@@ -77,6 +78,7 @@ export default function Inventory({
 }) {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
+  const [duplicando, setDuplicando] = useState(false)
   const [formData, setFormData] = useState(EMPTY_FORM)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -100,19 +102,22 @@ export default function Inventory({
   const resetForm = () => {
     setFormData(EMPTY_FORM)
     setEditingId(null)
+    setDuplicando(false)
     setError('')
   }
 
-  const handleEdit = async (product) => {
+  // duplicar = true: copia foto y datos pero deja vacíos el SKU y los códigos
+  // de barras (son únicos de cada artículo) y arranca sin stock
+  const handleEdit = async (product, duplicar = false) => {
     const bcs = product.barcodes?.length ? product.barcodes : (product.barcode ? [product.barcode] : [])
     setFormData({
       name: product.name || '',
-      code: product.code || '',
-      barcodes: bcs.join('\n'),
+      code: duplicar ? '' : (product.code || ''),
+      barcodes: duplicar ? '' : bcs.join('\n'),
       category: product.category || '',
       price: product.price || '',
       minStock: product.minStock || '5',
-      quantity: product.quantity ?? '0',
+      quantity: duplicar ? '0' : (product.quantity ?? '0'),
       location: product.location || '',
       stockType: product.stockType || '',
       fragile: !!product.fragile,
@@ -120,7 +125,8 @@ export default function Inventory({
       description: product.description || '',
       photos: [],
     })
-    setEditingId(product.id)
+    setEditingId(duplicar ? null : product.id)
+    setDuplicando(duplicar)
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
     // Las fotos se cargan on-demand (no vienen en el listado)
@@ -1086,7 +1092,13 @@ export default function Inventory({
 
       {showForm && (
         <div className="form-panel">
-          <h2>{editingId ? 'Editar Producto' : 'Nuevo Producto'}</h2>
+          <h2>{editingId ? 'Editar Producto' : (duplicando ? 'Duplicar Producto' : 'Nuevo Producto')}</h2>
+          {duplicando && (
+            <p className="combo-dup-hint">
+              📋 Copia de otro producto: poné el <strong>SKU nuevo</strong> (el anterior quedó vacío
+              para no repetirlo). El stock arranca en 0.
+            </p>
+          )}
           {error && <div className="error-message">{error}</div>}
 
           <form onSubmit={handleSubmit} className="product-form">
@@ -1389,6 +1401,13 @@ export default function Inventory({
                       ✏️ Editar
                     </button>
                     <button
+                      onClick={() => (row.kind === 'combo' ? onDuplicateCombo(row) : handleEdit(row, true))}
+                      className="btn-edit"
+                      title="Duplicar: mismos datos y foto, con otro SKU"
+                    >
+                      📋 Duplicar
+                    </button>
+                    <button
                       onClick={() => (row.kind === 'combo' ? handleDeleteCombo(row.id) : handleDelete(row.id))}
                       className="btn-del"
                       title="Eliminar"
@@ -1494,6 +1513,13 @@ export default function Inventory({
                             title="Editar"
                           >
                             ✏️
+                          </button>
+                          <button
+                            onClick={() => (isCombo ? onDuplicateCombo(row) : handleEdit(row, true))}
+                            className="btn-edit"
+                            title="Duplicar: mismos datos y foto, con otro SKU"
+                          >
+                            📋
                           </button>
                           <button
                             onClick={() => (isCombo ? handleDeleteCombo(row.id) : handleDelete(row.id))}

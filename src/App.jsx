@@ -959,6 +959,10 @@ export default function App() {
                   setComboEditRequest({ combo, ts: Date.now() })
                   setCurrentTab('combos')
                 }}
+                onDuplicateCombo={(combo) => {
+                  setComboEditRequest({ combo, duplicar: true, ts: Date.now() })
+                  setCurrentTab('combos')
+                }}
               />
             )}
             {currentTab === 'combos' && canSee('combos') && (

@@ -62,6 +62,7 @@ export function comboAvailable(combo, products) {
 export default function Combos({ combos, products, onAdd, onUpdate, onDelete, onImport, editRequest, loadPhotos, canEdit = true }) {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
+  const [duplicando, setDuplicando] = useState(false)
   const [formData, setFormData] = useState(EMPTY_FORM)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -84,7 +85,7 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
   // Abre el formulario cuando se pide editar un combo desde Inventario
   useEffect(() => {
     if (editRequest?.combo) {
-      handleEdit(editRequest.combo)
+      handleEdit(editRequest.combo, !!editRequest.duplicar)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editRequest?.ts])
@@ -92,15 +93,19 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
   const resetForm = () => {
     setFormData(EMPTY_FORM)
     setEditingId(null)
+    setDuplicando(false)
     setError('')
   }
 
-  const handleEdit = async (combo) => {
+  // duplicar = true: copia todo (foto, productos, precio, ubicación) pero deja
+  // el SKU y los códigos de barras vacíos, porque son propios de cada
+  // publicación, y guarda como combo NUEVO
+  const handleEdit = async (combo, duplicar = false) => {
     const bcs = combo.barcodes?.length ? combo.barcodes : (combo.barcode ? [combo.barcode] : [])
     setFormData({
       name: combo.name || '',
-      code: combo.code || '',
-      barcodes: bcs.join('\n'),
+      code: duplicar ? '' : (combo.code || ''),
+      barcodes: duplicar ? '' : bcs.join('\n'),
       price: combo.price || '',
       location: combo.location || '',
       stockType: combo.stockType || '',
@@ -109,7 +114,8 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
         : [{ productId: '', quantity: '1' }],
       photos: [],
     })
-    setEditingId(combo.id)
+    setEditingId(duplicar ? null : combo.id)
+    setDuplicando(duplicar)
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
     if (combo.hasPhotos && loadPhotos) {
@@ -183,6 +189,23 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
     if (!formData.name.trim()) {
       setError('El nombre del combo es requerido')
       return
+    }
+
+    // Un combo duplicado SIN SKU nuevo no sirve (no lo encuentra ninguna venta
+    // de ML) y repetir el SKU de otro combo rompe el descuento de stock
+    const codigo = formData.code.trim()
+    if (duplicando && !codigo) {
+      setError('Poné el SKU nuevo del combo duplicado (el del original quedó vacío a propósito).')
+      return
+    }
+    if (codigo) {
+      const repetido = combos.find(c =>
+        c.id !== editingId && (c.code || '').trim().toLowerCase() === codigo.toLowerCase()
+      )
+      if (repetido) {
+        setError(`Ese SKU ya lo usa el combo "${repetido.name}". Poné uno distinto.`)
+        return
+      }
     }
 
     const items = formData.items
@@ -579,7 +602,14 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
 
       {showForm && (
         <div className="form-panel">
-          <h2>{editingId ? 'Editar Combo' : 'Nuevo Combo'}</h2>
+          <h2>{editingId ? 'Editar Combo' : (duplicando ? 'Duplicar Combo' : 'Nuevo Combo')}</h2>
+          {duplicando && (
+            <p className="combo-dup-hint">
+              📋 Copia de un combo existente: se trajeron la foto, los productos, el precio y la
+              ubicación. Poné el <strong>SKU nuevo</strong> (el anterior quedó vacío para no repetirlo)
+              y guardá.
+            </p>
+          )}
           {error && <div className="error-message">{error}</div>}
 
           <form onSubmit={handleSubmit} className="combo-form">

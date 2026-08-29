@@ -1168,3 +1168,21 @@
     padding: 0.75rem 0.5rem;
   }
 }
+
+/* Aviso al duplicar (recordar poner el SKU nuevo) */
+.combo-dup-hint {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.8rem;
+  background: #eff6ff;
+  border-left: 3px solid #2563eb;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: #1e3a8a;
+}
+
+@media (prefers-color-scheme: dark) {
+  .combo-dup-hint {
+    background: rgba(37, 99, 235, 0.15);
+    color: #bfdbfe;
+  }
+}
