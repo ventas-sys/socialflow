@@ -1186,3 +1186,63 @@
     color: #bfdbfe;
   }
 }
+
+/* ── Tabla de inventario en PC ─────────────────────────────────────────────
+   Son 11 columnas: con el espaciado grande el nombre se partía en 3 líneas,
+   las filas quedaban altísimas y la columna de Acciones se salía de la
+   pantalla. Acá se compacta y se le fija un ancho a cada columna angosta
+   para que el Nombre se lleve el espacio que sobra. Solo en PC: en el
+   celular la tabla se sigue viendo como antes. */
+@media (min-width: 769px) {
+  .products-table th {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+  }
+
+  .products-table td {
+    padding: 0.45rem 0.6rem;
+    font-size: 0.82rem;
+    line-height: 1.25;
+  }
+
+  /* Foto · Tipo · Nombre · SKU · Barras · FULL/FERRE · Precio · Stock ·
+     Ubicación · Salud · Acciones */
+  .products-table th:nth-child(1)  { width: 54px; }
+  .products-table th:nth-child(2)  { width: 84px; }
+  .products-table th:nth-child(3)  { min-width: 240px; }
+  .products-table th:nth-child(4)  { width: 118px; }
+  .products-table th:nth-child(5)  { width: 108px; }
+  .products-table th:nth-child(6)  { width: 88px; }
+  .products-table th:nth-child(7)  { width: 78px; }
+  .products-table th:nth-child(8)  { width: 74px; }
+  .products-table th:nth-child(9)  { width: 92px; }
+  .products-table th:nth-child(10) { width: 112px; }
+  .products-table th:nth-child(11) { width: 96px; }
+
+  /* Que no se corten en varias líneas los datos cortos */
+  .products-table td:nth-child(4),
+  .products-table td:nth-child(5),
+  .products-table td:nth-child(7),
+  .products-table td:nth-child(8),
+  .products-table td:nth-child(9),
+  .products-table td:nth-child(11) { white-space: nowrap; }
+
+  /* El nombre: como mucho 2 líneas, el resto con puntos suspensivos */
+  .products-table td.bold {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .products-table .row-thumb { width: 38px; height: 38px; }
+  .products-table .kind-badge,
+  .products-table .badge-st,
+  .products-table .health { padding: 0.15rem 0.4rem; font-size: 0.7rem; }
+  .products-table .stock-note { font-size: 0.65rem; }
+  .products-table .btn-edit,
+  .products-table .btn-del { font-size: 1rem; padding: 0.1rem; }
+  .products-table .actions { gap: 0.25rem; }
+}
