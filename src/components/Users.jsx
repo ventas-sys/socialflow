@@ -13,6 +13,7 @@ export const PERM_TABS = [
   { key: 'packing', label: '🗳️ Empaque' },
   { key: 'mercadolibre', label: '🛒 ML' }, // solo la ve el master — no se asigna a ayudantes
   { key: 'reports', label: '📈 Reportes' },
+  { key: 'metrics', label: '📊 Métricas' },
 ]
 
 // Columnas del cuadro de permisos (ML queda afuera: es solo del master)

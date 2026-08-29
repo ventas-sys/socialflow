@@ -1,0 +1,154 @@
+.metrics { padding: 1rem; }
+
+.mt-head h1 { margin: 0; font-size: 1.5rem; color: #111827; }
+.mt-sub { margin: 0.15rem 0 1rem; color: #6b7280; font-size: 0.875rem; }
+
+/* Filtros */
+.mt-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 0.9rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.mt-grupo { display: flex; flex-direction: column; gap: 0.35rem; }
+.mt-lbl { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; font-weight: 600; }
+.mt-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+
+.mt-chips button {
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #374151;
+  border-radius: 9999px;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mt-chips button.on { background: #2563eb; border-color: #2563eb; color: white; }
+
+.mt-check { display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; color: #374151; }
+.mt-check.off { opacity: 0.55; }
+.mt-check em { font-style: normal; color: #9ca3af; font-size: 0.78rem; }
+
+.mt-btn {
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mt-btn:disabled { opacity: 0.6; cursor: default; }
+
+.mt-error {
+  background: #fee2e2;
+  color: #991b1b;
+  border-radius: 0.5rem;
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.mt-hint { color: #6b7280; font-size: 0.85rem; margin: 0.5rem 0 0; }
+
+/* Tarjetas de números */
+.mt-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.mt-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 0.85rem 1rem;
+}
+
+.mt-card-lbl { font-size: 0.75rem; color: #6b7280; margin-bottom: 0.25rem; }
+.mt-card-val { font-size: 1.5rem; font-weight: 700; color: #111827; line-height: 1.1; }
+.mt-card-val.warn { color: #ef4444; }
+
+/* Paneles */
+.mt-panel {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.mt-panel h2 { margin: 0 0 0.75rem; font-size: 1.05rem; color: #111827; }
+.mt-panel-head { display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+.mt-panel-head h2 { margin: 0; }
+
+/* Gráfico de barras por día (sin librerías) */
+.mt-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.35rem;
+  height: 220px;
+  overflow-x: auto;
+  padding-top: 1.2rem;
+}
+
+.mt-bar-wrap {
+  flex: 1 0 26px;
+  min-width: 26px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  position: relative;
+}
+
+.mt-bar {
+  width: 100%;
+  background: #93c5fd;
+  border-radius: 4px 4px 0 0;
+  transition: background 0.15s;
+}
+.mt-bar-wrap:hover .mt-bar { background: #2563eb; }
+
+.mt-bar-val { font-size: 0.65rem; color: #6b7280; margin-bottom: 0.2rem; }
+.mt-bar-day { font-size: 0.65rem; color: #9ca3af; margin-top: 0.25rem; white-space: nowrap; }
+
+/* Tablas */
+.mt-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.mt-table th {
+  text-align: left;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #6b7280;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+.mt-table td { padding: 0.5rem; border-bottom: 1px solid #f3f4f6; color: #374151; }
+.mt-nick { color: #9ca3af; font-size: 0.75rem; }
+
+@media (prefers-color-scheme: dark) {
+  .mt-head h1, .mt-card-val, .mt-panel h2 { color: #f1f5f9; }
+  .mt-filtros, .mt-card, .mt-panel { background: #1e293b; border-color: #334155; }
+  .mt-chips button { background: #0f172a; border-color: #334155; color: #cbd5e1; }
+  .mt-chips button.on { background: #2563eb; border-color: #2563eb; color: white; }
+  .mt-check, .mt-table td { color: #cbd5e1; }
+  .mt-table td { border-bottom-color: #334155; }
+  .mt-table th { border-bottom-color: #334155; }
+  .mt-error { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+}
+
+@media (max-width: 768px) {
+  .mt-filtros { gap: 0.75rem; }
+  .mt-cards { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .mt-card-val { font-size: 1.25rem; }
+}

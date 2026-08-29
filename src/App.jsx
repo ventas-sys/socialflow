@@ -22,6 +22,7 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 import { ORG_ID, ADMIN_EMAIL } from './config'
+import { ensureMlToken } from './utils/mlToken'
 import Dashboard from './components/Dashboard'
 import Inventory from './components/Inventory'
 import Combos from './components/Combos'
@@ -30,6 +31,7 @@ import Reports from './components/Reports'
 import Shipments from './components/Shipments'
 import Packing from './components/Packing'
 import MercadoLibre from './components/MercadoLibre'
+import Metrics from './components/Metrics'
 import Users, { PERM_TABS } from './components/Users'
 import Auth from './components/Auth'
 import './App.css'
@@ -1011,6 +1013,12 @@ export default function App() {
                 shipments={shipments}
                 loadPhotos={loadPhotos}
                 onUpdateShipment={updateShipment}
+              />
+            )}
+            {currentTab === 'metrics' && canSee('metrics') && (
+              <Metrics
+                mlAccounts={mlAccounts}
+                ensureToken={(key) => ensureMlToken(mlAccounts, key, saveMlAccount)}
               />
             )}
             {currentTab === 'mercadolibre' && isAdmin && (

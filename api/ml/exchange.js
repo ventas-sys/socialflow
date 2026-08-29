@@ -18,6 +18,7 @@ export default async function handler(req, res) {
     if (action === 'items') return await items(req, res);
     if (action === 'shipstatus') return await shipStatus(req, res);
     if (action === 'topsold') return await topSold(req, res);
+    if (action === 'metrics') return await metrics(req, res);
     return await exchange(req, res);
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message });
@@ -105,6 +106,127 @@ async function topSold(req, res) {
 
   const top = [...acc.values()].sort((a, b) => b.unidades - a.unidades).slice(0, limit);
   return res.status(200).json({ ok: true, ordenes, canceladas, truncado, publicaciones: acc.size, top });
+}
+
+// Métricas de la cuenta para la solapa 📊: ventas, unidades, dinero y ticket
+// promedio del período, la evolución día por día, el desglose por tipo de
+// envío y la reputación. Igual que topSold, el período se parte en ventanas de
+// 7 días (porque /orders/search corta en offset 10.000) y se pagina en
+// paralelo. Los días se agrupan en hora de ARGENTINA (UTC-3), si no las ventas
+// de la tarde caen en el día siguiente.
+const AR_OFFSET = 3 * 3600 * 1000;
+const diaAR = (iso) => new Date(new Date(iso).getTime() - AR_OFFSET).toISOString().slice(0, 10);
+
+async function metrics(req, res) {
+  const { token, from, to, conEnvios = false } = req.body || {};
+  if (!token) return res.status(400).json({ ok: false, error: 'Falta access_token' });
+  const auth = { 'Authorization': 'Bearer ' + token };
+
+  const me = await httpRequest('GET', 'https://api.mercadolibre.com/users/me', auth);
+  if (me.status !== 200) throw new Error(me.body?.message || ('HTTP ' + me.status));
+  const sellerId = me.body.id;
+  const rep = me.body.seller_reputation || {};
+
+  const desdeMs = from ? new Date(from).getTime() : Date.now() - 7 * 24 * 3600 * 1000;
+  const hastaMs = to ? new Date(to).getTime() : Date.now();
+
+  const pedir = async (d, h, offset) => {
+    const url = 'https://api.mercadolibre.com/orders/search'
+      + `?seller=${sellerId}&sort=date_desc&limit=50&offset=${offset}`
+      + `&order.date_created.from=${encodeURIComponent(d)}&order.date_created.to=${encodeURIComponent(h)}`;
+    const r = await httpRequest('GET', url, auth);
+    if (r.status !== 200) throw new Error(r.body?.message || ('HTTP ' + r.status));
+    return r.body;
+  };
+
+  const porDia = new Map();   // día → { ventas, unidades, dinero }
+  const shipIds = [];         // para el desglose por tipo de envío
+  const shipMonto = new Map();
+  let ventas = 0, unidades = 0, dinero = 0, canceladas = 0;
+
+  const sumar = (orders) => {
+    for (const o of orders) {
+      if (o.status === 'cancelled' || o.status === 'invalid') { canceladas++; continue; }
+      const d = diaAR(o.date_created);
+      const acc = porDia.get(d) || { dia: d, ventas: 0, unidades: 0, dinero: 0 };
+      const u = (o.order_items || []).reduce((s, it) => s + (it.quantity || 0), 0);
+      const monto = o.total_amount || 0;
+      acc.ventas++; acc.unidades += u; acc.dinero += monto;
+      porDia.set(d, acc);
+      ventas++; unidades += u; dinero += monto;
+      const sid = o.shipping?.id;
+      if (sid) { shipIds.push(sid); shipMonto.set(sid, monto); }
+    }
+  };
+
+  const VENTANA = 7 * 24 * 3600 * 1000;
+  for (let ini = desdeMs; ini < hastaMs; ini += VENTANA) {
+    const d = new Date(ini).toISOString();
+    const h = new Date(Math.min(ini + VENTANA, hastaMs)).toISOString();
+    const primera = await pedir(d, h, 0);
+    sumar(primera.results || []);
+    const tope = Math.min(primera.paging?.total || 0, 10000);
+    const offsets = [];
+    for (let off = 50; off < tope; off += 50) offsets.push(off);
+    for (let i = 0; i < offsets.length; i += 8) {
+      const lote = await Promise.all(offsets.slice(i, i + 8).map(off => pedir(d, h, off)));
+      lote.forEach(b => sumar(b.results || []));
+    }
+  }
+
+  // Tipo de envío: hay que preguntar envío por envío, así que solo se calcula
+  // si lo piden y con un tope, para no pasarse del tiempo de la función
+  let tipoEnvio = null;
+  if (conEnvios && shipIds.length) {
+    const unicos = [...new Set(shipIds)].slice(0, 4000);
+    const acc = { flex: { envios: 0, dinero: 0 }, correo: { envios: 0, dinero: 0 }, full: { envios: 0, dinero: 0 }, otro: { envios: 0, dinero: 0 } };
+    let costoNuestro = 0;
+    for (let i = 0; i < unicos.length; i += 12) {
+      await Promise.all(unicos.slice(i, i + 12).map(async (sid) => {
+        try {
+          const r = await httpRequest('GET', `https://api.mercadolibre.com/shipments/${sid}`, auth);
+          const t = r.body?.logistic_type || r.body?.logistic?.type;
+          const k = t === 'self_service' ? 'flex' : t === 'fulfillment' ? 'full'
+            : (t ? 'correo' : 'otro');
+          acc[k].envios++;
+          acc[k].dinero += shipMonto.get(sid) || 0;
+          costoNuestro += r.body?.shipping_option?.cost || 0;
+        } catch { acc.otro.envios++; }
+      }));
+    }
+    tipoEnvio = { ...acc, costoNuestro, consultados: unicos.length, total: [...new Set(shipIds)].length };
+  }
+
+  // Visitas del período (si ML no las da, la pantalla sigue funcionando igual)
+  let visitas = null;
+  try {
+    const v = await httpRequest('GET',
+      `https://api.mercadolibre.com/users/${sellerId}/items_visits?date_from=${new Date(desdeMs).toISOString().slice(0, 19)}.000-00:00&date_to=${new Date(hastaMs).toISOString().slice(0, 19)}.000-00:00`,
+      auth);
+    if (v.status === 200) visitas = v.body?.total_visits ?? null;
+  } catch {}
+
+  const dias = [...porDia.values()].sort((a, b) => a.dia.localeCompare(b.dia));
+  return res.status(200).json({
+    ok: true,
+    cuenta: me.body.nickname,
+    resumen: {
+      ventas, unidades, dinero, canceladas, visitas,
+      ticket: ventas ? dinero / ventas : 0,
+      promedioDia: dias.length ? ventas / dias.length : 0,
+    },
+    porDia: dias,
+    tipoEnvio,
+    reputacion: {
+      nivel: rep.level_id || '',
+      operaciones: rep.transactions?.total ?? null,
+      completadas: rep.transactions?.completed ?? null,
+      canceladasRep: rep.transactions?.canceled ?? null,
+      reclamos: rep.metrics?.claims?.rate ?? null,
+      demorados: rep.metrics?.delayed_handling_time?.rate ?? null,
+      cancelacionesRate: rep.metrics?.cancellations?.rate ?? null,
+    },
+  });
 }
 
 // Núcleo reutilizable (lo usan el handler orders y el sync del tablero en
