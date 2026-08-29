@@ -26,6 +26,14 @@ export default function Scanner({ onScan, onClose }) {
   const [error, setError] = useState('')
   const [starting, setStarting] = useState(true)
 
+  // onScan es una función nueva en cada render del padre. Si el efecto
+  // dependiera de ella, CADA cambio de estado del padre (una venta que entra,
+  // el sync, un contador) apagaba y volvía a prender la cámara: en el celular
+  // se traba, tarda en enfocar y se pierden lecturas. Por eso la cámara se
+  // arranca UNA sola vez y el callback se lee de un ref siempre actualizado.
+  const onScanRef = useRef(onScan)
+  useEffect(() => { onScanRef.current = onScan })
+
   useEffect(() => {
     const scanner = new Html5Qrcode('qr-reader')
     scannerRef.current = scanner
@@ -42,7 +50,7 @@ export default function Scanner({ onScan, onClose }) {
           scanner
             .stop()
             .catch(() => {})
-            .finally(() => onScan(decodedText))
+            .finally(() => onScanRef.current(decodedText))
         }
       )
       .then(() => setStarting(false))
@@ -61,7 +69,9 @@ export default function Scanner({ onScan, onClose }) {
         scannerRef.current.stop().catch(() => {})
       }
     }
-  }, [onScan])
+    // Sin dependencias A PROPÓSITO: la cámara arranca y se apaga una sola vez
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div className="scanner-overlay">

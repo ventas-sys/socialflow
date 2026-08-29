@@ -140,7 +140,6 @@ export default function Shipments({
   const [showCouriers, setShowCouriers] = useState(false)
   const [newCourier, setNewCourier] = useState('')
   const [actionId, setActionId] = useState(null) // envío enfocado tras escanear
-  const [scanCamara, setScanCamara] = useState(false) // el último escaneo fue con la cámara
   const [range, setRange] = useState('hoy') // reporte: hoy | semana | mes
   const [syncMsg, setSyncMsg] = useState('')
   const [syncing, setSyncing] = useState(false)
@@ -340,10 +339,9 @@ export default function Shipments({
     }
   }
 
-  const handleScan = async (raw, desdeCamara = false) => {
+  const handleScan = async (raw) => {
     setShowScanner(false)
-    setScanCamara(desdeCamara)
-    // Soltar el foco: si quedó en el desplegable de motoqueros, la pistola no
+    // Soltar el foco: si quedó en el desplegable de motoqueros, el lector no
     // vuelve a leer nunca más
     document.activeElement?.blur?.()
     const code = parseShipmentCode(raw)
@@ -365,14 +363,15 @@ export default function Shipments({
     )
   }
 
-  // Después de marcar algo en el panel: soltar el foco (si no, el desplegable
-  // se queda con él y la pistola deja de leer), cerrar el panel y —si se venía
-  // escaneando con la cámara— volver a abrirla para seguir sin tocar nada.
-  const cerrarPanel = (aviso) => {
+  // La secuencia es: escanear → 📦 Armado → asignar motoquero (pasa a En
+  // camino). Por eso el panel queda abierto al marcar Armado (falta la moto) y
+  // se cierra recién al asignarla, listo para el próximo paquete. Al soltar el
+  // desplegable hay que sacarle el foco: si se lo queda, el lector ignora las
+  // teclas —no interrumpe mientras se escribe en un campo— y no se puede
+  // seguir pikeando.
+  const terminarPaquete = () => {
     document.activeElement?.blur?.()
     setActionId(null)
-    if (aviso) setSyncMsg(aviso)
-    if (scanCamara) setTimeout(() => setShowScanner(true), 400)
   }
 
   const handleAddCourier = async (e) => {
@@ -606,7 +605,7 @@ export default function Shipments({
         <button className={`tab-rep ${view === 'reporte' ? 'active' : ''}`} onClick={() => setView('reporte')}>📊 Reporte</button>
       </div>
 
-      {showScanner && <Scanner onScan={(raw) => handleScan(raw, true)} onClose={() => { setShowScanner(false); setScanCamara(false) }} />}
+      {showScanner && <Scanner onScan={handleScan} onClose={() => setShowScanner(false)} />}
 
       {showCouriers && (
         <div className="couriers-panel">
@@ -638,32 +637,26 @@ export default function Shipments({
             <button className="sa-close" onClick={() => setActionId(null)}>✕</button>
           </div>
           <div className="sa-buttons">
-            <button onClick={async () => {
-              await changeStatus(actionShipment, 'armado')
-              cerrarPanel(`📦 ${actionShipment.code} · armado`)
-            }}>📦 Armado</button>
+            <button onClick={() => changeStatus(actionShipment, 'armado')}>📦 Armado</button>
             <select value={actionShipment.courierId || ''} onChange={async e => {
               const id = e.target.value
               const nombre = couriers.find(c => c.id === id)?.name || ''
               await assignCourier(actionShipment, id)
-              cerrarPanel(id ? `🏍️ ${actionShipment.code} → ${nombre}` : `🏍️ ${actionShipment.code} · sin motoquero`)
+              document.activeElement?.blur?.()
+              // Con motoquero asignado el paquete ya está: se cierra el panel
+              // para escanear el siguiente
+              if (id) {
+                setSyncMsg(`🏍️ ${actionShipment.code} → ${nombre}`)
+                terminarPaquete()
+              }
             }}>
               <option value="">🏍️ Asignar motoquero…</option>
               {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-            <button className="ok" onClick={async () => {
-              await changeStatus(actionShipment, 'entregado')
-              cerrarPanel(`✅ ${actionShipment.code} · entregado`)
-            }}>✅ Entregado</button>
-            <button className="warn" onClick={async () => {
-              await changeStatus(actionShipment, 'demorado')
-              cerrarPanel(`⏰ ${actionShipment.code} · demorado`)
-            }}>⏰ Demorado</button>
+            <button className="ok" onClick={() => changeStatus(actionShipment, 'entregado')}>✅ Entregado</button>
+            <button className="warn" onClick={() => changeStatus(actionShipment, 'demorado')}>⏰ Demorado</button>
             {actionShipment.status === 'entregado' && (
-              <button onClick={async () => {
-                await changeStatus(actionShipment, 'archivado')
-                cerrarPanel(`🗄️ ${actionShipment.code} · archivado`)
-              }}>🗄️ Archivar</button>
+              <button onClick={() => changeStatus(actionShipment, 'archivado')}>🗄️ Archivar</button>
             )}
           </div>
         </div>
