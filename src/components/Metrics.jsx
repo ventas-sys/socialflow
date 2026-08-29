@@ -54,6 +54,7 @@ export default function Metrics({ mlAccounts, ensureToken }) {
           body: JSON.stringify({ token, from, to, conEnvios: pedirEnvios }),
         }).then(x => x.json())
         if (!res.ok) throw new Error(`${key.toUpperCase()}: ${res.error || 'Error'}`)
+        if (!res.porDia) throw new Error(`${key.toUpperCase()}: MercadoLibre no devolvió los días`)
         partes.push({ key, ...res })
       }
 
@@ -95,6 +96,7 @@ export default function Metrics({ mlAccounts, ensureToken }) {
   }
 
   const max = datos ? Math.max(1, ...datos.porDia.map(d => d[serie])) : 1
+  const ALTO_BARRA = 170 // px
   const etiqueta = { ventas: 'Ventas', unidades: 'Unidades', dinero: 'Dinero' }
 
   return (
@@ -200,11 +202,11 @@ export default function Metrics({ mlAccounts, ensureToken }) {
             {datos.porDia.length === 0 ? (
               <p className="mt-hint">No hubo ventas en el período.</p>
             ) : (
-              <div className="mt-chart">
+              <div className={`mt-chart ${datos.porDia.length < 4 ? 'pocos' : ''}`}>
                 {datos.porDia.map(d => (
                   <div key={d.dia} className="mt-bar-wrap" title={`${d.dia}: ${serie === 'dinero' ? plata(d.dinero) : num(d[serie])}`}>
                     <div className="mt-bar-val">{serie === 'dinero' ? Math.round(d.dinero / 1000) + 'k' : d[serie]}</div>
-                    <div className="mt-bar" style={{ height: `${Math.max(2, (d[serie] / max) * 100)}%` }} />
+                    <div className="mt-bar" style={{ height: `${Math.max(3, Math.round((d[serie] / max) * ALTO_BARRA))}px` }} />
                     <div className="mt-bar-day">{d.dia.slice(8)}/{d.dia.slice(5, 7)}</div>
                   </div>
                 ))}

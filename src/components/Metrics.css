@@ -90,29 +90,34 @@
 .mt-panel-head { display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
 .mt-panel-head h2 { margin: 0; }
 
-/* Gráfico de barras por día (sin librerías) */
+/* Gráfico de barras por día (sin librerías). La altura de cada barra se
+   calcula en PÍXELES desde el componente: con porcentajes dependía de que el
+   contenedor resolviera su altura y las barras no se veían. */
 .mt-chart {
   display: flex;
   align-items: flex-end;
   gap: 0.35rem;
-  height: 220px;
+  min-height: 215px;
   overflow-x: auto;
-  padding-top: 1.2rem;
+  padding-top: 0.5rem;
 }
+
+/* Con pocos días (ej. "Hoy") las barras no se estiran a lo ancho */
+.mt-chart.pocos { justify-content: flex-start; }
+.mt-chart.pocos .mt-bar-wrap { flex: 0 0 70px; }
 
 .mt-bar-wrap {
   flex: 1 0 26px;
   min-width: 26px;
-  height: 100%;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
   align-items: center;
-  position: relative;
 }
 
 .mt-bar {
   width: 100%;
+  max-width: 60px;
   background: #93c5fd;
   border-radius: 4px 4px 0 0;
   transition: background 0.15s;
