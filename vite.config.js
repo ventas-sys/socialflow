@@ -2,8 +2,11 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// Versión del build (fecha/hora) visible en la app y publicada en version.json
-const APP_VERSION = new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC'
+// Versión del build (fecha/hora) visible en la app y publicada en version.json.
+// En hora de Argentina (UTC-3): los servidores que compilan están en UTC y
+// mostraba 3 horas de más, que confunde al mirar si la app está al día.
+const APP_VERSION = new Date(Date.now() - 3 * 3600 * 1000)
+  .toISOString().slice(0, 16).replace('T', ' ') + ' hs'
 
 export default defineConfig({
   // Versión visible en la app (fecha/hora del build) para detectar caché vieja
