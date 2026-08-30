@@ -197,6 +197,26 @@ async function metrics(req, res) {
     tipoEnvio = { ...acc, costoNuestro, consultados: unicos.length, total: [...new Set(shipIds)].length };
   }
 
+  // Saldo de Mercado Pago: la cuenta es la misma que la de ML, así que se
+  // intenta con el mismo token. "A liquidar" es lo que todavía no se puede
+  // usar, o sea total - disponible. Si ML no lo autoriza, la pantalla sigue
+  // funcionando y simplemente no se muestra la tarjeta.
+  let saldo = null;
+  try {
+    const b = await httpRequest('GET', `https://api.mercadopago.com/users/${sellerId}/mercadopago_account/balance`, auth);
+    if (b.status === 200 && b.body) {
+      const total = b.body.total_balance ?? b.body.total_amount ?? null;
+      const disponible = b.body.available_balance ?? b.body.available_amount ?? null;
+      if (total != null || disponible != null) {
+        saldo = {
+          total: total ?? 0,
+          disponible: disponible ?? 0,
+          aLiquidar: (total ?? 0) - (disponible ?? 0),
+        };
+      }
+    }
+  } catch {}
+
   // Visitas del período (si ML no las da, la pantalla sigue funcionando igual)
   let visitas = null;
   try {
@@ -217,6 +237,7 @@ async function metrics(req, res) {
     },
     porDia: dias,
     tipoEnvio,
+    saldo,
     reputacion: {
       nivel: rep.level_id || '',
       operaciones: rep.transactions?.total ?? null,

@@ -217,6 +217,7 @@ export default function Metrics({ mlAccounts, ensureToken }) {
           {datos.envios && (
             <div className="mt-panel">
               <h2>Tipo de envío</h2>
+              <div className="mt-table-wrap">
               <table className="mt-table">
                 <thead>
                   <tr><th>Tipo</th><th>Envíos</th><th>Dinero</th></tr>
@@ -230,28 +231,58 @@ export default function Metrics({ mlAccounts, ensureToken }) {
                   )}
                 </tbody>
               </table>
+              </div>
               <p className="mt-hint">Costo de envíos a cargo nuestro: <strong>{plata(datos.envios.costoNuestro)}</strong></p>
+            </div>
+          )}
+
+          {datos.cuentas.some(c => c.saldo) && (
+            <div className="mt-panel">
+              <h2>💳 Mercado Pago</h2>
+              <div className="mt-table-wrap">
+                <table className="mt-table">
+                  <thead>
+                    <tr><th>Cuenta</th><th>Dinero en cuenta</th><th>Disponible</th><th>A liquidar</th></tr>
+                  </thead>
+                  <tbody>
+                    {datos.cuentas.filter(c => c.saldo).map(c => (
+                      <tr key={c.key}>
+                        <td><strong>{c.key.toUpperCase()}</strong></td>
+                        <td>{plata(c.saldo.total)}</td>
+                        <td>{plata(c.saldo.disponible)}</td>
+                        <td>{plata(c.saldo.aLiquidar)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-hint">A liquidar = lo que hay en la cuenta menos lo que ya está disponible.</p>
             </div>
           )}
 
           <div className="mt-panel">
             <h2>Reputación por cuenta</h2>
-            <table className="mt-table">
-              <thead>
-                <tr><th>Cuenta</th><th>Operaciones</th><th>Reclamos</th><th>Envíos demorados</th><th>Canceladas</th></tr>
-              </thead>
-              <tbody>
-                {datos.cuentas.map(c => (
-                  <tr key={c.key}>
-                    <td>{c.key.toUpperCase()} <span className="mt-nick">{c.cuenta}</span></td>
-                    <td>{num(c.reputacion.operaciones)}</td>
-                    <td>{pct(c.reputacion.reclamos)}</td>
-                    <td>{pct(c.reputacion.demorados)}</td>
-                    <td>{pct(c.reputacion.cancelacionesRate)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="mt-table-wrap">
+              <table className="mt-table">
+                <thead>
+                  <tr><th>Cuenta</th><th>Oper.</th><th>Reclamos</th><th>Demorados</th><th>Cancel.</th></tr>
+                </thead>
+                <tbody>
+                  {datos.cuentas.map(c => (
+                    <tr key={c.key}>
+                      <td>
+                        <strong>{c.key.toUpperCase()}</strong>
+                        <div className="mt-nick">{c.cuenta}</div>
+                      </td>
+                      <td>{num(c.reputacion.operaciones)}</td>
+                      <td>{pct(c.reputacion.reclamos)}</td>
+                      <td>{pct(c.reputacion.demorados)}</td>
+                      <td>{pct(c.reputacion.cancelacionesRate)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             <p className="mt-hint">Según MercadoLibre, sobre los últimos 60 días.</p>
           </div>
         </>

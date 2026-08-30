@@ -127,8 +127,10 @@
 .mt-bar-val { font-size: 0.65rem; color: #6b7280; margin-bottom: 0.2rem; }
 .mt-bar-day { font-size: 0.65rem; color: #9ca3af; margin-top: 0.25rem; white-space: nowrap; }
 
-/* Tablas */
-.mt-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+/* Tablas. En el celular no entran a lo ancho: se desplazan dentro de su
+   tarjeta en vez de salirse de la pantalla. */
+.mt-table-wrap { overflow-x: auto; }
+.mt-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; min-width: 420px; }
 .mt-table th {
   text-align: left;
   font-size: 0.7rem;
@@ -139,7 +141,14 @@
   border-bottom: 1px solid #e5e7eb;
 }
 .mt-table td { padding: 0.5rem; border-bottom: 1px solid #f3f4f6; color: #374151; }
-.mt-nick { color: #9ca3af; font-size: 0.75rem; }
+.mt-nick {
+  color: #9ca3af;
+  font-size: 0.7rem;
+  max-width: 130px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 @media (prefers-color-scheme: dark) {
   .mt-head h1, .mt-card-val, .mt-panel h2 { color: #f1f5f9; }
@@ -154,6 +163,8 @@
 
 @media (max-width: 768px) {
   .mt-filtros { gap: 0.75rem; }
+  .mt-table { font-size: 0.8rem; min-width: 380px; }
+  .mt-table td, .mt-table th { padding: 0.4rem 0.35rem; }
   .mt-cards { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
   .mt-card-val { font-size: 1.25rem; }
 }
