@@ -53,7 +53,7 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
 - Lección técnica: setShipments/setCouriers SIEMPRE en forma funcional + shipmentsLiveRef para dup-check (los adds en ráfaga se pisaban y parecía que nada guardaba).
 
 ## Pendiente (no hecho)
-1. **Devoluciones de ML** que SUMAN stock.
+1. ~~Devoluciones de ML que SUMAN stock~~ **DESCARTADO 31/8 por decisión del usuario**: las devoluciones se controlan a mano porque hay que revisar si el producto vuelve vendible o es descarte, así que NO se automatiza el reingreso al stock. Si vuelve a pedirse, la entrada se carga por Movimientos o por Compra/Ajuste como cualquier otra.
 2. **Cargar stock real** de productos base (el usuario lo va ajustando con Compra/Ajuste).
 3. ~~Stock desde foto de factura~~ **HECHO 21/8**: botón "📷 Foto factura" en Inventario (junto a Compra/Ajuste) → comprime la foto en el navegador (1600px jpg) → `/api/contabilium?action=extract` (Gemini 2.5 Flash, GEMINI_API_KEY cargada en Vercel por el usuario, maxDuration 60) → items {codigo, descripcion, cantidad} → matching: código exacto (producto/combo con expansión) y si no, por descripción (fuzzy: ≥2 palabras y ≥50% en el nombre) → misma vista previa de compra → confirmar. No matcheados se listan y se cargan a mano.
 4. Envíos a bodega **Full** (descuento al enviar).
