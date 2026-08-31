@@ -480,17 +480,30 @@ export default function Shipments({
 
   // ---- Reporte ----
   const [repCourier, setRepCourier] = useState('all')
+  // Rango por fechas: si se completan los dos días manda por sobre los botones
+  const [desde, setDesde] = useState('')
+  const [hasta, setHasta] = useState('')
+  const rangoFechas = !!(desde && hasta)
+
   // Filas del período (sin filtro de motoquero, para el resumen por motoquero)
   const rangeRows = useMemo(() => {
     const now = new Date()
     let from = new Date(now); from.setHours(0, 0, 0, 0)
     if (range === 'semana') from.setDate(from.getDate() - 6)
     if (range === 'mes') from.setDate(from.getDate() - 29)
-    const fromMs = from.getTime()
+    let fromMs = from.getTime()
+    let hastaMs = Infinity
+    if (rangoFechas) {
+      // Las fechas se toman como días completos de acá (00:00 a 23:59)
+      const [ay, am, ad] = desde.split('-').map(Number)
+      const [by, bm, bd] = hasta.split('-').map(Number)
+      fromMs = new Date(ay, am - 1, ad, 0, 0, 0, 0).getTime()
+      hastaMs = new Date(by, bm - 1, bd, 23, 59, 59, 999).getTime()
+    }
     return shipments
       .filter(s => {
         const ref = toMillis(s.deliveredAt || s.createdAt)
-        return ref >= fromMs
+        return ref >= fromMs && ref <= hastaMs
       })
       .map(s => {
         const salio = toMillis(s.assignedAt)
@@ -499,7 +512,7 @@ export default function Shipments({
         return { s, salio, entrego, demoraMs }
       })
       .sort((a, b) => toMillis(b.s.createdAt) - toMillis(a.s.createdAt))
-  }, [shipments, range])
+  }, [shipments, range, desde, hasta, rangoFechas])
 
   const reportRows = useMemo(() => (
     repCourier === 'all' ? rangeRows : rangeRows.filter(r => r.s.courierId === repCourier)
@@ -568,7 +581,7 @@ export default function Shipments({
     const ws2 = XLSX.utils.aoa_to_sheet(cRows)
     ws2['!cols'] = [{ wch: 22 }, { wch: 8 }, { wch: 11 }, { wch: 11 }, { wch: 20 }, { wch: 12 }, { wch: 14 }]
     XLSX.utils.book_append_sheet(wb, ws2, 'Por motoquero')
-    XLSX.writeFile(wb, `envios-${range}.xlsx`)
+    XLSX.writeFile(wb, rangoFechas ? `envios-${desde}_a_${hasta}.xlsx` : `envios-${range}.xlsx`)
   }
 
   return (
@@ -814,10 +827,21 @@ export default function Shipments({
           <div className="rep-controls">
             <div className="rep-range">
               {['hoy', 'semana', 'mes'].map(r => (
-                <button key={r} className={range === r ? 'active' : ''} onClick={() => setRange(r)}>
+                <button
+                  key={r}
+                  className={!rangoFechas && range === r ? 'active' : ''}
+                  onClick={() => { setDesde(''); setHasta(''); setRange(r) }}
+                >
                   {r === 'hoy' ? 'Hoy' : r === 'semana' ? 'Últimos 7 días' : 'Últimos 30 días'}
                 </button>
               ))}
+              <span className={`rep-fechas ${rangoFechas ? 'on' : ''}`}>
+                <label>Desde <input type="date" value={desde} max={hasta || undefined} onChange={e => setDesde(e.target.value)} /></label>
+                <label>Hasta <input type="date" value={hasta} min={desde || undefined} onChange={e => setHasta(e.target.value)} /></label>
+                {rangoFechas && (
+                  <button className="rep-limpiar" onClick={() => { setDesde(''); setHasta('') }} title="Volver a los períodos rápidos">✕</button>
+                )}
+              </span>
               {couriers.length > 0 && (
                 <select value={repCourier} onChange={e => setRepCourier(e.target.value)} className="courier-filter">
                   <option value="all">🏍️ Todos los motoqueros</option>
