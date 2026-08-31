@@ -892,9 +892,27 @@ export default function Inventory({
     return false
   }
 
+  // La ubicación real es la del PRODUCTO: un combo se guarda donde están los
+  // artículos que lo arman. Si lo forman varios, se muestran todas (casi
+  // siempre es uno solo). Si ninguno tiene ubicación cargada, se usa la del
+  // combo, que es lo que se importó desde el Excel.
+  const ubicacionCombo = (c) => {
+    const lugares = [...new Set(
+      (c.items || [])
+        .map(it => products.find(p => p.id === it.productId)?.location)
+        .map(l => String(l || '').trim())
+        .filter(Boolean)
+    )]
+    return lugares.length ? lugares.join(' · ') : (c.location || '')
+  }
+
+  // Para editar/duplicar hay que usar el combo tal como está guardado: la fila
+  // muestra la ubicación del producto base y, si se guardara, la pisaría
+  const comboOriginal = (row) => combos.find(c => c.id === row.id) || row
+
   const allRows = [
     ...(kindFilter !== 'combos' ? products.map(p => ({ kind: 'product', ...p })) : []),
-    ...(kindFilter !== 'products' ? combos.map(c => ({ kind: 'combo', ...c })) : []),
+    ...(kindFilter !== 'products' ? combos.map(c => ({ kind: 'combo', ...c, location: ubicacionCombo(c) })) : []),
   ]
     .filter(matchesSearch)
     .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
@@ -1418,14 +1436,14 @@ export default function Inventory({
                 {canEdit && (
                   <div className="found-actions">
                     <button
-                      onClick={() => (row.kind === 'combo' ? onEditCombo(row) : handleEdit(row))}
+                      onClick={() => (row.kind === 'combo' ? onEditCombo(comboOriginal(row)) : handleEdit(row))}
                       className="btn-edit"
                       title="Editar"
                     >
                       ✏️ Editar
                     </button>
                     <button
-                      onClick={() => (row.kind === 'combo' ? onDuplicateCombo(row) : handleEdit(row, true))}
+                      onClick={() => (row.kind === 'combo' ? onDuplicateCombo(comboOriginal(row)) : handleEdit(row, true))}
                       className="btn-edit"
                       title="Duplicar: mismos datos y foto, con otro SKU"
                     >
@@ -1532,14 +1550,14 @@ export default function Inventory({
                       {canEdit && (
                         <>
                           <button
-                            onClick={() => (isCombo ? onEditCombo(row) : handleEdit(row))}
+                            onClick={() => (isCombo ? onEditCombo(comboOriginal(row)) : handleEdit(row))}
                             className="btn-edit"
                             title="Editar"
                           >
                             ✏️
                           </button>
                           <button
-                            onClick={() => (isCombo ? onDuplicateCombo(row) : handleEdit(row, true))}
+                            onClick={() => (isCombo ? onDuplicateCombo(comboOriginal(row)) : handleEdit(row, true))}
                             className="btn-edit"
                             title="Duplicar: mismos datos y foto, con otro SKU"
                           >
