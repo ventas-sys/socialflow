@@ -45,6 +45,10 @@ service cloud.firestore {
     // El mapa del depósito lo ve todo el equipo pero solo lo modifica el admin
     match /settings/{id}  { allow read: if isMember(); allow write: if isAdmin(); }
 
+    // Panel financiero (💰 Finanzas): compras, pagos, gastos y cuenta corriente
+    // de proveedores. Es información sensible: la lee y escribe SOLO el master.
+    match /finanzas/{id} { allow read, write: if isAdmin(); }
+
     // Solo el administrador agrega o quita miembros y cambia permisos
     match /members/{email} {
       allow read: if isMember();

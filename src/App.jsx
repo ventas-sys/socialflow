@@ -32,6 +32,7 @@ import Shipments from './components/Shipments'
 import Packing from './components/Packing'
 import MercadoLibre from './components/MercadoLibre'
 import Metrics from './components/Metrics'
+import Finance from './components/Finance'
 import Users, { PERM_TABS } from './components/Users'
 import Auth from './components/Auth'
 import './App.css'
@@ -63,6 +64,9 @@ export default function App() {
   // Permisos del usuario logueado (documento members/{email}). El master ve
   // y modifica todo; los ayudantes solo las solapas tildadas en 👥 Usuarios.
   const [myPerms, setMyPerms] = useState(null)
+  // Panel financiero (solo el master): registros y cotización del dólar
+  const [finanzas, setFinanzas] = useState([])
+  const [usdRate, setUsdRate] = useState(1000)
   const [installEvt, setInstallEvt] = useState(null) // beforeinstallprompt para "📲 Instalar app"
 
   // Instalación como app (ícono en pantalla principal): Chrome dispara
@@ -300,6 +304,20 @@ export default function App() {
         console.warn('Envíos/motoqueros no disponibles (¿faltan reglas?):', err?.code)
         setShipments([])
         setCouriers([])
+      }
+
+      // Panel financiero: solo lo lee el master. Es colección opcional, si sus
+      // reglas todavía no están publicadas se ignora y el resto sigue andando.
+      if (currentUser.email === ADMIN_EMAIL) {
+        try {
+          const finSnap = await getDocs(query(collection(db, 'finanzas'), where('userId', '==', ORG_ID)))
+          setFinanzas(finSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+          const rate = settingsSnap.exists() ? settingsSnap.data().usdRate : null
+          if (rate > 0) setUsdRate(rate)
+        } catch (err) {
+          console.warn('Finanzas no disponibles (¿faltan reglas?):', err?.code)
+          setFinanzas([])
+        }
       }
 
       // Cuentas de MercadoLibre (colección opcional; solo admin escribe)
@@ -786,6 +804,30 @@ export default function App() {
     return { created: newCombos.length, updated: toUpdate.length }
   }
 
+  // ---- Panel financiero ----
+  const addFinanza = async (data) => {
+    const ref = await addDoc(collection(db, 'finanzas'), {
+      ...data, userId: ORG_ID, createdAt: Timestamp.now(),
+    })
+    setFinanzas(prev => [{ id: ref.id, ...data, userId: ORG_ID }, ...prev])
+  }
+
+  const deleteFinanza = async (id) => {
+    await deleteDoc(doc(db, 'finanzas', id))
+    setFinanzas(prev => prev.filter(f => f.id !== id))
+  }
+
+  const toggleFinanzaPagado = async (id, pagado) => {
+    await updateDoc(doc(db, 'finanzas', id), { pagado })
+    setFinanzas(prev => prev.map(f => (f.id === id ? { ...f, pagado } : f)))
+  }
+
+  // La cotización va en settings (la escribe solo el admin)
+  const saveUsdRate = async (rate) => {
+    await setDoc(doc(db, 'settings', ORG_ID), { usdRate: rate, userId: ORG_ID }, { merge: true })
+    setUsdRate(rate)
+  }
+
   const addMovement = async (movementData) => {
     if (!user) return
     const movementDoc = {
@@ -915,6 +957,14 @@ export default function App() {
         ))}
         {isAdmin && (
           <button
+            className={`nav-btn ${currentTab === 'finanzas' ? 'active' : ''}`}
+            onClick={() => setCurrentTab('finanzas')}
+          >
+            💰 Finanzas
+          </button>
+        )}
+        {isAdmin && (
+          <button
             className={`nav-btn pc-only ${currentTab === 'users' ? 'active' : ''}`}
             onClick={() => setCurrentTab('users')}
           >
@@ -1019,6 +1069,16 @@ export default function App() {
               <Metrics
                 mlAccounts={mlAccounts}
                 ensureToken={(key) => ensureMlToken(mlAccounts, key, saveMlAccount)}
+              />
+            )}
+            {currentTab === 'finanzas' && isAdmin && (
+              <Finance
+                records={finanzas}
+                usdRate={usdRate}
+                onAdd={addFinanza}
+                onDelete={deleteFinanza}
+                onTogglePagado={toggleFinanzaPagado}
+                onSaveRate={saveUsdRate}
               />
             )}
             {currentTab === 'mercadolibre' && isAdmin && (
