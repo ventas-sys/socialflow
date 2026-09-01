@@ -822,6 +822,21 @@ export default function App() {
     setFinanzas(prev => prev.map(f => (f.id === id ? { ...f, pagado } : f)))
   }
 
+  // Importación del panel viejo: se guardan en lote y se suman a la lista
+  const importFinanzas = async (rows) => {
+    const creados = []
+    for (let i = 0; i < rows.length; i += 400) {
+      const batch = writeBatch(db)
+      rows.slice(i, i + 400).forEach(r => {
+        const ref = doc(collection(db, 'finanzas'))
+        batch.set(ref, { ...r, userId: ORG_ID, createdAt: Timestamp.now() })
+        creados.push({ id: ref.id, ...r, userId: ORG_ID })
+      })
+      await batch.commit()
+    }
+    setFinanzas(prev => [...creados, ...prev])
+  }
+
   // La cotización va en settings (la escribe solo el admin)
   const saveUsdRate = async (rate) => {
     await setDoc(doc(db, 'settings', ORG_ID), { usdRate: rate, userId: ORG_ID }, { merge: true })
@@ -1079,6 +1094,7 @@ export default function App() {
                 onDelete={deleteFinanza}
                 onTogglePagado={toggleFinanzaPagado}
                 onSaveRate={saveUsdRate}
+                onImport={importFinanzas}
               />
             )}
             {currentTab === 'mercadolibre' && isAdmin && (

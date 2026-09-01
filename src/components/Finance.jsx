@@ -39,7 +39,7 @@ const FORM_VACIO = {
   proveedor: '', remito: '', factura: '', descripcion: '',
 }
 
-export default function Finance({ records = [], usdRate = 1000, onAdd, onDelete, onTogglePagado, onSaveRate }) {
+export default function Finance({ records = [], usdRate = 1000, onAdd, onDelete, onTogglePagado, onSaveRate, onImport }) {
   const [tab, setTab] = useState('calendario')
   const [mes, setMes] = useState(() => new Date())
   const [form, setForm] = useState(FORM_VACIO)
@@ -47,6 +47,9 @@ export default function Finance({ records = [], usdRate = 1000, onAdd, onDelete,
   const [modal, setModal] = useState(null) // { titulo, tipo:'dia'|'proveedor', ... }
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
+  const [importOpen, setImportOpen] = useState(false)
+  const [importText, setImportText] = useState('')
+  const [importMsg, setImportMsg] = useState('')
 
   const toARS = (monto, moneda) => (moneda === 'USD' ? monto * usdRate : monto)
 
@@ -190,6 +193,66 @@ export default function Finance({ records = [], usdRate = 1000, onAdd, onDelete,
     try { await onSaveRate(v) } catch (err) { setError('No se pudo guardar la cotización: ' + err.message) }
   }
 
+  // ---- Traer los datos del panel viejo ----
+  // El panel anterior guardaba los registros en el navegador de esa PC. Se
+  // importan pegando el JSON o subiendo el archivo que exporta esa página.
+  const importar = async (texto) => {
+    setImportMsg('')
+    let datos
+    try {
+      datos = JSON.parse(String(texto).trim())
+    } catch {
+      setImportMsg('❌ Eso no es un JSON válido. Copiá todo el contenido del archivo exportado.')
+      return
+    }
+    const lista = Array.isArray(datos) ? datos : (Array.isArray(datos?.records) ? datos.records : null)
+    if (!lista) { setImportMsg('❌ El archivo no tiene una lista de registros.'); return }
+
+    const yaImportados = new Set(records.map(r => r.origenId).filter(Boolean))
+    const validos = []
+    let repetidos = 0, descartados = 0
+    for (const r of lista) {
+      const tipo = ['entrada', 'salida', 'gasto'].includes(r.tipo) ? r.tipo : null
+      const monto = Number(r.monto)
+      const fecha = String(r.fecha || '')
+      if (!tipo || !(monto > 0) || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) { descartados++; continue }
+      if (r.id && yaImportados.has(String(r.id))) { repetidos++; continue }
+      validos.push({
+        tipo, fecha, monto,
+        moneda: r.moneda === 'USD' ? 'USD' : 'ARS',
+        descripcion: String(r.descripcion || '').trim() || 'Sin descripción',
+        proveedor: String(r.proveedor || '').trim(),
+        remito: String(r.remito || '').trim(),
+        factura: String(r.factura || '').trim(),
+        pagado: !!r.pagado,
+        origenId: r.id ? String(r.id) : '',
+      })
+    }
+    if (!validos.length) {
+      setImportMsg(`⚠️ No quedó nada para traer (${repetidos} ya estaban, ${descartados} sin datos válidos).`)
+      return
+    }
+    setGuardando(true)
+    try {
+      await onImport(validos)
+      setImportMsg(`✅ Se trajeron ${validos.length} registros.`
+        + (repetidos ? ` ${repetidos} ya estaban cargados.` : '')
+        + (descartados ? ` ${descartados} se descartaron por estar incompletos.` : ''))
+      setImportText('')
+    } catch (err) {
+      setImportMsg('❌ No se pudo guardar: ' + err.message)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  const importarArchivo = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    importar(await file.text())
+  }
+
   // ---- Calendario ----
   const celdas = useMemo(() => {
     const y = mes.getFullYear(), m = mes.getMonth()
@@ -260,6 +323,10 @@ export default function Finance({ records = [], usdRate = 1000, onAdd, onDelete,
           <h1>💰 Finanzas</h1>
           <p className="fin-sub">Entradas de mercadería, pagos, gastos y cuenta corriente de proveedores.</p>
         </div>
+        <div className="fin-head-acc">
+        <button className="fin-btn-sec" onClick={() => setImportOpen(v => !v)}>
+          📥 Traer datos del panel viejo
+        </button>
         <label className="fin-rate" title="Cotización del dólar para convertir a pesos">
           <span>USD →</span>
           <input
@@ -270,7 +337,32 @@ export default function Finance({ records = [], usdRate = 1000, onAdd, onDelete,
           />
           <span>ARS</span>
         </label>
+        </div>
       </div>
+
+      {importOpen && (
+        <div className="fin-card fin-import">
+          <h2>Traer los registros del panel viejo</h2>
+          <p className="fin-item-meta">
+            El panel anterior guardaba todo en el navegador de esa PC. Abrí el archivo
+            <strong> exportar-panel-viejo.html</strong> que te pasé (en la misma carpeta que el panel),
+            tocá “Descargar mis datos” y subí acá el archivo que baja. También podés pegar el texto.
+          </p>
+          <div className="fin-import-acc">
+            <input type="file" accept=".json,.txt,application/json" onChange={importarArchivo} />
+            <button className="fin-btn" disabled={guardando || !importText.trim()} onClick={() => importar(importText)}>
+              {guardando ? '⏳ Trayendo...' : 'Traer lo pegado'}
+            </button>
+          </div>
+          <textarea
+            rows={4}
+            placeholder='O pegá acá el contenido, que empieza con [{"id":...'
+            value={importText}
+            onChange={e => setImportText(e.target.value)}
+          />
+          {importMsg && <p className="fin-import-msg">{importMsg}</p>}
+        </div>
+      )}
 
       {error && <div className="fin-error">❌ {error}</div>}
 
