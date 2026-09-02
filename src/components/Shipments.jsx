@@ -220,9 +220,22 @@ export default function Shipments({
     setTimeout(() => map.invalidateSize(), 200)
   }, [onUpdateShipment, view])
 
+  // Los archivados de más de un mes salen del tablero: ya no hay nada que
+  // hacer con ellos y solo abultan los contadores. Siguen estando en el
+  // reporte (incluido el filtro por fechas) y se encuentran al escanear.
+  const tablero = useMemo(() => {
+    const limite = Date.now() - 30 * 24 * 3600 * 1000
+    return shipments.filter(s => {
+      if ((s.status || '') !== 'archivado') return true
+      const cuando = toMillis(s.archivedAt) || toMillis(s.deliveredAt)
+        || toMillis(s.updatedAt) || toMillis(s.createdAt)
+      return !cuando || cuando > limite
+    })
+  }, [shipments])
+
   const visible = useMemo(() => {
     const q = searchShip.trim().toLowerCase()
-    return shipments.filter(s => {
+    return tablero.filter(s => {
       const st = s.status || 'pendiente'
       // "Todos" no incluye los archivados (tienen su propio filtro)
       if (statusFilter === 'all' && st === 'archivado') return false
@@ -239,7 +252,7 @@ export default function Shipments({
       }
       return true
     })
-  }, [shipments, statusFilter, courierFilter, searchShip])
+  }, [tablero, statusFilter, courierFilter, searchShip])
 
   // El mapa sigue al filtro: con un estado elegido muestra SOLO ese estado;
   // en "Todos" muestra los activos del día (pendiente, armado, en camino).
@@ -265,7 +278,7 @@ export default function Shipments({
   }, [shipments, startOfToday])
   const mapItems = useMemo(() => {
     const q = searchShip.trim().toLowerCase()
-    return shipments.filter(s => {
+    return tablero.filter(s => {
       const st = s.status || 'pendiente'
       if (st === 'archivado') return false // archivado nunca va al mapa
       if (statusFilter !== 'all') {
@@ -285,7 +298,7 @@ export default function Shipments({
       }
       return true
     })
-  }, [shipments, statusFilter, courierFilter, searchShip, startOfToday])
+  }, [tablero, statusFilter, courierFilter, searchShip, startOfToday])
 
   useEffect(() => {
     const map = mapObj.current
@@ -417,9 +430,9 @@ export default function Shipments({
 
   const counts = useMemo(() => {
     const c = {}; ORDER.forEach(k => c[k] = 0)
-    shipments.forEach(s => { c[s.status || 'pendiente'] = (c[s.status || 'pendiente'] || 0) + 1 })
+    tablero.forEach(s => { c[s.status || 'pendiente'] = (c[s.status || 'pendiente'] || 0) + 1 })
     return c
-  }, [shipments])
+  }, [tablero])
 
   const actionShipment = shipments.find(s => s.id === actionId)
 
@@ -682,7 +695,7 @@ export default function Shipments({
       {view === 'tablero' ? (
         <>
           <div className="ship-stats">
-            <button className={`ship-stat ${statusFilter === 'all' ? 'active' : ''}`} onClick={() => setStatusFilter('all')}>Todos ({shipments.length - (counts.archivado || 0)})</button>
+            <button className={`ship-stat ${statusFilter === 'all' ? 'active' : ''}`} onClick={() => setStatusFilter('all')}>Todos ({tablero.length - (counts.archivado || 0)})</button>
             {ORDER.map(k => (
               <button key={k} className={`ship-stat ${statusFilter === k ? 'active' : ''}`}
                 onClick={() => setStatusFilter(k)}

@@ -201,6 +201,21 @@ export default async function handler(req, res) {
       }
     }
 
+    // Entregados con más de 7 días → Archivado. El tablero es del día a día:
+    // una vez entregado y pasada una semana no hay nada que hacer con ese
+    // envío, y si queda a la vista solo infla el contador. En el reporte
+    // (incluido el filtro por fechas) se siguen viendo igual.
+    const HACE_7_DIAS = Date.now() - 7 * 24 * 3600 * 1000;
+    const toMs = (t) => (t?.toMillis ? t.toMillis() : new Date(t || 0).getTime());
+    summary.autoArchivados = 0;
+    for (const s of existing) {
+      if ((s.status || '') !== 'entregado') continue;
+      const cuando = toMs(s.deliveredAt) || toMs(s.updatedAt) || toMs(s.createdAt);
+      if (!cuando || cuando > HACE_7_DIAS) continue;
+      updates.push([s.id, { status: 'archivado', archivedAt: Timestamp.now() }]);
+      summary.autoArchivados++;
+    }
+
     for (let i = 0; i < updates.length; i += 400) {
       const batch = writeBatch(db);
       updates.slice(i, i + 400).forEach(([id, patch]) =>
