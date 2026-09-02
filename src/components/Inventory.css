@@ -735,6 +735,9 @@
   cursor: pointer;
 }
 .fragile-check input { width: 20px; height: 20px; accent-color: #dc2626; }
+/* El segundo aviso del armado: envolver el artículo antes de embolsarlo */
+.fragile-check.primer { margin-top: 0.5rem; }
+.fragile-check.primer input { accent-color: #2563eb; }
 
 /* Salud de stock (días restantes según consumo de 2 meses) */
 .health {

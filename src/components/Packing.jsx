@@ -86,7 +86,7 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
       if (m.type === 'product') {
         out.push({
           key: `${m.p.id}_${idx}`, id: m.p.id, name: m.p.name, qty: it.quantity || 1,
-          fragile: !!m.p.fragile, location: m.p.location, dims: m.p.dims,
+          fragile: !!m.p.fragile, primerEmpaque: !!m.p.primerEmpaque, location: m.p.location, dims: m.p.dims,
           photoId: m.p.id, photoKind: 'product', photoHas: !!m.p.hasPhotos,
         })
       } else {
@@ -96,7 +96,7 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
           if (bp) out.push({
             key: `${bp.id}_${idx}_${j}`, id: bp.id, name: bp.name,
             qty: (ci.quantity || 1) * (it.quantity || 1),
-            fragile: !!bp.fragile, location: bp.location,
+            fragile: !!bp.fragile, primerEmpaque: !!bp.primerEmpaque, location: bp.location,
             comboName: m.c.name, dims: bp.dims,
             photoId: bp.hasPhotos ? bp.id : (m.c.hasPhotos ? m.c.id : bp.id),
             photoKind: bp.hasPhotos ? 'product' : 'combo',
@@ -111,6 +111,7 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
 
   const totalUnits = lines.reduce((s, l) => s + l.qty, 0)
   const anyFragile = lines.some(l => l.fragile)
+  const anyPrimerEmpaque = lines.some(l => l.primerEmpaque)
 
   // Si ML no manda las medidas del paquete, se estima con las medidas de los
   // artículos (campo "Medidas" del producto en Inventario): con un solo
@@ -258,6 +259,9 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
               </div>
             )}
             {anyFragile && <div className="pk-fragile">⚠️ FRÁGIL — embalar con cuidado</div>}
+            {anyPrimerEmpaque && (
+              <div className="pk-primer">📦 PRIMER EMPAQUE — envolver el artículo antes de meterlo en la bolsa</div>
+            )}
           </div>
           <div className="pk-shipinfo">
             <span className="pk-code">{shipment.code}</span>

@@ -20,6 +20,7 @@ const EMPTY_FORM = {
   location: '',
   stockType: '',
   fragile: false,
+  primerEmpaque: false,
   dims: '', // medidas del artículo en cm "largo x ancho x alto" (para elegir bolsa al empaquetar)
   description: '',
   photos: [],
@@ -122,6 +123,7 @@ export default function Inventory({
       location: product.location || '',
       stockType: product.stockType || '',
       fragile: !!product.fragile,
+      primerEmpaque: !!product.primerEmpaque,
       dims: product.dims || '',
       description: product.description || '',
       photos: [],
@@ -1265,6 +1267,15 @@ export default function Inventory({
                   disabled={loading}
                 />
                 ⚠️ Producto FRÁGIL (se avisa al empaquetar)
+              </label>
+              <label className="fragile-check primer">
+                <input
+                  type="checkbox"
+                  checked={!!formData.primerEmpaque}
+                  onChange={e => setFormData({ ...formData, primerEmpaque: e.target.checked })}
+                  disabled={loading}
+                />
+                📦 Necesita PRIMER EMPAQUE (envolver antes de la bolsa)
               </label>
             </div>
 
