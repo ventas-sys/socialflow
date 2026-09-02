@@ -910,9 +910,26 @@ export default function Inventory({
   // muestra la ubicación del producto base y, si se guardara, la pisaría
   const comboOriginal = (row) => combos.find(c => c.id === row.id) || row
 
+  // La foto del combo: si no tiene una propia se muestra la del primer producto
+  // base que sí tenga. Casi todos los combos son un solo artículo, así que la
+  // foto del producto es exactamente lo que hay que ver al armarlo.
+  const fotoCombo = (c) => {
+    if (c.hasPhotos) return { fotoId: c.id, fotoKind: 'combo', hasPhotos: true }
+    const base = (c.items || [])
+      .map(it => products.find(p => p.id === it.productId))
+      .find(p => p?.hasPhotos)
+    return base
+      ? { fotoId: base.id, fotoKind: 'product', hasPhotos: true }
+      : { fotoId: c.id, fotoKind: 'combo', hasPhotos: false }
+  }
+
   const allRows = [
-    ...(kindFilter !== 'combos' ? products.map(p => ({ kind: 'product', ...p })) : []),
-    ...(kindFilter !== 'products' ? combos.map(c => ({ kind: 'combo', ...c, location: ubicacionCombo(c) })) : []),
+    ...(kindFilter !== 'combos'
+      ? products.map(p => ({ kind: 'product', ...p, fotoId: p.id, fotoKind: 'product' }))
+      : []),
+    ...(kindFilter !== 'products'
+      ? combos.map(c => ({ kind: 'combo', ...c, location: ubicacionCombo(c), ...fotoCombo(c) }))
+      : []),
   ]
     .filter(matchesSearch)
     .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
@@ -1394,9 +1411,9 @@ export default function Inventory({
           {allRows.slice(0, 5).map(row => (
             <div key={`found-${row.kind}-${row.id}`} className="found-card">
               <LazyThumb
-                id={row.id}
+                id={row.fotoId || row.id}
                 hasPhotos={row.hasPhotos}
-                kind={row.kind}
+                kind={row.fotoKind || row.kind}
                 loadPhotos={loadPhotos}
                 className="found-photo"
               />
@@ -1501,9 +1518,9 @@ export default function Inventory({
                   <tr key={`${row.kind}-${row.id}`} className={isLow ? 'low-stock' : ''}>
                     <td>
                       <LazyThumb
-                        id={row.id}
+                        id={row.fotoId || row.id}
                         hasPhotos={row.hasPhotos}
-                        kind={row.kind}
+                        kind={row.fotoKind || row.kind}
                         loadPhotos={loadPhotos}
                       />
                     </td>
