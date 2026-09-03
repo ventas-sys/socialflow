@@ -676,3 +676,15 @@ exacto de producción y después con preguntas reales: **respondió y posteó**.
 
 - Activar mensaje post-entrega: topic `shipments` en DevCenter + `ML_POSTVENTA=on`
   + probar con una venta real. El código ya está desplegado.
+
+## Reglas de negocio de Rodo para las respuestas de ML
+
+- **29-ago-2026 — Dirección exacta PROHIBIDA en respuestas públicas** (#133).
+  Solo "Floresta, cerca de la estación" + horarios; la dirección exacta le
+  llega al comprador con la compra (y por WhatsApp sí se puede dar). Dos
+  capas: el prompt no recibe la dirección, y un filtro borra calle/número/
+  entre-calles si la IA igual los escribe.
+- **02-sep-2026 — Fecha de vencimiento**: la mercadería rota constantemente y
+  SIEMPRE tiene vencimiento largo, 2 años o más desde hoy. Tatiana responde
+  concreto ("como mínimo <año actual + 2>", calculado con la fecha real) y no
+  inventa fechas impresas ni dice que no sabe.
