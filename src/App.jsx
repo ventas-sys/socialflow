@@ -13,6 +13,7 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  getDocsFromCache,
   getDoc,
   setDoc,
   deleteField,
@@ -66,6 +67,10 @@ export default function App() {
   const [myPerms, setMyPerms] = useState(null)
   // Panel financiero (solo el master): registros y cotización del dólar
   const [finanzas, setFinanzas] = useState([])
+  // Al abrir solo se traen los movimientos de los últimos 60 días (son miles).
+  // El historial completo se pide a mano desde la solapa Movimientos.
+  const [movsCompletos, setMovsCompletos] = useState(false)
+  const [cargandoMovs, setCargandoMovs] = useState(false)
   const [usdRate, setUsdRate] = useState(1000)
   const [installEvt, setInstallEvt] = useState(null) // beforeinstallprompt para "📲 Instalar app"
 
@@ -278,10 +283,44 @@ export default function App() {
       // Nunca guardamos las fotos en el listado (se cargan on-demand); solo el flag
       const strip = ({ photos, ...rest }) => ({ ...rest, hasPhotos: rest.hasPhotos || (photos?.length > 0) })
 
+      const qProducts = query(collection(db, 'products'), where('userId', '==', ORG_ID))
+      const qCombos = query(collection(db, 'combos'), where('userId', '==', ORG_ID))
+      // Movimientos: SOLO los últimos 60 días. Cada venta genera uno (~300 por
+      // día), así que traer el histórico entero era lo que más demoraba al
+      // abrir. 60 días es justo la ventana que usa la salud de stock. Se filtra
+      // por fecha (sin el userId) para no necesitar un índice compuesto en
+      // Firebase; el userId se filtra acá, que es lo mismo porque todos los
+      // datos son de la misma empresa. El historial completo se pide aparte.
+      const desde60 = Timestamp.fromMillis(Date.now() - 60 * 24 * 3600 * 1000)
+      const qMovs = query(collection(db, 'movements'), where('date', '>=', desde60))
+
+      // Primero se pinta lo que ya está guardado en el dispositivo (instantáneo)
+      // y recién después se actualiza contra el servidor.
+      const desdeCache = async () => {
+        try {
+          const [pC, cC, mC] = await Promise.all([
+            getDocsFromCache(qProducts), getDocsFromCache(qCombos), getDocsFromCache(qMovs),
+          ])
+          if (pC.empty && cC.empty) return false
+          setProducts(pC.docs.map(d => ({ id: d.id, ...strip(d.data()) }))
+            .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt)))
+          setCombos(cC.docs.map(d => ({ id: d.id, ...strip(d.data()) }))
+            .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt)))
+          setMovements(mC.docs.map(d => ({ id: d.id, ...d.data() }))
+            .filter(m => m.userId === ORG_ID)
+            .sort((a, b) => toMillis(b.date) - toMillis(a.date)))
+          setLoadingData(false)
+          return true
+        } catch (e) {
+          return false
+        }
+      }
+      await desdeCache()
+
       const [productsSnap, combosSnap, movementsSnap, settingsSnap] = await Promise.all([
-        getDocs(query(collection(db, 'products'), where('userId', '==', ORG_ID))),
-        getDocs(query(collection(db, 'combos'), where('userId', '==', ORG_ID))),
-        getDocs(query(collection(db, 'movements'), where('userId', '==', ORG_ID))),
+        getDocs(qProducts),
+        getDocs(qCombos),
+        getDocs(qMovs),
         getDoc(doc(db, 'settings', ORG_ID)),
       ])
 
@@ -344,8 +383,10 @@ export default function App() {
       setMovements(
         movementsSnap.docs
           .map(d => ({ id: d.id, ...d.data() }))
+          .filter(m => m.userId === ORG_ID)
           .sort((a, b) => toMillis(b.date) - toMillis(a.date))
       )
+      setMovsCompletos(false)
 
       if (currentUser.email === ADMIN_EMAIL) {
         const membersSnap = await getDocs(collection(db, 'members'))
@@ -365,6 +406,23 @@ export default function App() {
       }
     } finally {
       setLoadingData(false)
+    }
+  }
+
+  // Historial completo de movimientos (todos los años). Se pide a mano desde la
+  // solapa Movimientos porque son decenas de miles y tardan en bajar.
+  const loadAllMovements = async () => {
+    if (movsCompletos || cargandoMovs) return
+    setCargandoMovs(true)
+    try {
+      const snap = await getDocs(query(collection(db, 'movements'), where('userId', '==', ORG_ID)))
+      const toMs = (t) => (t?.toMillis ? t.toMillis() : new Date(t || 0).getTime())
+      setMovements(
+        snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => toMs(b.date) - toMs(a.date))
+      )
+      setMovsCompletos(true)
+    } finally {
+      setCargandoMovs(false)
     }
   }
 
@@ -1052,6 +1110,9 @@ export default function App() {
                 combos={combos}
                 movements={movements}
                 onAdd={addMovement}
+                movsCompletos={movsCompletos}
+                cargandoMovs={cargandoMovs}
+                onLoadAll={loadAllMovements}
               />
             )}
             {currentTab === 'shipments' && canSee('shipments') && (

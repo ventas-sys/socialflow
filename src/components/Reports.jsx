@@ -96,7 +96,7 @@ export default function Reports({ products, movements }) {
         <div className="kpi-card">
           <div className="kpi-icon">🔄</div>
           <div className="kpi-info">
-            <div className="kpi-label">Total de Movimientos</div>
+            <div className="kpi-label">Movimientos (60 días)</div>
             <div className="kpi-value">{reportData.totalMovements}</div>
           </div>
         </div>

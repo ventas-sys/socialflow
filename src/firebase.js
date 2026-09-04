@@ -1,6 +1,11 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth, GoogleAuthProvider } from 'firebase/auth'
-import { getFirestore } from 'firebase/firestore'
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from 'firebase/firestore'
 
 // Reemplaza estos valores con tu configuración de Firebase
 // Obtén estos datos en: https://console.firebase.google.com/
@@ -25,6 +30,22 @@ export const googleProvider = new GoogleAuthProvider()
 // Mostrar siempre el selector de cuentas de Google en vez de entrar
 // automáticamente con la última cuenta usada
 googleProvider.setCustomParameters({ prompt: 'select_account' })
-export const db = getFirestore(app)
+// Caché local en el dispositivo: el inventario queda guardado en el celular /
+// la PC, así la segunda vez que se abre la app aparece al instante (y sigue
+// mostrándose aunque se corte internet) mientras se actualiza contra el
+// servidor por atrás. Si el navegador no la soporta (modo incógnito, storage
+// bloqueado, varias pestañas viejas), se sigue sin caché como antes.
+function crearDb() {
+  try {
+    return initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    })
+  } catch (e) {
+    console.warn('Sin caché local de Firestore:', e?.code || e?.message)
+    return getFirestore(app)
+  }
+}
+
+export const db = crearDb()
 
 export default app

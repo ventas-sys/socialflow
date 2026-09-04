@@ -11,7 +11,7 @@ const EMPTY_FORM = {
   reference: '',
 }
 
-export default function Movements({ products, combos, movements, onAdd, canEdit = true }) {
+export default function Movements({ products, combos, movements, onAdd, canEdit = true, movsCompletos = true, cargandoMovs = false, onLoadAll }) {
   const [showForm, setShowForm] = useState(false)
   const [showScanner, setShowScanner] = useState(false)
   const [scanMessage, setScanMessage] = useState('')
@@ -253,6 +253,15 @@ export default function Movements({ products, combos, movements, onAdd, canEdit 
           )}
         </div>
       </div>
+
+      {!movsCompletos && onLoadAll && (
+        <div className="mov-ventana">
+          <span>📅 Mostrando los movimientos de los <strong>últimos 60 días</strong> (así la app abre rápido).</span>
+          <button className="btn-hist" onClick={onLoadAll} disabled={cargandoMovs}>
+            {cargandoMovs ? 'Cargando historial…' : 'Cargar historial completo'}
+          </button>
+        </div>
+      )}
 
       {showScanner && (
         <Scanner onScan={handleScan} onClose={() => setShowScanner(false)} />

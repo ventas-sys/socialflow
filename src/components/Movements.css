@@ -741,3 +741,31 @@
   .picker-meta { color: #94a3b8; }
   .picker-selected { color: #86efac; }
 }
+
+/* Aviso de la ventana de 60 días: al abrir la app solo se traen los
+   movimientos recientes; el historial completo se pide con el botón. */
+.mov-ventana {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+  border-radius: 0.6rem;
+  padding: 0.7rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+.btn-hist {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.45rem 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn-hist:hover { background: #1d4ed8; }
+.btn-hist:disabled { background: #93c5fd; cursor: default; }
