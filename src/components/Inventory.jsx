@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useMemo, useEffect, useDeferredValue } from 'react'
 import * as XLSX from 'xlsx'
 import { findByRef as matchRef } from '../utils/refMatch'
 import { compressImage, MAX_PHOTOS, MAX_PHOTOS_BYTES, photosSize } from '../utils/images'
@@ -865,11 +865,22 @@ export default function Inventory({
   // Productos y combos unificados en una sola lista
   const toMillis = (t) => (t?.toMillis ? t.toMillis() : new Date(t || 0).getTime())
 
+  // Índice de productos por id. Buscar con products.find() recorre los ~2.700
+  // productos UNA VEZ POR COMBO (ubicación, foto, stock armable, búsqueda por
+  // código del componente): son millones de comparaciones en cada tecla que se
+  // aprieta. Con un Map la búsqueda es directa y se rearma solo si cambian los
+  // productos.
+  const productById = useMemo(() => {
+    const m = new Map()
+    for (const p of products) m.set(p.id, p)
+    return m
+  }, [products])
+
   // Un combo se encuentra por nombre, su código de barras, su SKU o el
   // código de barras / SKU de cualquier producto que lo compone
-  const comboComponentCodes = (combo) => {
+  const comboComponentCodes = (combo, byId) => {
     const live = (combo.items || []).flatMap(item => {
-      const p = products.find(pp => pp.id === item.productId)
+      const p = byId.get(item.productId)
       return [...(p?.barcodes || (p?.barcode ? [p.barcode] : [])), p?.code].filter(Boolean)
     })
     return [...live, ...(combo.itemBarcodes || [])]
@@ -878,30 +889,14 @@ export default function Inventory({
   // Todos los códigos de barras de un producto (soporta varios por producto)
   const allBarcodes = (item) => item.barcodes?.length ? item.barcodes : (item.barcode ? [item.barcode] : [])
 
-  const matchesSearch = (item) => {
-    if (!searchTerm.trim()) return true
-    const q = searchTerm.toLowerCase()
-    if (
-      item.name?.toLowerCase().includes(q) ||
-      item.code?.toLowerCase().includes(q) ||
-      item.location?.toLowerCase().includes(q) ||
-      item.stockType?.toLowerCase().includes(q) ||
-      allBarcodes(item).some(b => String(b).toLowerCase().includes(q))
-    ) return true
-    if (item.kind === 'combo') {
-      return comboComponentCodes(item).some(c => c.toLowerCase().includes(q))
-    }
-    return false
-  }
-
   // La ubicación real es la del PRODUCTO: un combo se guarda donde están los
   // artículos que lo arman. Si lo forman varios, se muestran todas (casi
   // siempre es uno solo). Si ninguno tiene ubicación cargada, se usa la del
   // combo, que es lo que se importó desde el Excel.
-  const ubicacionCombo = (c) => {
+  const ubicacionCombo = (c, byId) => {
     const lugares = [...new Set(
       (c.items || [])
-        .map(it => products.find(p => p.id === it.productId)?.location)
+        .map(it => byId.get(it.productId)?.location)
         .map(l => String(l || '').trim())
         .filter(Boolean)
     )]
@@ -910,31 +905,73 @@ export default function Inventory({
 
   // Para editar/duplicar hay que usar el combo tal como está guardado: la fila
   // muestra la ubicación del producto base y, si se guardara, la pisaría
-  const comboOriginal = (row) => combos.find(c => c.id === row.id) || row
+  const comboPorId = useMemo(() => {
+    const m = new Map()
+    for (const c of combos) m.set(c.id, c)
+    return m
+  }, [combos])
+  const comboOriginal = (row) => comboPorId.get(row.id) || row
 
   // La foto del combo: si no tiene una propia se muestra la del primer producto
   // base que sí tenga. Casi todos los combos son un solo artículo, así que la
   // foto del producto es exactamente lo que hay que ver al armarlo.
-  const fotoCombo = (c) => {
+  const fotoCombo = (c, byId) => {
     if (c.hasPhotos) return { fotoId: c.id, fotoKind: 'combo', hasPhotos: true }
     const base = (c.items || [])
-      .map(it => products.find(p => p.id === it.productId))
+      .map(it => byId.get(it.productId))
       .find(p => p?.hasPhotos)
     return base
       ? { fotoId: base.id, fotoKind: 'product', hasPhotos: true }
       : { fotoId: c.id, fotoKind: 'combo', hasPhotos: false }
   }
 
-  const allRows = [
-    ...(kindFilter !== 'combos'
-      ? products.map(p => ({ kind: 'product', ...p, fotoId: p.id, fotoKind: 'product' }))
-      : []),
-    ...(kindFilter !== 'products'
-      ? combos.map(c => ({ kind: 'combo', ...c, location: ubicacionCombo(c), ...fotoCombo(c) }))
-      : []),
-  ]
-    .filter(matchesSearch)
-    .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
+  // Filas ya armadas y ORDENADAS una sola vez (no en cada tecla). Cada fila se
+  // guarda con su "texto de búsqueda" (_buscar) ya calculado y en minúsculas:
+  // filtrar pasa a ser un includes sobre un texto, en vez de rehacer todo el
+  // trabajo por cada letra.
+  const filasBase = useMemo(() => {
+    const filas = []
+    if (kindFilter !== 'combos') {
+      for (const p of products) {
+        filas.push({
+          kind: 'product', ...p, fotoId: p.id, fotoKind: 'product',
+          _orden: toMillis(p.createdAt),
+          _buscar: [p.name, p.code, p.location, p.stockType, ...allBarcodes(p)]
+            .filter(Boolean).join(' ').toLowerCase(),
+        })
+      }
+    }
+    if (kindFilter !== 'products') {
+      for (const c of combos) {
+        const ubic = ubicacionCombo(c, productById)
+        filas.push({
+          kind: 'combo', ...c, location: ubic, ...fotoCombo(c, productById),
+          _orden: toMillis(c.createdAt),
+          _buscar: [c.name, c.code, ubic, c.stockType, ...allBarcodes(c), ...comboComponentCodes(c, productById)]
+            .filter(Boolean).join(' ').toLowerCase(),
+        })
+      }
+    }
+    return filas.sort((a, b) => b._orden - a._orden)
+  }, [products, combos, kindFilter, productById])
+
+  // useDeferredValue: mientras se tipea (o entra un código de la pistola de
+  // golpe) el cuadro de texto responde al instante y el filtrado de miles de
+  // filas queda para el respiro siguiente, sin trabarse.
+  const busquedaDiferida = useDeferredValue(searchTerm)
+
+  const allRows = useMemo(() => {
+    const q = busquedaDiferida.trim().toLowerCase()
+    if (!q) return filasBase
+    return filasBase.filter(f => f._buscar.includes(q))
+  }, [filasBase, busquedaDiferida])
+
+  // Dibujar 6.000 filas de una es lo que hace que la pantalla vaya lenta:
+  // se muestran de a tandas y el resto entra con "Mostrar más".
+  const TANDA = 150
+  const [visibles, setVisibles] = useState(TANDA)
+  useEffect(() => { setVisibles(TANDA) }, [busquedaDiferida, kindFilter])
+  const filasVisibles = useMemo(() => allRows.slice(0, visibles), [allRows, visibles])
 
   return (
     <div className="inventory-container">
@@ -1450,7 +1487,7 @@ export default function Inventory({
                     </span>
                   )}
                   <span className="fm-stock">
-                    Stock: {row.kind === 'combo' ? `${comboAvailable(row, products)} armables` : (row.quantity || 0)}
+                    Stock: {row.kind === 'combo' ? `${comboAvailable(row, productById)} armables` : (row.quantity || 0)}
                   </span>
                   {row.kind !== 'combo' && (() => {
                     const h = stockStatus(row, consumption?.get(row.id) || 0)
@@ -1521,9 +1558,9 @@ export default function Inventory({
               </tr>
             </thead>
             <tbody>
-              {allRows.map(row => {
+              {filasVisibles.map(row => {
                 const isCombo = row.kind === 'combo'
-                const stock = isCombo ? comboAvailable(row, products) : (row.quantity || 0)
+                const stock = isCombo ? comboAvailable(row, productById) : (row.quantity || 0)
                 const isLow = isCombo ? stock <= 0 : (row.quantity ?? 0) < (row.minStock || 5)
                 return (
                   <tr key={`${row.kind}-${row.id}`} className={isLow ? 'low-stock' : ''}>
@@ -1606,6 +1643,17 @@ export default function Inventory({
               })}
             </tbody>
           </table>
+          {allRows.length > filasVisibles.length && (
+            <div className="ver-mas">
+              <span>Mostrando {filasVisibles.length} de {allRows.length}</span>
+              <button className="btn-ver-mas" onClick={() => setVisibles(v => v + 300)}>
+                Mostrar más
+              </button>
+              <button className="btn-ver-mas ghost" onClick={() => setVisibles(allRows.length)}>
+                Mostrar todo ({allRows.length})
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

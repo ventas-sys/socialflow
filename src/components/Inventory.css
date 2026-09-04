@@ -1255,3 +1255,32 @@
   .products-table .btn-del { font-size: 1rem; padding: 0.1rem; }
   .products-table .actions { gap: 0.25rem; }
 }
+
+/* Pie del listado: se dibujan de a tandas para que la pantalla no se trabe
+   con miles de filas. */
+.ver-mas {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 1rem;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+.btn-ver-mas {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn-ver-mas:hover { background: #1d4ed8; }
+.btn-ver-mas.ghost {
+  background: #fff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+.btn-ver-mas.ghost:hover { background: #f1f5f9; }

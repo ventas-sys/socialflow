@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import { findByRef } from '../utils/refMatch'
 import { compressImage, MAX_PHOTOS, MAX_PHOTOS_BYTES, photosSize } from '../utils/images'
@@ -48,11 +48,16 @@ const EMPTY_FORM = {
 
 // Cuántos combos completos se pueden armar con el stock actual (solo informativo,
 // no bloquea nada: el stock puede quedar negativo)
+// products puede ser la lista o un Map por id (índice): con miles de productos
+// y miles de combos, buscar con find() en cada fila es lo que traba la pantalla.
 export function comboAvailable(combo, products) {
   if (!combo.items?.length) return 0
+  const buscar = products instanceof Map
+    ? (id) => products.get(id)
+    : (id) => products.find(pp => pp.id === id)
   let available = Infinity
   for (const item of combo.items) {
-    const p = products.find(pp => pp.id === item.productId)
+    const p = buscar(item.productId)
     if (!p) return 0
     available = Math.min(available, Math.floor((p.quantity || 0) / item.quantity))
   }
@@ -60,6 +65,12 @@ export function comboAvailable(combo, products) {
 }
 
 export default function Combos({ combos, products, onAdd, onUpdate, onDelete, onImport, editRequest, loadPhotos, canEdit = true }) {
+  // Índice por id: sin esto, cada tarjeta de combo recorre TODOS los productos
+  const productById = useMemo(() => {
+    const m = new Map()
+    for (const p of products) m.set(p.id, p)
+    return m
+  }, [products])
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [duplicando, setDuplicando] = useState(false)
@@ -823,7 +834,7 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
       ) : (
         <div className="combos-grid">
           {combos.map(combo => {
-            const available = comboAvailable(combo, products)
+            const available = comboAvailable(combo, productById)
             return (
               <div key={combo.id} className="combo-card">
                 <div className="combo-card-header">
