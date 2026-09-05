@@ -1,32 +1,15 @@
-"""Simulador de rejilla/martingala estilo "copy Maderna" para pares FX en H1.
+"""Copia de trading/copy_maderna/grid_sim.simulate() con UNA modificación (variante A, martingala acotada).
 
-Lógica (inferida de 1.653 operaciones reales de la cuenta copy, may-sep 2026):
-- En la apertura de cada hora, si no hay cesta abierta en una dirección, abre 1 posición de `base_lot` en esa dirección
-  (el copy abre ambos lados; `mode` controla si se opera solo con tendencia).
-- Take profit individual/cesta: precio medio ponderado ± `tp_pips` (el copy: ~6 pips brutos, 0,53 USD netos por 0,01).
-- Sin stop loss individual. Si el precio va en contra `step_pips` desde el último nivel, añade otra posición con lote
-  `last_lot * lot_mult` (el copy: mediana 2,0; a veces 1,5), hasta `max_levels`.
-- Opcional (mejoras): `basket_sl_usd` cierra toda la cesta si su flotante < -X USD; `max_levels` acota niveles;
-  `trend_filter` opera solo a favor de la EMA; `hours` restringe la sesión; `step_atr_mult` hace el paso proporcional al ATR.
-- Costes: spread `spread_pips` (se paga al abrir), comisión `comm_per_lot` USD por lote ida y vuelta, swap por noche.
-- Margen: apalancamiento `leverage`; stop-out si equity < 50 % del margen requerido (se cierra todo = ruina parcial).
-
-Precios: DataFrame H1 con columnas open, high, low, close (float, p.ej. 1.10234), índice datetime.
+Motivo: en el simulador original el lote del nivel k se calcula como `last_lot * lot_mult` y luego se redondea a 0,01.
+Con base_lot = 0,01 eso hace que 0,01·1,2 = 0,012 → 0,01, 0,01·1,3 → 0,01 y 0,01·1,5 = 0,015 → 0,01 (float), es decir, la
+cadena nunca crece y lot_mult ∈ {1,0; 1,2; 1,3; 1,5} produce resultados IDÉNTICOS (comprobado: 768 combinaciones iguales).
+Aquí el lote del nivel se calcula desde la cadena sin redondear: lots_k = base_lot · lot_mult^(k-1) (k = nº de posiciones ya
+abiertas en la cesta; con first_level_repeat el 2º nivel repite el lote base) y SOLO ENTONCES se redondea a 0,01.
+Ejemplo mult 1,5 y 6 niveles: 0,01 / 0,01 / 0,01 / 0,02 / 0,03 / 0,05 (original: 0,01 ×6).  Todo lo demás es idéntico.
 """
 from __future__ import annotations
 import numpy as np, pandas as pd
-
-PIP = 1e-4
-CONTRACT = 100000
-
-
-def ema(x, n):
-    return pd.Series(x).ewm(span=n, adjust=False).mean().values
-
-
-def atr(df, n=14):
-    tr = np.maximum(df.high - df.low, np.maximum(abs(df.high - df.close.shift()), abs(df.low - df.close.shift())))
-    return tr.rolling(n).mean().values
+from trading.copy_maderna.grid_sim import ema, atr, _result, load_fx, PIP, CONTRACT  # noqa: F401
 
 
 def simulate(df: pd.DataFrame, capital=1000.0, base_lot=0.01, tp_pips=6.0, step_pips=19.0, lot_mult=2.0, max_levels=12,
@@ -40,6 +23,7 @@ def simulate(df: pd.DataFrame, capital=1000.0, base_lot=0.01, tp_pips=6.0, step_
     balance = capital
     baskets = {+1: [], -1: []}   # lista de (price, lots)
     last_level_px = {+1: None, -1: None}
+    base_lot_of = {+1: base_lot, -1: base_lot}   # lote base (sin redondear) con el que se abrió la cesta
     eq_curve = np.empty(n); bal_curve = np.empty(n); float_curve = np.empty(n); lots_curve = np.empty(n)
     closed = []  # (time, pnl, n_positions, reason)
     stopouts = 0; sl_hits = 0; tp_hits = 0
@@ -70,13 +54,11 @@ def simulate(df: pd.DataFrame, capital=1000.0, base_lot=0.01, tp_pips=6.0, step_
 
     for i in range(n):
         t = idx[i]
-        # swap a medianoche
         if t.date() != last_day:
             for d in (+1, -1):
                 balance += swap_per_lot_night * basket_lots(d)
             last_day = t.date()
         price = o[i]
-        # 1) gestión intravela de cestas existentes: TP por avg ± tp, SL por USD, niveles nuevos
         for d in (+1, -1):
             if not baskets[d]:
                 continue
@@ -85,29 +67,24 @@ def simulate(df: pd.DataFrame, capital=1000.0, base_lot=0.01, tp_pips=6.0, step_
             hit_tp = (h[i] >= tp_px) if d > 0 else (l[i] <= tp_px)
             worst = l[i] if d > 0 else h[i]
             fl_worst = basket_float(d, worst)
-            # stop-loss de cesta (conservador: se evalúa antes que el TP)
             if basket_sl_usd is not None and fl_worst < -basket_sl_usd:
                 close_basket(i, d, worst, 'sl'); continue
-            # stop-out por margen
             margin = lots * CONTRACT * price / leverage
             eq_worst = balance + fl_worst + basket_float(-d, worst) if baskets[-d] else balance + fl_worst
             if eq_worst < 0.5 * margin:
                 close_basket(i, d, worst, 'stopout'); stopouts += 1; continue
             if hit_tp:
                 close_basket(i, d, tp_px, 'tp'); continue
-            # nuevo nivel si el precio fue en contra step desde el último nivel
             step = (step_atr_mult * at[i] / PIP if step_atr_mult and not np.isnan(at[i]) else step_pips)
             trigger = last_level_px[d] - d * step * PIP
-            if add_at_open_only:   # el copy añade niveles en la apertura de la hora, no intravela
+            if add_at_open_only:
                 hit_lvl = (price <= trigger) if d > 0 else (price >= trigger); fill_px = price
             else:
                 hit_lvl = (l[i] <= trigger) if d > 0 else (h[i] >= trigger); fill_px = trigger
             if hit_lvl and len(baskets[d]) < max_levels:
-                # lote del nivel k = base * mult^(k-1) (calculado sin redondeos acumulados; el primer nivel se repite si first_level_repeat)
-                k = len(baskets[d])
-                exp = max(0, k - 1) if first_level_repeat else k
-                open_pos(d, fill_px, baskets[d][0][1] * (lot_mult ** exp))
-        # 2) nuevas cestas en la apertura de la hora
+                k = len(baskets[d])                      # nº de posiciones ya abiertas
+                expo = (k - 1) if first_level_repeat else k
+                open_pos(d, fill_px, base_lot_of[d] * lot_mult ** max(expo, 0))   # <-- ÚNICO CAMBIO
         if hours is None or t.hour in hours:
             for d in (+1, -1):
                 if baskets[d]:
@@ -118,35 +95,12 @@ def simulate(df: pd.DataFrame, capital=1000.0, base_lot=0.01, tp_pips=6.0, step_
                     if d > 0 and not (c[i - 1] > em[i - 1] if i > 0 else False): continue
                     if d < 0 and not (c[i - 1] < em[i - 1] if i > 0 else False): continue
                 lot = base_lot * (balance / capital if risk_scale else 1.0)
+                base_lot_of[d] = lot
                 open_pos(d, price, lot)
         fl = basket_float(+1, c[i]) + basket_float(-1, c[i])
         eq_curve[i] = balance + fl; bal_curve[i] = balance; float_curve[i] = fl
         lots_curve[i] = basket_lots(+1) + basket_lots(-1)
         if balance + min(basket_float(+1, l[i]) + basket_float(-1, h[i]), 0) <= 0:
-            # ruina total
             eq_curve[i:] = 0; bal_curve[i:] = 0; float_curve[i:] = 0; lots_curve[i:] = 0
             return _result(idx, eq_curve, bal_curve, float_curve, lots_curve, closed, capital, stopouts, sl_hits, tp_hits, ruined_at=idx[i])
     return _result(idx, eq_curve, bal_curve, float_curve, lots_curve, closed, capital, stopouts, sl_hits, tp_hits)
-
-
-def _result(idx, eq, bal, fl, lots, closed, capital, stopouts, sl_hits, tp_hits, ruined_at=None):
-    eq = pd.Series(eq, index=idx); bal = pd.Series(bal, index=idx); fl = pd.Series(fl, index=idx); lots = pd.Series(lots, index=idx)
-    hours = (idx[-1] - idx[0]).total_seconds() / 3600
-    dd = eq.cummax() - eq
-    dd_pct = (dd / eq.cummax().replace(0, np.nan)).max()
-    yearly = eq.resample('YE').last().diff(); yearly.iloc[0] = eq.resample('YE').last().iloc[0] - capital
-    cl = pd.DataFrame(closed, columns=['time', 'pnl', 'n', 'reason']) if closed else pd.DataFrame(columns=['time', 'pnl', 'n', 'reason'])
-    return dict(final_equity=round(float(eq.iloc[-1]), 2), net=round(float(eq.iloc[-1] - capital), 2), usd_per_hour=round(float((eq.iloc[-1] - capital) / hours), 4),
-                usd_per_hour_first_year=round(float((eq[eq.index < idx[0] + pd.Timedelta(days=365)].iloc[-1] - capital) / (365 * 24)), 4),
-                max_dd_usd=round(float(dd.max()), 2), max_dd_pct=round(100 * float(dd_pct), 1), min_equity=round(float(eq.min()), 2),
-                ruined_at=str(ruined_at) if ruined_at is not None else None, stopouts=stopouts, baskets_closed=len(cl),
-                sl_hits=sl_hits, tp_hits=tp_hits, max_lots=round(float(lots.max()), 2), max_positions=int(cl.n.max()) if len(cl) else 0,
-                worst_basket=round(float(cl.pnl.min()), 2) if len(cl) else 0, yearly={str(k.year): round(float(v), 2) for k, v in yearly.items()},
-                equity=eq)
-
-
-def load_fx(symbol, tf='h1', path='trading/data/fx'):
-    d = pd.read_csv(f'{path}/{symbol}{tf}.csv', parse_dates=['Date']).set_index('Date')
-    d = d[['open', 'high', 'low', 'close']] / 1e5
-    d.index.name = 'dt'
-    return d
