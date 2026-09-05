@@ -1,2 +1,4 @@
 __pycache__/
 *.pyc
+# informe con datos personales de cuenta: se entrega por fuera del repo
+copy_maderna/INFORME_COPY.md
