@@ -1,0 +1,16 @@
+{
+  "ema_len": 200,
+  "dc_len": 55,
+  "atr_len": 14,
+  "sl_mult": 3.0,
+  "trail_mult": 4.0,
+  "adx_len": 14,
+  "adx_min": 25.0,
+  "allow_short": 0,
+  "exit_on_ema": 0,
+  "risk_pct": 1.5,
+  "risk_base": 1000.0,
+  "min_lot": 0.01,
+  "lot_step": 0.01,
+  "max_lots": 1.0
+}
