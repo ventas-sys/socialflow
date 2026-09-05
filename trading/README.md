@@ -109,3 +109,27 @@ Instalar un EA en MT5: copiar el `.mq5` a `MQL5/Experts/`, abrir MetaEditor, com
 - Los backtests son honestos pero **no son garantía**: incluso 0,05 USD/h en backtest puede ser 0 o negativo en real.
 
 **[Confianza: 0.85 | Revisado: Sí | Partes estimadas: costes exactos de cada broker y apalancamiento en entidades offshore (0,7); coste de VPS; todo lo demás (datos, backtests, cota teórica) está calculado y es reproducible]**
+
+---
+
+## 7. Anexo: ¿cambiar de activo (acción, ETF, otra cripto) resuelve el problema? No.
+
+Simulación Monte Carlo con los movimientos diarios reales de BTC (`reports/limite_matematico.py`), sin costes, para un trader que acierta la dirección de cada día con probabilidad *p*:
+
+| Acierto diario | Lotes | USD/h | Prob. de DD ≤ 300 | DD mediana |
+|---|---|---|---|---|
+| 55 % (trader bueno real) | 0,02 | 0,11 | 0 % | 769 USD |
+| 55 % | 0,20 | 1,08 | 0 % | 7.432 USD |
+| 70 % (excepcional) | 0,05 | 1,08 | 0 % | 818 USD |
+| 90 % (no existe) | 0,02 | 0,86 | 96 % | 165 USD |
+
+Lectura: para 1 USD/h con DD ≤ 300 USD hace falta acertar más del 90 % de los días. Los mejores traders sistemáticos documentados rondan el 52-58 %. El resultado **no depende del activo**: una acción menos volátil (una tecnológica se mueve 2-4 % al día, BTC 3,5 %) obliga a usar más lotes para el mismo objetivo y el drawdown crece en la misma proporción. Un ETF 3x o una memecoin solo aceleran ambas cosas.
+
+### Lo que sí es factible (elige una de las tres variables)
+| Mantengo | Cambio | Resultado realista |
+|---|---|---|
+| 1.000 USD y DD ≤ 300 | Objetivo → 5-35 USD/mes | Estrategia breakout de este repo en demo, luego 0,01 lotes en real |
+| Objetivo 720 USD/mes y DD ≤ 30 % | Capital → 25.000-30.000 USD | Trader con 55 % de acierto, 0,2 lotes, DD esperado ~7.500 USD; años negativos posibles |
+| 1.000 USD y objetivo 720 USD/mes | Salir del mercado: capital de trabajo en tu propio negocio | 1.000 USD en mercadería con 20-30 % de margen y 2-3 rotaciones al mes ≈ 400-900 USD/mes brutos (**estimado**, depende de tu margen real) |
+
+La única vía de mercado para 720 USD/mes con 1.000 USD es una apuesta tipo lotería (opciones fuera del dinero, perpetuos a 50-100x): probabilidad de perder todo el capital superior al 90 % en el primer mes. No la recomiendo ni la voy a construir.
