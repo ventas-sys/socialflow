@@ -130,6 +130,7 @@ def build_signals(df: pd.DataFrame, **params) -> pd.DataFrame:
                 state = 0
             elif i - entry_bar >= max_bars:
                 state = 0                     # pos=0 en la vela i -> el motor cierra en open[i+1]
+                continue                      # sin nueva entrada en esta misma vela (el EA hace lo mismo)
             else:
                 pos[i] = state; sl_out[i] = sl; tp_out[i] = midv[i]
                 continue

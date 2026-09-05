@@ -1,11 +1,12 @@
 """
+import os; os.environ.setdefault("OMP_NUM_THREADS", "1"); os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
 Optimización SOLO in-sample (antes de 2025-03-01) de la estrategia de reversión, M15.
 Rejilla pequeña (144 combos). Criterio: trades >= 60, DD intrabar <= 300, ordenado por profit factor (no por beneficio).
 Coste Pepperstone, leverage 2, stop_on_dd=False (para ver el DD real). Guarda grid_is.csv y grid_is_top.md.
 """
 import sys, itertools, json, time
 sys.path.insert(0, '/home/user/socialflow')
-from multiprocessing import Pool
+import multiprocessing as mp
 import pandas as pd
 from trading.engine.backtest import Backtester, CostModel, load_m15, split
 from trading.strategies.reversion.strategy import build_signals
@@ -35,7 +36,7 @@ if __name__ == '__main__':
     combos = [dict(zip(keys, v)) for v in itertools.product(*GRID.values())]
     print(f"{len(combos)} combinaciones IS (M15)")
     t = time.time()
-    with Pool(4, initializer=_init) as pool:
+    with mp.get_context("spawn").Pool(4, initializer=_init) as pool:
         rows = pool.map(_one, combos)
     print(f"hecho en {time.time()-t:.0f}s")
     g = pd.DataFrame(rows)
