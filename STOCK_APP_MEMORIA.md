@@ -79,7 +79,7 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
 10. La lectura de **foto de factura** se cortaba y devolvía "IA no devolvió JSON válido": gemini-2.5-flash piensa por defecto y esos tokens consumían el tope de salida de 4000 → ahora `thinkingConfig.thinkingBudget: 0` y tope 32000, y el error distingue el corte por longitud (28/8).
 8. Marcar productos frágiles (checkbox nuevo en Inventario) para que Empaquetado avise.
 
-14. **PENDIENTE DEL USUARIO — publicar `firestore.rules` en Firebase** (Console → Firestore Database → pestaña Reglas → pegar el archivo del repo → Publicar). Sin eso la solapa 💰 Finanzas no puede leer ni escribir la colección `finanzas` (regla nueva: `match /finanzas/{id} { allow read, write: if isAdmin(); }`).
+14. ~~Publicar `firestore.rules` en Firebase~~ **HECHO el 7/9**: el usuario publicó las reglas en la consola y 💰 Finanzas ya guarda (la regla `match /finanzas/{id} { allow read, write: if isAdmin(); }` está viva en producción). Recordar: si se agrega otra colección nueva, hay que volver a publicar a mano.
 15. Pendientes del usuario (le tocan a él, no al código): ~~importar `medidas-y-ubicacion.xlsx` por 📐 Medidas ML~~ **DESCARTADO por el usuario el 7/9 ("el 2 olvidalo") — no volver a ofrecerlo** · correr "🏆 Top 200 más vendidos" y revisar medida/foto/ubicación de esos SKU · exportar el panel financiero viejo con `exportar-panel-viejo.html` e importarlo en Finanzas · cargar las 38 publicaciones que faltan.
 
 ## Reglas de negocio clave (definidas por el usuario)
