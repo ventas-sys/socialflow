@@ -3,7 +3,9 @@
 //| EA para challenges de fondeo: ruptura de rango (OCO) o apuesta   |
 //| diaria por momentum, con sizing por riesgo fijo y guardias de     |
 //| reglas (objetivo, pérdida diaria, pérdida máxima).                |
-//| Réplica de trading/fondeo/challenge_sim.py. NO compilado aquí     |
+//| Réplica de trading/fondeo/challenge_sim.py (enfoque B: GBPUSD,   |
+//| rango 07-10, OCO, SL lado opuesto, TP 3R, sin lunes/viernes).     |
+//| NO compilado aquí                                                 |
 //| (sin MetaEditor en Linux): revisar en MetaEditor antes de usar.   |
 //+------------------------------------------------------------------+
 #property strict
@@ -16,26 +18,28 @@ enum ENUM_MODE { MODE_BREAKOUT = 0, MODE_MOMENTUM = 1 };
 //--- reglas de la firma (fracciones del balance INICIAL del challenge)
 input double InpInitialBalance   = 100000;  // Balance inicial del challenge (0 = usar el balance al arrancar)
 input double InpTargetPct        = 10.0;    // Objetivo de beneficio (%)
-input double InpDailyLossPct     = 3.0;     // Pérdida diaria máxima (%) (equity, incluye flotante)
+input double InpDailyLossPct     = 5.0;     // Pérdida diaria máxima (%) (equity, incluye flotante). FTMO 2-Step: 5
 input double InpMaxLossPct       = 10.0;    // Pérdida máxima (%)
-input bool   InpTrailingMaxLoss  = true;    // Pérdida máxima trailing sobre el máximo de equity (FTMO 1-Step) o estática
+input bool   InpTrailingMaxLoss  = false;   // true = trailing sobre el máximo de equity (FTMO 1-Step); false = estática (FTMO 2-Step)
 input double InpSafetyBufferPct  = 0.3;     // Colchón (%) antes de cada límite: se cierra todo al acercarse
 
 //--- riesgo y estrategia
 input ENUM_MODE InpMode          = MODE_BREAKOUT;
-input double InpRiskPct          = 2.5;     // Riesgo por operación (% del balance inicial)
+input double InpRiskPct          = 1.5;     // Riesgo por operación (% del balance inicial). Recomendado 1,5-2,0
 input bool   InpRiskOnBalance    = false;   // Riesgo sobre balance actual en vez del inicial
 input int    InpMaxTradesPerDay  = 1;
-input double InpDayStopPct       = 2.5;     // Deja de abrir si el P/L del día (cerrado) ≤ -X %
-input double InpRR               = 2.0;     // Take profit = RR × stop
-input int    InpExitHour         = 22;      // Cierre forzoso a esta hora (servidor); -1 = sin cierre
+input double InpDayStopPct       = 3.0;     // Deja de abrir si el P/L del día (cerrado) ≤ -X %
+input double InpRR               = 3.0;     // Take profit = RR × stop
+input int    InpExitHour         = 23;      // Cierre forzoso a esta hora (servidor); -1 = sin cierre
 //--- ruptura de rango
-input int    InpRangeStartHour   = 1;       // Inicio del rango (hora servidor)
-input int    InpRangeEndHour     = 9;       // Fin del rango: se colocan los stops
+input int    InpRangeStartHour   = 7;       // Inicio del rango (hora servidor, GMT+2/+3 en FTMO)
+input int    InpRangeEndHour     = 10;      // Fin del rango: se colocan los stops (apertura de Londres)
 input int    InpExpireHour       = 17;      // Se cancelan los pendientes a esta hora
 input double InpSLFrac           = 1.0;     // Stop = fracción del rango (1.0 = lado opuesto)
 input double InpMinRangeATR      = 0.3;     // Rango mínimo en ATR(H1,14)
-input double InpMaxRangeATR      = 3.0;     // Rango máximo en ATR(H1,14)
+input double InpMaxRangeATR      = 5.0;     // Rango máximo en ATR(H1,14)
+input bool   InpSkipMonday       = true;    // No operar lunes
+input bool   InpSkipFriday       = true;    // No operar viernes
 //--- apuesta diaria por momentum
 input int    InpEntryHour        = 10;      // Hora de entrada (servidor)
 input int    InpLookbackHours    = 24;      // Signo del retorno de las últimas N horas
@@ -123,6 +127,7 @@ void OnTick()
    if(InpExitHour >= 0 && t.hour >= InpExitHour && (HasPosition() || PendingCount() > 0)) { CloseAll("cierre horario"); return; }
    if(InpMode == MODE_BREAKOUT && t.hour >= InpExpireHour && PendingCount() > 0 && !HasPosition()) CloseAll("expiración de pendientes");
    if(!canOpen || HasPosition() || g_tradesToday >= InpMaxTradesPerDay) return;
+   if((InpSkipMonday && t.day_of_week == 1) || (InpSkipFriday && t.day_of_week == 5)) return;   // sin lunes ni viernes
    static datetime lastBar = 0; datetime bar = iTime(_Symbol, PERIOD_M15, 0); if(bar == lastBar) return; lastBar = bar;   // una decisión por vela M15
    double atr = ATR(); if(atr <= 0) return;
    if(InpMode == MODE_BREAKOUT) DoBreakout(t, atr); else DoMomentum(t, atr);
@@ -158,7 +163,6 @@ void DoMomentum(MqlDateTime &t, double atr)
    int dg = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
    if(dir > 0) { double a = SymbolInfoDouble(_Symbol, SYMBOL_ASK); trade.Buy(lots, _Symbol, a, NormalizeDouble(a - sl, dg), NormalizeDouble(a + tp, dg), "mom buy"); }
    else        { double b = SymbolInfoDouble(_Symbol, SYMBOL_BID); trade.Sell(lots, _Symbol, b, NormalizeDouble(b + sl, dg), NormalizeDouble(b - tp, dg), "mom sell"); }
-   g_tradesToday++;
 }
 //+------------------------------------------------------------------+
 //| Cuando se ejecuta un pendiente del OCO se cancela el contrario    |
