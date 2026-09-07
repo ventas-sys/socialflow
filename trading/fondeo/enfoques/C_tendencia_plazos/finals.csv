@@ -1,0 +1,5 @@
+sym,entry,tf,atr_stop,friday,risk,mode,pass7,burn7,pass14,burn14,score,role
+BTCUSD,don20,1h,1.0,True,2.8,fixed,22.6,54.3,30.3,63.1,21.350000000000005,mejor_global
+BTCUSD,don20,1h,1.0,True,1.5,ladder_balance,1.8,0.0,5.6,0.0,7.3999999999999995,escalonado
+XAUUSD,don55,4h,1.0,True,2.8,fixed,4.7,5.7,9.0,14.2,6.6,mejor_otro_activo
+XAUUSD,don55,4h,1.0,False,2.0,ladder,0.0,0.0,0.7,0.0,0.7,escalonado_otro
