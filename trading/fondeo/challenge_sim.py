@@ -157,8 +157,11 @@ def strat_breakout(bars, range_start=1, range_end=9, expire_hour=17, exit_hour=2
     rng = df[(df.h >= range_start) & (df.h < range_end)].groupby('day').agg(hi=('high', 'max'), lo=('low', 'min'))
     hi = rng.hi.reindex(df.day).values; lo = rng.lo.reindex(df.day).values
     width = hi - lo
-    ok = (df.h.values >= range_end) & (df.h.values < expire_hour) & ~np.isnan(width) & ~np.isnan(a)
-    ok &= (width >= min_range_atr * a) & (width <= max_range_atr * a)
+    # ATR de referencia FIJO por día (el disponible al abrir la ventana): si se usara el ATR de cada vela, el filtro
+    # podría "activarse" a mitad de día con el precio ya lejos del rango (artefacto detectado por el agente B).
+    a_day = pd.Series(np.where(df.h.values == range_end, a, np.nan), index=bars.index).groupby(df.day.values).transform('first').values
+    ok = (df.h.values >= range_end) & (df.h.values < expire_hour) & ~np.isnan(width) & ~np.isnan(a_day) & (width > 0)
+    ok &= (width >= min_range_atr * a_day) & (width <= max_range_atr * a_day)
     # señal "pendiente" en cada vela de la ventana: el ejecutor coloca ambos stops y toma el primero que se toque
     s.loc[ok, 'dir'] = 2  # 2 = OCO: buy stop en hi, sell stop en lo
     s.loc[ok, 'stop_px'] = hi[ok]  # se guarda hi; lo = hi - width
@@ -286,10 +289,11 @@ def run_attempt(P: dict, spec: Spec, rules: Rules, start_i: int, risk_pct=2.0, c
                 if d == 2:  # OCO: buy stop en hi, sell stop en lo = hi - width
                     hi_px = stop_arr[i]; lo_px = hi_px - width_arr[i]
                     touch_hi = h[i] >= hi_px; touch_lo = l[i] <= lo_px
-                    if touch_hi and not touch_lo: pos = 1; px = hi_px
-                    elif touch_lo and not touch_hi: pos = -1; px = lo_px
+                    # si la vela ABRE más allá del nivel, el stop se ejecuta a la apertura (peor precio), no al nivel
+                    if touch_hi and not touch_lo: pos = 1; px = max(hi_px, o[i])
+                    elif touch_lo and not touch_hi: pos = -1; px = min(lo_px, o[i])
                     elif touch_hi and touch_lo:
-                        pos = 1 if (o[i] - lo_px) >= (hi_px - o[i]) else -1; px = hi_px if pos > 0 else lo_px; both = True
+                        pos = 1 if (o[i] - lo_px) >= (hi_px - o[i]) else -1; px = max(hi_px, o[i]) if pos > 0 else min(lo_px, o[i]); both = True
                     if pos: entry = px + pos * (spread + slip)
                 else:
                     pos = 1 if d > 0 else -1; entry = o[i] + pos * (spread / 2 + slip)
