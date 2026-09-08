@@ -19,6 +19,7 @@ export default async function handler(req, res) {
     if (action === 'shipstatus') return await shipStatus(req, res);
     if (action === 'topsold') return await topSold(req, res);
     if (action === 'metrics') return await metrics(req, res);
+    if (action === 'flexsales') return await flexSales(req, res);
     return await exchange(req, res);
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message });
@@ -106,6 +107,141 @@ async function topSold(req, res) {
 
   const top = [...acc.values()].sort((a, b) => b.unidades - a.unidades).slice(0, limit);
   return res.status(200).json({ ok: true, ordenes, canceladas, truncado, publicaciones: acc.size, top });
+}
+
+// Ventas FLEX de un período, con el costo del envío y a quién se lo cobró ML.
+// Sirve para comparar lo que nos cuesta el envío contra lo que le pagamos a
+// los motoqueros. Se pide por tramos desde el navegador (un mes o menos por
+// vez) porque cada venta necesita su envío y eso no entra en una sola corrida.
+//
+// Body: { token, desde, hasta } (fechas ISO). Devuelve una fila por venta FLEX.
+async function flexSales(req, res) {
+  const { token, desde, hasta } = req.body || {};
+  if (!token) return res.status(400).json({ ok: false, error: 'Falta access_token' });
+  if (!desde || !hasta) return res.status(400).json({ ok: false, error: 'Faltan las fechas desde/hasta' });
+  const auth = { 'Authorization': 'Bearer ' + token };
+
+  const me = await httpRequest('GET', 'https://api.mercadolibre.com/users/me', auth);
+  if (me.status !== 200) throw new Error(me.body?.message || ('HTTP ' + me.status));
+  const sellerId = me.body.id;
+
+  const pedir = async (d, h, offset) => {
+    const url = 'https://api.mercadolibre.com/orders/search'
+      + `?seller=${sellerId}&sort=date_asc&limit=50&offset=${offset}`
+      + `&order.date_created.from=${encodeURIComponent(d)}`
+      + `&order.date_created.to=${encodeURIComponent(h)}`;
+    const r = await httpRequest('GET', url, auth);
+    if (r.status !== 200) throw new Error(r.body?.message || ('HTTP ' + r.status));
+    return r.body;
+  };
+
+  // 1) Todas las ventas del tramo. /orders/search corta en offset 10.000, así
+  //    que el tramo se parte en ventanas de 7 días y cada una se pagina en
+  //    paralelo.
+  const ventas = [];
+  let canceladas = 0, truncado = false;
+  const juntar = (orders) => {
+    for (const o of orders) {
+      if (o.status === 'cancelled' || o.status === 'invalid') { canceladas++; continue; }
+      const sid = o.shipping?.id;
+      if (!sid) continue; // venta sin envío de ML (retiro / acordado)
+      ventas.push({
+        orderId: o.id,
+        shipmentId: String(sid),
+        fecha: o.date_created,
+        estadoOrden: o.status,
+        total: o.total_amount || 0,
+        comprador: o.buyer?.nickname || '',
+        unidades: (o.order_items || []).reduce((s, it) => s + (it.quantity || 0), 0),
+        sku: (o.order_items || []).map(it => it.item?.seller_sku || it.item?.seller_custom_field || it.item?.id || '').filter(Boolean).join(' + '),
+        titulo: (o.order_items || []).map(it => it.item?.title || '').filter(Boolean).join(' + '),
+      });
+    }
+  };
+
+  const iniMs = new Date(desde).getTime();
+  const finMs = new Date(hasta).getTime();
+  const VENTANA = 7 * 24 * 3600 * 1000;
+  for (let ini = iniMs; ini < finMs; ini += VENTANA) {
+    const d = new Date(ini).toISOString();
+    const h = new Date(Math.min(ini + VENTANA, finMs)).toISOString();
+    const primera = await pedir(d, h, 0);
+    juntar(primera.results || []);
+    const total = primera.paging?.total || 0;
+    if (total > 10000) truncado = true;
+    const tope = Math.min(total, 10000);
+    const offsets = [];
+    for (let off = 50; off < tope; off += 50) offsets.push(off);
+    const CONC = 8;
+    for (let i = 0; i < offsets.length; i += CONC) {
+      const lote = await Promise.all(offsets.slice(i, i + CONC).map(off => pedir(d, h, off)));
+      lote.forEach(b => juntar(b.results || []));
+    }
+  }
+
+  // 2) El envío de cada venta: ahí está el tipo (FLEX = self_service) y la
+  //    dirección. Una venta con varios productos comparte un solo envío.
+  const envios = new Map();
+  const ids = [...new Set(ventas.map(v => v.shipmentId))];
+  const CONC_ENV = 12;
+  for (let i = 0; i < ids.length; i += CONC_ENV) {
+    await Promise.all(ids.slice(i, i + CONC_ENV).map(async (sid) => {
+      try {
+        const r = await httpRequest('GET', `https://api.mercadolibre.com/shipments/${sid}`, auth);
+        const b = r.body || {};
+        const tipo = b.logistic_type || b.logistic?.type || '';
+        if (tipo !== 'self_service') return; // solo FLEX
+        const dir = b.receiver_address || {};
+        envios.set(sid, {
+          estadoEnvio: b.status || '',
+          subEstado: b.substatus || '',
+          provincia: dir.state?.name || '',
+          localidad: dir.city?.name || '',
+          municipio: dir.municipality?.name || '',
+          barrio: dir.neighborhood?.name || '',
+          cp: dir.zip_code || '',
+          lat: dir.latitude ?? null,
+          lng: dir.longitude ?? null,
+          costoListado: b.shipping_option?.list_cost ?? null,
+          costoOpcion: b.shipping_option?.cost ?? null,
+        });
+      } catch { /* un envío que falla no corta el reporte */ }
+    }));
+  }
+
+  // 3) El detalle de plata SOLO de los FLEX: cuánto pagó el comprador y cuánto
+  //    nos cobró ML a nosotros.
+  const flexIds = [...envios.keys()];
+  for (let i = 0; i < flexIds.length; i += CONC_ENV) {
+    await Promise.all(flexIds.slice(i, i + CONC_ENV).map(async (sid) => {
+      try {
+        const r = await httpRequest('GET', `https://api.mercadolibre.com/shipments/${sid}/costs`, auth);
+        const c = r.body || {};
+        const vendedor = (c.senders || [])[0] || {};
+        const e = envios.get(sid);
+        e.costoComprador = c.receiver?.cost ?? 0;
+        e.costoNosotros = vendedor.cost ?? 0;
+        e.bonificacion = (vendedor.compensation ?? 0) + (vendedor.save ?? 0);
+        e.costoBruto = c.gross_amount ?? null;
+      } catch { /* sin detalle de costos: la fila igual sale */ }
+    }));
+  }
+
+  const filas = ventas
+    .filter(v => envios.has(v.shipmentId))
+    .map(v => ({ ...v, ...envios.get(v.shipmentId) }));
+
+  return res.status(200).json({
+    ok: true,
+    cuenta: me.body.nickname,
+    desde, hasta,
+    ventasLeidas: ventas.length,
+    enviosConsultados: ids.length,
+    flex: filas.length,
+    canceladas,
+    truncado,
+    filas,
+  });
 }
 
 // Métricas de la cuenta para la solapa 📊: ventas, unidades, dinero y ticket

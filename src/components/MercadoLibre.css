@@ -133,3 +133,19 @@
   align-items: center;
   gap: 0.6rem;
 }
+
+/* Fecha "desde" del Excel de ventas FLEX */
+.ml-desde {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  color: #475569;
+  font-weight: 600;
+}
+.ml-desde input {
+  border: 1px solid #cbd5e1;
+  border-radius: 0.45rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.85rem;
+}

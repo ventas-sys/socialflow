@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import * as XLSX from 'xlsx'
+import { cordonDe } from '../utils/cordon'
 import { findProductOrCombo } from '../utils/refMatch'
 import { db } from '../firebase'
 import { doc, getDoc, writeBatch, Timestamp } from 'firebase/firestore'
@@ -274,6 +275,159 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
     }
   }
 
+  // Excel de TODAS las ventas FLEX de las dos cuentas, con el costo del envío,
+  // quién lo pagó y en qué cordón cayó. Sirve para comparar lo que nos cobra ML
+  // contra lo que le pagamos a los motoqueros.
+  //
+  // Son muchos meses y cada venta necesita su envío, así que se pide por tramos
+  // cortos: si un tramo tarda demasiado y falla, se parte al medio y se
+  // reintenta solo esa parte. Lo que ya vino no se pierde.
+  const [flexMsg, setFlexMsg] = useState('')
+  const [flexBusy, setFlexBusy] = useState(false)
+  const [flexDesde, setFlexDesde] = useState('2025-08-01')
+
+  const exportFlexSales = async () => {
+    const desdeMs = new Date(flexDesde + 'T00:00:00-03:00').getTime()
+    if (!Number.isFinite(desdeMs)) { setFlexMsg('❌ Poné una fecha válida en "desde"'); return }
+    const hastaMs = Date.now()
+    if (desdeMs >= hastaMs) { setFlexMsg('❌ La fecha "desde" tiene que ser anterior a hoy'); return }
+
+    const meses = Math.round((hastaMs - desdeMs) / (30 * 24 * 3600 * 1000))
+    if (!window.confirm(
+      `Voy a leer venta por venta de las 2 cuentas desde el ${flexDesde} (unos ${meses} meses) y de cada una su envío.\n\n` +
+      'Puede tardar bastante (decenas de minutos). No cierres esta pestaña mientras corre.\n\n¿Arranco?')) return
+
+    setFlexBusy(true); setFlexMsg('⏳ Empezando...')
+    const filas = []
+    const avisos = []
+    try {
+      // Tramos de 12 días: es lo que entra cómodo en una corrida del servidor
+      const TRAMO = 12 * 24 * 3600 * 1000
+      const tramos = []
+      for (let ini = desdeMs; ini < hastaMs; ini += TRAMO) {
+        tramos.push([ini, Math.min(ini + TRAMO, hastaMs)])
+      }
+
+      for (const key of ['full', 'ferre']) {
+        if (!mlAccounts[key]?.accessToken) { avisos.push(`${key.toUpperCase()} no está conectada`); continue }
+        const token = await ensureToken(key)
+
+        // Un tramo puede fallar por tiempo: se parte al medio y se reintenta
+        const traer = async (ini, fin, profundidad = 0) => {
+          const body = { token, desde: new Date(ini).toISOString(), hasta: new Date(fin).toISOString() }
+          let r
+          try {
+            r = await fetch(`${API}?action=flexsales`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            }).then(x => x.json())
+          } catch (e) {
+            r = { ok: false, error: e.message }
+          }
+          if (r?.ok) {
+            r.filas.forEach(f => filas.push({ ...f, cuenta: key.toUpperCase() }))
+            if (r.truncado) avisos.push(`${key.toUpperCase()} ${new Date(ini).toISOString().slice(0, 10)}: una semana superó las 10.000 ventas que deja leer ML`)
+            return
+          }
+          if (profundidad >= 3 || fin - ini < 12 * 3600 * 1000) {
+            avisos.push(`${key.toUpperCase()} ${new Date(ini).toISOString().slice(0, 10)} → ${new Date(fin).toISOString().slice(0, 10)}: ${r?.error || 'no se pudo leer'}`)
+            return
+          }
+          const medio = ini + Math.floor((fin - ini) / 2)
+          await traer(ini, medio, profundidad + 1)
+          await traer(medio, fin, profundidad + 1)
+        }
+
+        for (let i = 0; i < tramos.length; i++) {
+          const [ini, fin] = tramos[i]
+          setFlexMsg(`⏳ ${key.toUpperCase()} · tramo ${i + 1} de ${tramos.length} (${new Date(ini).toISOString().slice(0, 10)}) · ${filas.length} envíos FLEX hasta ahora`)
+          await traer(ini, fin)
+        }
+      }
+
+      if (!filas.length) throw new Error('No se encontró ninguna venta FLEX en ese período. ' + avisos.join(' · '))
+
+      const AR = 3 * 3600 * 1000
+      const fechaAR = (iso) => new Date(new Date(iso).getTime() - AR).toISOString()
+      const titulo = (s) => String(s || '').replace(/\b\w/g, c => c.toUpperCase())
+      const quienPaga = (comprador, nosotros) => {
+        if (comprador > 0 && nosotros > 0) return 'Compartido'
+        if (comprador > 0) return 'Comprador'
+        if (nosotros > 0) return 'Nosotros'
+        return 'Sin costo (bonificado)'
+      }
+
+      const detalle = filas.map(f => {
+        const comprador = Number(f.costoComprador || 0)
+        const nosotros = Number(f.costoNosotros || 0)
+        const z = cordonDe(f)
+        const fa = fechaAR(f.fecha)
+        return {
+          'Cuenta': f.cuenta,
+          'Fecha': fa.slice(0, 10),
+          'Hora': fa.slice(11, 16),
+          'N° de venta': String(f.orderId || ''),
+          'N° de envío': String(f.shipmentId || ''),
+          'Estado del envío': f.estadoEnvio || '',
+          'Comprador': f.comprador || '',
+          'SKU': f.sku || '',
+          'Publicación': f.titulo || '',
+          'Unidades': f.unidades || 0,
+          'Total de la venta': Number(f.total || 0),
+          'Provincia': f.provincia || '',
+          'Localidad': f.localidad || '',
+          'Partido': titulo(z.partido || f.municipio || ''),
+          'CP': f.cp || '',
+          'Zona (cordón)': z.zona,
+          'Cómo se determinó la zona': z.criterio,
+          'Quién pagó el envío': quienPaga(comprador, nosotros),
+          'Costo envío — comprador': comprador,
+          'Costo envío — nosotros': nosotros,
+          'Bonificación de ML': Number(f.bonificacion || 0),
+          'Costo del envío (total)': comprador + nosotros,
+        }
+      }).sort((a, b) => (a.Fecha + a.Hora).localeCompare(b.Fecha + b.Hora))
+
+      // Resumen por zona y cuenta: es lo que se compara con lo que le pagamos
+      // a la logística
+      const res = new Map()
+      for (const d of detalle) {
+        const k = d['Zona (cordón)'] + '|' + d.Cuenta
+        const x = res.get(k) || {
+          'Zona (cordón)': d['Zona (cordón)'], 'Cuenta': d.Cuenta, 'Envíos': 0,
+          'Pagó el comprador': 0, 'Pagamos nosotros': 0, 'Bonificó ML': 0, 'Costo total': 0,
+        }
+        x['Envíos'] += 1
+        x['Pagó el comprador'] += d['Costo envío — comprador']
+        x['Pagamos nosotros'] += d['Costo envío — nosotros']
+        x['Bonificó ML'] += d['Bonificación de ML']
+        x['Costo total'] += d['Costo del envío (total)']
+        res.set(k, x)
+      }
+      const resumen = [...res.values()]
+        .map(x => ({ ...x, 'Costo promedio por envío': Math.round(x['Costo total'] / x['Envíos']) }))
+        .sort((a, b) => a['Zona (cordón)'].localeCompare(b['Zona (cordón)']) || a.Cuenta.localeCompare(b.Cuenta))
+
+      const wb = XLSX.utils.book_new()
+      const wsR = XLSX.utils.json_to_sheet(resumen)
+      wsR['!cols'] = [{ wch: 24 }, { wch: 9 }, { wch: 9 }, { wch: 18 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 20 }]
+      XLSX.utils.book_append_sheet(wb, wsR, 'Resumen por zona')
+      const wsD = XLSX.utils.json_to_sheet(detalle)
+      wsD['!cols'] = [{ wch: 8 }, { wch: 11 }, { wch: 6 }, { wch: 15 }, { wch: 13 }, { wch: 15 }, { wch: 18 },
+                      { wch: 20 }, { wch: 45 }, { wch: 9 }, { wch: 14 }, { wch: 16 }, { wch: 22 }, { wch: 20 },
+                      { wch: 8 }, { wch: 16 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 16 }, { wch: 20 }]
+      XLSX.utils.book_append_sheet(wb, wsD, 'Ventas FLEX')
+      XLSX.writeFile(wb, `ventas-flex-${flexDesde}_a_${new Date().toISOString().slice(0, 10)}.xlsx`)
+
+      setFlexMsg(`✅ ${detalle.length} ventas FLEX exportadas (${new Set(detalle.map(d => d['N° de envío'])).size} envíos).`
+        + (avisos.length ? ` ⚠️ ${avisos.length} tramos con problemas: ${avisos.slice(0, 3).join(' · ')}${avisos.length > 3 ? '…' : ''}` : ''))
+    } catch (err) {
+      setFlexMsg('❌ ' + err.message)
+    } finally {
+      setFlexBusy(false)
+    }
+  }
+
   // Dispara el proceso automático (el mismo del cron de las 18hs) una vez
   const [cronMsg, setCronMsg] = useState('')
   const [cronBusy, setCronBusy] = useState(false)
@@ -363,6 +517,16 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
               {topBusy ? '⏳ Leyendo las ventas del mes...' : '🏆 Top 200 más vendidos (30 días)'}
             </button>
             {topMsg && <span className={`ml-cron-msg ${topMsg.startsWith('✅') ? 'ok' : 'warn'}`}>{topMsg}</span>}
+          </div>
+          <div className="ml-top-row">
+            <label className="ml-desde">
+              Ventas FLEX desde
+              <input type="date" value={flexDesde} onChange={e => setFlexDesde(e.target.value)} disabled={flexBusy} />
+            </label>
+            <button className="ml-btn-missing" onClick={exportFlexSales} disabled={flexBusy}>
+              {flexBusy ? '⏳ Leyendo...' : '🚚 Excel de ventas FLEX (costo de envío y zona)'}
+            </button>
+            {flexMsg && <span className={`ml-cron-msg ${flexMsg.startsWith('✅') ? 'ok' : flexMsg.startsWith('⏳') ? '' : 'warn'}`}>{flexMsg}</span>}
           </div>
         </div>
       </div>
