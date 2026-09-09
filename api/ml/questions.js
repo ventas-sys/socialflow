@@ -26,7 +26,7 @@ import { loadAccounts, findAccountByUser, findAccountByLabel, otherAccount, NEGO
 import { getAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, getRecentQuestions, searchSellerItem, postAnswer, itemContext, getMe, getOrders, getItemsBulk } from '../../lib/ml/ml-api.js';
 import { construirReporte } from '../../lib/ml/conversion.js';
 import { filaMedidas, ordenarFilas, medidasCsv } from '../../lib/ml/medidas.js';
-import { searchMyItems, getItemsFichaBulk } from '../../lib/ml/ml-api.js';
+import { searchMyItems, getItemsFichaBulk, mlAdsGet } from '../../lib/ml/ml-api.js';
 import { resumenKeys } from '../../lib/gemini-keys.js';
 import { modeloTexto } from '../../lib/gemini-texto.js';
 import { getShipment, getOrder, sendPostSaleMessage, getUnreadMessages } from '../../lib/ml/ml-api.js';
@@ -439,6 +439,41 @@ export default async function handler(req, res) {
 
     // CONTROL DE CONVERSIÓN: qué preguntas terminaron en venta, por SKU, y qué le
     // falta a cada publicación (fotos, medidas, color, retiro, precio por mayor...).
+    // SONDA DE MERCADO ADS (Product Ads): prueba los endpoints de publicidad
+    // con el token de la cuenta y devuelve crudo qué contesta cada uno, para
+    // saber qué acceso tenemos antes de construir el reporte de optimización.
+    // Solo lectura: no crea ni toca ninguna campaña.
+    if (action === 'ads') {
+      if (!accounts.length) return res.status(400).json({ error: 'No hay cuentas configuradas (ML_ACCOUNTS).' });
+      const label = (req.query?.account || 'full').toString();
+      const acc = findAccountByLabel(accounts, label);
+      if (!acc) return res.status(400).json({ error: 'Cuenta desconocida: ' + label });
+      const token = await tokenOf(acc);
+      const corto = (b) => { try { return JSON.stringify(b).slice(0, 900); } catch { return String(b).slice(0, 900); } };
+
+      const out = { cuenta: acc.label, pasos: [] };
+      // 1) ¿Quiénes somos como anunciante?
+      const adv = await mlAdsGet(token, '/advertising/advertisers?product_id=PADS', 1);
+      out.pasos.push({ paso: 'advertisers', status: adv.status, body: corto(adv.body) });
+      const advertisers = adv.body?.advertisers || [];
+
+      // 2) Campañas del primer anunciante (probamos v1 y v2 del header).
+      for (const a of advertisers.slice(0, 2)) {
+        const id = a.advertiser_id ?? a.id;
+        for (const v of [2, 1]) {
+          const camp = await mlAdsGet(token, `/advertising/product_ads/campaigns?advertiser_id=${id}&limit=10`, v);
+          out.pasos.push({ paso: `campaigns adv=${id} apiv=${v}`, status: camp.status, body: corto(camp.body) });
+          if (camp.status >= 200 && camp.status < 300) break;
+        }
+      }
+      if (!advertisers.length) {
+        // Camino viejo por usuario, por si la cuenta sigue en el esquema legacy.
+        const legacy = await mlAdsGet(token, `/users/${acc.user_id}/product_ads/campaigns`, null);
+        out.pasos.push({ paso: 'campaigns legacy por user', status: legacy.status, body: corto(legacy.body) });
+      }
+      return res.status(200).json(out);
+    }
+
     // MEDIDAS POR SKU: recorre las publicaciones de una cuenta y baja un CSV
     // (se abre directo en Excel) con las medidas de la ficha técnica de cada
     // una. Las que NO tienen medidas salen primero: ésas son las que generan
