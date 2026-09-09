@@ -312,7 +312,45 @@ export default function Finance({ records = [], usdRate = 1000, onAdd, onDelete,
     )
   }
 
-  const listaPorTipo = (tipo) => records
+  // ---- Buscador y filtros de la solapa Registros ----
+  const [fTexto, setFTexto] = useState('')
+  const [fDesde, setFDesde] = useState('')
+  const [fHasta, setFHasta] = useState('')
+  const [fProv, setFProv] = useState('')
+  const [fTipo, setFTipo] = useState('todos')
+  const [fEstado, setFEstado] = useState('todos')
+
+  const hayFiltro = !!(fTexto.trim() || fDesde || fHasta || fProv || fTipo !== 'todos' || fEstado !== 'todos')
+  const limpiarFiltros = () => {
+    setFTexto(''); setFDesde(''); setFHasta(''); setFProv(''); setFTipo('todos'); setFEstado('todos')
+  }
+
+  const filtrados = useMemo(() => {
+    const q = fTexto.trim().toLowerCase()
+    return records.filter(r => {
+      if (fTipo !== 'todos' && r.tipo !== fTipo) return false
+      if (fDesde && String(r.fecha) < fDesde) return false
+      if (fHasta && String(r.fecha) > fHasta) return false
+      if (fProv && (r.proveedor || '') !== fProv) return false
+      if (fEstado === 'pagado' && !r.pagado) return false
+      if (fEstado === 'impago' && r.pagado) return false
+      if (!q) return true
+      return [r.descripcion, r.proveedor, r.factura, r.remito, r.monto, r.moneda]
+        .filter(v => v != null).join(' ').toLowerCase().includes(q)
+    })
+  }, [records, fTexto, fDesde, fHasta, fProv, fTipo, fEstado])
+
+  // Cuánto suma lo que quedó filtrado (cada moneda por su lado)
+  const totalFiltrado = useMemo(() => {
+    let ars = 0, usd = 0
+    for (const r of filtrados) {
+      if (r.moneda === 'USD') usd += Number(r.monto) || 0
+      else ars += Number(r.monto) || 0
+    }
+    return { ars, usd }
+  }, [filtrados])
+
+  const listaPorTipo = (tipo) => filtrados
     .filter(r => r.tipo === tipo)
     .sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)))
 
@@ -513,8 +551,54 @@ export default function Finance({ records = [], usdRate = 1000, onAdd, onDelete,
       )}
 
       {tab === 'registros' && (
-        <div className="fin-grid3">
+        <div className="fin-filtros">
+          <input
+            className="fin-buscar"
+            type="search"
+            placeholder="🔍 Buscar por descripción, proveedor, factura, remito o monto..."
+            value={fTexto}
+            onChange={e => setFTexto(e.target.value)}
+          />
+          <div className="fin-filtros-fila">
+            <div className="fin-chips">
+              {[['todos', 'Todos'], ['entrada', 'Entradas'], ['salida', 'Salidas'], ['gasto', 'Gastos']].map(([v, l]) => (
+                <button key={v} className={`fin-chip ${fTipo === v ? 'active' : ''}`} onClick={() => setFTipo(v)}>{l}</button>
+              ))}
+            </div>
+            <label className="fin-filtro">Desde
+              <input type="date" value={fDesde} onChange={e => setFDesde(e.target.value)} />
+            </label>
+            <label className="fin-filtro">Hasta
+              <input type="date" value={fHasta} onChange={e => setFHasta(e.target.value)} />
+            </label>
+            <label className="fin-filtro">Proveedor
+              <select value={fProv} onChange={e => setFProv(e.target.value)}>
+                <option value="">Todos</option>
+                {proveedoresConocidos.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </label>
+            <label className="fin-filtro">Estado
+              <select value={fEstado} onChange={e => setFEstado(e.target.value)}>
+                <option value="todos">Todos</option>
+                <option value="impago">Impagos</option>
+                <option value="pagado">Pagados</option>
+              </select>
+            </label>
+            {hayFiltro && <button className="fin-btn-sec" onClick={limpiarFiltros}>✕ Limpiar</button>}
+          </div>
+          {hayFiltro && (
+            <div className="fin-filtros-total">
+              {filtrados.length} registro{filtrados.length === 1 ? '' : 's'} · {fmtARS(totalFiltrado.ars)}
+              {totalFiltrado.usd ? ` + ${fmtUSD(totalFiltrado.usd)}` : ''}
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'registros' && (
+        <div className={`fin-grid3 ${fTipo !== 'todos' ? 'uno' : ''}`}>
           {[['entrada', 'Entradas de mercadería'], ['salida', 'Salidas de dinero'], ['gasto', 'Gastos operativos']]
+            .filter(([tipo]) => fTipo === 'todos' || fTipo === tipo)
             .map(([tipo, titulo]) => {
               const items = listaPorTipo(tipo)
               return (
@@ -522,7 +606,7 @@ export default function Finance({ records = [], usdRate = 1000, onAdd, onDelete,
                   <h2>{titulo} <span className="fin-count">{items.length}</span></h2>
                   <div className="fin-list">
                     {items.length === 0
-                      ? <div className="fin-empty">Sin registros</div>
+                      ? <div className="fin-empty">{hayFiltro ? 'Nada con esos filtros' : 'Sin registros'}</div>
                       : items.map(r => <ItemRegistro key={r.id} r={r} conAcciones />)}
                   </div>
                 </div>
