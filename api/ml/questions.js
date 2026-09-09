@@ -457,19 +457,32 @@ export default async function handler(req, res) {
       out.pasos.push({ paso: 'advertisers', status: adv.status, body: corto(adv.body) });
       const advertisers = adv.body?.advertisers || [];
 
-      // 2) Campañas del primer anunciante (probamos v1 y v2 del header).
+      // 2) Campañas: la ruta va ANIDADA bajo el anunciante (la plana dio 404
+      //    "No static resource" en la primera sonda del 09-sep).
       for (const a of advertisers.slice(0, 2)) {
         const id = a.advertiser_id ?? a.id;
-        for (const v of [2, 1]) {
-          const camp = await mlAdsGet(token, `/advertising/product_ads/campaigns?advertiser_id=${id}&limit=10`, v);
-          out.pasos.push({ paso: `campaigns adv=${id} apiv=${v}`, status: camp.status, body: corto(camp.body) });
-          if (camp.status >= 200 && camp.status < 300) break;
+        let campanas = [];
+        for (const [ruta, v] of [
+          [`/advertising/advertisers/${id}/product_ads/campaigns?limit=50`, 2],
+          [`/advertising/advertisers/${id}/product_ads/campaigns?limit=50`, 1],
+          [`/advertising/advertisers/${id}/campaigns?limit=50`, 2],
+        ]) {
+          const camp = await mlAdsGet(token, ruta, v);
+          out.pasos.push({ paso: `campaigns apiv=${v} ${ruta.split('?')[0]}`, status: camp.status, body: corto(camp.body) });
+          if (camp.status >= 200 && camp.status < 300) {
+            campanas = camp.body?.results || camp.body?.campaigns || [];
+            break;
+          }
         }
-      }
-      if (!advertisers.length) {
-        // Camino viejo por usuario, por si la cuenta sigue en el esquema legacy.
-        const legacy = await mlAdsGet(token, `/users/${acc.user_id}/product_ads/campaigns`, null);
-        out.pasos.push({ paso: 'campaigns legacy por user', status: legacy.status, body: corto(legacy.body) });
+        // 3) Métricas de los últimos 30 días de la primera campaña que haya.
+        const c0 = campanas[0];
+        if (c0?.id != null) {
+          const hasta = new Date().toISOString().slice(0, 10);
+          const desde = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+          const met = await mlAdsGet(token,
+            `/advertising/advertisers/${id}/product_ads/campaigns/${c0.id}/metrics?date_from=${desde}&date_to=${hasta}&metrics=clicks,prints,cost,cpc,acos,roas,units_quantity,total_amount`, 2);
+          out.pasos.push({ paso: `metrics campaña ${c0.id}`, status: met.status, body: corto(met.body) });
+        }
       }
       return res.status(200).json(out);
     }
