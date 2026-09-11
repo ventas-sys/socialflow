@@ -1,0 +1,1586 @@
+{
+  "strategy": "tendencia",
+  "params": {
+    "ema_len": 200,
+    "dc_len": 55,
+    "atr_len": 14,
+    "sl_mult": 3.0,
+    "trail_mult": 4.0,
+    "adx_len": 14,
+    "adx_min": 25.0,
+    "allow_short": 0,
+    "exit_on_ema": 0,
+    "risk_pct": 1.5,
+    "risk_base": 1000.0,
+    "min_lot": 0.01,
+    "lot_step": 0.01,
+    "max_lots": 1.0
+  },
+  "periods": {
+    "IS": {
+      "start": "2023-09-01 00:00:00+00:00",
+      "end": "2025-02-28 23:00:00+00:00",
+      "bars": 13128
+    },
+    "OOS": {
+      "start": "2025-03-01 00:00:00+00:00",
+      "end": "2026-09-05 01:00:00+00:00",
+      "bars": 13274
+    },
+    "FULL": {
+      "start": "2023-09-01 00:00:00+00:00",
+      "end": "2026-09-05 01:00:00+00:00",
+      "bars": 26402
+    }
+  },
+  "official": {
+    "IS|pepperstone|lev2": {
+      "net_profit": 541.68,
+      "usd_per_hour": 0.0413,
+      "usd_per_day": 0.99,
+      "max_dd_usd_intrabar": 218.71,
+      "max_dd_usd_close": 218.35,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 85,
+      "win_rate_pct": 38.8,
+      "profit_factor": 1.919,
+      "avg_trade": 6.37,
+      "sharpe_daily": 1.51,
+      "total_costs": 100.43,
+      "costs": {
+        "spread": 17.85,
+        "commission": 8.33,
+        "swap": 62.35,
+        "slippage": 11.9
+      },
+      "cagr_pct": 33.49,
+      "buy_and_hold_net": 2238.76,
+      "net_by_year": {
+        "2023": 392.44,
+        "2024": 166.26,
+        "2025": -17.02
+      },
+      "hours": 13127
+    },
+    "IS|pepperstone|lev10": {
+      "net_profit": 605.73,
+      "usd_per_hour": 0.0461,
+      "usd_per_day": 1.107,
+      "max_dd_usd_intrabar": 218.71,
+      "max_dd_usd_close": 218.35,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 85,
+      "win_rate_pct": 38.8,
+      "profit_factor": 2.027,
+      "avg_trade": 7.13,
+      "sharpe_daily": 1.54,
+      "total_costs": 102.4,
+      "costs": {
+        "spread": 18.0,
+        "commission": 8.4,
+        "swap": 64.0,
+        "slippage": 12.0
+      },
+      "cagr_pct": 37.17,
+      "buy_and_hold_net": 2238.76,
+      "net_by_year": {
+        "2023": 456.49,
+        "2024": 166.26,
+        "2025": -17.02
+      },
+      "hours": 13127
+    },
+    "IS|eightcap|lev2": {
+      "net_profit": 553.58,
+      "usd_per_hour": 0.0422,
+      "usd_per_day": 1.012,
+      "max_dd_usd_intrabar": 214.31,
+      "max_dd_usd_close": 213.95,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 85,
+      "win_rate_pct": 38.8,
+      "profit_factor": 1.951,
+      "avg_trade": 6.51,
+      "sharpe_daily": 1.54,
+      "total_costs": 88.53,
+      "costs": {
+        "spread": 14.28,
+        "commission": 0.0,
+        "swap": 62.35,
+        "slippage": 11.9
+      },
+      "cagr_pct": 34.18,
+      "buy_and_hold_net": 2238.76,
+      "net_by_year": {
+        "2023": 396.94,
+        "2024": 172.86,
+        "2025": -16.22
+      },
+      "hours": 13127
+    },
+    "IS|eightcap|lev10": {
+      "net_profit": 617.73,
+      "usd_per_hour": 0.0471,
+      "usd_per_day": 1.129,
+      "max_dd_usd_intrabar": 214.31,
+      "max_dd_usd_close": 213.95,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 85,
+      "win_rate_pct": 38.8,
+      "profit_factor": 2.061,
+      "avg_trade": 7.27,
+      "sharpe_daily": 1.57,
+      "total_costs": 90.39,
+      "costs": {
+        "spread": 14.4,
+        "commission": 0.0,
+        "swap": 63.99,
+        "slippage": 12.0
+      },
+      "cagr_pct": 37.85,
+      "buy_and_hold_net": 2238.76,
+      "net_by_year": {
+        "2023": 461.09,
+        "2024": 172.86,
+        "2025": -16.22
+      },
+      "hours": 13127
+    },
+    "IS|conservative|lev2": {
+      "net_profit": 496.32,
+      "usd_per_hour": 0.0378,
+      "usd_per_day": 0.907,
+      "max_dd_usd_intrabar": 234.57,
+      "max_dd_usd_close": 234.21,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 85,
+      "win_rate_pct": 38.8,
+      "profit_factor": 1.81,
+      "avg_trade": 5.84,
+      "sharpe_daily": 1.4,
+      "total_costs": 145.79,
+      "costs": {
+        "spread": 35.7,
+        "commission": 8.33,
+        "swap": 77.96,
+        "slippage": 23.8
+      },
+      "cagr_pct": 30.86,
+      "buy_and_hold_net": 2238.76,
+      "net_by_year": {
+        "2023": 376.12,
+        "2024": 140.72,
+        "2025": -20.52
+      },
+      "hours": 13127
+    },
+    "IS|conservative|lev10": {
+      "net_profit": 559.71,
+      "usd_per_hour": 0.0426,
+      "usd_per_day": 1.023,
+      "max_dd_usd_intrabar": 234.57,
+      "max_dd_usd_close": 234.21,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 85,
+      "win_rate_pct": 38.8,
+      "profit_factor": 1.914,
+      "avg_trade": 6.58,
+      "sharpe_daily": 1.44,
+      "total_costs": 148.41,
+      "costs": {
+        "spread": 36.0,
+        "commission": 8.4,
+        "swap": 80.01,
+        "slippage": 24.0
+      },
+      "cagr_pct": 34.53,
+      "buy_and_hold_net": 2238.76,
+      "net_by_year": {
+        "2023": 439.5,
+        "2024": 140.72,
+        "2025": -20.52
+      },
+      "hours": 13127
+    },
+    "OOS|pepperstone|lev2": {
+      "net_profit": -205.14,
+      "usd_per_hour": -0.0155,
+      "usd_per_day": -0.371,
+      "max_dd_usd_intrabar": 302.54,
+      "max_dd_usd_close": 302.54,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-15 05:00:00+00:00",
+      "trades": 72,
+      "win_rate_pct": 26.4,
+      "profit_factor": 0.709,
+      "avg_trade": -2.85,
+      "sharpe_daily": -0.87,
+      "total_costs": 83.2,
+      "costs": {
+        "spread": 11.1,
+        "commission": 5.18,
+        "swap": 59.52,
+        "slippage": 7.4
+      },
+      "cagr_pct": -14.06,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -55.22,
+        "2026": -149.93
+      },
+      "hours": 13273
+    },
+    "OOS|pepperstone|lev10": {
+      "net_profit": -203.17,
+      "usd_per_hour": -0.0153,
+      "usd_per_day": -0.367,
+      "max_dd_usd_intrabar": 300.83,
+      "max_dd_usd_close": 300.56,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-14 23:00:00+00:00",
+      "trades": 72,
+      "win_rate_pct": 26.4,
+      "profit_factor": 0.711,
+      "avg_trade": -2.82,
+      "sharpe_daily": -0.86,
+      "total_costs": 83.08,
+      "costs": {
+        "spread": 11.25,
+        "commission": 5.25,
+        "swap": 59.08,
+        "slippage": 7.5
+      },
+      "cagr_pct": -13.92,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -55.22,
+        "2026": -147.95
+      },
+      "hours": 13273
+    },
+    "OOS|eightcap|lev2": {
+      "net_profit": -200.42,
+      "usd_per_hour": -0.0151,
+      "usd_per_day": -0.362,
+      "max_dd_usd_intrabar": 301.31,
+      "max_dd_usd_close": 300.28,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-25 19:00:00+00:00",
+      "trades": 73,
+      "win_rate_pct": 26.0,
+      "profit_factor": 0.715,
+      "avg_trade": -2.75,
+      "sharpe_daily": -0.85,
+      "total_costs": 76.02,
+      "costs": {
+        "spread": 9.0,
+        "commission": 0.0,
+        "swap": 59.52,
+        "slippage": 7.5
+      },
+      "cagr_pct": -13.72,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -50.42,
+        "2026": -150.01
+      },
+      "hours": 13273
+    },
+    "OOS|eightcap|lev10": {
+      "net_profit": -199.81,
+      "usd_per_hour": -0.0151,
+      "usd_per_day": -0.361,
+      "max_dd_usd_intrabar": 300.0,
+      "max_dd_usd_close": 299.66,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-15 04:00:00+00:00",
+      "trades": 72,
+      "win_rate_pct": 26.4,
+      "profit_factor": 0.715,
+      "avg_trade": -2.78,
+      "sharpe_daily": -0.85,
+      "total_costs": 76.02,
+      "costs": {
+        "spread": 9.0,
+        "commission": 0.0,
+        "swap": 59.52,
+        "slippage": 7.5
+      },
+      "cagr_pct": -13.68,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -50.42,
+        "2026": -149.39
+      },
+      "hours": 13273
+    },
+    "OOS|conservative|lev2": {
+      "net_profit": -215.58,
+      "usd_per_hour": -0.0162,
+      "usd_per_day": -0.39,
+      "max_dd_usd_intrabar": 302.64,
+      "max_dd_usd_close": 300.87,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-11 00:00:00+00:00",
+      "trades": 71,
+      "win_rate_pct": 25.4,
+      "profit_factor": 0.693,
+      "avg_trade": -3.04,
+      "sharpe_daily": -0.91,
+      "total_costs": 115.46,
+      "costs": {
+        "spread": 21.9,
+        "commission": 5.11,
+        "swap": 73.85,
+        "slippage": 14.6
+      },
+      "cagr_pct": -14.81,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -78.64,
+        "2026": -136.94
+      },
+      "hours": 13273
+    },
+    "OOS|conservative|lev10": {
+      "net_profit": -213.54,
+      "usd_per_hour": -0.0161,
+      "usd_per_day": -0.386,
+      "max_dd_usd_intrabar": 300.09,
+      "max_dd_usd_close": 299.66,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-10 23:00:00+00:00",
+      "trades": 71,
+      "win_rate_pct": 26.8,
+      "profit_factor": 0.695,
+      "avg_trade": -3.01,
+      "sharpe_daily": -0.9,
+      "total_costs": 115.47,
+      "costs": {
+        "spread": 22.2,
+        "commission": 5.18,
+        "swap": 73.29,
+        "slippage": 14.8
+      },
+      "cagr_pct": -14.66,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -78.64,
+        "2026": -134.9
+      },
+      "hours": 13273
+    },
+    "FULL|pepperstone|lev2": {
+      "net_profit": 316.57,
+      "usd_per_hour": 0.012,
+      "usd_per_day": 0.288,
+      "max_dd_usd_intrabar": 300.83,
+      "max_dd_usd_close": 300.56,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-14 23:00:00+00:00",
+      "trades": 158,
+      "win_rate_pct": 32.9,
+      "profit_factor": 1.241,
+      "avg_trade": 2.0,
+      "sharpe_daily": 0.64,
+      "total_costs": 183.83,
+      "costs": {
+        "spread": 29.25,
+        "commission": 13.65,
+        "swap": 121.43,
+        "slippage": 19.5
+      },
+      "cagr_pct": 9.55,
+      "buy_and_hold_net": 2059.78,
+      "net_by_year": {
+        "2023": 392.44,
+        "2024": 166.26,
+        "2025": -94.18,
+        "2026": -147.95
+      },
+      "hours": 26401
+    },
+    "FULL|pepperstone|lev10": {
+      "net_profit": 380.62,
+      "usd_per_hour": 0.0144,
+      "usd_per_day": 0.346,
+      "max_dd_usd_intrabar": 300.83,
+      "max_dd_usd_close": 300.56,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-14 23:00:00+00:00",
+      "trades": 158,
+      "win_rate_pct": 32.9,
+      "profit_factor": 1.29,
+      "avg_trade": 2.41,
+      "sharpe_daily": 0.71,
+      "total_costs": 185.79,
+      "costs": {
+        "spread": 29.4,
+        "commission": 13.72,
+        "swap": 123.07,
+        "slippage": 19.6
+      },
+      "cagr_pct": 11.3,
+      "buy_and_hold_net": 2059.78,
+      "net_by_year": {
+        "2023": 456.49,
+        "2024": 166.26,
+        "2025": -94.18,
+        "2026": -147.95
+      },
+      "hours": 26401
+    },
+    "FULL|eightcap|lev2": {
+      "net_profit": 331.93,
+      "usd_per_hour": 0.0126,
+      "usd_per_day": 0.302,
+      "max_dd_usd_intrabar": 300.0,
+      "max_dd_usd_close": 299.66,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-15 04:00:00+00:00",
+      "trades": 158,
+      "win_rate_pct": 32.9,
+      "profit_factor": 1.254,
+      "avg_trade": 2.1,
+      "sharpe_daily": 0.67,
+      "total_costs": 164.78,
+      "costs": {
+        "spread": 23.4,
+        "commission": 0.0,
+        "swap": 121.88,
+        "slippage": 19.5
+      },
+      "cagr_pct": 9.98,
+      "buy_and_hold_net": 2059.78,
+      "net_by_year": {
+        "2023": 396.94,
+        "2024": 172.86,
+        "2025": -88.48,
+        "2026": -149.39
+      },
+      "hours": 26401
+    },
+    "FULL|eightcap|lev10": {
+      "net_profit": 396.08,
+      "usd_per_hour": 0.015,
+      "usd_per_day": 0.36,
+      "max_dd_usd_intrabar": 300.0,
+      "max_dd_usd_close": 299.66,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-15 04:00:00+00:00",
+      "trades": 158,
+      "win_rate_pct": 32.9,
+      "profit_factor": 1.303,
+      "avg_trade": 2.51,
+      "sharpe_daily": 0.73,
+      "total_costs": 166.64,
+      "costs": {
+        "spread": 23.52,
+        "commission": 0.0,
+        "swap": 123.52,
+        "slippage": 19.6
+      },
+      "cagr_pct": 11.71,
+      "buy_and_hold_net": 2059.78,
+      "net_by_year": {
+        "2023": 461.09,
+        "2024": 172.86,
+        "2025": -88.48,
+        "2026": -149.39
+      },
+      "hours": 26401
+    },
+    "FULL|conservative|lev2": {
+      "net_profit": 278.81,
+      "usd_per_hour": 0.0106,
+      "usd_per_day": 0.253,
+      "max_dd_usd_intrabar": 300.52,
+      "max_dd_usd_close": 296.69,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-05 14:00:00+00:00",
+      "trades": 155,
+      "win_rate_pct": 32.9,
+      "profit_factor": 1.212,
+      "avg_trade": 1.8,
+      "sharpe_daily": 0.57,
+      "total_costs": 259.01,
+      "costs": {
+        "spread": 57.3,
+        "commission": 13.37,
+        "swap": 150.14,
+        "slippage": 38.2
+      },
+      "cagr_pct": 8.5,
+      "buy_and_hold_net": 2059.78,
+      "net_by_year": {
+        "2023": 376.12,
+        "2024": 140.72,
+        "2025": -121.35,
+        "2026": -116.68
+      },
+      "hours": 26401
+    },
+    "FULL|conservative|lev10": {
+      "net_profit": 342.2,
+      "usd_per_hour": 0.013,
+      "usd_per_day": 0.311,
+      "max_dd_usd_intrabar": 300.52,
+      "max_dd_usd_close": 296.69,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-05 14:00:00+00:00",
+      "trades": 155,
+      "win_rate_pct": 32.9,
+      "profit_factor": 1.26,
+      "avg_trade": 2.21,
+      "sharpe_daily": 0.64,
+      "total_costs": 261.63,
+      "costs": {
+        "spread": 57.6,
+        "commission": 13.44,
+        "swap": 152.19,
+        "slippage": 38.4
+      },
+      "cagr_pct": 10.26,
+      "buy_and_hold_net": 2059.78,
+      "net_by_year": {
+        "2023": 439.5,
+        "2024": 140.72,
+        "2025": -121.35,
+        "2026": -116.68
+      },
+      "hours": 26401
+    }
+  },
+  "full_no_stop": {
+    "pepperstone|lev2": {
+      "net_profit": 438.32,
+      "usd_per_hour": 0.0166,
+      "usd_per_day": 0.398,
+      "max_dd_usd_intrabar": 402.4,
+      "max_dd_usd_close": 402.07,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-14 23:00:00+00:00",
+      "trades": 173,
+      "win_rate_pct": 31.8,
+      "profit_factor": 1.304,
+      "avg_trade": 2.53,
+      "sharpe_daily": 0.76,
+      "total_costs": 202.19,
+      "costs": {
+        "spread": 32.1,
+        "commission": 14.98,
+        "swap": 133.71,
+        "slippage": 21.4
+      },
+      "cagr_pct": 12.82,
+      "buy_and_hold_net": 2059.78,
+      "net_by_year": {
+        "2023": 392.44,
+        "2024": 166.26,
+        "2025": -94.18,
+        "2026": -26.19
+      },
+      "hours": 26401
+    },
+    "pepperstone|lev10": {
+      "net_profit": 502.37,
+      "usd_per_hour": 0.019,
+      "usd_per_day": 0.457,
+      "max_dd_usd_intrabar": 402.4,
+      "max_dd_usd_close": 402.07,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-14 23:00:00+00:00",
+      "trades": 173,
+      "win_rate_pct": 31.8,
+      "profit_factor": 1.349,
+      "avg_trade": 2.9,
+      "sharpe_daily": 0.82,
+      "total_costs": 204.16,
+      "costs": {
+        "spread": 32.25,
+        "commission": 15.05,
+        "swap": 135.36,
+        "slippage": 21.5
+      },
+      "cagr_pct": 14.46,
+      "buy_and_hold_net": 2059.78,
+      "net_by_year": {
+        "2023": 456.49,
+        "2024": 166.26,
+        "2025": -94.18,
+        "2026": -26.19
+      },
+      "hours": 26401
+    },
+    "eightcap|lev2": {
+      "net_profit": 459.73,
+      "usd_per_hour": 0.0174,
+      "usd_per_day": 0.418,
+      "max_dd_usd_intrabar": 395.73,
+      "max_dd_usd_close": 395.4,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-15 04:00:00+00:00",
+      "trades": 173,
+      "win_rate_pct": 31.8,
+      "profit_factor": 1.323,
+      "avg_trade": 2.66,
+      "sharpe_daily": 0.8,
+      "total_costs": 180.79,
+      "costs": {
+        "spread": 25.68,
+        "commission": 0.0,
+        "swap": 133.71,
+        "slippage": 21.4
+      },
+      "cagr_pct": 13.37,
+      "buy_and_hold_net": 2059.78,
+      "net_by_year": {
+        "2023": 396.94,
+        "2024": 172.86,
+        "2025": -88.48,
+        "2026": -21.59
+      },
+      "hours": 26401
+    },
+    "eightcap|lev10": {
+      "net_profit": 523.88,
+      "usd_per_hour": 0.0198,
+      "usd_per_day": 0.476,
+      "max_dd_usd_intrabar": 395.73,
+      "max_dd_usd_close": 395.4,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-15 04:00:00+00:00",
+      "trades": 173,
+      "win_rate_pct": 31.8,
+      "profit_factor": 1.368,
+      "avg_trade": 3.03,
+      "sharpe_daily": 0.85,
+      "total_costs": 182.65,
+      "costs": {
+        "spread": 25.8,
+        "commission": 0.0,
+        "swap": 135.35,
+        "slippage": 21.5
+      },
+      "cagr_pct": 15.0,
+      "buy_and_hold_net": 2059.78,
+      "net_by_year": {
+        "2023": 461.09,
+        "2024": 172.86,
+        "2025": -88.48,
+        "2026": -21.59
+      },
+      "hours": 26401
+    },
+    "conservative|lev2": {
+      "net_profit": 351.36,
+      "usd_per_hour": 0.0133,
+      "usd_per_day": 0.319,
+      "max_dd_usd_intrabar": 445.86,
+      "max_dd_usd_close": 445.53,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-05 14:00:00+00:00",
+      "trades": 173,
+      "win_rate_pct": 31.2,
+      "profit_factor": 1.236,
+      "avg_trade": 2.03,
+      "sharpe_daily": 0.63,
+      "total_costs": 289.16,
+      "costs": {
+        "spread": 64.2,
+        "commission": 14.98,
+        "swap": 167.18,
+        "slippage": 42.8
+      },
+      "cagr_pct": 10.51,
+      "buy_and_hold_net": 2059.78,
+      "net_by_year": {
+        "2023": 376.12,
+        "2024": 140.72,
+        "2025": -121.35,
+        "2026": -44.13
+      },
+      "hours": 26401
+    },
+    "conservative|lev10": {
+      "net_profit": 414.75,
+      "usd_per_hour": 0.0157,
+      "usd_per_day": 0.377,
+      "max_dd_usd_intrabar": 445.86,
+      "max_dd_usd_close": 445.53,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-05 14:00:00+00:00",
+      "trades": 173,
+      "win_rate_pct": 31.2,
+      "profit_factor": 1.279,
+      "avg_trade": 2.4,
+      "sharpe_daily": 0.7,
+      "total_costs": 291.78,
+      "costs": {
+        "spread": 64.5,
+        "commission": 15.05,
+        "swap": 169.23,
+        "slippage": 43.0
+      },
+      "cagr_pct": 12.2,
+      "buy_and_hold_net": 2059.78,
+      "net_by_year": {
+        "2023": 439.5,
+        "2024": 140.72,
+        "2025": -121.35,
+        "2026": -44.13
+      },
+      "hours": 26401
+    }
+  },
+  "robustness": {
+    "ema_len|-40%": {
+      "value": 120,
+      "net_profit": -225.92,
+      "usd_per_hour": -0.017,
+      "usd_per_day": -0.409,
+      "max_dd_usd_intrabar": 300.18,
+      "max_dd_usd_close": 299.56,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-11 02:00:00+00:00",
+      "trades": 74,
+      "win_rate_pct": 25.7,
+      "profit_factor": 0.693,
+      "avg_trade": -3.05,
+      "sharpe_daily": -0.93,
+      "total_costs": 84.91,
+      "costs": {
+        "spread": 11.4,
+        "commission": 5.32,
+        "swap": 60.59,
+        "slippage": 7.6
+      },
+      "cagr_pct": -15.55,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -95.45,
+        "2026": -130.47
+      },
+      "hours": 13273
+    },
+    "ema_len|-20%": {
+      "value": 160,
+      "net_profit": -208.9,
+      "usd_per_hour": -0.0157,
+      "usd_per_day": -0.378,
+      "max_dd_usd_intrabar": 306.3,
+      "max_dd_usd_close": 304.49,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-11 00:00:00+00:00",
+      "trades": 72,
+      "win_rate_pct": 26.4,
+      "profit_factor": 0.705,
+      "avg_trade": -2.9,
+      "sharpe_daily": -0.88,
+      "total_costs": 83.24,
+      "costs": {
+        "spread": 11.1,
+        "commission": 5.18,
+        "swap": 59.56,
+        "slippage": 7.4
+      },
+      "cagr_pct": -14.33,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -81.57,
+        "2026": -127.33
+      },
+      "hours": 13273
+    },
+    "ema_len|+20%": {
+      "value": 240,
+      "net_profit": -196.44,
+      "usd_per_hour": -0.0148,
+      "usd_per_day": -0.355,
+      "max_dd_usd_intrabar": 301.02,
+      "max_dd_usd_close": 298.49,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-14 20:00:00+00:00",
+      "trades": 71,
+      "win_rate_pct": 26.8,
+      "profit_factor": 0.718,
+      "avg_trade": -2.77,
+      "sharpe_daily": -0.84,
+      "total_costs": 81.25,
+      "costs": {
+        "spread": 10.95,
+        "commission": 5.11,
+        "swap": 57.89,
+        "slippage": 7.3
+      },
+      "cagr_pct": -13.44,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -52.77,
+        "2026": -143.67
+      },
+      "hours": 13273
+    },
+    "ema_len|+40%": {
+      "value": 280,
+      "net_profit": -191.79,
+      "usd_per_hour": -0.0144,
+      "usd_per_day": -0.347,
+      "max_dd_usd_intrabar": 302.17,
+      "max_dd_usd_close": 301.41,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-07-31 02:00:00+00:00",
+      "trades": 74,
+      "win_rate_pct": 27.0,
+      "profit_factor": 0.723,
+      "avg_trade": -2.59,
+      "sharpe_daily": -0.84,
+      "total_costs": 85.72,
+      "costs": {
+        "spread": 11.4,
+        "commission": 5.32,
+        "swap": 61.4,
+        "slippage": 7.6
+      },
+      "cagr_pct": -13.11,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -26.3,
+        "2026": -165.48
+      },
+      "hours": 13273
+    },
+    "dc_len|-40%": {
+      "value": 33,
+      "net_profit": -177.94,
+      "usd_per_hour": -0.0134,
+      "usd_per_day": -0.322,
+      "max_dd_usd_intrabar": 300.53,
+      "max_dd_usd_close": 300.53,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-07-20 05:00:00+00:00",
+      "trades": 89,
+      "win_rate_pct": 28.1,
+      "profit_factor": 0.77,
+      "avg_trade": -2.0,
+      "sharpe_daily": -0.65,
+      "total_costs": 103.04,
+      "costs": {
+        "spread": 14.1,
+        "commission": 6.58,
+        "swap": 72.96,
+        "slippage": 9.4
+      },
+      "cagr_pct": -12.13,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -1.71,
+        "2026": -176.23
+      },
+      "hours": 13273
+    },
+    "dc_len|-20%": {
+      "value": 44,
+      "net_profit": -156.64,
+      "usd_per_hour": -0.0118,
+      "usd_per_day": -0.283,
+      "max_dd_usd_intrabar": 300.25,
+      "max_dd_usd_close": 299.75,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-25 20:00:00+00:00",
+      "trades": 74,
+      "win_rate_pct": 27.0,
+      "profit_factor": 0.775,
+      "avg_trade": -2.12,
+      "sharpe_daily": -0.61,
+      "total_costs": 86.68,
+      "costs": {
+        "spread": 11.4,
+        "commission": 5.32,
+        "swap": 62.36,
+        "slippage": 7.6
+      },
+      "cagr_pct": -10.63,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -7.26,
+        "2026": -149.38
+      },
+      "hours": 13273
+    },
+    "dc_len|+20%": {
+      "value": 66,
+      "net_profit": -204.61,
+      "usd_per_hour": -0.0154,
+      "usd_per_day": -0.37,
+      "max_dd_usd_intrabar": 301.13,
+      "max_dd_usd_close": 299.77,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-06-13 22:00:00+00:00",
+      "trades": 70,
+      "win_rate_pct": 24.3,
+      "profit_factor": 0.705,
+      "avg_trade": -2.92,
+      "sharpe_daily": -0.89,
+      "total_costs": 80.85,
+      "costs": {
+        "spread": 10.95,
+        "commission": 5.11,
+        "swap": 57.49,
+        "slippage": 7.3
+      },
+      "cagr_pct": -14.02,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -62.1,
+        "2026": -142.51
+      },
+      "hours": 13273
+    },
+    "dc_len|+40%": {
+      "value": 77,
+      "net_profit": -202.61,
+      "usd_per_hour": -0.0153,
+      "usd_per_day": -0.366,
+      "max_dd_usd_intrabar": 302.04,
+      "max_dd_usd_close": 302.04,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-26 00:00:00+00:00",
+      "trades": 64,
+      "win_rate_pct": 25.0,
+      "profit_factor": 0.69,
+      "avg_trade": -3.17,
+      "sharpe_daily": -0.9,
+      "total_costs": 74.73,
+      "costs": {
+        "spread": 9.75,
+        "commission": 4.55,
+        "swap": 53.93,
+        "slippage": 6.5
+      },
+      "cagr_pct": -13.88,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -48.47,
+        "2026": -154.14
+      },
+      "hours": 13273
+    },
+    "atr_len|-40%": {
+      "value": 8,
+      "net_profit": -237.05,
+      "usd_per_hour": -0.0179,
+      "usd_per_day": -0.429,
+      "max_dd_usd_intrabar": 300.43,
+      "max_dd_usd_close": 300.13,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-15 04:00:00+00:00",
+      "trades": 71,
+      "win_rate_pct": 25.4,
+      "profit_factor": 0.663,
+      "avg_trade": -3.34,
+      "sharpe_daily": -1.02,
+      "total_costs": 83.92,
+      "costs": {
+        "spread": 10.95,
+        "commission": 5.11,
+        "swap": 60.56,
+        "slippage": 7.3
+      },
+      "cagr_pct": -16.35,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -128.01,
+        "2026": -109.04
+      },
+      "hours": 13273
+    },
+    "atr_len|-20%": {
+      "value": 11,
+      "net_profit": -233.06,
+      "usd_per_hour": -0.0176,
+      "usd_per_day": -0.421,
+      "max_dd_usd_intrabar": 302.33,
+      "max_dd_usd_close": 302.33,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-04-23 00:00:00+00:00",
+      "trades": 68,
+      "win_rate_pct": 25.0,
+      "profit_factor": 0.652,
+      "avg_trade": -3.43,
+      "sharpe_daily": -1.04,
+      "total_costs": 77.96,
+      "costs": {
+        "spread": 10.5,
+        "commission": 4.9,
+        "swap": 55.56,
+        "slippage": 7.0
+      },
+      "cagr_pct": -16.06,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -151.62,
+        "2026": -81.44
+      },
+      "hours": 13273
+    },
+    "atr_len|+20%": {
+      "value": 17,
+      "net_profit": -207.12,
+      "usd_per_hour": -0.0156,
+      "usd_per_day": -0.375,
+      "max_dd_usd_intrabar": 300.22,
+      "max_dd_usd_close": 300.22,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-06-14 17:00:00+00:00",
+      "trades": 73,
+      "win_rate_pct": 26.0,
+      "profit_factor": 0.712,
+      "avg_trade": -2.84,
+      "sharpe_daily": -0.88,
+      "total_costs": 85.64,
+      "costs": {
+        "spread": 11.4,
+        "commission": 5.32,
+        "swap": 61.32,
+        "slippage": 7.6
+      },
+      "cagr_pct": -14.2,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -51.06,
+        "2026": -156.06
+      },
+      "hours": 13273
+    },
+    "atr_len|+40%": {
+      "value": 20,
+      "net_profit": -216.44,
+      "usd_per_hour": -0.0163,
+      "usd_per_day": -0.391,
+      "max_dd_usd_intrabar": 301.44,
+      "max_dd_usd_close": 300.45,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-25 19:00:00+00:00",
+      "trades": 72,
+      "win_rate_pct": 27.8,
+      "profit_factor": 0.685,
+      "avg_trade": -3.01,
+      "sharpe_daily": -0.93,
+      "total_costs": 86.12,
+      "costs": {
+        "spread": 10.95,
+        "commission": 5.11,
+        "swap": 62.76,
+        "slippage": 7.3
+      },
+      "cagr_pct": -14.87,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -89.13,
+        "2026": -127.32
+      },
+      "hours": 13273
+    },
+    "sl_mult|-40%": {
+      "value": 1.8,
+      "net_profit": -240.85,
+      "usd_per_hour": -0.0181,
+      "usd_per_day": -0.436,
+      "max_dd_usd_intrabar": 300.37,
+      "max_dd_usd_close": 300.37,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-04-27 05:00:00+00:00",
+      "trades": 75,
+      "win_rate_pct": 20.0,
+      "profit_factor": 0.612,
+      "avg_trade": -3.21,
+      "sharpe_daily": -1.14,
+      "total_costs": 73.03,
+      "costs": {
+        "spread": 12.3,
+        "commission": 5.74,
+        "swap": 46.79,
+        "slippage": 8.2
+      },
+      "cagr_pct": -16.63,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -155.97,
+        "2026": -84.89
+      },
+      "hours": 13273
+    },
+    "sl_mult|-20%": {
+      "value": 2.4,
+      "net_profit": -194.63,
+      "usd_per_hour": -0.0147,
+      "usd_per_day": -0.352,
+      "max_dd_usd_intrabar": 300.82,
+      "max_dd_usd_close": 300.82,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-06-21 20:00:00+00:00",
+      "trades": 78,
+      "win_rate_pct": 25.6,
+      "profit_factor": 0.717,
+      "avg_trade": -2.5,
+      "sharpe_daily": -0.86,
+      "total_costs": 86.14,
+      "costs": {
+        "spread": 12.45,
+        "commission": 5.81,
+        "swap": 59.58,
+        "slippage": 8.3
+      },
+      "cagr_pct": -13.31,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -38.28,
+        "2026": -156.35
+      },
+      "hours": 13273
+    },
+    "sl_mult|+20%": {
+      "value": 3.6,
+      "net_profit": -197.26,
+      "usd_per_hour": -0.0149,
+      "usd_per_day": -0.357,
+      "max_dd_usd_intrabar": 301.27,
+      "max_dd_usd_close": 301.27,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-11 03:00:00+00:00",
+      "trades": 69,
+      "win_rate_pct": 27.5,
+      "profit_factor": 0.727,
+      "avg_trade": -2.86,
+      "sharpe_daily": -0.79,
+      "total_costs": 82.38,
+      "costs": {
+        "spread": 10.5,
+        "commission": 4.9,
+        "swap": 59.98,
+        "slippage": 7.0
+      },
+      "cagr_pct": -13.5,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -73.92,
+        "2026": -123.34
+      },
+      "hours": 13273
+    },
+    "sl_mult|+40%": {
+      "value": 4.2,
+      "net_profit": -219.85,
+      "usd_per_hour": -0.0166,
+      "usd_per_day": -0.398,
+      "max_dd_usd_intrabar": 302.09,
+      "max_dd_usd_close": 300.53,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-10 16:00:00+00:00",
+      "trades": 68,
+      "win_rate_pct": 27.9,
+      "profit_factor": 0.7,
+      "avg_trade": -3.23,
+      "sharpe_daily": -0.89,
+      "total_costs": 80.85,
+      "costs": {
+        "spread": 10.2,
+        "commission": 4.76,
+        "swap": 59.09,
+        "slippage": 6.8
+      },
+      "cagr_pct": -15.11,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -107.52,
+        "2026": -112.33
+      },
+      "hours": 13273
+    },
+    "trail_mult|-40%": {
+      "value": 2.4,
+      "net_profit": -240.03,
+      "usd_per_hour": -0.0181,
+      "usd_per_day": -0.434,
+      "max_dd_usd_intrabar": 300.63,
+      "max_dd_usd_close": 298.43,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-07-26 23:00:00+00:00",
+      "trades": 99,
+      "win_rate_pct": 29.3,
+      "profit_factor": 0.62,
+      "avg_trade": -2.42,
+      "sharpe_daily": -1.36,
+      "total_costs": 70.89,
+      "costs": {
+        "spread": 15.45,
+        "commission": 7.21,
+        "swap": 37.93,
+        "slippage": 10.3
+      },
+      "cagr_pct": -16.57,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -117.38,
+        "2026": -122.65
+      },
+      "hours": 13273
+    },
+    "trail_mult|-20%": {
+      "value": 3.2,
+      "net_profit": -249.43,
+      "usd_per_hour": -0.0188,
+      "usd_per_day": -0.451,
+      "max_dd_usd_intrabar": 300.37,
+      "max_dd_usd_close": 300.37,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-04 10:00:00+00:00",
+      "trades": 77,
+      "win_rate_pct": 27.3,
+      "profit_factor": 0.599,
+      "avg_trade": -3.24,
+      "sharpe_daily": -1.2,
+      "total_costs": 72.8,
+      "costs": {
+        "spread": 11.85,
+        "commission": 5.53,
+        "swap": 47.52,
+        "slippage": 7.9
+      },
+      "cagr_pct": -17.25,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -135.31,
+        "2026": -114.12
+      },
+      "hours": 13273
+    },
+    "trail_mult|+20%": {
+      "value": 4.8,
+      "net_profit": -227.82,
+      "usd_per_hour": -0.0172,
+      "usd_per_day": -0.412,
+      "max_dd_usd_intrabar": 300.47,
+      "max_dd_usd_close": 298.38,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-04-20 23:00:00+00:00",
+      "trades": 62,
+      "win_rate_pct": 25.8,
+      "profit_factor": 0.659,
+      "avg_trade": -3.67,
+      "sharpe_daily": -0.94,
+      "total_costs": 85.6,
+      "costs": {
+        "spread": 9.6,
+        "commission": 4.48,
+        "swap": 65.12,
+        "slippage": 6.4
+      },
+      "cagr_pct": -15.69,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -135.93,
+        "2026": -91.89
+      },
+      "hours": 13273
+    },
+    "trail_mult|+40%": {
+      "value": 5.6,
+      "net_profit": -258.71,
+      "usd_per_hour": -0.0195,
+      "usd_per_day": -0.468,
+      "max_dd_usd_intrabar": 300.89,
+      "max_dd_usd_close": 300.89,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-03-06 12:00:00+00:00",
+      "trades": 53,
+      "win_rate_pct": 22.6,
+      "profit_factor": 0.593,
+      "avg_trade": -4.88,
+      "sharpe_daily": -1.04,
+      "total_costs": 76.82,
+      "costs": {
+        "spread": 8.25,
+        "commission": 3.85,
+        "swap": 59.22,
+        "slippage": 5.5
+      },
+      "cagr_pct": -17.93,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -199.32,
+        "2026": -59.39
+      },
+      "hours": 13273
+    },
+    "adx_min|-40%": {
+      "value": 15.0,
+      "net_profit": -210.8,
+      "usd_per_hour": -0.0159,
+      "usd_per_day": -0.381,
+      "max_dd_usd_intrabar": 300.82,
+      "max_dd_usd_close": 299.71,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-04-22 03:00:00+00:00",
+      "trades": 76,
+      "win_rate_pct": 26.3,
+      "profit_factor": 0.719,
+      "avg_trade": -2.77,
+      "sharpe_daily": -0.8,
+      "total_costs": 86.67,
+      "costs": {
+        "spread": 11.7,
+        "commission": 5.46,
+        "swap": 61.71,
+        "slippage": 7.8
+      },
+      "cagr_pct": -14.46,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -133.25,
+        "2026": -77.55
+      },
+      "hours": 13273
+    },
+    "adx_min|-20%": {
+      "value": 20.0,
+      "net_profit": -229.53,
+      "usd_per_hour": -0.0173,
+      "usd_per_day": -0.415,
+      "max_dd_usd_intrabar": 307.32,
+      "max_dd_usd_close": 307.32,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-04-27 05:00:00+00:00",
+      "trades": 76,
+      "win_rate_pct": 26.3,
+      "profit_factor": 0.697,
+      "avg_trade": -3.02,
+      "sharpe_daily": -0.88,
+      "total_costs": 85.24,
+      "costs": {
+        "spread": 11.7,
+        "commission": 5.46,
+        "swap": 60.28,
+        "slippage": 7.8
+      },
+      "cagr_pct": -15.81,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -155.03,
+        "2026": -74.5
+      },
+      "hours": 13273
+    },
+    "adx_min|+20%": {
+      "value": 30.0,
+      "net_profit": -231.22,
+      "usd_per_hour": -0.0174,
+      "usd_per_day": -0.418,
+      "max_dd_usd_intrabar": 300.51,
+      "max_dd_usd_close": 299.9,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-06-14 06:00:00+00:00",
+      "trades": 62,
+      "win_rate_pct": 25.8,
+      "profit_factor": 0.642,
+      "avg_trade": -3.73,
+      "sharpe_daily": -1.09,
+      "total_costs": 72.2,
+      "costs": {
+        "spread": 9.75,
+        "commission": 4.55,
+        "swap": 51.4,
+        "slippage": 6.5
+      },
+      "cagr_pct": -15.93,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -59.67,
+        "2026": -171.55
+      },
+      "hours": 13273
+    },
+    "adx_min|+40%": {
+      "value": 35.0,
+      "net_profit": 13.21,
+      "usd_per_hour": 0.001,
+      "usd_per_day": 0.024,
+      "max_dd_usd_intrabar": 242.59,
+      "max_dd_usd_close": 241.22,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 55,
+      "win_rate_pct": 30.9,
+      "profit_factor": 1.025,
+      "avg_trade": 0.24,
+      "sharpe_daily": 0.14,
+      "total_costs": 70.27,
+      "costs": {
+        "spread": 8.85,
+        "commission": 4.13,
+        "swap": 51.39,
+        "slippage": 5.9
+      },
+      "cagr_pct": 0.87,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -3.9,
+        "2026": 17.11
+      },
+      "hours": 13273
+    },
+    "risk_pct|-40%": {
+      "value": 0.9,
+      "net_profit": -213.92,
+      "usd_per_hour": -0.0161,
+      "usd_per_day": -0.387,
+      "max_dd_usd_intrabar": 300.1,
+      "max_dd_usd_close": 299.6,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-25 20:00:00+00:00",
+      "trades": 73,
+      "win_rate_pct": 26.0,
+      "profit_factor": 0.695,
+      "avg_trade": -2.93,
+      "sharpe_daily": -0.93,
+      "total_costs": 81.58,
+      "costs": {
+        "spread": 10.95,
+        "commission": 5.11,
+        "swap": 58.22,
+        "slippage": 7.3
+      },
+      "cagr_pct": -14.69,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -66.93,
+        "2026": -146.99
+      },
+      "hours": 13273
+    },
+    "risk_pct|-20%": {
+      "value": 1.2,
+      "net_profit": -202.21,
+      "usd_per_hour": -0.0152,
+      "usd_per_day": -0.366,
+      "max_dd_usd_intrabar": 300.1,
+      "max_dd_usd_close": 299.6,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-25 20:00:00+00:00",
+      "trades": 73,
+      "win_rate_pct": 26.0,
+      "profit_factor": 0.712,
+      "avg_trade": -2.77,
+      "sharpe_daily": -0.86,
+      "total_costs": 82.83,
+      "costs": {
+        "spread": 11.1,
+        "commission": 5.18,
+        "swap": 59.15,
+        "slippage": 7.4
+      },
+      "cagr_pct": -13.85,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -55.22,
+        "2026": -146.99
+      },
+      "hours": 13273
+    },
+    "risk_pct|+20%": {
+      "value": 1.8,
+      "net_profit": -202.4,
+      "usd_per_hour": -0.0152,
+      "usd_per_day": -0.366,
+      "max_dd_usd_intrabar": 300.07,
+      "max_dd_usd_close": 299.79,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-14 23:00:00+00:00",
+      "trades": 72,
+      "win_rate_pct": 26.4,
+      "profit_factor": 0.712,
+      "avg_trade": -2.81,
+      "sharpe_daily": -0.86,
+      "total_costs": 83.08,
+      "costs": {
+        "spread": 11.25,
+        "commission": 5.25,
+        "swap": 59.08,
+        "slippage": 7.5
+      },
+      "cagr_pct": -13.86,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -55.22,
+        "2026": -147.18
+      },
+      "hours": 13273
+    },
+    "risk_pct|+40%": {
+      "value": 2.1,
+      "net_profit": -202.76,
+      "usd_per_hour": -0.0153,
+      "usd_per_day": -0.367,
+      "max_dd_usd_intrabar": 300.43,
+      "max_dd_usd_close": 300.15,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-05-14 23:00:00+00:00",
+      "trades": 72,
+      "win_rate_pct": 26.4,
+      "profit_factor": 0.711,
+      "avg_trade": -2.82,
+      "sharpe_daily": -0.85,
+      "total_costs": 83.77,
+      "costs": {
+        "spread": 11.4,
+        "commission": 5.32,
+        "swap": 59.45,
+        "slippage": 7.6
+      },
+      "cagr_pct": -13.89,
+      "buy_and_hold_net": -49.73,
+      "net_by_year": {
+        "2025": -55.22,
+        "2026": -147.54
+      },
+      "hours": 13273
+    }
+  },
+  "grid_oos_summary": {
+    "n": 144,
+    "oos_positive_share": 0.188,
+    "oos_net_median": -214.48,
+    "oos_net_max": 321.84,
+    "oos_pf_median": 0.701,
+    "corr_is_oos_net": -0.383,
+    "by_allow_short": {
+      "0": -240.06,
+      "1": -168.52
+    },
+    "by_trail_mult": {
+      "2.0": -72.85,
+      "3.0": -246.99,
+      "4.0": -195.29
+    },
+    "top10_is_oos_net": [
+      -205.14,
+      -222.69,
+      -245.47,
+      119.47,
+      -229.53,
+      -210.8,
+      -272.68,
+      -138.84,
+      -178.17,
+      -182.44
+    ]
+  },
+  "robustness_positive_share": 0.036
+}

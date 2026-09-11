@@ -1,0 +1,1172 @@
+{
+  "strategy": "reversion (Bollinger+RSI, SL ATR, TP banda media, filtro EMA200 H4)",
+  "timeframe": "M15",
+  "params": {
+    "bb_period": 20,
+    "bb_dev": 3.0,
+    "rsi_period": 14,
+    "rsi_low": 25.0,
+    "atr_period": 14,
+    "atr_mult": 2.5,
+    "max_bars": 8,
+    "trend_filter": 1,
+    "ema_period": 200,
+    "session_filter": 0,
+    "hour_start": 7,
+    "hour_end": 21,
+    "risk_pct": 1.5,
+    "capital": 1000.0,
+    "allow_long": 1,
+    "allow_short": 1,
+    "confirm": 0
+  },
+  "data": {
+    "bars": 105606,
+    "start": "2023-09-01 00:00:00+00:00",
+    "end": "2026-09-05 01:15:00+00:00",
+    "is_end": "2025-03-01",
+    "is_bars": 52512,
+    "oos_bars": 53094
+  },
+  "official": {
+    "IS|pepperstone|lev2": {
+      "net_profit": 24.6,
+      "usd_per_hour": 0.0019,
+      "max_dd_usd_intrabar": 57.7,
+      "max_dd_usd_close": 54.99,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 64,
+      "win_rate_pct": 48.4,
+      "profit_factor": 1.099,
+      "avg_trade": 0.38,
+      "sharpe_daily": 0.28,
+      "total_costs": 43.73,
+      "net_by_year": {
+        "2023": -8.84,
+        "2024": 30.5,
+        "2025": 2.94
+      },
+      "final_equity": 1024.6,
+      "exit_reasons": {
+        "signal": 28,
+        "sl": 23,
+        "tp": 13
+      },
+      "avg_lots": 0.0211
+    },
+    "IS|pepperstone|lev10": {
+      "net_profit": 9.63,
+      "usd_per_hour": 0.0007,
+      "max_dd_usd_intrabar": 78.45,
+      "max_dd_usd_close": 75.74,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 64,
+      "win_rate_pct": 48.4,
+      "profit_factor": 1.029,
+      "avg_trade": 0.15,
+      "sharpe_daily": 0.12,
+      "total_costs": 62.16,
+      "net_by_year": {
+        "2023": -22.54,
+        "2024": 36.02,
+        "2025": -3.85
+      },
+      "final_equity": 1009.63,
+      "exit_reasons": {
+        "signal": 28,
+        "sl": 23,
+        "tp": 13
+      },
+      "avg_lots": 0.0302
+    },
+    "IS|eightcap|lev2": {
+      "net_profit": 32.59,
+      "usd_per_hour": 0.0025,
+      "max_dd_usd_intrabar": 53.31,
+      "max_dd_usd_close": 50.3,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 64,
+      "win_rate_pct": 50.0,
+      "profit_factor": 1.132,
+      "avg_trade": 0.51,
+      "sharpe_daily": 0.36,
+      "total_costs": 31.62,
+      "net_by_year": {
+        "2023": -4.64,
+        "2024": 33.8,
+        "2025": 3.44
+      },
+      "final_equity": 1032.59,
+      "exit_reasons": {
+        "signal": 28,
+        "sl": 23,
+        "tp": 13
+      },
+      "avg_lots": 0.0213
+    },
+    "IS|eightcap|lev10": {
+      "net_profit": 27.45,
+      "usd_per_hour": 0.0021,
+      "max_dd_usd_intrabar": 72.42,
+      "max_dd_usd_close": 69.41,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 64,
+      "win_rate_pct": 50.0,
+      "profit_factor": 1.086,
+      "avg_trade": 0.43,
+      "sharpe_daily": 0.27,
+      "total_costs": 44.33,
+      "net_by_year": {
+        "2023": -16.54,
+        "2024": 47.04,
+        "2025": -3.05
+      },
+      "final_equity": 1027.45,
+      "exit_reasons": {
+        "signal": 28,
+        "sl": 23,
+        "tp": 13
+      },
+      "avg_lots": 0.0302
+    },
+    "IS|conservative|lev2": {
+      "net_profit": -20.74,
+      "usd_per_hour": -0.0016,
+      "max_dd_usd_intrabar": 69.75,
+      "max_dd_usd_close": 67.39,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 64,
+      "win_rate_pct": 48.4,
+      "profit_factor": 0.922,
+      "avg_trade": -0.32,
+      "sharpe_daily": -0.18,
+      "total_costs": 78.11,
+      "net_by_year": {
+        "2023": -19.34,
+        "2024": -3.08,
+        "2025": 1.69
+      },
+      "final_equity": 979.26,
+      "exit_reasons": {
+        "signal": 28,
+        "sl": 23,
+        "tp": 13
+      },
+      "avg_lots": 0.0208
+    },
+    "IS|conservative|lev10": {
+      "net_profit": -40.78,
+      "usd_per_hour": -0.0031,
+      "max_dd_usd_intrabar": 95.0,
+      "max_dd_usd_close": 92.64,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 64,
+      "win_rate_pct": 48.4,
+      "profit_factor": 0.884,
+      "avg_trade": -0.64,
+      "sharpe_daily": -0.29,
+      "total_costs": 112.56,
+      "net_by_year": {
+        "2023": -37.54,
+        "2024": 2.61,
+        "2025": -5.85
+      },
+      "final_equity": 959.22,
+      "exit_reasons": {
+        "signal": 28,
+        "sl": 23,
+        "tp": 13
+      },
+      "avg_lots": 0.0302
+    },
+    "OOS|pepperstone|lev2": {
+      "net_profit": -151.73,
+      "usd_per_hour": -0.0114,
+      "max_dd_usd_intrabar": 160.42,
+      "max_dd_usd_close": 160.42,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 74,
+      "win_rate_pct": 43.2,
+      "profit_factor": 0.489,
+      "avg_trade": -2.05,
+      "sharpe_daily": -1.94,
+      "total_costs": 30.1,
+      "net_by_year": {
+        "2025": -32.28,
+        "2026": -119.44
+      },
+      "final_equity": 848.27,
+      "exit_reasons": {
+        "signal": 33,
+        "sl": 30,
+        "tp": 11
+      },
+      "avg_lots": 0.0127
+    },
+    "OOS|pepperstone|lev10": {
+      "net_profit": -149.33,
+      "usd_per_hour": -0.0113,
+      "max_dd_usd_intrabar": 210.86,
+      "max_dd_usd_close": 204.85,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 74,
+      "win_rate_pct": 43.2,
+      "profit_factor": 0.655,
+      "avg_trade": -2.02,
+      "sharpe_daily": -1.26,
+      "total_costs": 62.38,
+      "net_by_year": {
+        "2025": 19.41,
+        "2026": -168.74
+      },
+      "final_equity": 850.67,
+      "exit_reasons": {
+        "signal": 33,
+        "sl": 30,
+        "tp": 11
+      },
+      "avg_lots": 0.0262
+    },
+    "OOS|eightcap|lev2": {
+      "net_profit": -147.45,
+      "usd_per_hour": -0.0111,
+      "max_dd_usd_intrabar": 157.04,
+      "max_dd_usd_close": 157.04,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 74,
+      "win_rate_pct": 43.2,
+      "profit_factor": 0.505,
+      "avg_trade": -1.99,
+      "sharpe_daily": -1.87,
+      "total_costs": 22.59,
+      "net_by_year": {
+        "2025": -25.89,
+        "2026": -121.55
+      },
+      "final_equity": 852.55,
+      "exit_reasons": {
+        "signal": 33,
+        "sl": 30,
+        "tp": 11
+      },
+      "avg_lots": 0.013
+    },
+    "OOS|eightcap|lev10": {
+      "net_profit": -132.22,
+      "usd_per_hour": -0.01,
+      "max_dd_usd_intrabar": 198.7,
+      "max_dd_usd_close": 193.53,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 74,
+      "win_rate_pct": 43.2,
+      "profit_factor": 0.687,
+      "avg_trade": -1.79,
+      "sharpe_daily": -1.11,
+      "total_costs": 45.27,
+      "net_by_year": {
+        "2025": 28.75,
+        "2026": -160.96
+      },
+      "final_equity": 867.78,
+      "exit_reasons": {
+        "signal": 33,
+        "sl": 30,
+        "tp": 11
+      },
+      "avg_lots": 0.0262
+    },
+    "OOS|conservative|lev2": {
+      "net_profit": -179.83,
+      "usd_per_hour": -0.0135,
+      "max_dd_usd_intrabar": 186.12,
+      "max_dd_usd_close": 186.12,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 74,
+      "win_rate_pct": 37.8,
+      "profit_factor": 0.424,
+      "avg_trade": -2.43,
+      "sharpe_daily": -2.28,
+      "total_costs": 55.05,
+      "net_by_year": {
+        "2025": -43.88,
+        "2026": -135.95
+      },
+      "final_equity": 820.17,
+      "exit_reasons": {
+        "signal": 33,
+        "sl": 30,
+        "tp": 11
+      },
+      "avg_lots": 0.0126
+    },
+    "OOS|conservative|lev10": {
+      "net_profit": -202.43,
+      "usd_per_hour": -0.0153,
+      "max_dd_usd_intrabar": 245.24,
+      "max_dd_usd_close": 237.72,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 74,
+      "win_rate_pct": 37.8,
+      "profit_factor": 0.558,
+      "avg_trade": -2.74,
+      "sharpe_daily": -1.72,
+      "total_costs": 113.57,
+      "net_by_year": {
+        "2025": -8.28,
+        "2026": -194.15
+      },
+      "final_equity": 797.57,
+      "exit_reasons": {
+        "signal": 33,
+        "sl": 30,
+        "tp": 11
+      },
+      "avg_lots": 0.0261
+    },
+    "FULL|pepperstone|lev2": {
+      "net_profit": -162.6,
+      "usd_per_hour": -0.0062,
+      "max_dd_usd_intrabar": 205.35,
+      "max_dd_usd_close": 205.35,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 144,
+      "win_rate_pct": 45.1,
+      "profit_factor": 0.724,
+      "avg_trade": -1.13,
+      "sharpe_daily": -0.88,
+      "total_costs": 76.71,
+      "net_by_year": {
+        "2023": -8.84,
+        "2024": 30.5,
+        "2025": -64.81,
+        "2026": -119.44
+      },
+      "final_equity": 837.4,
+      "exit_reasons": {
+        "signal": 63,
+        "sl": 57,
+        "tp": 24
+      },
+      "avg_lots": 0.0165
+    },
+    "FULL|pepperstone|lev10": {
+      "net_profit": -200.61,
+      "usd_per_hour": -0.0076,
+      "max_dd_usd_intrabar": 276.79,
+      "max_dd_usd_close": 271.56,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 144,
+      "win_rate_pct": 45.1,
+      "profit_factor": 0.757,
+      "avg_trade": -1.39,
+      "sharpe_daily": -0.81,
+      "total_costs": 133.82,
+      "net_by_year": {
+        "2023": -22.54,
+        "2024": 36.02,
+        "2025": -43.76,
+        "2026": -170.33
+      },
+      "final_equity": 799.39,
+      "exit_reasons": {
+        "signal": 63,
+        "sl": 57,
+        "tp": 24
+      },
+      "avg_lots": 0.0289
+    },
+    "FULL|eightcap|lev2": {
+      "net_profit": -152.04,
+      "usd_per_hour": -0.0058,
+      "max_dd_usd_intrabar": 202.56,
+      "max_dd_usd_close": 202.56,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 144,
+      "win_rate_pct": 45.8,
+      "profit_factor": 0.741,
+      "avg_trade": -1.06,
+      "sharpe_daily": -0.81,
+      "total_costs": 55.97,
+      "net_by_year": {
+        "2023": -4.64,
+        "2024": 33.8,
+        "2025": -59.65,
+        "2026": -121.55
+      },
+      "final_equity": 847.96,
+      "exit_reasons": {
+        "signal": 63,
+        "sl": 57,
+        "tp": 24
+      },
+      "avg_lots": 0.0167
+    },
+    "FULL|eightcap|lev10": {
+      "net_profit": -160.15,
+      "usd_per_hour": -0.0061,
+      "max_dd_usd_intrabar": 251.33,
+      "max_dd_usd_close": 246.89,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 144,
+      "win_rate_pct": 45.8,
+      "profit_factor": 0.801,
+      "avg_trade": -1.11,
+      "sharpe_daily": -0.63,
+      "total_costs": 96.2,
+      "net_by_year": {
+        "2023": -16.54,
+        "2024": 47.04,
+        "2025": -28.01,
+        "2026": -162.65
+      },
+      "final_equity": 839.85,
+      "exit_reasons": {
+        "signal": 63,
+        "sl": 57,
+        "tp": 24
+      },
+      "avg_lots": 0.029
+    },
+    "FULL|conservative|lev2": {
+      "net_profit": -232.61,
+      "usd_per_hour": -0.0088,
+      "max_dd_usd_intrabar": 251.55,
+      "max_dd_usd_close": 251.55,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 144,
+      "win_rate_pct": 41.7,
+      "profit_factor": 0.62,
+      "avg_trade": -1.62,
+      "sharpe_daily": -1.28,
+      "total_costs": 135.44,
+      "net_by_year": {
+        "2023": -19.34,
+        "2024": -3.08,
+        "2025": -79.84,
+        "2026": -130.35
+      },
+      "final_equity": 767.39,
+      "exit_reasons": {
+        "signal": 63,
+        "sl": 57,
+        "tp": 24
+      },
+      "avg_lots": 0.016
+    },
+    "FULL|conservative|lev10": {
+      "net_profit": -274.13,
+      "usd_per_hour": -0.0104,
+      "max_dd_usd_intrabar": 300.93,
+      "max_dd_usd_close": 298.35,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-07-23 13:15:00+00:00",
+      "trades": 137,
+      "win_rate_pct": 42.3,
+      "profit_factor": 0.667,
+      "avg_trade": -2.0,
+      "sharpe_daily": -1.13,
+      "total_costs": 226.14,
+      "net_by_year": {
+        "2023": -37.54,
+        "2024": 2.61,
+        "2025": -79.44,
+        "2026": -159.77
+      },
+      "final_equity": 725.87,
+      "exit_reasons": {
+        "signal": 60,
+        "sl": 53,
+        "tp": 23,
+        "dd_stop": 1
+      },
+      "avg_lots": 0.0282
+    },
+    "IS|zero_cost|lev2": {
+      "net_profit": 52.69,
+      "usd_per_hour": 0.004,
+      "max_dd_usd_intrabar": 44.09,
+      "max_dd_usd_close": 40.42,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 64,
+      "win_rate_pct": 51.6,
+      "profit_factor": 1.217,
+      "avg_trade": 0.82,
+      "sharpe_daily": 0.55,
+      "total_costs": 0.0,
+      "net_by_year": {
+        "2023": 4.6,
+        "2024": 43.56,
+        "2025": 4.54
+      },
+      "final_equity": 1052.69,
+      "exit_reasons": {
+        "signal": 28,
+        "sl": 23,
+        "tp": 13
+      },
+      "avg_lots": 0.0217
+    },
+    "OOS|zero_cost|lev2": {
+      "net_profit": -132.06,
+      "usd_per_hour": -0.0099,
+      "max_dd_usd_intrabar": 144.27,
+      "max_dd_usd_close": 144.27,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 74,
+      "win_rate_pct": 44.6,
+      "profit_factor": 0.548,
+      "avg_trade": -1.78,
+      "sharpe_daily": -1.66,
+      "total_costs": 0.0,
+      "net_by_year": {
+        "2025": -22.47,
+        "2026": -109.59
+      },
+      "final_equity": 867.94,
+      "exit_reasons": {
+        "signal": 33,
+        "sl": 30,
+        "tp": 11
+      },
+      "avg_lots": 0.0131
+    },
+    "FULL|zero_cost|lev2": {
+      "net_profit": -98.94,
+      "usd_per_hour": -0.0037,
+      "max_dd_usd_intrabar": 176.53,
+      "max_dd_usd_close": 176.53,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 144,
+      "win_rate_pct": 47.2,
+      "profit_factor": 0.829,
+      "avg_trade": -0.69,
+      "sharpe_daily": -0.5,
+      "total_costs": 0.0,
+      "net_by_year": {
+        "2023": 4.6,
+        "2024": 43.56,
+        "2025": -37.14,
+        "2026": -109.95
+      },
+      "final_equity": 901.06,
+      "exit_reasons": {
+        "signal": 63,
+        "sl": 57,
+        "tp": 24
+      },
+      "avg_lots": 0.0174
+    }
+  },
+  "full_no_dd_stop": {
+    "FULL|pepperstone|lev2": {
+      "net_profit": -162.6,
+      "usd_per_hour": -0.0062,
+      "max_dd_usd_intrabar": 205.35,
+      "max_dd_usd_close": 205.35,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 144,
+      "win_rate_pct": 45.1,
+      "profit_factor": 0.724,
+      "avg_trade": -1.13,
+      "sharpe_daily": -0.88,
+      "total_costs": 76.71,
+      "net_by_year": {
+        "2023": -8.84,
+        "2024": 30.5,
+        "2025": -64.81,
+        "2026": -119.44
+      },
+      "final_equity": 837.4,
+      "exit_reasons": {
+        "signal": 63,
+        "sl": 57,
+        "tp": 24
+      },
+      "avg_lots": 0.0165
+    },
+    "FULL|pepperstone|lev10": {
+      "net_profit": -200.61,
+      "usd_per_hour": -0.0076,
+      "max_dd_usd_intrabar": 276.79,
+      "max_dd_usd_close": 271.56,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 144,
+      "win_rate_pct": 45.1,
+      "profit_factor": 0.757,
+      "avg_trade": -1.39,
+      "sharpe_daily": -0.81,
+      "total_costs": 133.82,
+      "net_by_year": {
+        "2023": -22.54,
+        "2024": 36.02,
+        "2025": -43.76,
+        "2026": -170.33
+      },
+      "final_equity": 799.39,
+      "exit_reasons": {
+        "signal": 63,
+        "sl": 57,
+        "tp": 24
+      },
+      "avg_lots": 0.0289
+    },
+    "FULL|eightcap|lev2": {
+      "net_profit": -152.04,
+      "usd_per_hour": -0.0058,
+      "max_dd_usd_intrabar": 202.56,
+      "max_dd_usd_close": 202.56,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 144,
+      "win_rate_pct": 45.8,
+      "profit_factor": 0.741,
+      "avg_trade": -1.06,
+      "sharpe_daily": -0.81,
+      "total_costs": 55.97,
+      "net_by_year": {
+        "2023": -4.64,
+        "2024": 33.8,
+        "2025": -59.65,
+        "2026": -121.55
+      },
+      "final_equity": 847.96,
+      "exit_reasons": {
+        "signal": 63,
+        "sl": 57,
+        "tp": 24
+      },
+      "avg_lots": 0.0167
+    },
+    "FULL|eightcap|lev10": {
+      "net_profit": -160.15,
+      "usd_per_hour": -0.0061,
+      "max_dd_usd_intrabar": 251.33,
+      "max_dd_usd_close": 246.89,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 144,
+      "win_rate_pct": 45.8,
+      "profit_factor": 0.801,
+      "avg_trade": -1.11,
+      "sharpe_daily": -0.63,
+      "total_costs": 96.2,
+      "net_by_year": {
+        "2023": -16.54,
+        "2024": 47.04,
+        "2025": -28.01,
+        "2026": -162.65
+      },
+      "final_equity": 839.85,
+      "exit_reasons": {
+        "signal": 63,
+        "sl": 57,
+        "tp": 24
+      },
+      "avg_lots": 0.029
+    },
+    "FULL|conservative|lev2": {
+      "net_profit": -232.61,
+      "usd_per_hour": -0.0088,
+      "max_dd_usd_intrabar": 251.55,
+      "max_dd_usd_close": 251.55,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 144,
+      "win_rate_pct": 41.7,
+      "profit_factor": 0.62,
+      "avg_trade": -1.62,
+      "sharpe_daily": -1.28,
+      "total_costs": 135.44,
+      "net_by_year": {
+        "2023": -19.34,
+        "2024": -3.08,
+        "2025": -79.84,
+        "2026": -130.35
+      },
+      "final_equity": 767.39,
+      "exit_reasons": {
+        "signal": 63,
+        "sl": 57,
+        "tp": 24
+      },
+      "avg_lots": 0.016
+    },
+    "FULL|conservative|lev10": {
+      "net_profit": -311.2,
+      "usd_per_hour": -0.0118,
+      "max_dd_usd_intrabar": 339.91,
+      "max_dd_usd_close": 335.41,
+      "dd_limit_breached": true,
+      "dd_breach_time": "2026-07-23 13:15:00+00:00",
+      "trades": 144,
+      "win_rate_pct": 41.7,
+      "profit_factor": 0.646,
+      "avg_trade": -2.16,
+      "sharpe_daily": -1.27,
+      "total_costs": 240.39,
+      "net_by_year": {
+        "2023": -37.54,
+        "2024": 2.61,
+        "2025": -79.44,
+        "2026": -196.83
+      },
+      "final_equity": 688.8,
+      "exit_reasons": {
+        "signal": 63,
+        "sl": 57,
+        "tp": 24
+      },
+      "avg_lots": 0.0285
+    },
+    "FULL|zero_cost|lev2": {
+      "net_profit": -98.94,
+      "usd_per_hour": -0.0037,
+      "max_dd_usd_intrabar": 176.53,
+      "max_dd_usd_close": 176.53,
+      "dd_limit_breached": false,
+      "dd_breach_time": null,
+      "trades": 144,
+      "win_rate_pct": 47.2,
+      "profit_factor": 0.829,
+      "avg_trade": -0.69,
+      "sharpe_daily": -0.5,
+      "total_costs": 0.0,
+      "net_by_year": {
+        "2023": 4.6,
+        "2024": 43.56,
+        "2025": -37.14,
+        "2026": -109.95
+      },
+      "final_equity": 901.06,
+      "exit_reasons": {
+        "signal": 63,
+        "sl": 57,
+        "tp": 24
+      },
+      "avg_lots": 0.0174
+    }
+  },
+  "robustness": {
+    "rows": [
+      {
+        "param": "(base)",
+        "factor": 1.0,
+        "value": null,
+        "net": -151.73,
+        "usd_h": -0.0114,
+        "dd": 160.42,
+        "pf": 0.489,
+        "trades": 74,
+        "positive": false
+      },
+      {
+        "param": "bb_period",
+        "factor": 0.6,
+        "value": 12,
+        "net": -42.29,
+        "usd_h": -0.0032,
+        "dd": 50.66,
+        "pf": 0.512,
+        "trades": 18,
+        "positive": false
+      },
+      {
+        "param": "bb_period",
+        "factor": 0.8,
+        "value": 16,
+        "net": -132.47,
+        "usd_h": -0.01,
+        "dd": 140.85,
+        "pf": 0.411,
+        "trades": 50,
+        "positive": false
+      },
+      {
+        "param": "bb_period",
+        "factor": 1.2,
+        "value": 24,
+        "net": -174.07,
+        "usd_h": -0.0131,
+        "dd": 176.79,
+        "pf": 0.471,
+        "trades": 84,
+        "positive": false
+      },
+      {
+        "param": "bb_period",
+        "factor": 1.4,
+        "value": 28,
+        "net": -189.91,
+        "usd_h": -0.0143,
+        "dd": 204.25,
+        "pf": 0.473,
+        "trades": 91,
+        "positive": false
+      },
+      {
+        "param": "bb_dev",
+        "factor": 0.6,
+        "value": 1.8,
+        "net": -258.07,
+        "usd_h": -0.0194,
+        "dd": 269.9,
+        "pf": 0.59,
+        "trades": 177,
+        "positive": false
+      },
+      {
+        "param": "bb_dev",
+        "factor": 0.8,
+        "value": 2.4,
+        "net": -201.46,
+        "usd_h": -0.0152,
+        "dd": 212.83,
+        "pf": 0.558,
+        "trades": 125,
+        "positive": false
+      },
+      {
+        "param": "bb_dev",
+        "factor": 1.2,
+        "value": 3.6,
+        "net": -72.79,
+        "usd_h": -0.0055,
+        "dd": 72.79,
+        "pf": 0.299,
+        "trades": 18,
+        "positive": false
+      },
+      {
+        "param": "bb_dev",
+        "factor": 1.4,
+        "value": 4.2,
+        "net": 0.0,
+        "usd_h": 0.0,
+        "dd": 0.0,
+        "pf": 0.0,
+        "trades": 0,
+        "positive": false
+      },
+      {
+        "param": "rsi_low",
+        "factor": 0.6,
+        "value": 15.0,
+        "net": 23.31,
+        "usd_h": 0.0018,
+        "dd": 19.43,
+        "pf": 2.227,
+        "trades": 7,
+        "positive": true
+      },
+      {
+        "param": "rsi_low",
+        "factor": 0.8,
+        "value": 20.0,
+        "net": -69.1,
+        "usd_h": -0.0052,
+        "dd": 91.15,
+        "pf": 0.458,
+        "trades": 24,
+        "positive": false
+      },
+      {
+        "param": "rsi_low",
+        "factor": 1.2,
+        "value": 30.0,
+        "net": -233.49,
+        "usd_h": -0.0176,
+        "dd": 254.17,
+        "pf": 0.499,
+        "trades": 125,
+        "positive": false
+      },
+      {
+        "param": "rsi_low",
+        "factor": 1.4,
+        "value": 35.0,
+        "net": -231.17,
+        "usd_h": -0.0174,
+        "dd": 275.48,
+        "pf": 0.633,
+        "trades": 190,
+        "positive": false
+      },
+      {
+        "param": "atr_mult",
+        "factor": 0.6,
+        "value": 1.5,
+        "net": -145.99,
+        "usd_h": -0.011,
+        "dd": 145.99,
+        "pf": 0.49,
+        "trades": 79,
+        "positive": false
+      },
+      {
+        "param": "atr_mult",
+        "factor": 0.8,
+        "value": 2.0,
+        "net": -146.04,
+        "usd_h": -0.011,
+        "dd": 159.25,
+        "pf": 0.533,
+        "trades": 77,
+        "positive": false
+      },
+      {
+        "param": "atr_mult",
+        "factor": 1.2,
+        "value": 3.0,
+        "net": -132.27,
+        "usd_h": -0.01,
+        "dd": 146.72,
+        "pf": 0.517,
+        "trades": 73,
+        "positive": false
+      },
+      {
+        "param": "atr_mult",
+        "factor": 1.4,
+        "value": 3.5,
+        "net": -154.3,
+        "usd_h": -0.0116,
+        "dd": 156.74,
+        "pf": 0.433,
+        "trades": 71,
+        "positive": false
+      },
+      {
+        "param": "max_bars",
+        "factor": 0.6,
+        "value": 5,
+        "net": -115.13,
+        "usd_h": -0.0087,
+        "dd": 124.33,
+        "pf": 0.572,
+        "trades": 74,
+        "positive": false
+      },
+      {
+        "param": "max_bars",
+        "factor": 0.8,
+        "value": 6,
+        "net": -118.04,
+        "usd_h": -0.0089,
+        "dd": 132.4,
+        "pf": 0.572,
+        "trades": 74,
+        "positive": false
+      },
+      {
+        "param": "max_bars",
+        "factor": 1.2,
+        "value": 10,
+        "net": -143.85,
+        "usd_h": -0.0108,
+        "dd": 159.72,
+        "pf": 0.541,
+        "trades": 74,
+        "positive": false
+      },
+      {
+        "param": "max_bars",
+        "factor": 1.4,
+        "value": 11,
+        "net": -114.38,
+        "usd_h": -0.0086,
+        "dd": 129.54,
+        "pf": 0.623,
+        "trades": 74,
+        "positive": false
+      },
+      {
+        "param": "ema_period",
+        "factor": 0.6,
+        "value": 120,
+        "net": -107.93,
+        "usd_h": -0.0081,
+        "dd": 110.64,
+        "pf": 0.539,
+        "trades": 56,
+        "positive": false
+      },
+      {
+        "param": "ema_period",
+        "factor": 0.8,
+        "value": 160,
+        "net": -133.22,
+        "usd_h": -0.01,
+        "dd": 141.92,
+        "pf": 0.52,
+        "trades": 68,
+        "positive": false
+      },
+      {
+        "param": "ema_period",
+        "factor": 1.2,
+        "value": 240,
+        "net": -130.09,
+        "usd_h": -0.0098,
+        "dd": 155.81,
+        "pf": 0.563,
+        "trades": 74,
+        "positive": false
+      },
+      {
+        "param": "ema_period",
+        "factor": 1.4,
+        "value": 280,
+        "net": -120.68,
+        "usd_h": -0.0091,
+        "dd": 150.38,
+        "pf": 0.592,
+        "trades": 76,
+        "positive": false
+      },
+      {
+        "param": "rsi_period",
+        "factor": 0.6,
+        "value": 8,
+        "net": -258.74,
+        "usd_h": -0.0195,
+        "dd": 277.25,
+        "pf": 0.568,
+        "trades": 173,
+        "positive": false
+      },
+      {
+        "param": "rsi_period",
+        "factor": 0.8,
+        "value": 11,
+        "net": -227.46,
+        "usd_h": -0.0171,
+        "dd": 229.83,
+        "pf": 0.452,
+        "trades": 113,
+        "positive": false
+      },
+      {
+        "param": "rsi_period",
+        "factor": 1.2,
+        "value": 17,
+        "net": -104.38,
+        "usd_h": -0.0079,
+        "dd": 117.35,
+        "pf": 0.469,
+        "trades": 40,
+        "positive": false
+      },
+      {
+        "param": "rsi_period",
+        "factor": 1.4,
+        "value": 20,
+        "net": -80.9,
+        "usd_h": -0.0061,
+        "dd": 104.08,
+        "pf": 0.394,
+        "trades": 23,
+        "positive": false
+      },
+      {
+        "param": "atr_period",
+        "factor": 0.6,
+        "value": 8,
+        "net": -168.27,
+        "usd_h": -0.0127,
+        "dd": 168.27,
+        "pf": 0.425,
+        "trades": 73,
+        "positive": false
+      },
+      {
+        "param": "atr_period",
+        "factor": 0.8,
+        "value": 11,
+        "net": -138.15,
+        "usd_h": -0.0104,
+        "dd": 144.39,
+        "pf": 0.521,
+        "trades": 74,
+        "positive": false
+      },
+      {
+        "param": "atr_period",
+        "factor": 1.2,
+        "value": 17,
+        "net": -150.65,
+        "usd_h": -0.0114,
+        "dd": 160.8,
+        "pf": 0.491,
+        "trades": 74,
+        "positive": false
+      },
+      {
+        "param": "atr_period",
+        "factor": 1.4,
+        "value": 20,
+        "net": -150.1,
+        "usd_h": -0.0113,
+        "dd": 162.09,
+        "pf": 0.514,
+        "trades": 76,
+        "positive": false
+      }
+    ],
+    "n_variations": 32,
+    "n_positive": 1,
+    "pct_positive": 3.1
+  },
+  "cost_analysis": {
+    "n_signals_full": 144,
+    "per_cost": {
+      "pepperstone": {
+        "cost_rt_usd_per_btc": 32.0,
+        "avg_target_move_usd": 1230.1,
+        "median_target_move_usd": 1000.6,
+        "cost_pct_of_target": 2.6,
+        "avg_sl_dist_usd": 657.8,
+        "cost_pct_of_sl": 4.86
+      },
+      "eightcap": {
+        "cost_rt_usd_per_btc": 22.0,
+        "avg_target_move_usd": 1230.1,
+        "median_target_move_usd": 1000.6,
+        "cost_pct_of_target": 1.79,
+        "avg_sl_dist_usd": 657.8,
+        "cost_pct_of_sl": 3.34
+      },
+      "conservative": {
+        "cost_rt_usd_per_btc": 57.0,
+        "avg_target_move_usd": 1230.1,
+        "median_target_move_usd": 1000.6,
+        "cost_pct_of_target": 4.63,
+        "avg_sl_dist_usd": 657.8,
+        "cost_pct_of_sl": 8.66
+      }
+    },
+    "avg_price": 79531.0
+  },
+  "runtime_sec": 25.0
+}

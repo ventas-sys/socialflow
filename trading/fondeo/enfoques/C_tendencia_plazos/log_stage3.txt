@@ -1,0 +1,47 @@
+       sym  entry  tf  atr_stop  pass7  burn7  pass30  burn30   ratio30
+0   BTCUSD  don20  1h       1.0   12.3   32.6    34.9    63.4  0.541925
+1   GBPUSD  don20  1h       1.0    6.8   24.7    19.2    69.0  0.274286
+2   XAUUSD  don20  1h       1.0    5.5   21.6    17.1    70.4  0.239496
+3   BTCUSD  don55  1h       1.0    5.1   13.3    18.7    53.6  0.342491
+4   BTCUSD  don20  1h       2.0    5.1   36.6    17.9    78.8  0.224311
+5   EURUSD  don20  1h       1.0    4.7   23.6    15.4    73.1  0.207827
+6   USDJPY  don55  4h       2.0    1.3    1.2    10.4    17.1  0.574586
+7   BTCUSD  don20  4h       1.0    4.4    3.4    23.6    50.3  0.460039
+8   BTCUSD  don20  4h       4.0    1.0    5.1    14.6    32.3  0.438438
+9   GBPUSD  don20  4h       1.0    2.3    3.0    17.5    40.6  0.420673
+10  XAUUSD  don55  4h       1.0    1.9    1.6     8.5    20.2  0.400943
+      sym  entry  tf  atr_stop  friday  risk            mode  pass7  burn7  pass14  burn14  score               role
+0  BTCUSD  don20  1h       1.0    True   2.8           fixed   22.6   54.3    30.3    63.1  21.35       mejor_global
+1  BTCUSD  don20  1h       1.0    True   1.5  ladder_balance    1.8    0.0     5.6     0.0   7.40         escalonado
+2  XAUUSD  don55  4h       1.0    True   2.8           fixed    4.7    5.7     9.0    14.2   6.60  mejor_otro_activo
+3  XAUUSD  don55  4h       1.0   False   2.0          ladder    0.0    0.0     0.7     0.0   0.70    escalonado_otro
+  etapa 3 final 2/28 tareas, 7 s
+  etapa 3 final 4/28 tareas, 12 s
+  etapa 3 final 6/28 tareas, 25 s
+  etapa 3 final 8/28 tareas, 35 s
+  etapa 3 final 10/28 tareas, 47 s
+  etapa 3 final 12/28 tareas, 65 s
+  etapa 3 final 14/28 tareas, 80 s
+  etapa 3 final 16/28 tareas, 108 s
+  etapa 3 final 18/28 tareas, 138 s
+  etapa 3 final 20/28 tareas, 159 s
+  etapa 3 final 22/28 tareas, 201 s
+  etapa 3 final 24/28 tareas, 222 s
+  etapa 3 final 26/28 tareas, 255 s
+  etapa 3 final 28/28 tareas, 262 s
+  etapa 3 fondeada 1/4 tareas, 15 s
+  etapa 3 fondeada 2/4 tareas, 43 s
+  etapa 3 fondeada 3/4 tareas, 53 s
+  etapa 3 fondeada 4/4 tareas, 61 s
+  etapa 3 moneda 2/20 tareas, 46 s
+  etapa 3 moneda 4/20 tareas, 52 s
+  etapa 3 moneda 6/20 tareas, 153 s
+  etapa 3 moneda 8/20 tareas, 161 s
+  etapa 3 moneda 10/20 tareas, 246 s
+  etapa 3 moneda 12/20 tareas, 262 s
+  etapa 3 moneda 14/20 tareas, 341 s
+  etapa 3 moneda 16/20 tareas, 469 s
+  etapa 3 moneda 18/20 tareas, 506 s
+  etapa 3 moneda 20/20 tareas, 555 s
+etapa 3 lista 879 s
+grid.csv: 1844 filas; results.json escrito. Total 879 s
