@@ -45,6 +45,20 @@ const HUMAN_TAKEOVER_HOURS = Number(process.env.WA_HUMAN_TAKEOVER_HOURS || 3);
 // persona). Pasados estos minutos sin que el asesor hable, avisamos al
 // supervisor para que alguien lo agarre. El bot sigue sin hablar.
 const AVISO_SIN_ATENDER_MIN = Number(process.env.WA_AVISO_SIN_ATENDER_MIN || 20);
+
+// ─── Horario de atención (hora de Argentina) ─────────────────────────────────
+// Fuera de este horario NO se le avisa al supervisor: los casos se ENCOLAN y
+// salen todos juntos, en un resumen, cuando abre. Rodo recibía avisos a
+// cualquier hora y ya estaba fuera del trabajo (11-sep-2026).
+// Al cliente se le contesta con una frase con humor que deja claro que la
+// respuesta llega al otro día, pero que queda anotado con prioridad.
+const HORARIO_DESDE = process.env.WA_HORARIO_DESDE || '10:00';
+const HORARIO_HASTA = process.env.WA_HORARIO_HASTA || '17:30';
+// Días sin atención (0=domingo ... 6=sábado). Por defecto, domingo.
+const DIAS_CERRADOS = (process.env.WA_DIAS_CERRADOS ?? '0')
+  .split(',').map(x => Number(x.trim())).filter(n => !Number.isNaN(n));
+// WA_AVISOS_FUERA_HORARIO=si vuelve al comportamiento viejo (avisar siempre).
+const AVISOS_FUERA_HORARIO = (process.env.WA_AVISOS_FUERA_HORARIO || 'no').trim().toLowerCase() === 'si';
 const AUTOREPLY_WINDOW_MS = Number(process.env.WA_AUTOREPLY_MS || 3000);
 const FOLLOWUP_MINUTES = Number(process.env.WA_FOLLOWUP_MINUTES || 120);
 const REMINDER_DAYS = Number(process.env.WA_REMINDER_DAYS || RECORDATORIO.diasDespues || 5);
@@ -130,6 +144,7 @@ const firstContactAt = new Map();   // chatId -> timestamp del primer contacto
 const reminderSent = new Set();      // chatId que ya recibieron el recordatorio de 5 días
 const productFollowup = new Map();   // chatId -> ts del link de producto (para "¿pudiste comprarlo?")
 const agendadosGoogle = new Set();   // chatId ya agendados en Google Contactos (evita duplicados tipo "Cliente 28..32")
+const avisosPendientes = [];         // casos que entraron con el local cerrado (salen en un resumen al abrir)
 let humanLabelId = null;
 
 try {
@@ -145,6 +160,7 @@ try {
     for (const [k, v] of Object.entries(raw.lastActivityAt || {})) lastActivityAt.set(k, v);
     for (const [k, v] of Object.entries(raw.followupSent || {})) followupSent.set(k, v);
     for (const k of (raw.agendadosGoogle || [])) agendadosGoogle.add(k);
+    for (const a of (raw.avisosPendientes || [])) avisosPendientes.push(a);
     console.log(`Estado cargado: ${states.size} contactos · ${humanHandled.size} con asesor activo · ${knownContacts.size} ya conocidos · ${reminderSent.size} con recordatorio enviado`);
   }
 } catch (e) { console.error('No se pudo cargar estado previo:', e.message); }
@@ -166,6 +182,7 @@ setInterval(() => {
       lastActivityAt: Object.fromEntries(lastActivityAt),
       followupSent: Object.fromEntries(followupSent),
       agendadosGoogle: Array.from(agendadosGoogle),
+      avisosPendientes,
     };
     fs.writeFileSync(STATE_FILE, JSON.stringify(out));
   } catch (e) { console.error('persist fail:', e.message); }
@@ -734,6 +751,111 @@ async function resolveSupervisorChat(client) {
   return supervisorChatId;
 }
 
+// Hora y día de la semana en Argentina, sin depender de la zona del servidor.
+function momentoArgentina(d = new Date()) {
+  const partes = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    hour: '2-digit', minute: '2-digit', hour12: false, weekday: 'short',
+  }).formatToParts(d);
+  const val = (k) => partes.find(p => p.type === k)?.value || '';
+  const hora = Number(val('hour')) % 24;   // algunas plataformas devuelven 24 a medianoche
+  const minuto = Number(val('minute'));
+  const DIAS = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return { hora, minutos: hora * 60 + minuto, dia: DIAS[val('weekday')] ?? -1 };
+}
+
+function minutosDeHora(txt, porDefecto) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(txt || '').trim());
+  if (!m) return porDefecto;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+function fueraDeHorario(d = new Date()) {
+  const { minutos, dia } = momentoArgentina(d);
+  if (DIAS_CERRADOS.includes(dia)) return true;
+  return minutos < minutosDeHora(HORARIO_DESDE, 600) || minutos >= minutosDeHora(HORARIO_HASTA, 1050);
+}
+
+// Qué le decimos al cliente según el momento. Varias frases por franja para
+// que no reciba siempre la misma si escribe varios días seguidos.
+const FRASES_FUERA_HORARIO = {
+  domingo: [
+    'Es domingo 🧉 y no hay poder humano que saque a mi jefe del asado. Igual te dejo anotado con PRIORIDAD y ni bien aparezca mañana le paso tu caso primero. ¡Perdón por la espera!',
+    'Domingo = día sagrado de mate y fútbol ⚽🧉 Hoy no hay nadie del equipo. Ya quedás anotado como prioridad para mañana desde las ' + HORARIO_DESDE + '. ¡Gracias por bancarte!',
+  ],
+  noche: [
+    'Uy, a esta hora mi jefe está durmiendo como un bebé 😴 No lo despierta ni un martillo neumático. Te dejo anotado con estrellita ⭐ y ni bien abra los ojos le paso tu caso con prioridad. ¡Perdón!',
+    'Jajaja a esta hora en la ferretería quedamos yo y las arañas 🕷️😅 Mi jefe hace rato que está en la cama. Ya te anoté como PRIORIDAD: apenas aparezca mañana te responde. ¡Gracias por la paciencia!',
+  ],
+  cerrado: [
+    'Uy, justo se me fue 🙈 Cerramos a las ' + HORARIO_HASTA + ' y salió como bala. Te anoto con prioridad y ni bien llegue mañana a las ' + HORARIO_DESDE + ' le paso tu caso primero. ¡Perdón!',
+    'Se me escapó por poquito 😅 El equipo ya salió por hoy. Quedás anotado ARRIBA DE TODO y mañana desde las ' + HORARIO_DESDE + ' te responden. ¡Gracias por esperar!',
+  ],
+  temprano: [
+    '¡Buen día! 🌅 Todavía no llegó nadie, abrimos a las ' + HORARIO_DESDE + '. Ya te puse primero en la fila así ni bien caen te responden. ¡Aguantame un ratito!',
+    'Buen día ☕ Mi jefe todavía está con el primer mate, llega a las ' + HORARIO_DESDE + '. Te dejé anotado con prioridad para que seas el primero. ¡Gracias!',
+  ],
+};
+
+function fraseFueraDeHorario(d = new Date()) {
+  const { hora, dia } = momentoArgentina(d);
+  let franja;
+  if (DIAS_CERRADOS.includes(dia)) franja = 'domingo';
+  else if (hora >= 21 || hora < 7) franja = 'noche';
+  else if (hora < 10) franja = 'temprano';
+  else franja = 'cerrado';
+  const opciones = FRASES_FUERA_HORARIO[franja];
+  return opciones[Math.floor(Math.random() * opciones.length)];
+}
+
+// Un solo aviso de "estamos cerrados" por chat cada 6h: si el cliente manda
+// tres mensajes seguidos a la noche, no le repetimos el chiste tres veces.
+const avisoCierreEnviado = new Map();
+
+async function avisarClienteFueraDeHorario(client, chatId) {
+  if (!fueraDeHorario()) return false;
+  const ultimo = avisoCierreEnviado.get(chatId) || 0;
+  if (Date.now() - ultimo < 6 * 3_600_000) return false;
+  try {
+    await botSend(client, chatId, fraseFueraDeHorario());
+    avisoCierreEnviado.set(chatId, Date.now());
+    console.log(`[${chatId}] 🌙 fuera de horario: se le avisó al cliente que responde mañana`);
+    return true;
+  } catch (e) {
+    console.error(`[${chatId}] aviso fuera de horario fail:`, e.message);
+    return false;
+  }
+}
+
+// Manda el resumen de lo que entró mientras estaba cerrado. Se llama cada
+// pocos minutos: solo hace algo si ya abrió y hay casos esperando.
+async function vaciarAvisosPendientes(client) {
+  if (!avisosPendientes.length || fueraDeHorario()) return;
+  if (!SUPERVISOR_NUMBER) { avisosPendientes.length = 0; return; }
+  const supervisorChat = await resolveSupervisorChat(client);
+  if (!supervisorChat) return;
+  const pendientes = avisosPendientes.splice(0, avisosPendientes.length);
+  const hora = (ts) => new Intl.DateTimeFormat('es-AR', {
+    timeZone: 'America/Argentina/Buenos_Aires', weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(new Date(ts));
+  const lineas = pendientes.map((p, i) => {
+    const phone = String(p.chatId).split('@')[0];
+    return `${i + 1}. +${phone} · ${motivoHumano(p.reason)}\n` +
+           (p.lastText ? `   "${String(p.lastText).slice(0, 100)}"\n` : '') +
+           `   👉 https://wa.me/${phone}  (entró ${hora(p.at)})`;
+  });
+  const body = `🔔 *Mientras estaba cerrado* — ${pendientes.length} caso(s) para atender\n\n${lineas.join('\n\n')}`;
+  try {
+    await botSend(client, supervisorChat, body);
+    for (const p of pendientes) supervisorNotified.set(p.chatId, Date.now());
+    console.log(`📬 resumen de ${pendientes.length} aviso(s) enviado al supervisor al abrir`);
+  } catch (e) {
+    // Si falla el envío, los devolvemos a la cola para el próximo intento.
+    avisosPendientes.unshift(...pendientes);
+    console.error('resumen al supervisor fail:', e.message);
+  }
+}
+
 async function notifySupervisor(client, chatId, reason, lastText) {
   if (!SUPERVISOR_NUMBER) return;
   const supervisorChat = await resolveSupervisorChat(client);
@@ -741,6 +863,17 @@ async function notifySupervisor(client, chatId, reason, lastText) {
   if (chatId === supervisorChat || chatId === SUPERVISOR_NUMBER + '@c.us') return;
   const last = supervisorNotified.get(chatId) || 0;
   if (Date.now() - last < 6 * 3_600_000) return;
+
+  // Local cerrado: NO despertamos al supervisor. El caso se guarda y sale en
+  // el resumen de la apertura (ver vaciarAvisosPendientes).
+  if (fueraDeHorario() && !AVISOS_FUERA_HORARIO) {
+    const ya = avisosPendientes.find(a => a.chatId === chatId);
+    if (ya) { ya.reason = reason; ya.lastText = lastText; }
+    else avisosPendientes.push({ chatId, reason, lastText, at: Date.now() });
+    console.log(`[${chatId}] 🌙 fuera de horario: aviso ENCOLADO (${avisosPendientes.length} esperando la apertura)`);
+    return;
+  }
+
   const phone = chatId.split('@')[0];
   const body =
     `🔔 *Atención requerida*\n` +
@@ -1061,6 +1194,7 @@ async function handleIncoming(client, msg) {
     } else if (result.state?.escalated) {
       // Pidió supervisor o requiere humano: marcado + aviso + bot silenciado.
       console.log(`[${from}] *** marcado para humano (bot en pausa) ***`);
+      await avisarClienteFueraDeHorario(client, from);
       await markChatForHuman(client, from);
       markAsesorActive(from);
       await notifySupervisor(client, from, result.reason, text);
@@ -1068,6 +1202,7 @@ async function handleIncoming(client, msg) {
       // Mayorista/reclamo: marcado + aviso para que un humano lo siga,
       // pero el bot SIGUE respondiendo las dudas del cliente.
       console.log(`[${from}] 🟡 marcado para humano (bot sigue activo)`);
+      await avisarClienteFueraDeHorario(client, from);
       await markChatForHuman(client, from);
       await notifySupervisor(client, from, result.reason, text);
     }
@@ -1172,6 +1307,8 @@ client.on('ready', async () => {
   sendHeartbeat();
   setInterval(() => sendHeartbeat(), 60_000);
   setInterval(() => recuperarMensajesPerdidos(client).catch(e => console.error('recuperador tick fail:', e.message)), RECUPERADOR_SEG * 1000);
+  vaciarAvisosPendientes(client).catch(e => console.error('resumen apertura fail:', e.message));
+  setInterval(() => vaciarAvisosPendientes(client).catch(e => console.error('resumen apertura fail:', e.message)), 5 * 60_000);
   console.log(`🩹 Recuperador de mensajes perdidos cada ${RECUPERADOR_SEG}s (bug de eventos de whatsapp-web.js): procesa lo de los últimos ${RECUPERADOR_VENTANA_MIN}min; lo más viejo va al supervisor`);
   console.log(`📋 Follow-up "¿algo más?" cada 5min para chats con ${FOLLOWUP_MINUTES}min sin actividad (máx 1/día por chat)`);
   console.log(`🎁 Recordatorio a los ${REMINDER_DAYS} días del primer contacto (chequeo cada 1h)`);
@@ -1185,6 +1322,9 @@ client.on('ready', async () => {
   console.log(DESMARCAR_ATENDIDO
     ? '⚪ La etiqueta HUMANO se saca sola en cuanto contesta un asesor'
     : '⚠️ La etiqueta HUMANO NO se saca sola (WA_DESMARCAR_ATENDIDO=no): la lista se va a ir llenando');
+  console.log(AVISOS_FUERA_HORARIO
+    ? `🔔 Avisos al supervisor a CUALQUIER hora (WA_AVISOS_FUERA_HORARIO=si)`
+    : `🌙 Horario de atención ${HORARIO_DESDE} a ${HORARIO_HASTA} (cerrado: ${DIAS_CERRADOS.join(',') || 'ninguno'}). Fuera de eso el cliente recibe una frase con humor y el aviso al supervisor se encola hasta la apertura${avisosPendientes.length ? ` · ${avisosPendientes.length} esperando` : ''}`);
 });
 
 client.on('disconnected', reason => {
