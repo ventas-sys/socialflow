@@ -688,3 +688,40 @@ exacto de producción y después con preguntas reales: **respondió y posteó**.
   SIEMPRE tiene vencimiento largo, 2 años o más desde hoy. Tatiana responde
   concreto ("como mínimo <año actual + 2>", calculado con la fecha real) y no
   inventa fechas impresas ni dice que no sabe.
+
+## 11-sep-2026 — Horario de atención en WhatsApp
+
+Rodo recibía avisos del bot a cualquier hora, ya estando fuera del trabajo.
+Ahora el bridge conoce el horario (`WA_HORARIO_DESDE`/`WA_HORARIO_HASTA`,
+por defecto 10:00–17:30; `WA_DIAS_CERRADOS=0` = domingo) y fuera de él:
+
+- **Al cliente** que pide un humano se le manda una frase con humor que deja
+  claro que la respuesta llega al otro día pero que queda anotado con
+  prioridad. Cuatro franjas (domingo / noche / recién cerrado / antes de
+  abrir) con dos frases cada una, elegidas al azar. Un solo aviso por chat
+  cada 6h, para no repetir el chiste si escribe tres veces seguidas.
+- **Al supervisor** NO se le avisa: el caso se **encola** (persistido en
+  `.state.json`) y sale en **un único mensaje resumen** cuando abre, con la
+  lista de casos, el motivo, el último mensaje y el link a cada chat.
+  `WA_AVISOS_FUERA_HORARIO=si` vuelve al comportamiento viejo.
+
+## Estado de Marketing ML (al 11-sep-2026)
+
+- **Canal de difusión**: rutina semanal los **viernes 9:00** que arma el pack
+  (producto en promoción + historia + cupón cuando toca).
+  Cadencia acordada: 1 promo y 1 historia por semana, 1 cupón por mes.
+  Pendiente de Rodo: activar el **cupón de carritos abandonados**.
+- **Publicidad (Product Ads)**: `?action=ads` confirmó acceso — anunciante
+  **5164 UNIPROVEEDORES.COM.AR**. La ruta plana de campañas da 404; quedó
+  desplegada la sonda con las rutas anidadas por anunciante (PR #139) pero
+  **falta correrla** y ver qué devuelve. Alternativa sin API: el Excel de
+  *Anuncios → Estándar*, 30 días, desde el panel de Publicidad.
+  Próximo paso (lunes): con cualquiera de los dos, armar el reporte de
+  gasto/ROAS por publicación y las recomendaciones de qué pautar y qué pausar.
+
+## Fichas de producto cargadas (FICHAS_PRODUCTO)
+
+1. Copas diamantadas Aliafor Hole Next → para AMOLADORA; en taladro solo con
+   el eje adaptador que se vende por separado.
+2. Tapón cebador System → marca propia ARBETTER, **libre de BPA**.
+   (Pendiente confirmar si el *pico* cebador es lo mismo.)
