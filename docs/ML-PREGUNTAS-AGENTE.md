@@ -776,3 +776,39 @@ Estándar, 30 días, Total del período* que Rodo baja de cada cuenta. La API de
 Mercado Ads da acceso al anunciante (5164 full, 5235 ferre) pero las rutas de
 campañas seguían dando 404; la sonda `?action=ads` con las rutas /marketplace
 quedó desplegada y sin correr.
+
+---
+
+## Comparar los catálogos de las dos cuentas (14-sep-2026)
+
+Pedido de Rodo: *"agarrar las publicaciones de FULL y compararlas contra las
+de FERRE a ver cuáles faltan"*, para que las dos cuentas tengan lo mismo
+publicado.
+
+`?action=faltantes&origen=full&destino=local` (y al revés) baja un Excel con
+lo que está publicado en una cuenta y no en la otra. Botones en el panel:
+**🔀 Qué falta publicar en LOCAL / …y en FULL**.
+
+`lib/ml/catalogo.js` matchea en tres niveles, de más seguro a menos:
+1. **SKU** (`seller_custom_field`) — si coincide, es el mismo producto.
+2. **Título normalizado** — sin acentos, sin puntuación, sin cantidades.
+3. **Parecido de palabras** (Jaccard ≥ 0.7) sobre un índice invertido, para
+   no comparar todos contra todos.
+
+El listado sale ordenado por **visitas de los últimos 30 días** en la cuenta
+de origen: lo que la gente mira es lo que conviene publicar primero.
+
+⚠️ Un producto con el título MUY distinto entre cuentas puede aparecer como
+falso faltante. Revisar antes de publicar.
+
+### Por qué el reporte se pasaba de los 60 s
+
+El reporte trae los DOS catálogos completos (~2.078 publicaciones en FULL).
+`getItemsBulk` pedía los lotes de 20 **de a uno**: ~105 llamadas seguidas por
+cuenta, unos 30 s cada catálogo. Ahora salen de a 8 en paralelo
+(`LOTES_EN_PARALELO`) y baja a ~4 s.
+
+Un lote que no vuelve no se ignora: se reintenta una vez y, si sigue
+fallando, el reporte corta con error. Perder 20 publicaciones del destino en
+silencio sería peor que no tener reporte — se leerían como "hay que
+publicarlo" cuando ya está publicado.
