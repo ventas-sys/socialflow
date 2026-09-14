@@ -118,6 +118,11 @@ input:focus{outline:none;border-color:rgba(0,200,100,0.5);}
         </div>
         <div style="font-size:10px;color:#888;margin-top:4px;">Baja un Excel con las medidas de la ficha técnica de TODAS las publicaciones. Las que no tienen medidas salen primero: ésas son las que hay que completar.</div>
         <div class="btn-row" style="margin-top:10px;">
+          <button class="btn" style="background:rgba(155,89,182,0.14);border-color:rgba(155,89,182,0.4);color:#c39bd3;" onclick="mlDownloadFaltantes('full','local')">🔀 Qué falta publicar en LOCAL</button>
+          <button class="btn" style="background:rgba(155,89,182,0.08);border-color:rgba(155,89,182,0.25);color:#d7bde2;" onclick="mlDownloadFaltantes('local','full')">🔀 …y en FULL</button>
+        </div>
+        <div style="font-size:10px;color:#888;margin-top:4px;">Compara los catálogos de las dos cuentas y baja un Excel con los productos que están en una y faltan en la otra, ordenados por las visitas que tienen (lo más mirado primero).</div>
+        <div class="btn-row" style="margin-top:10px;">
           <button class="btn" style="background:rgba(255,176,96,0.15);border-color:rgba(255,176,96,0.45);color:#ffb060;font-weight:700;" onclick="mlAgentDiag()">🩺 ¿Por qué no responde?</button>
           <button class="btn" style="background:linear-gradient(135deg,#c6de00,#7d8c00);color:#111;border:none;font-weight:700;" onclick="mlAgentSweep()">🚀 Responder pendientes</button>
         </div>
@@ -659,6 +664,11 @@ async function mlPostventa(){
   l.push('');
   l.push('ℹ️ El mensaje NO pide calificación positiva, no ofrece plata ni premios y no manda links (todo eso lo prohíbe ML). Las redes van en el folleto con QR dentro del paquete.');
   out.className='result ok'; out.textContent = l.join('\n');
+}
+
+// 🔀 Qué falta publicar en la otra cuenta: el server compara y arma el CSV.
+function mlDownloadFaltantes(origen, destino){
+  window.open('/api/ml/questions?action=faltantes&origen='+encodeURIComponent(origen)+'&destino='+encodeURIComponent(destino), '_blank');
 }
 
 // 📏 Medidas por SKU: el server arma el CSV, acá solo se abre la descarga.
