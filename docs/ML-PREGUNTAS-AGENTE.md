@@ -732,15 +732,24 @@ Rodo pidió manejar el presupuesto de publicidad semanalmente y eligió el modo
 **"recomendar, él aplica"**: el sistema calcula y él carga los cambios en ML.
 No se toca ninguna campaña por código.
 
-Cómo financia la publicidad: le carga **$20 a cada producto vendido** (venda
-por campaña o no), así el costo se reparte entre todas las ventas y el
-producto publicitado no se encarece. Es un fondo común.
+Cómo financia la publicidad: le carga un monto fijo a cada producto vendido
+(venda por campaña o no), así el costo se reparte entre todas las ventas y el
+producto publicitado no se encarece. Es un fondo común, y **cada cuenta tiene
+su propio cargo y su propio volumen** (corregido el 15-sep con datos de Rodo):
 
-**El fondo no alcanza**: con ~850 u/día entran $510.000/mes y el gasto real
-de las dos cuentas es $2.574.309/mes. Para cerrar habría que cargar ~$100 por
-producto. Pero con ROAS 7,5 (full) y 9,6 (ferre), recortar publicidad para
-cumplir el fondo resigna ventas rentables: conviene subir el cargo, no bajar
-el gasto.
+| | cargo/unidad | ventas/día | fondo/mes | gasto real | cubre |
+|---|---|---|---|---|---|
+| **FULL** (5164) | $67,50 | 800-900 | $1.721.250 | $1.622.120 | **106%** ✅ |
+| **FERRE** (5235) | $20 | 200 | $120.000 | $952.189 | **13%** ❌ |
+
+- FULL está bien calibrado pero **ajustado**: con 800 u/día el fondo ya no
+  alcanza (faltan $2.120); con 900 sobran $200.380. El margen para crecer es
+  de apenas 6%.
+- FERRE necesitaría **$158,70 por unidad** para cerrar. Hoy salen $832.189/mes
+  del margen. Pero es la cuenta de MEJOR rendimiento (ROAS 9,56) y donde la
+  publicidad pesa más: genera el **21% de sus ventas**, contra el 5% en FULL.
+  Desfinanciada o no, esa publicidad es rentable — el problema es contable,
+  no de rentabilidad.
 
 `lib/ml/ads-optimizer.js` (funciones puras, sin red):
 - `clasificar()` — pausar / bajar / subir / mantener / pocos_datos.
