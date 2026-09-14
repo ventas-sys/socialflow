@@ -457,31 +457,40 @@ export default async function handler(req, res) {
       out.pasos.push({ paso: 'advertisers', status: adv.status, body: corto(adv.body) });
       const advertisers = adv.body?.advertisers || [];
 
-      // 2) Campañas: la ruta va ANIDADA bajo el anunciante (la plana dio 404
-      //    "No static resource" en la primera sonda del 09-sep).
+      // 2) Campañas. Las rutas bajo /advertising/... dieron 404 en producción
+      //    (14-sep): la buena va bajo /marketplace/, lleva el SITE_ID del
+      //    anunciante y termina en /search. Igual dejamos alternativas por si
+      //    ML vuelve a mover la ruta.
       for (const a of advertisers.slice(0, 2)) {
         const id = a.advertiser_id ?? a.id;
+        const site = a.site_id || 'MLA';
+        const hasta = new Date().toISOString().slice(0, 10);
+        const desde = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+        const q = `?limit=50&date_from=${desde}&date_to=${hasta}`;
         let campanas = [];
-        for (const [ruta, v] of [
-          [`/advertising/advertisers/${id}/product_ads/campaigns?limit=50`, 2],
-          [`/advertising/advertisers/${id}/product_ads/campaigns?limit=50`, 1],
-          [`/advertising/advertisers/${id}/campaigns?limit=50`, 2],
+        for (const ruta of [
+          `/marketplace/advertising/${site}/advertisers/${id}/product_ads/campaigns/search${q}`,
+          `/marketplace/advertising/${site}/advertisers/${id}/product_ads/campaigns${q}`,
         ]) {
-          const camp = await mlAdsGet(token, ruta, v);
-          out.pasos.push({ paso: `campaigns apiv=${v} ${ruta.split('?')[0]}`, status: camp.status, body: corto(camp.body) });
+          const camp = await mlAdsGet(token, ruta, 2);
+          out.pasos.push({ paso: `campaigns ${ruta.split('?')[0]}`, status: camp.status, body: corto(camp.body) });
           if (camp.status >= 200 && camp.status < 300) {
             campanas = camp.body?.results || camp.body?.campaigns || [];
             break;
           }
         }
-        // 3) Métricas de los últimos 30 días de la primera campaña que haya.
+        // 3) Los ANUNCIOS (publicación por publicación) de la primera campaña:
+        //    es el dato que sirve para decidir qué pautar y qué pausar.
         const c0 = campanas[0];
         if (c0?.id != null) {
-          const hasta = new Date().toISOString().slice(0, 10);
-          const desde = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
-          const met = await mlAdsGet(token,
-            `/advertising/advertisers/${id}/product_ads/campaigns/${c0.id}/metrics?date_from=${desde}&date_to=${hasta}&metrics=clicks,prints,cost,cpc,acos,roas,units_quantity,total_amount`, 2);
-          out.pasos.push({ paso: `metrics campaña ${c0.id}`, status: met.status, body: corto(met.body) });
+          for (const ruta of [
+            `/marketplace/advertising/${site}/advertisers/${id}/product_ads/campaigns/${c0.id}/ads/search${q}`,
+            `/marketplace/advertising/${site}/advertisers/${id}/product_ads/campaigns/${c0.id}${q}`,
+          ]) {
+            const ads = await mlAdsGet(token, ruta, 2);
+            out.pasos.push({ paso: `ads/metricas campaña ${c0.id}`, status: ads.status, body: corto(ads.body) });
+            if (ads.status >= 200 && ads.status < 300) break;
+          }
         }
       }
       return res.status(200).json(out);
