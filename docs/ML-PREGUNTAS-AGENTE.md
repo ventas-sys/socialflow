@@ -725,3 +725,39 @@ por defecto 10:00–17:30; `WA_DIAS_CERRADOS=0` = domingo) y fuera de él:
    el eje adaptador que se vende por separado.
 2. Tapón cebador System → marca propia ARBETTER, **libre de BPA**.
    (Pendiente confirmar si el *pico* cebador es lo mismo.)
+
+## 15-sep-2026 — Optimizador de presupuesto de Product Ads
+
+Rodo pidió manejar el presupuesto de publicidad semanalmente y eligió el modo
+**"recomendar, él aplica"**: el sistema calcula y él carga los cambios en ML.
+No se toca ninguna campaña por código.
+
+Cómo financia la publicidad: le carga **$20 a cada producto vendido** (venda
+por campaña o no), así el costo se reparte entre todas las ventas y el
+producto publicitado no se encarece. Es un fondo común.
+
+**El fondo no alcanza**: con ~850 u/día entran $510.000/mes y el gasto real
+de las dos cuentas es $2.574.309/mes. Para cerrar habría que cargar ~$100 por
+producto. Pero con ROAS 7,5 (full) y 9,6 (ferre), recortar publicidad para
+cumplir el fondo resigna ventas rentables: conviene subir el cargo, no bajar
+el gasto.
+
+`lib/ml/ads-optimizer.js` (funciones puras, sin red):
+- `clasificar()` — pausar / bajar / subir / mantener / pocos_datos.
+- `planSemanal()` — cuánto sacar y cuánto poner, redistribuyendo sin gastar
+  más (o con `extraPct` para además subir el total).
+- `planEnTexto()` — el mensaje listo para mandar.
+
+Reglas (REGLAS, ajustables): ROAS < 3 baja; ROAS ≥ 10 sube; menos de 30 clics
+es ruido y NO se decide nada; nunca subir más de 30% por semana (el ROAS no
+escala infinito); nunca cortar más de 60% de golpe; nunca pausar algo con
+ROAS > 3.
+
+Verificado con casos de borde (pocos clics, clics sin ventas, cada umbral de
+ROAS, tope de suba) y con los reportes reales de las dos cuentas.
+
+**Fuente de datos**: hoy es el Excel de *Publicidad → Reportes → Anuncios
+Estándar, 30 días, Total del período* que Rodo baja de cada cuenta. La API de
+Mercado Ads da acceso al anunciante (5164 full, 5235 ferre) pero las rutas de
+campañas seguían dando 404; la sonda `?action=ads` con las rutas /marketplace
+quedó desplegada y sin correr.
