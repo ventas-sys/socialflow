@@ -740,16 +740,22 @@ su propio cargo y su propio volumen** (corregido el 15-sep con datos de Rodo):
 | | cargo/unidad | ventas/día | fondo/mes | gasto real | cubre |
 |---|---|---|---|---|---|
 | **FULL** (5164) | $67,50 | 800-900 | $1.721.250 | $1.622.120 | **106%** ✅ |
-| **FERRE** (5235) | $20 | 200 | $120.000 | $952.189 | **13%** ❌ |
+| **FERRE** (5235) | ~~$20~~ **$80** | 200 | $480.000 | $952.189 | **50%** 🟡 |
 
 - FULL está bien calibrado pero **ajustado**: con 800 u/día el fondo ya no
   alcanza (faltan $2.120); con 900 sobran $200.380. El margen para crecer es
   de apenas 6%.
-- FERRE necesitaría **$158,70 por unidad** para cerrar. Hoy salen $832.189/mes
-  del margen. Pero es la cuenta de MEJOR rendimiento (ROAS 9,56) y donde la
-  publicidad pesa más: genera el **21% de sus ventas**, contra el 5% en FULL.
-  Desfinanciada o no, esa publicidad es rentable — el problema es contable,
-  no de rentabilidad.
+- FERRE necesitaría **$158,70 por unidad** para cerrar del todo. Rodo subió el
+  cargo de $20 a **$80 el 15-sep**, como prueba por un mes: el fondo pasa de
+  cubrir 13% a **50%**, y lo que sale del margen baja de $832.189 a
+  **$472.189 por mes** ($360.000/mes de mejora, $4,3M al año).
+- No se fue a $158,70 de una a propósito: FERRE es la cuenta de MEJOR
+  rendimiento (ROAS 9,56) y donde la publicidad pesa más — genera el **21% de
+  sus ventas**, contra el 5% en FULL. Esa publicidad es rentable aunque el
+  fondo no la cubra: el problema es contable, no de rentabilidad. Por eso se
+  sube por escalones, midiendo el efecto en las ventas antes de seguir.
+- **Revisar a mediados de octubre**: si las ventas de FERRE se mantienen en
+  ~200/día con el cargo en $80, el siguiente escalón puede ser $120.
 
 `lib/ml/ads-optimizer.js` (funciones puras, sin red):
 - `clasificar()` — pausar / bajar / subir / mantener / pocos_datos.
