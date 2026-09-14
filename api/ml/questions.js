@@ -26,7 +26,8 @@ import { loadAccounts, findAccountByUser, findAccountByLabel, otherAccount, NEGO
 import { getAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, getRecentQuestions, searchSellerItem, postAnswer, itemContext, getMe, getOrders, getItemsBulk } from '../../lib/ml/ml-api.js';
 import { construirReporte } from '../../lib/ml/conversion.js';
 import { filaMedidas, ordenarFilas, medidasCsv } from '../../lib/ml/medidas.js';
-import { searchMyItems, getItemsFichaBulk, mlAdsGet } from '../../lib/ml/ml-api.js';
+import { compararCatalogos, faltantesCsv } from '../../lib/ml/catalogo.js';
+import { searchMyItems, getItemsFichaBulk, mlAdsGet, getUserItemsVisits } from '../../lib/ml/ml-api.js';
 import { resumenKeys } from '../../lib/gemini-keys.js';
 import { modeloTexto } from '../../lib/gemini-texto.js';
 import { getShipment, getOrder, sendPostSaleMessage, getUnreadMessages } from '../../lib/ml/ml-api.js';
@@ -439,6 +440,79 @@ export default async function handler(req, res) {
 
     // CONTROL DE CONVERSIÓN: qué preguntas terminaron en venta, por SKU, y qué le
     // falta a cada publicación (fotos, medidas, color, retiro, precio por mayor...).
+    // QUÉ FALTA PUBLICAR EN UNA CUENTA: compara los dos catálogos y lista los
+    // productos que están en `origen` y no en `destino`. Solo lectura.
+    // El matcheo va por SKU, por título normalizado y por parecido de palabras
+    // (ver lib/ml/catalogo.js): el mismo producto suele estar titulado distinto
+    // en cada cuenta.
+    if (action === 'faltantes') {
+      if (accounts.length < 2) return res.status(400).json({ error: 'Hacen falta 2 cuentas en ML_ACCOUNTS.' });
+      const lblOrigen = (req.query?.origen || 'full').toString();
+      const lblDestino = (req.query?.destino || 'local').toString();
+      const accO = findAccountByLabel(accounts, lblOrigen);
+      const accD = findAccountByLabel(accounts, lblDestino);
+      if (!accO || !accD) return res.status(400).json({ error: `Cuenta desconocida: ${!accO ? lblOrigen : lblDestino}` });
+
+      // Todas las publicaciones de una cuenta, con los datos que sirven para decidir.
+      const catalogo = async (acc) => {
+        const token = await tokenOf(acc);
+        const ids = [];
+        let scrollId = null;
+        for (let v = 0; v < 60; v++) {
+          const extra = 'search_type=scan' + (scrollId ? `&scroll_id=${encodeURIComponent(scrollId)}` : '');
+          const r = await searchMyItems(token, acc.user_id, { limit: 100, extra });
+          scrollId = r?.scroll_id || scrollId;
+          const lote = r?.results || [];
+          if (!lote.length) break;
+          ids.push(...lote);
+          if (r?.paging?.total && ids.length >= r.paging.total) break;
+        }
+        const items = await getItemsBulk(token, ids);
+        return { token, items: [...items.entries()].map(([id, it]) => ({
+          id, titulo: it.title, sku: it.sku, precio: it.price, stock: it.stock,
+          estado: it.status || '', link: it.permalink,
+        })) };
+      };
+
+      const [O, D] = await Promise.all([catalogo(accO), catalogo(accD)]);
+
+      // Visitas de los últimos 30 días en la cuenta origen: un solo request y
+      // sirve para priorizar (lo que la gente mira es lo que conviene publicar).
+      const visitas = new Map();
+      try {
+        const hasta = new Date().toISOString().slice(0, 10);
+        const desde = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+        const v = await getUserItemsVisits(O.token, accO.user_id, desde, hasta);
+        for (const r of (v?.results || [])) {
+          const id = r.item_id ?? r.id;
+          if (id) visitas.set(String(id), Number(r.total_visits ?? r.visits) || 0);
+        }
+      } catch { /* sin visitas el reporte igual sirve, solo pierde el orden por interés */ }
+
+      const cmp = compararCatalogos(O.items, D.items);
+      const faltan = cmp.faltan
+        .map(f => ({ ...f, vendidas: visitas.get(String(f.id)) || 0 }))
+        .sort((a, b) => b.vendidas - a.vendidas || String(a.titulo).localeCompare(String(b.titulo)))
+        .map((f, i) => ({ ...f, prioridad: f.vendidas > 0 ? `#${i + 1}` : '' }));
+
+      const notas = [
+        `Publicaciones en ${accO.label}: ${cmp.total_origen} · en ${accD.label}: ${cmp.total_destino}`,
+        `Faltan en ${accD.label}: ${faltan.length}`,
+        'La columna "Unidades vendidas (60d)" trae VISITAS de los últimos 30 días en la cuenta de origen: es el mejor indicador disponible de qué conviene publicar primero.',
+        'El matcheo usa SKU, título normalizado y parecido de palabras. Puede haber algún falso faltante si el título es MUY distinto entre cuentas: revisá antes de publicar.',
+      ];
+
+      if ((req.query?.formato || '').toString() === 'json') {
+        return res.status(200).json({ ok: true, origen: accO.label, destino: accD.label,
+          total_origen: cmp.total_origen, total_destino: cmp.total_destino,
+          faltan: faltan.length, ya_estan: cmp.estan.length, items: faltan.slice(0, 200) });
+      }
+      const hoy = new Date().toISOString().slice(0, 10);
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="faltan-en-${accD.label}-${hoy}.csv"`);
+      return res.status(200).send(faltantesCsv(faltan, notas));
+    }
+
     // SONDA DE MERCADO ADS (Product Ads): prueba los endpoints de publicidad
     // con el token de la cuenta y devuelve crudo qué contesta cada uno, para
     // saber qué acceso tenemos antes de construir el reporte de optimización.
