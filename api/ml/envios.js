@@ -113,6 +113,30 @@ export default async function handler(req, res) {
         else groups.set(gkey, { ...o, correo: isCorreo, items: [...(o.items || [])] });
       }
 
+      // Lo que ML cobró/pagó por cada envío nuevo. Antes el reporte estimaba el
+      // "Cobro ML" con una tabla de zonas que había que actualizar a mano cada
+      // vez que ML cambiaba las tarifas; ahora se guarda el número REAL:
+      // receiver.cost = lo que pagó el comprador, senders[0].cost = lo que nos
+      // cobró/pagó ML a nosotros. Si el pedido falla, la fila sigue igual y el
+      // reporte cae en la tabla como antes.
+      const costos = new Map();
+      const idsCosto = [...groups.values()].filter(o => !o.correo && o.shipmentId).map(o => String(o.shipmentId));
+      for (let i = 0; i < idsCosto.length; i += 10) {
+        await Promise.all(idsCosto.slice(i, i + 10).map(async (sid) => {
+          try {
+            const r = await httpRequest('GET', `https://api.mercadolibre.com/shipments/${sid}/costs`,
+              { 'Authorization': 'Bearer ' + token });
+            if (r.status !== 200 || !r.body) return;
+            const vendedor = (r.body.senders || [])[0] || {};
+            costos.set(sid, {
+              costoML: vendedor.cost ?? null,
+              costoComprador: r.body.receiver?.cost ?? null,
+              bonificacionML: (vendedor.compensation ?? 0) + (vendedor.save ?? 0),
+            });
+          } catch { /* sin costo: el reporte usa la tabla de zonas */ }
+        }));
+      }
+
       for (const o of groups.values()) {
         seen.add(String(o.packId || o.shipmentId));
         const base = {
@@ -121,6 +145,7 @@ export default async function handler(req, res) {
           lat: o.lat ?? null, lng: o.lng ?? null, cost: 0, account: key,
           items: o.items || [], dims: o.dimensions || null,
           trackingNumber: o.trackingNumber || null, notes: o.notes || null,
+          ...(costos.get(String(o.shipmentId)) || {}),
           userId: ORG_ID, createdAt: Timestamp.now(), updatedAt: Timestamp.now(),
         };
         if (o.correo) {

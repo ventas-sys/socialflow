@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import * as XLSX from 'xlsx'
+import { pagoMoto as pagoMotoTarifa, tarifaEn, TARIFAS_DEFAULT, ZONAS } from '../utils/tarifas'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import Scanner from './Scanner'
@@ -94,11 +95,13 @@ const timeWindowOf = (s) => {
   return null
 }
 const zonePay = (s) => { const z = effZone(s); return z && ZONES[z] ? ZONES[z].pay : 0 }
-// Pago al motoquero: lo cargado a mano pisa el valor automático de la zona
-const motoPay = (s) => {
+// Fecha con la que se decide qué tarifa corresponde: cuándo salió el envío
+const fechaEnvio = (s) => s.assignedAt || s.armadoAt || s.deliveredAt || s.createdAt
+// Pago al motoquero: lo cargado a mano pisa el valor automático de la zona, y
+// el automático sale de la tarifa que estaba vigente el día del envío
+const motoPay = (s, tarifas) => {
   if (s.courierPay != null && s.courierPay !== '') return Number(s.courierPay) || 0
-  const z = effZone(s)
-  return (z && ZONES[z]?.motoPay) || 0
+  return pagoMotoTarifa(effZone(s), fechaEnvio(s), tarifas)
 }
 const fmtMoney = (n) => '$' + (Number(n) || 0).toLocaleString('es-AR')
 
@@ -126,6 +129,7 @@ export default function Shipments({
   isAdmin = false, // solo el master conecta ML, trae ventas y vacía el tablero
   allShipments, // incluye los de CORREO (solo para dedup del sync; el tablero recibe solo FLEX)
   onReloadShipments, // recarga el tablero después de que el servidor sincroniza
+  tarifas, onSaveTarifas, // lo que se le paga al motoquero por zona, por vigencia
 }) {
   const mapRef = useRef(null)
   const mapObj = useRef(null)
@@ -491,6 +495,46 @@ export default function Shipments({
     setRouteInfo({ courier: c, order, links, unlocated, waText })
   }
 
+  // ---- Tarifas de reparto (lo que se le paga al motoquero por zona) ----
+  // Se editan acá porque ML no sabe este número. Se guardan por vigencia: al
+  // subir los precios se agrega una fecha nueva y los envíos viejos siguen
+  // valiendo lo que valían ese día, así el reporte de un mes cerrado no cambia.
+  const [tarifasAbierto, setTarifasAbierto] = useState(false)
+  const [tarifasEdit, setTarifasEdit] = useState(null)
+  const [tarifasMsg, setTarifasMsg] = useState('')
+  const listaTarifas = (tarifas?.length ? tarifas : TARIFAS_DEFAULT)
+
+  const abrirTarifas = () => {
+    setTarifasEdit(listaTarifas.map(v => ({ ...v })))
+    setTarifasMsg('')
+    setTarifasAbierto(true)
+  }
+  const cambiarTarifa = (i, campo, valor) => {
+    setTarifasEdit(ts => ts.map((v, j) => (j === i ? { ...v, [campo]: valor } : v)))
+  }
+  const agregarVigencia = () => {
+    const ultima = tarifasEdit[tarifasEdit.length - 1] || {}
+    const hoyAR = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10)
+    setTarifasEdit(ts => [...ts, { ...ultima, desde: hoyAR }])
+  }
+  const borrarVigencia = (i) => setTarifasEdit(ts => ts.filter((_, j) => j !== i))
+  const guardarTarifas = async () => {
+    const limpias = tarifasEdit
+      .filter(v => /^\d{4}-\d{2}-\d{2}$/.test(String(v.desde)))
+      .map(v => ({
+        desde: String(v.desde),
+        ...Object.fromEntries(ZONAS.map(([k]) => [k, Math.round(Number(v[k]) || 0)])),
+      }))
+      .sort((a, b) => a.desde.localeCompare(b.desde))
+    if (!limpias.length) { setTarifasMsg('❌ Poné al menos una vigencia con fecha válida'); return }
+    try {
+      await onSaveTarifas(limpias)
+      setTarifasMsg('✅ Guardado. El reporte ya usa estos valores.')
+    } catch (err) {
+      setTarifasMsg('❌ No se pudo guardar: ' + err.message)
+    }
+  }
+
   // ---- Reporte ----
   const [repCourier, setRepCourier] = useState('all')
   // Rango por fechas: si se completan los dos días manda por sobre los botones
@@ -545,28 +589,30 @@ export default function Shipments({
       }
       if (r.s.status === 'demorado') st.demorados++
       st.cobroML += zonePay(r.s)
-      st.pagoMoto += motoPay(r.s)
+      st.pagoMoto += motoPay(r.s, tarifas)
       m.set(name, st)
     })
     return [...m.values()]
       .map(st => ({ ...st, demoraProm: st.demoras.length ? st.demoras.reduce((a, b) => a + b, 0) / st.demoras.length : 0 }))
       .sort((a, b) => b.envios - a.envios)
-  }, [rangeRows])
+  }, [rangeRows, tarifas])
 
   const reportTotals = useMemo(() => {
     const entregados = reportRows.filter(r =>
       r.s.status === 'entregado' || (r.s.status === 'archivado' && r.s.deliveredAt)
     )
     const cobroML = reportRows.reduce((sum, r) => sum + zonePay(r.s), 0)
-    const pagoMoto = reportRows.reduce((sum, r) => sum + motoPay(r.s), 0)
+    const pagoMoto = reportRows.reduce((sum, r) => sum + motoPay(r.s, tarifas), 0)
     const pagoComprador = reportRows.reduce((sum, r) => sum + (Number(r.s.buyerPay) || 0), 0)
     const demoras = entregados.filter(r => r.demoraMs > 0).map(r => r.demoraMs)
     const demoraProm = demoras.length ? demoras.reduce((a, b) => a + b, 0) / demoras.length : 0
     return { total: reportRows.length, entregados: entregados.length, cobroML, pagoMoto, pagoComprador, demoraProm }
-  }, [reportRows])
+  }, [reportRows, tarifas])
 
   const exportReport = () => {
-    const rows = [['Código', 'Destinatario', 'Motoquero', 'Estado', 'Salió', 'Entregó', 'Demora (min)', 'Localidad', 'Zona', 'Cobro ML', 'Pago motoquero', 'Pagó comprador']]
+    const rows = [['Código', 'Destinatario', 'Motoquero', 'Estado', 'Salió', 'Entregó', 'Demora (min)', 'Localidad', 'Zona',
+      'Cobro ML (tabla)', 'Pago motoquero', 'Pagó comprador',
+      'ML real: pagó el comprador', 'ML real: nos cobró', 'ML real: bonificación']]
     reportRows.forEach(({ s, salio, entrego, demoraMs }) => {
       rows.push([
         s.code || '', s.recipient || '', s.courierName || '', STATUS[s.status || 'pendiente']?.label || '',
@@ -576,12 +622,16 @@ export default function Shipments({
         locOf(s),
         effZone(s) && ZONES[effZone(s)] ? ZONES[effZone(s)].label : '',
         zonePay(s),
-        motoPay(s),
+        motoPay(s, tarifas),
         Number(s.buyerPay) || 0,
+        s.costoComprador ?? '',
+        s.costoML ?? '',
+        s.bonificacionML ?? '',
       ])
     })
     const ws = XLSX.utils.aoa_to_sheet(rows)
-    ws['!cols'] = [{ wch: 16 }, { wch: 26 }, { wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 24 }, { wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 14 }]
+    ws['!cols'] = [{ wch: 16 }, { wch: 26 }, { wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 24 }, { wch: 12 },
+      { wch: 15 }, { wch: 14 }, { wch: 14 }, { wch: 24 }, { wch: 18 }, { wch: 20 }]
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Envíos')
     // Hoja 2: resumen por motoquero del período
@@ -874,6 +924,67 @@ export default function Shipments({
             <div className="rep-total"><span>Demora promedio</span><strong>{fmtDur(reportTotals.demoraProm)}</strong></div>
           </div>
 
+          {isAdmin && (
+            <div className="tarifas-box pc-only">
+              <div className="tarifas-head">
+                <span>
+                  🏍️ <strong>Pago al motoquero por zona</strong> — vigente desde el{' '}
+                  {tarifaEn(new Date(), tarifas).desde}:{' '}
+                  {ZONAS.map(([k, l]) => `${l} ${fmtMoney(tarifaEn(new Date(), tarifas)[k])}`).join(' · ')}
+                </span>
+                <button className="rep-export" onClick={() => (tarifasAbierto ? setTarifasAbierto(false) : abrirTarifas())}>
+                  {tarifasAbierto ? '✕ Cerrar' : '✏️ Editar tarifas'}
+                </button>
+              </div>
+
+              {tarifasAbierto && (
+                <>
+                  <p className="tarifas-ayuda">
+                    Cuando suben los precios <strong>no pises los valores viejos</strong>: agregá una vigencia nueva
+                    con la fecha desde la que rige. Así el reporte de los meses anteriores sigue mostrando lo que
+                    realmente pagaste. Lo que cargues a mano en la columna "Pago motoquero" de un envío siempre manda.
+                  </p>
+                  <table className="tarifas-tabla">
+                    <thead>
+                      <tr>
+                        <th>Rige desde</th>
+                        {ZONAS.map(([k, l]) => <th key={k}>{l}</th>)}
+                        <th />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tarifasEdit?.map((v, i) => (
+                        <tr key={i}>
+                          <td>
+                            <input type="date" value={v.desde || ''} onChange={e => cambiarTarifa(i, 'desde', e.target.value)} />
+                          </td>
+                          {ZONAS.map(([k]) => (
+                            <td key={k}>
+                              <input
+                                type="number" min="0" step="50" value={v[k] ?? ''}
+                                onChange={e => cambiarTarifa(i, k, e.target.value)}
+                              />
+                            </td>
+                          ))}
+                          <td>
+                            {tarifasEdit.length > 1 && (
+                              <button className="tarifas-del" onClick={() => borrarVigencia(i)} title="Borrar esta vigencia">🗑️</button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="tarifas-acc">
+                    <button className="rep-export" onClick={agregarVigencia}>+ Agregar vigencia</button>
+                    <button className="rep-export" onClick={guardarTarifas}>💾 Guardar</button>
+                    {tarifasMsg && <span className={tarifasMsg.startsWith('✅') ? 'ok' : 'warn'}>{tarifasMsg}</span>}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           {repCourier === 'all' && courierReport.length > 0 && (
             <div className="rep-table-wrap">
               <table className="rep-table">
@@ -940,7 +1051,7 @@ export default function Shipments({
                       <td>
                         <input
                           type="number" min="0" className="rep-input"
-                          defaultValue={s.courierPay != null && s.courierPay !== '' ? s.courierPay : (motoPay(s) || '')}
+                          defaultValue={s.courierPay != null && s.courierPay !== '' ? s.courierPay : (motoPay(s, tarifas) || '')}
                           placeholder="$"
                           onBlur={e => onUpdateShipment(s.id, { courierPay: parseFloat(e.target.value) || 0 })}
                         />

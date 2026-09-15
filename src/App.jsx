@@ -72,6 +72,8 @@ export default function App() {
   const [movsCompletos, setMovsCompletos] = useState(false)
   const [cargandoMovs, setCargandoMovs] = useState(false)
   const [usdRate, setUsdRate] = useState(1000)
+  // Lo que se le paga al motoquero por zona, por vigencia (settings/zonasFlex)
+  const [tarifas, setTarifas] = useState(null)
   const [installEvt, setInstallEvt] = useState(null) // beforeinstallprompt para "📲 Instalar app"
 
   // Instalación como app (ícono en pantalla principal): Chrome dispara
@@ -325,6 +327,7 @@ export default function App() {
       ])
 
       setDepositMap(settingsSnap.exists() ? settingsSnap.data().depositMapPhoto || null : null)
+      setTarifas(settingsSnap.exists() ? settingsSnap.data().zonasFlex || null : null)
 
       // Envíos y motoqueros: colecciones opcionales. Si sus reglas todavía no
       // están publicadas, se ignoran sin romper la carga del inventario.
@@ -895,6 +898,13 @@ export default function App() {
     setFinanzas(prev => [...creados, ...prev])
   }
 
+  // Tarifas de reparto por zona: se guardan como lista de vigencias para que el
+  // reporte de un mes viejo siga mostrando lo que se pagaba ese mes.
+  const saveTarifas = async (lista) => {
+    await setDoc(doc(db, 'settings', ORG_ID), { zonasFlex: lista, userId: ORG_ID }, { merge: true })
+    setTarifas(lista)
+  }
+
   // La cotización va en settings (la escribe solo el admin)
   const saveUsdRate = async (rate) => {
     await setDoc(doc(db, 'settings', ORG_ID), { usdRate: rate, userId: ORG_ID }, { merge: true })
@@ -1130,6 +1140,8 @@ export default function App() {
                 onClearShipments={clearShipments}
                 onAddCourier={addCourier}
                 onRemoveCourier={removeCourier}
+                tarifas={tarifas}
+                onSaveTarifas={saveTarifas}
               />
             )}
             {currentTab === 'packing' && canSee('packing') && (
