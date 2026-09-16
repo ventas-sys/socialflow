@@ -35,7 +35,9 @@ export default function FullShipment({
   const [envioId, setEnvioId] = useState('')
   const [showScanner, setShowScanner] = useState(false)
   const [msg, setMsg] = useState('')
-  const [ultimo, setUltimo] = useState(null)      // lo último escaneado (tarjeta grande)
+  const [pendiente, setPendiente] = useState(null) // lo escaneado, esperando confirmación a pantalla completa
+  const [cantidad, setCantidad] = useState(1)
+  const [volverACamara, setVolverACamara] = useState(false)
   const [soloFaltan, setSoloFaltan] = useState(false)
   const [busy, setBusy] = useState(false)
   const [manual, setManual] = useState('')
@@ -120,28 +122,66 @@ export default function FullShipment({
   }, [avance])
 
   // ---- Escanear ----
-  const sumar = async (ref, cantidad = 1) => {
+  // El escaneo NO guarda solo: abre la pantalla completa con la foto, el SKU,
+  // la ubicación y el aviso de primer empaque, y ahí se confirma. Así el del
+  // depósito ve qué agarrar antes de que salga del stock.
+  const sumar = (ref, desdeCamara = false) => {
     if (!envio) { setMsg('❌ Primero creá un envío'); return }
     if (envio.estado === 'cerrado') { setMsg('❌ Este envío ya está cerrado'); return }
     const limpio = String(ref).trim()
     if (!limpio) return
     const info = resolver(limpio)
-    if (!info) {
-      setUltimo({ noEncontrado: true, code: limpio })
-      setMsg(`⚠️ "${limpio}" no está en el sistema. Cargalo en Inventario o Combos.`)
-      return
-    }
-    const nuevos = [...escaneos]
-    const i = nuevos.findIndex(s => normalize(s.ref) === normalize(info.code))
-    if (i >= 0) nuevos[i] = { ...nuevos[i], cantidad: (Number(nuevos[i].cantidad) || 0) + cantidad }
-    else nuevos.push({ ref: info.code, nombre: info.nombre, cantidad, tipo: info.tipo })
-    const yaTenia = i >= 0 ? Number(escaneos[i].cantidad) || 0 : 0
-    setUltimo({ ...info, llevo: yaTenia + cantidad })
+    setVolverACamara(desdeCamara)
+    setShowScanner(false)
+    setCantidad(1)
     setMsg('')
-    await onUpdate(envio.id, { escaneos: nuevos })
+    if (!info) { setPendiente({ noEncontrado: true, code: limpio }); return }
+    const ya = escaneos.find(s => normalize(s.ref) === normalize(info.code))
+    setPendiente({ ...info, yaLleva: Number(ya?.cantidad) || 0 })
+  }
+
+  // Confirmar: anota en el envío Y descuenta el stock de una vez
+  const confirmar = async () => {
+    if (!pendiente || pendiente.noEncontrado || !envio) return
+    const n = Math.max(1, Math.round(Number(cantidad) || 1))
+    setBusy(true)
+    try {
+      const renglones = pendiente.bases.map(b => ({
+        productId: b.productId,
+        productName: b.productName,
+        quantity: -Math.abs(b.quantity * n),
+        reason: `Envío a Full N° ${envio.numero}`,
+      }))
+      await onDescontar(renglones, {
+        reference: `Envío Full N° ${envio.numero}`,
+        reason: `Envío a Full N° ${envio.numero}`,
+      })
+      const nuevos = [...escaneos]
+      const i = nuevos.findIndex(s => normalize(s.ref) === normalize(pendiente.code))
+      if (i >= 0) nuevos[i] = { ...nuevos[i], cantidad: (Number(nuevos[i].cantidad) || 0) + n, descontado: true }
+      else nuevos.push({ ref: pendiente.code, nombre: pendiente.nombre, cantidad: n, tipo: pendiente.tipo, descontado: true })
+      await onUpdate(envio.id, { escaneos: nuevos })
+      setMsg(`✅ ${pendiente.nombre} — ${n} ${n === 1 ? 'unidad' : 'unidades'} anotadas en el envío N° ${envio.numero} y descontadas del stock.`)
+      setPendiente(null)
+      if (volverACamara) setShowScanner(true)
+    } catch (err) {
+      setMsg('❌ No se pudo descontar: ' + err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const cancelarPendiente = () => {
+    setPendiente(null)
+    if (volverACamara) setShowScanner(true)
   }
 
   const quitar = async (ref) => {
+    const linea = escaneos.find(s => normalize(s.ref) === normalize(ref))
+    if (linea?.descontado && !window.confirm(
+      `Ese renglón YA descontó stock. Si lo sacás del envío, el stock NO vuelve solo: ` +
+      `hay que cargar la entrada desde Movimientos.\n\n¿Sacarlo igual?`
+    )) return
     const nuevos = escaneos.filter(s => normalize(s.ref) !== normalize(ref))
     await onUpdate(envio.id, { escaneos: nuevos })
   }
@@ -159,6 +199,9 @@ export default function FullShipment({
     const onKey = (e) => {
       const el = document.activeElement
       if (el && ['INPUT', 'TEXTAREA'].includes(el.tagName)) return
+      // Con la pantalla de confirmación abierta, el siguiente disparo de la
+      // pistola tiene que esperar: si no, pisaría lo que está sin confirmar
+      if (pendiente) return
       const ahora = Date.now()
       const b = bufferRef.current
       if (ahora - b.t > 50) b.txt = ''
@@ -173,7 +216,7 @@ export default function FullShipment({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [envio, escaneos, products, combos])
+  }, [envio, escaneos, products, combos, pendiente])
 
   // ---- Listado que pidió ML ----
   const importarPedido = async (e) => {
@@ -215,11 +258,12 @@ export default function FullShipment({
   }
 
   // ---- Descontar stock ----
+  const pendientesDeDescontar = escaneos.filter(s => !s.descontado)
   const descontar = async () => {
-    if (!envio || !escaneos.length) return
+    if (!envio || !pendientesDeDescontar.length) return
     const renglones = []
     const noEncontrados = []
-    escaneos.forEach(s => {
+    pendientesDeDescontar.forEach(s => {
       const info = resolver(s.ref)
       if (!info) { noEncontrados.push(s.ref); return }
       info.bases.forEach(b => renglones.push({
@@ -238,7 +282,10 @@ export default function FullShipment({
     setBusy(true); setMsg('')
     try {
       await onDescontar(renglones, { reference: `Envío Full N° ${envio.numero}`, reason: `Envío a Full N° ${envio.numero}` })
-      await onUpdate(envio.id, { descontadoAt: new Date().toISOString(), unidadesDescontadas: unidades })
+      await onUpdate(envio.id, {
+        escaneos: escaneos.map(s => ({ ...s, descontado: true })),
+        descontadoAt: new Date().toISOString(),
+      })
       setMsg(`✅ Stock descontado: ${unidades} unidades.`
         + (noEncontrados.length ? ` ⚠️ Quedaron afuera ${noEncontrados.length} códigos que no están en el sistema.` : ''))
     } catch (err) {
@@ -296,7 +343,7 @@ export default function FullShipment({
     if (!numero) return
     const id = await onCreate({ numero, estado: 'abierto', pedido: [], escaneos: [] })
     if (id) setEnvioId(id)
-    setUltimo(null); setMsg('')
+    setPendiente(null); setMsg('')
   }
   const cerrar = async () => {
     if (!envio) return
@@ -343,10 +390,9 @@ export default function FullShipment({
             <div className="full-kpi"><span>Estado</span><strong>{envio.estado === 'cerrado' ? '🔒 Cerrado' : (totales.completo ? '✅ Completo' : '🟡 Armando')}</strong></div>
           </div>
 
-          {envio.descontadoAt && (
+          {escaneos.length > 0 && !pendientesDeDescontar.length && (
             <div className="full-aviso ok">
-              ✅ El stock de este envío ya se descontó ({envio.unidadesDescontadas} unidades). Si volvés a
-              descontar, se resta otra vez.
+              ✅ Todo lo de este envío ya está descontado del stock.
             </div>
           )}
 
@@ -358,9 +404,11 @@ export default function FullShipment({
                 <button className="full-btn sec" onClick={() => fileRef.current?.click()} disabled={busy}>
                   📥 Cargar pedido de ML
                 </button>
-                <button className="full-btn dark" onClick={descontar} disabled={busy || !escaneos.length}>
-                  📉 Descontar stock
-                </button>
+                {pendientesDeDescontar.length > 0 && (
+                  <button className="full-btn dark" onClick={descontar} disabled={busy}>
+                    📉 Descontar los {pendientesDeDescontar.length} renglones pendientes
+                  </button>
+                )}
               </>
             )}
             <button className="full-btn sec" onClick={exportar} disabled={!escaneos.length}>⬇️ Excel del envío</button>
@@ -385,38 +433,74 @@ export default function FullShipment({
 
           {msg && <div className={`full-aviso ${msg.startsWith('✅') ? 'ok' : 'warn'}`}>{msg}</div>}
 
-          {ultimo && (
-            ultimo.noEncontrado ? (
-              <div className="full-card err">
-                <div className="full-card-body">
-                  <h2>No encontrado</h2>
-                  <p>El código <strong>{ultimo.code}</strong> no está cargado como producto ni como publicación.</p>
+          {pendiente && (
+            <div className="full-modal">
+              {pendiente.noEncontrado ? (
+                <div className="full-modal-box err">
+                  <div className="full-modal-nf">❌</div>
+                  <h2>No está en el sistema</h2>
+                  <p className="full-modal-code">{pendiente.code}</p>
+                  <p className="full-modal-sub">
+                    Ese código no figura como publicación ni como producto. Cargalo en Combos o en
+                    Inventario y volvé a escanearlo.
+                  </p>
+                  <button className="full-modal-btn sec" onClick={cancelarPendiente}>✕ Volver</button>
                 </div>
-              </div>
-            ) : (
-              <div className="full-card">
-                <LazyThumb
-                  id={ultimo.fotoId} hasPhotos={ultimo.fotoHas} kind={ultimo.fotoKind}
-                  loadPhotos={loadPhotos} className="full-foto"
-                />
-                <div className="full-card-body">
-                  <h2>{ultimo.nombre}</h2>
-                  <div className="full-card-meta">
-                    <span className="full-code">{ultimo.code}</span>
-                    <span className={`full-ubic ${ultimo.ubicacion ? '' : 'empty'}`}>
-                      {ultimo.ubicacion ? `📍 ${ultimo.ubicacion}` : 'Sin ubicación'}
-                    </span>
+              ) : (
+                <div className="full-modal-box">
+                  <button className="full-modal-x" onClick={cancelarPendiente} title="Cancelar">✕</button>
+
+                  <div className="full-modal-grid">
+                    <LazyThumb
+                      id={pendiente.fotoId} hasPhotos={pendiente.fotoHas} kind={pendiente.fotoKind}
+                      loadPhotos={loadPhotos} className="full-modal-foto"
+                    />
+                    <div className="full-modal-datos">
+                      <h2>{pendiente.nombre}</h2>
+                      <div className="full-modal-sku">
+                        <span>SKU</span>
+                        <strong>{pendiente.code}</strong>
+                      </div>
+                      <div className={`full-modal-ubic ${pendiente.ubicacion ? '' : 'empty'}`}>
+                        <span>Ubicación</span>
+                        <strong>{pendiente.ubicacion || 'SIN UBICACIÓN'}</strong>
+                      </div>
+                      {pendiente.yaLleva > 0 && (
+                        <div className="full-modal-ya">Ya van {pendiente.yaLleva} en este envío</div>
+                      )}
+                    </div>
                   </div>
-                  <div className="full-llevo">Van <strong>{ultimo.llevo}</strong> en este envío</div>
-                  {ultimo.primerEmpaque && <div className="full-flag primer">📦 PRIMER EMPAQUE — envolver antes de meterlo</div>}
-                  {ultimo.fragile && <div className="full-flag fragil">⚠️ FRÁGIL</div>}
+
+                  <div className={`full-modal-empaque ${pendiente.primerEmpaque ? 'si' : 'no'}`}>
+                    {pendiente.primerEmpaque
+                      ? '📦 LLEVA PRIMER EMPAQUE — envolvelo antes de meterlo'
+                      : '✔️ NO LLEVA PRIMER EMPAQUE'}
+                  </div>
+                  {pendiente.fragile && <div className="full-modal-fragil">⚠️ FRÁGIL</div>}
+
+                  <div className="full-modal-cant">
+                    <button onClick={() => setCantidad(c => Math.max(1, c - 1))} disabled={busy}>−</button>
+                    <input
+                      type="number" min="1" value={cantidad}
+                      onChange={e => setCantidad(Math.max(1, Math.round(Number(e.target.value) || 1)))}
+                    />
+                    <button onClick={() => setCantidad(c => c + 1)} disabled={busy}>+</button>
+                    <span>unidades</span>
+                  </div>
+
+                  <button className="full-modal-btn" onClick={confirmar} disabled={busy}>
+                    {busy ? '⏳ Descontando...' : `✅ Descontar stock y anotar en envío N° ${envio.numero}`}
+                  </button>
+                  <button className="full-modal-btn sec" onClick={cancelarPendiente} disabled={busy}>
+                    ✕ Cancelar
+                  </button>
                 </div>
-              </div>
-            )
+              )}
+            </div>
           )}
 
           {showScanner && (
-            <Scanner onScan={(code) => sumar(code)} onClose={() => setShowScanner(false)} />
+            <Scanner onScan={(code) => sumar(code, true)} onClose={() => setShowScanner(false)} />
           )}
 
           <div className="full-tabla-head">
