@@ -130,7 +130,7 @@
 }
 .full-modal-grid { display: flex; gap: 0.9rem; align-items: center; margin-bottom: 0.7rem; }
 .full-modal-foto {
-  width: 150px; height: 150px; flex: none; border-radius: 0.7rem;
+  width: 200px; height: 200px; flex: none; border-radius: 0.7rem;
   object-fit: contain; background: #fff; border: 1px solid #e5e7eb;
 }
 .full-modal-datos { min-width: 0; flex: 1; }
@@ -184,17 +184,26 @@
 .full-modal-code { font-family: ui-monospace, Menlo, monospace; font-size: 1.3rem; font-weight: 800; }
 .full-modal-sub { color: #64748b; font-size: 0.92rem; }
 
-/* En el celular todo tiene que entrar de una, sin scrollear: la foto queda al
-   costado (no arriba) y los tamaños bajan un escalón. */
+/* En el celular la pantalla del escaneo ocupa TODO: sin bordes ni márgenes, de
+   punta a punta. Así la foto entra grande y los botones quedan abajo, al
+   alcance del pulgar, sin tener que scrollear. */
 @media (max-width: 700px) {
-  .full-modal { padding: 0.5rem; align-items: flex-start; }
-  .full-modal-box { padding: 0.9rem; margin-top: 0.5rem; }
-  .full-modal-foto { width: 108px; height: 108px; }
-  .full-modal-datos h2 { font-size: 0.98rem; -webkit-line-clamp: 2; }
+  .full-modal { padding: 0; align-items: stretch; }
+  .full-modal-box {
+    width: 100%; max-width: none; border-radius: 0; margin: 0;
+    padding: 0.9rem 0.9rem 1.1rem;
+    min-height: 100vh; min-height: 100dvh;
+    display: flex; flex-direction: column;
+  }
+  /* El bloque de la foto se queda con el espacio que sobra */
+  .full-modal-grid { flex: 1; align-items: center; min-height: 0; }
+  .full-modal-foto { width: 46vw; height: 46vw; max-width: 250px; max-height: 250px; }
+  .full-modal-datos h2 { font-size: 1.02rem; -webkit-line-clamp: 3; }
   .full-modal-sku strong { font-size: 0.95rem; }
-  .full-modal-ubic strong { font-size: 1.8rem; }
-  .full-modal-empaque { font-size: 0.92rem; padding: 0.6rem 0.5rem; }
-  .full-chip { min-width: 0; font-size: 1rem; padding: 0.55rem 0.2rem; }
+  .full-modal-ubic strong { font-size: 2.1rem; }
+  .full-modal-empaque { font-size: 0.95rem; padding: 0.7rem 0.5rem; }
+  .full-chip { min-width: 0; font-size: 1.05rem; padding: 0.65rem 0.2rem; }
+  .full-modal-box.err { justify-content: center; }
 }
 
 /* Cantidades típicas de envío a Full */
