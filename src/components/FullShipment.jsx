@@ -22,10 +22,11 @@ const COLS_QTY = ['cantidad', 'unidades', 'stock', 'cantidad a enviar', 'unidade
   'stock a enviar', 'cantidad enviada', 'total']
 const COLS_NAME = ['titulo', 'nombre', 'producto', 'descripcion', 'titulo de la publicacion']
 
-// Las cantidades con las que realmente se manda a Full: de a 1, 3, 6, 10 y de
-// ahí en múltiplos de 10. Tocar una la FIJA (no suma), que es como se piensa
-// al armar: "de este van 30".
-const CANTIDADES = [1, 3, 6, 10, 20, 30, 40, 50, 100]
+// Las cantidades con las que realmente se manda a Full. Tocar una la FIJA (no
+// suma), que es como se piensa al armar: "de este van 10". Cualquier otro
+// número sale con el − / + de abajo; son pocas para que todo entre en la
+// pantalla del celular sin tener que scrollear.
+const CANTIDADES = [1, 3, 6, 10, 50]
 
 const hoyAR = () => new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10)
 const fmtFecha = (t) => {
