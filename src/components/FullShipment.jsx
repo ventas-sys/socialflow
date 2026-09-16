@@ -14,7 +14,16 @@ import './FullShipment.css'
 const normalize = (s) =>
   String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim()
 
-// Encabezados posibles del Excel que baja ML del envío a Full
+// El listado que da ML (el PDF de "instrucciones de preparación", pasado a
+// Excel) mete los tres códigos en UNA sola celda, con el título abajo:
+//   "Código ML: RKAP87989 Código universal: N/A SKU: MLA812887061
+//    100 Regaton De Goma 22 Mm. Negro"
+// El que se escanea en el depósito es el Código ML (4 letras + 5 números).
+// OJO: un mismo SKU de ML puede aparecer con varios Códigos ML (las variantes
+// de color/medida), así que el renglón se identifica por el Código ML.
+const RX_ML = /c[oó]digo\s*ml:\s*([A-Z0-9]+)[\s\S]*?c[oó]digo\s*universal:\s*(\S+)[\s\S]*?sku:\s*(\S+)/i
+
+// Encabezados posibles de un Excel armado a mano (formato libre)
 const COLS_REF = ['sku', 'codigo', 'codigo universal', 'codigo de barras', 'publicacion', 'nro de publicacion',
   'n de publicacion', 'numero de publicacion', 'codigo de publicacion', 'mla', 'sku del producto',
   'codigo sku', 'identificador']
@@ -96,12 +105,18 @@ export default function FullShipment({
   // ---- Cuadro de avance: lo pedido por ML contra lo escaneado ----
   const avance = useMemo(() => {
     const porRef = new Map()
-    const clave = (ref) => {
-      const m = buscar(ref)
-      return m ? `${m.type}:${m.type === 'product' ? m.p.id : m.c.id}` : 'x:' + normalize(ref)
+    // Un renglón del pedido trae hasta tres códigos (ML, universal y SKU): se
+    // prueban todos, porque en la app el producto puede estar cargado con
+    // cualquiera de ellos
+    const clave = (refs) => {
+      for (const r of [].concat(refs).filter(Boolean)) {
+        const m = buscar(r)
+        if (m) return `${m.type}:${m.type === 'product' ? m.p.id : m.c.id}`
+      }
+      return 'x:' + normalize([].concat(refs)[0] || '')
     }
     pedido.forEach(l => {
-      const k = clave(l.ref)
+      const k = clave(l.refs?.length ? l.refs : l.ref)
       const x = porRef.get(k) || { k, ref: l.ref, nombre: l.nombre || '', pedido: 0, escaneado: 0, enSistema: !k.startsWith('x:') }
       x.pedido += Number(l.cantidad) || 0
       if (!x.nombre && l.nombre) x.nombre = l.nombre
@@ -233,26 +248,55 @@ export default function FullShipment({
     try {
       const wb = XLSX.read(await file.arrayBuffer())
       let filas = []
+
+      // 1) Formato de ML: los tres códigos en una celda. Se recorre fila por
+      //    fila, salteando los encabezados que el PDF repite en cada página.
       for (const nombre of wb.SheetNames) {
-        const raw = XLSX.utils.sheet_to_json(wb.Sheets[nombre], { defval: '' })
-        if (!raw.length) continue
-        const cols = {}
-        Object.keys(raw[0]).forEach(k => {
-          const n = normalize(k)
-          if (!cols.ref && COLS_REF.includes(n)) cols.ref = k
-          if (!cols.qty && COLS_QTY.includes(n)) cols.qty = k
-          if (!cols.name && COLS_NAME.includes(n)) cols.name = k
-        })
-        if (!cols.ref) continue
-        filas = raw.map(r => ({
-          ref: String(r[cols.ref] ?? '').trim(),
-          cantidad: Math.max(0, Math.round(Number(String(r[cols.qty] ?? 1).replace(',', '.')) || 0)),
-          nombre: cols.name ? String(r[cols.name] ?? '').trim() : '',
-        })).filter(r => r.ref)
-        if (filas.length) break
+        const aoa = XLSX.utils.sheet_to_json(wb.Sheets[nombre], { header: 1, defval: '' })
+        const encontradas = []
+        for (const fila of aoa) {
+          const texto = fila.map(c => String(c ?? '')).join(' \n ')
+          const m = RX_ML.exec(texto)
+          if (!m) continue
+          const [, codigoML, universal, sku] = m
+          // La cantidad es el primer número suelto de la fila (columna UNIDADES)
+          let cant = 0
+          for (let i = 1; i < fila.length; i++) {
+            const n = Number(String(fila[i] ?? '').replace(/\./g, '').replace(',', '.'))
+            if (n > 0) { cant = Math.round(n); break }
+          }
+          // El título del producto viene después del salto de línea
+          const titulo = String(fila[0] ?? '').split('\n').slice(1).join(' ').trim()
+          const refs = [codigoML, /^n\/?a$/i.test(universal) ? '' : universal, sku].filter(Boolean)
+          encontradas.push({ ref: codigoML, refs, sku, cantidad: cant, nombre: titulo })
+        }
+        if (encontradas.length) { filas = encontradas; break }
       }
-      if (!filas.length) throw new Error('No encontré las columnas. El Excel tiene que tener una con el SKU / código de publicación y otra con la cantidad.')
-      const sinSistema = filas.filter(r => !buscar(r.ref)).length
+
+      // 2) Si no es el listado de ML, se acepta un Excel común con encabezados
+      if (!filas.length) {
+        for (const nombre of wb.SheetNames) {
+          const raw = XLSX.utils.sheet_to_json(wb.Sheets[nombre], { defval: '' })
+          if (!raw.length) continue
+          const cols = {}
+          Object.keys(raw[0]).forEach(k => {
+            const n = normalize(k)
+            if (!cols.ref && COLS_REF.includes(n)) cols.ref = k
+            if (!cols.qty && COLS_QTY.includes(n)) cols.qty = k
+            if (!cols.name && COLS_NAME.includes(n)) cols.name = k
+          })
+          if (!cols.ref) continue
+          filas = raw.map(r => ({
+            ref: String(r[cols.ref] ?? '').trim(),
+            refs: [String(r[cols.ref] ?? '').trim()],
+            cantidad: Math.max(0, Math.round(Number(String(r[cols.qty] ?? 1).replace(',', '.')) || 0)),
+            nombre: cols.name ? String(r[cols.name] ?? '').trim() : '',
+          })).filter(r => r.ref)
+          if (filas.length) break
+        }
+      }
+      if (!filas.length) throw new Error('No reconocí el archivo. Tiene que ser el listado de preparación de ML (el PDF pasado a Excel) o un Excel con una columna de código y otra de cantidad.')
+      const sinSistema = filas.filter(r => !(r.refs || [r.ref]).some(x => buscar(x))).length
       await onUpdate(envio.id, { pedido: filas })
       setMsg(`✅ Pedido de ML cargado: ${filas.length} renglones, ${filas.reduce((s, r) => s + r.cantidad, 0)} unidades.`
         + (sinSistema ? ` ⚠️ ${sinSistema} no están cargados en la app.` : ''))
