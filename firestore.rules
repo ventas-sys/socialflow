@@ -45,6 +45,10 @@ service cloud.firestore {
     // El mapa del depósito lo ve todo el equipo pero solo lo modifica el admin
     match /settings/{id}  { allow read: if isMember(); allow write: if isAdmin(); }
 
+    // Envíos a bodega Full: los arma el depósito, así que los ve todo el equipo
+    // y los escribe quien pueda modificar stock (mismo criterio que Inventario)
+    match /full_envios/{id} { allow read: if isMember(); allow write: if canEdit(); }
+
     // Panel financiero (💰 Finanzas): compras, pagos, gastos y cuenta corriente
     // de proveedores. Es información sensible: la lee y escribe SOLO el master.
     match /finanzas/{id} { allow read, write: if isAdmin(); }

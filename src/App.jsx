@@ -34,6 +34,7 @@ import Packing from './components/Packing'
 import MercadoLibre from './components/MercadoLibre'
 import Metrics from './components/Metrics'
 import Finance from './components/Finance'
+import FullShipment from './components/FullShipment'
 import Users, { PERM_TABS } from './components/Users'
 import Auth from './components/Auth'
 import './App.css'
@@ -67,6 +68,8 @@ export default function App() {
   const [myPerms, setMyPerms] = useState(null)
   // Panel financiero (solo el master): registros y cotización del dólar
   const [finanzas, setFinanzas] = useState([])
+  // Envíos a bodega Full (armado + descuento de stock)
+  const [fullEnvios, setFullEnvios] = useState([])
   // Al abrir solo se traen los movimientos de los últimos 60 días (son miles).
   // El historial completo se pide a mano desde la solapa Movimientos.
   const [movsCompletos, setMovsCompletos] = useState(false)
@@ -360,6 +363,19 @@ export default function App() {
           console.warn('Finanzas no disponibles (¿faltan reglas?):', err?.code)
           setFinanzas([])
         }
+      }
+
+      // Envíos a bodega Full (colección opcional: si sus reglas todavía no están
+      // publicadas se ignora y el resto de la app sigue funcionando)
+      try {
+        const fSnap = await getDocs(query(collection(db, 'full_envios'), where('userId', '==', ORG_ID)))
+        setFullEnvios(
+          fSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
+        )
+      } catch (err) {
+        console.warn('Envíos a Full no disponibles (¿faltan reglas?):', err?.code)
+        setFullEnvios([])
       }
 
       // Cuentas de MercadoLibre (colección opcional; solo admin escribe)
@@ -898,6 +914,24 @@ export default function App() {
     setFinanzas(prev => [...creados, ...prev])
   }
 
+  // ---- Envíos a bodega Full ----
+  const createFullEnvio = async (data) => {
+    const ref = await addDoc(collection(db, 'full_envios'), {
+      ...data, userId: ORG_ID, createdAt: Timestamp.now(),
+      creadoPor: user?.displayName || user?.email || '',
+    })
+    setFullEnvios(prev => [{ id: ref.id, ...data, userId: ORG_ID, createdAt: new Date() }, ...prev])
+    return ref.id
+  }
+  const updateFullEnvio = async (id, patch) => {
+    await updateDoc(doc(db, 'full_envios', id), { ...patch, updatedAt: Timestamp.now() })
+    setFullEnvios(prev => prev.map(e => (e.id === id ? { ...e, ...patch } : e)))
+  }
+  const deleteFullEnvio = async (id) => {
+    await deleteDoc(doc(db, 'full_envios', id))
+    setFullEnvios(prev => prev.filter(e => e.id !== id))
+  }
+
   // Tarifas de reparto por zona: se guardan como lista de vigencias para que el
   // reporte de un mes viejo siga mostrando lo que se pagaba ese mes.
   const saveTarifas = async (lista) => {
@@ -1142,6 +1176,19 @@ export default function App() {
                 onRemoveCourier={removeCourier}
                 tarifas={tarifas}
                 onSaveTarifas={saveTarifas}
+              />
+            )}
+            {currentTab === 'full' && canSee('full') && (
+              <FullShipment
+                products={products}
+                combos={combos}
+                envios={fullEnvios}
+                loadPhotos={loadPhotos}
+                onCreate={createFullEnvio}
+                onUpdate={updateFullEnvio}
+                onDelete={deleteFullEnvio}
+                onDescontar={registerPurchase}
+                canEdit={canEdit}
               />
             )}
             {currentTab === 'packing' && canSee('packing') && (

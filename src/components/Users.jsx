@@ -11,6 +11,7 @@ export const PERM_TABS = [
   { key: 'movements', label: '🔄 Movimientos' },
   { key: 'shipments', label: '🚚 Envíos' },
   { key: 'packing', label: '🗳️ Empaque' },
+  { key: 'full', label: '🏬 Envío Full' },
   { key: 'mercadolibre', label: '🛒 ML' }, // solo la ve el master — no se asigna a ayudantes
   { key: 'reports', label: '📈 Reportes' },
   { key: 'metrics', label: '📊 Métricas' },
