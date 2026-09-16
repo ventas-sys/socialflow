@@ -22,6 +22,11 @@ const COLS_QTY = ['cantidad', 'unidades', 'stock', 'cantidad a enviar', 'unidade
   'stock a enviar', 'cantidad enviada', 'total']
 const COLS_NAME = ['titulo', 'nombre', 'producto', 'descripcion', 'titulo de la publicacion']
 
+// Las cantidades con las que realmente se manda a Full: de a 1, 3, 6, 10 y de
+// ahí en múltiplos de 10. Tocar una la FIJA (no suma), que es como se piensa
+// al armar: "de este van 30".
+const CANTIDADES = [1, 3, 6, 10, 20, 30, 40, 50, 100]
+
 const hoyAR = () => new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10)
 const fmtFecha = (t) => {
   const ms = t?.toMillis ? t.toMillis() : (t ? new Date(t).getTime() : 0)
@@ -427,7 +432,7 @@ export default function FullShipment({
                 onChange={e => setManual(e.target.value)}
                 placeholder="Código del combo o código de barras (o disparale con la pistola)"
               />
-              <button className="full-btn" type="submit">+ Sumar 1</button>
+              <button className="full-btn" type="submit">🔍 Buscar</button>
             </form>
           )}
 
@@ -478,6 +483,19 @@ export default function FullShipment({
                   </div>
                   {pendiente.fragile && <div className="full-modal-fragil">⚠️ FRÁGIL</div>}
 
+                  <div className="full-modal-cant-titulo">¿Cuántas van?</div>
+                  <div className="full-modal-chips">
+                    {CANTIDADES.map(n => (
+                      <button
+                        key={n}
+                        className={`full-chip ${cantidad === n ? 'active' : ''}`}
+                        onClick={() => setCantidad(n)}
+                        disabled={busy}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
                   <div className="full-modal-cant">
                     <button onClick={() => setCantidad(c => Math.max(1, c - 1))} disabled={busy}>−</button>
                     <input
@@ -489,7 +507,9 @@ export default function FullShipment({
                   </div>
 
                   <button className="full-modal-btn" onClick={confirmar} disabled={busy}>
-                    {busy ? '⏳ Descontando...' : `✅ Descontar stock y anotar en envío N° ${envio.numero}`}
+                    {busy
+                      ? '⏳ Descontando...'
+                      : `✅ Descontar ${cantidad} ${cantidad === 1 ? 'unidad' : 'unidades'} y anotar en envío N° ${envio.numero}`}
                   </button>
                   <button className="full-modal-btn sec" onClick={cancelarPendiente} disabled={busy}>
                     ✕ Cancelar

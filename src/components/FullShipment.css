@@ -185,3 +185,20 @@
   .full-modal-foto { width: 100%; height: 210px; }
   .full-modal-ubic strong { font-size: 2rem; }
 }
+
+/* Cantidades típicas de envío a Full */
+.full-modal-cant-titulo {
+  margin-top: 1rem; text-align: center; font-size: 0.75rem;
+  text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; font-weight: 800;
+}
+.full-modal-chips {
+  display: flex; flex-wrap: wrap; gap: 0.45rem; justify-content: center; margin-top: 0.5rem;
+}
+.full-chip {
+  min-width: 58px; padding: 0.7rem 0.5rem; border-radius: 0.6rem;
+  border: 2px solid #cbd5e1; background: #fff; color: #334155;
+  font-size: 1.15rem; font-weight: 800; cursor: pointer;
+}
+.full-chip:hover { border-color: #94a3b8; }
+.full-chip.active { background: #16a34a; border-color: #16a34a; color: #fff; }
+.full-modal-cant { margin-top: 0.6rem; }
