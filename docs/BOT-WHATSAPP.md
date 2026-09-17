@@ -127,6 +127,11 @@ contestador de la compañía, configurado desde el teléfono.
 - Llamadas de grupo y llamadas salientes se ignoran.
 - El registro de avisos se limpia solo a los 30 días.
 
+**⚠️ El evento se llama `'call'`, no `'incoming_call'`.** La documentación de
+whatsapp-web.js dice `@event Client#incoming_call`, pero `Constants.js` tiene
+`INCOMING_CALL: 'call'`. Registrado como `incoming_call` no pasa nada y las
+llamadas siguen sonando (pasó el 17-sep-2026).
+
 **Variables:**
 
 | Variable | Default | Para qué |

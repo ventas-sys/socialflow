@@ -1412,7 +1412,11 @@ client.on('disconnected', reason => {
 });
 
 client.on('message', msg => handleIncoming(client, msg));
-client.on('incoming_call', call => atenderLlamada(client, call));
+// ⚠️ El evento se llama 'call', NO 'incoming_call': la documentación de
+// whatsapp-web.js dice `@event Client#incoming_call` pero Constants.js tiene
+// `INCOMING_CALL: 'call'`. Escuchando 'incoming_call' no pasa absolutamente
+// nada (17-sep-2026: las llamadas no se cortaban por esto).
+client.on('call', call => atenderLlamada(client, call));
 client.on('message_create', msg => handleOutgoing(client, msg));
 
 client.initialize();
