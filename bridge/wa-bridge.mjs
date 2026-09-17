@@ -145,6 +145,7 @@ const reminderSent = new Set();      // chatId que ya recibieron el recordatorio
 const productFollowup = new Map();   // chatId -> ts del link de producto (para "¿pudiste comprarlo?")
 const agendadosGoogle = new Set();   // chatId ya agendados en Google Contactos (evita duplicados tipo "Cliente 28..32")
 const avisosPendientes = [];         // casos que entraron con el local cerrado (salen en un resumen al abrir)
+const avisoLlamada = new Map();      // chatId -> ts del ultimo aviso de "no atendemos llamadas"
 let humanLabelId = null;
 
 try {
@@ -161,6 +162,7 @@ try {
     for (const [k, v] of Object.entries(raw.followupSent || {})) followupSent.set(k, v);
     for (const k of (raw.agendadosGoogle || [])) agendadosGoogle.add(k);
     for (const a of (raw.avisosPendientes || [])) avisosPendientes.push(a);
+    for (const [k, v] of Object.entries(raw.avisoLlamada || {})) avisoLlamada.set(k, v);
     console.log(`Estado cargado: ${states.size} contactos · ${humanHandled.size} con asesor activo · ${knownContacts.size} ya conocidos · ${reminderSent.size} con recordatorio enviado`);
   }
 } catch (e) { console.error('No se pudo cargar estado previo:', e.message); }
@@ -170,6 +172,11 @@ setInterval(() => {
     const now = Date.now();
     for (const [k, v] of humanHandled.entries()) {
       if (!v?.until || v.until < now) humanHandled.delete(k);
+    }
+    // El aviso de llamada solo sirve para no repetirle el mensaje al mismo
+    // contacto en pocas horas: pasado un mes no aporta y engordaría el archivo.
+    for (const [k, v] of avisoLlamada.entries()) {
+      if (!v || now - v > 30 * 86_400_000) avisoLlamada.delete(k);
     }
     const out = {
       states: Object.fromEntries(states),
@@ -183,6 +190,7 @@ setInterval(() => {
       followupSent: Object.fromEntries(followupSent),
       agendadosGoogle: Array.from(agendadosGoogle),
       avisosPendientes,
+      avisoLlamada: Object.fromEntries(avisoLlamada),
     };
     fs.writeFileSync(STATE_FILE, JSON.stringify(out));
   } catch (e) { console.error('persist fail:', e.message); }
@@ -827,6 +835,72 @@ async function avisarClienteFueraDeHorario(client, chatId) {
   }
 }
 
+// ─── Llamadas de WhatsApp ────────────────────────────────────────────────────
+// Este número es de WhatsApp ESCRITO: nadie atiende llamadas. Antes sonaba en
+// el aire y el que llamaba se quedaba sin respuesta, pensando que no existimos.
+// Ahora la llamada se corta al toque y le sale un mensaje explicando por dónde
+// escribir. Ojo: acá SOLO entran las llamadas hechas desde WhatsApp. Si alguien
+// marca el 011-3551-0715 desde un teléfono común, eso es el chip sonando y el
+// bot no se entera: eso se resuelve con el contestador de la compañía.
+//
+// WA_LLAMADAS: cortar (default) | avisar (no corta, solo escribe) | off
+const LLAMADAS_MODOS = ['cortar', 'avisar', 'off'];
+const LLAMADAS_MODO_PEDIDO = (process.env.WA_LLAMADAS || 'cortar').trim().toLowerCase();
+// Un valor mal escrito cae en "cortar": es el comportamiento que queremos por
+// defecto y así el log de arranque no promete una cosa y el bot hace otra.
+const LLAMADAS_MODO = LLAMADAS_MODOS.includes(LLAMADAS_MODO_PEDIDO) ? LLAMADAS_MODO_PEDIDO : 'cortar';
+const AVISO_LLAMADA_HORAS = Number(process.env.WA_AVISO_LLAMADA_HORAS || 6);
+
+const FRASES_LLAMADA = [
+  '¡Hola! 👋 Te cuento: este número es solo de WhatsApp *escrito*, no atendemos llamadas. Agendanos y escribinos por acá que te respondemos al toque 💬',
+  '¡Hola! 👋 Acá no podemos atender llamadas, este número es solo para WhatsApp *escrito*. Guardanos en la agenda y mandanos tu consulta por mensaje: te contestamos enseguida 💬',
+];
+
+function fraseLlamada() {
+  const base = FRASES_LLAMADA[Math.floor(Math.random() * FRASES_LLAMADA.length)];
+  if (!fueraDeHorario()) return base;
+  // Si llama con el local cerrado, que sepa cuándo le vamos a contestar en vez
+  // de quedarse esperando una respuesta que no va a llegar hasta mañana.
+  return base + `\n\nAhora estamos cerrados: atendemos de ${HORARIO_DESDE} a ${HORARIO_HASTA}. Dejá tu consulta igual, que la vemos apenas abrimos ⏰`;
+}
+
+async function atenderLlamada(client, call) {
+  if (LLAMADAS_MODO === 'off') return;
+  if (call?.fromMe) return;                       // llamada que salió de acá
+  if (call?.isGroup) return;                      // llamada de grupo: no es un cliente consultando
+  const chatId = call?.from;
+  if (!chatId) return;
+
+  if (LLAMADAS_MODO === 'cortar') {
+    try {
+      await call.reject();
+      console.log(`[${chatId}] 📵 llamada de WhatsApp cortada`);
+    } catch (e) {
+      console.error(`[${chatId}] no se pudo cortar la llamada:`, e.message);
+    }
+  }
+
+  // Un aviso por contacto cada AVISO_LLAMADA_HORAS: si insiste tres veces
+  // seguidas no le repetimos el mismo mensaje tres veces.
+  const ultimo = avisoLlamada.get(chatId) || 0;
+  if (Date.now() - ultimo < AVISO_LLAMADA_HORAS * 3_600_000) {
+    console.log(`[${chatId}] 📵 llamada: aviso omitido (ya se le mandó hace menos de ${AVISO_LLAMADA_HORAS}h)`);
+    return;
+  }
+  // Si hay un asesor atendiendo el chat, el bot no se mete.
+  if (isAsesorActive(chatId)) {
+    console.log(`[${chatId}] 📵 llamada: no se avisa, hay asesor activo`);
+    return;
+  }
+  try {
+    await botSend(client, chatId, fraseLlamada());
+    avisoLlamada.set(chatId, Date.now());
+    console.log(`[${chatId}] 📵 llamada: se le explicó que escriba por acá`);
+  } catch (e) {
+    console.error(`[${chatId}] aviso de llamada fail:`, e.message);
+  }
+}
+
 // Manda el resumen de lo que entró mientras estaba cerrado. Se llama cada
 // pocos minutos: solo hace algo si ya abrió y hay casos esperando.
 async function vaciarAvisosPendientes(client) {
@@ -1325,6 +1399,11 @@ client.on('ready', async () => {
   console.log(AVISOS_FUERA_HORARIO
     ? `🔔 Avisos al supervisor a CUALQUIER hora (WA_AVISOS_FUERA_HORARIO=si)`
     : `🌙 Horario de atención ${HORARIO_DESDE} a ${HORARIO_HASTA} (cerrado: ${DIAS_CERRADOS.join(',') || 'ninguno'}). Fuera de eso el cliente recibe una frase con humor y el aviso al supervisor se encola hasta la apertura${avisosPendientes.length ? ` · ${avisosPendientes.length} esperando` : ''}`);
+  console.log({
+    cortar: `📵 Llamadas de WhatsApp: se cortan y el que llama recibe el mensaje de "escribinos por acá" (1 cada ${AVISO_LLAMADA_HORAS}h por contacto)`,
+    avisar: `📵 Llamadas de WhatsApp: NO se cortan, solo se le escribe (WA_LLAMADAS=avisar)`,
+    off:    '📵 Llamadas de WhatsApp: el bot no las toca (WA_LLAMADAS=off)',
+  }[LLAMADAS_MODO] + (LLAMADAS_MODO_PEDIDO === LLAMADAS_MODO ? '' : ` (WA_LLAMADAS="${LLAMADAS_MODO_PEDIDO}" no se entiende)`));
 });
 
 client.on('disconnected', reason => {
@@ -1333,6 +1412,7 @@ client.on('disconnected', reason => {
 });
 
 client.on('message', msg => handleIncoming(client, msg));
+client.on('incoming_call', call => atenderLlamada(client, call));
 client.on('message_create', msg => handleOutgoing(client, msg));
 
 client.initialize();

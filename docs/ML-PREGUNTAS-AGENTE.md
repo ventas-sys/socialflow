@@ -812,3 +812,91 @@ Un lote que no vuelve no se ignora: se reintenta una vez y, si sigue
 fallando, el reporte corta con error. Perder 20 publicaciones del destino en
 silencio sería peor que no tener reporte — se leerían como "hay que
 publicarlo" cuando ya está publicado.
+
+---
+
+## Comparar catálogos: el intento del 15-sep-2026 NO sirvió
+
+**Estado: descartado. Hay que armarlo de otra forma.** Rodo: *"eso está mal...
+lo vamos a armar de otra forma"*.
+
+### Qué se probó
+
+Dos caminos, los dos con el mismo resultado malo:
+
+1. `?action=faltantes` (PR #145): compara por SKU → título normalizado →
+   Jaccard ≥ 0.7, leyendo los catálogos por API.
+2. Comparación a mano de los dos Excel que Rodo exportó desde ML
+   (*Publicaciones FULL* y *Publicaciones FERRE*), sobre la columna E
+   (Título), con corte en 50% de parecido.
+
+Números del segundo intento: **2.137 publicaciones en FULL, 1.553 en FERRE,
+826 marcadas como faltantes al 50%.**
+
+### Por qué no sirve comparar títulos
+
+El título solo falla en las DOS direcciones, con casos reales:
+
+- **Dice que falta algo que ya está** (45% de parecido, mismo producto):
+  `Soldador Estaño Tipo Lapiz Mango Madera 40w` (FULL) vs
+  `Soldador Lapiz P/ Electronica Estaño M/ Madera 40w` (FERRE).
+- **Dice que ya está algo distinto** (53% de parecido, medidas diferentes):
+  `Cubre Pileta Cobertor Pelopincho Mod 1076 (4,50 X 2,20)` vs
+  `Mod 1055 (3,00 X 2,00)`.
+
+Sensibilidad del corte sobre los mismos datos — no hay un número bueno, solo
+elegís de qué lado equivocarte:
+
+| corte | "faltan" |
+|---|---|
+| 30% | 476 |
+| 40% | 685 |
+| **50%** | **826** |
+| 60% | 965 |
+| 70% | 1.047 |
+| 80% | 1.151 |
+
+**Conclusión: el título no identifica un producto.** Hace falta un dato que sí
+lo identifique (código base / SKU de la contabilidad, EAN, o el cruce contra
+`combos_conta.xlsx`), o una revisión a ojo por familia de producto.
+
+### Formato del Excel que exporta ML (sirve para el próximo intento)
+
+Hoja **`Publicaciones`** (hay una hoja `hidden` con un UUID, ignorar).
+
+- Filas 1 a 6: encabezados (fila 1 = nombres técnicos, fila 3 = nombres en
+  castellano). **Los datos arrancan en la fila 7.**
+- Columnas: A `FAMILY_ID`, B `ITEM_ID` (MLA…), C `PRODUCT_NUMBER`,
+  D `VARIATION_ID`, **E `TITLE`**, F `VARIATIONS`, G `STOCK_FLEX`
+  (en mi depósito), H `STOCK_FULL`, I `PRICE`, J `SALE_PRICE`.
+- ⚠️ **Las filas de variantes (color, talle) repiten la publicación** y traen
+  el título como fórmula `="     "&E7`. Para contar publicaciones hay que
+  saltear toda fila cuyo título empiece con `=`.
+
+---
+
+## Dónde estamos (17-sep-2026)
+
+**Andando y sin tocar:** Tatiana responde preguntas en las 2 cuentas · bot de
+WhatsApp con horario de atención (10:00–17:30, avisos encolados fuera de
+hora) · reportes de registro, conversión y medidas por SKU.
+
+**Regla que sigue vigente:** el flujo de preguntas de ML **no se refactoriza**
+(*"mirá de no tocar las preguntas de ML, porque eso estaba bien"*). Se
+configura y se arregla, no se rediseña.
+
+**Pendiente de decisión de Rodo:**
+- Rearmar de otra forma la comparación de catálogos FULL vs FERRE (ver arriba
+  por qué el título no alcanza).
+
+**Pendiente de trabajo en las publicaciones (salió del reporte de conversión):**
+- Publicar el pack surtido de discos flap.
+- Escribir las compatibilidades de los 3 repuestos.
+- Sumar la marca a las fichas técnicas.
+- Completar los 6 códigos base que quedaron sin medida.
+
+**Agendado:** viernes 9:00 pack del Canal de Difusión · lunes 10:00 ajuste de
+presupuesto de Ads · 15-oct-2026 revisar el cargo de $80 en FERRE.
+
+**Duda abierta:** el *pico* cebador, ¿también es ARBETTER y libre de BPA? Del
+*tapón* ya está confirmado que sí y Tatiana lo tiene cargado; del pico no.
