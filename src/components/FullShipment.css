@@ -235,3 +235,13 @@
   font-size: 1rem; margin-bottom: 0.5rem;
 }
 .full-modal-exceso.suave { background: #fef3c7; color: #92400e; border: 2px solid #fbbf24; }
+
+/* Cuando ML pide la misma publicación en varias variantes */
+.full-modal-variantes {
+  margin-top: 0.4rem; font-size: 0.82rem; color: #7c2d12;
+  background: #fff7ed; border: 1px solid #fed7aa; border-radius: 0.5rem;
+  padding: 0.4rem 0.6rem;
+}
+/* Corrección: sacar unidades del envío y devolverlas al stock */
+.full-modal-btn.devolver { background: #b45309; }
+.full-modal-btn.devolver:hover { background: #92400e; }

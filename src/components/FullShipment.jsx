@@ -117,14 +117,15 @@ export default function FullShipment({
     }
     pedido.forEach(l => {
       const k = clave(l.refs?.length ? l.refs : l.ref)
-      const x = porRef.get(k) || { k, ref: l.ref, nombre: l.nombre || '', pedido: 0, escaneado: 0, enSistema: !k.startsWith('x:') }
+      const x = porRef.get(k) || { k, ref: l.ref, nombre: l.nombre || '', pedido: 0, escaneado: 0, enSistema: !k.startsWith('x:'), variantes: [] }
       x.pedido += Number(l.cantidad) || 0
+      x.variantes.push({ ref: l.ref, nombre: l.nombre || '', cantidad: Number(l.cantidad) || 0 })
       if (!x.nombre && l.nombre) x.nombre = l.nombre
       porRef.set(k, x)
     })
     escaneos.forEach(s => {
       const k = clave(s.ref)
-      const x = porRef.get(k) || { k, ref: s.ref, nombre: s.nombre || '', pedido: 0, escaneado: 0, enSistema: !k.startsWith('x:') }
+      const x = porRef.get(k) || { k, ref: s.ref, nombre: s.nombre || '', pedido: 0, escaneado: 0, enSistema: !k.startsWith('x:'), variantes: [] }
       x.escaneado += Number(s.cantidad) || 0
       if (!x.nombre && s.nombre) x.nombre = s.nombre
       porRef.set(k, x)
@@ -164,6 +165,7 @@ export default function FullShipment({
       ...info,
       yaLleva: fila?.escaneado || 0,
       pedidoML: fila?.pedido || 0,
+      variantes: fila?.variantes || [],
       hayPedido: pedido.length > 0,
     })
   }
@@ -171,7 +173,38 @@ export default function FullShipment({
   // Confirmar: anota en el envío Y descuenta el stock de una vez
   const confirmar = async () => {
     if (!pendiente || pendiente.noEncontrado || !envio) return
-    const n = Math.max(1, Math.round(Number(cantidad) || 1))
+    const n = Math.round(Number(cantidad) || 0)
+    if (!n) return
+    // En negativo es una CORRECCIÓN: saca unidades del envío y las devuelve al
+    // stock, que es lo que hace falta cuando se cargó de más
+    if (n < 0) {
+      const sacar = Math.min(-n, pendiente.yaLleva || 0)
+      if (!sacar) { setMsg('❌ Ese artículo no tiene unidades cargadas en este envío'); return }
+      setBusy(true)
+      try {
+        await onDescontar(
+          pendiente.bases.map(b => ({
+            productId: b.productId, productName: b.productName,
+            quantity: Math.abs(b.quantity * sacar),
+            reason: `Corrección envío a Full N° ${envio.numero}`,
+          })),
+          { reference: `Envío Full N° ${envio.numero}`, reason: `Corrección envío a Full N° ${envio.numero}` }
+        )
+        const queda = (pendiente.yaLleva || 0) - sacar
+        const nuevos = queda > 0
+          ? escaneos.map(s => (normalize(s.ref) === normalize(pendiente.code) ? { ...s, cantidad: queda } : s))
+          : escaneos.filter(s => normalize(s.ref) !== normalize(pendiente.code))
+        await onUpdate(envio.id, { escaneos: nuevos })
+        setMsg(`↩️ ${pendiente.nombre} — se sacaron ${sacar} del envío y volvieron al stock. Quedan ${queda}.`)
+        setPendiente(null)
+        if (volverACamara) setShowScanner(true)
+      } catch (err) {
+        setMsg('❌ No se pudo corregir: ' + err.message)
+      } finally {
+        setBusy(false)
+      }
+      return
+    }
     // Avisar ANTES de descontar si se está pasando de lo que pidió ML
     const total = (pendiente.yaLleva || 0) + n
     if (pendiente.pedidoML > 0 && total > pendiente.pedidoML) {
@@ -287,7 +320,8 @@ export default function FullShipment({
           }
           // El título del producto viene después del salto de línea
           const titulo = String(fila[0] ?? '').split('\n').slice(1).join(' ').trim()
-          const refs = [codigoML, /^n\/?a$/i.test(universal) ? '' : universal, sku].filter(Boolean)
+          const vale = (c) => c && !/^(n\/?a|-+)$/i.test(c)
+          const refs = [codigoML, universal, sku].filter(vale)
           encontradas.push({ ref: codigoML, refs, sku, cantidad: cant, nombre: titulo })
         }
         if (encontradas.length) { filas = encontradas; break }
@@ -541,9 +575,16 @@ export default function FullShipment({
                           <span>Ya van <strong>{pendiente.yaLleva}</strong></span>
                           <span>Faltan <strong>{Math.max(0, pendiente.pedidoML - pendiente.yaLleva)}</strong></span>
                         </div>
-                      ) : pendiente.yaLleva > 0 ? (
-                        <div className="full-modal-ya">Ya van {pendiente.yaLleva} en este envío</div>
                       ) : null}
+                      {pendiente.variantes?.length > 1 && (
+                        <div className="full-modal-variantes">
+                          ML lo pide en {pendiente.variantes.length} variantes:{' '}
+                          {pendiente.variantes.map(v => `${v.nombre || v.ref} (${v.cantidad})`).join(' · ')}
+                        </div>
+                      )}
+                      {!pendiente.pedidoML && pendiente.yaLleva > 0 && (
+                        <div className="full-modal-ya">Ya van {pendiente.yaLleva} en este envío</div>
+                      )}
                     </div>
                   </div>
 
@@ -580,19 +621,28 @@ export default function FullShipment({
                     ))}
                   </div>
                   <div className="full-modal-cant">
-                    <button onClick={() => setCantidad(c => Math.max(1, c - 1))} disabled={busy}>−</button>
+                    <button
+                      onClick={() => setCantidad(c => Math.max(-(pendiente.yaLleva || 0), c - 1))}
+                      disabled={busy}
+                    >−</button>
                     <input
-                      type="number" min="1" value={cantidad}
-                      onChange={e => setCantidad(Math.max(1, Math.round(Number(e.target.value) || 1)))}
+                      type="number" min={-(pendiente.yaLleva || 0)} value={cantidad}
+                      onChange={e => setCantidad(Math.round(Number(e.target.value) || 0))}
                     />
                     <button onClick={() => setCantidad(c => c + 1)} disabled={busy}>+</button>
                     <span>unidades</span>
                   </div>
 
-                  <button className="full-modal-btn" onClick={confirmar} disabled={busy}>
-                    {busy
-                      ? '⏳ Descontando...'
-                      : `✅ Descontar ${cantidad} ${cantidad === 1 ? 'unidad' : 'unidades'} y anotar en envío N° ${envio.numero}`}
+                  <button
+                    className={`full-modal-btn ${cantidad < 0 ? 'devolver' : ''}`}
+                    onClick={confirmar}
+                    disabled={busy || cantidad === 0}
+                  >
+                    {busy ? '⏳ Guardando...'
+                      : cantidad === 0 ? 'Poné una cantidad'
+                      : cantidad < 0
+                        ? `↩️ Sacar ${-cantidad} ${cantidad === -1 ? 'unidad' : 'unidades'} del envío y devolverlas al stock`
+                        : `✅ Descontar ${cantidad} ${cantidad === 1 ? 'unidad' : 'unidades'} y anotar en envío N° ${envio.numero}`}
                   </button>
                   <button className="full-modal-btn sec" onClick={cancelarPendiente} disabled={busy}>
                     ✕ Cancelar
