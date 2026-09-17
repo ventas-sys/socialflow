@@ -935,8 +935,18 @@ async function atenderLlamada(client, call) {
     }
   }
 
+  await avisarPorLlamada(client, chatId);
+}
+
+// Le explica al que llamó que escriba. Lo usan los dos caminos: el evento de
+// llamada en vivo y el aviso de llamada perdida que queda en el chat.
+async function avisarPorLlamada(client, chatId) {
+  if (LLAMADAS_MODO === 'off') return;
+  if (!chatId || chatId.endsWith('@g.us')) return;
+
   // Un aviso por contacto cada AVISO_LLAMADA_HORAS: si insiste tres veces
-  // seguidas no le repetimos el mismo mensaje tres veces.
+  // seguidas no le repetimos el mismo mensaje tres veces. El candado es el
+  // mismo para los dos caminos, así una llamada no genera dos mensajes.
   const ultimo = avisoLlamada.get(chatId) || 0;
   if (Date.now() - ultimo < AVISO_LLAMADA_HORAS * 3_600_000) {
     console.log(`[${chatId}] 📵 llamada: aviso omitido (ya se le mandó hace menos de ${AVISO_LLAMADA_HORAS}h)`);
@@ -1178,6 +1188,18 @@ async function handleIncoming(client, msg) {
   try {
     if (msg.fromMe) return;
     if (msg.from === 'status@broadcast') return;
+
+    // Aviso de llamada perdida. Cuando WhatsApp no le pasa la llamada al
+    // dispositivo vinculado (el navegador del bridge no puede atenderla), el
+    // evento 'call' nunca llega — pero este mensaje SÍ entra en el chat.
+    // Es la segunda oportunidad: no evita que el teléfono suene, pero el que
+    // llamó igual recibe la explicación de que acá se escribe.
+    if (msg.type === 'call_log') {
+      console.log(`[${msg.from}] 📵 quedó registro de llamada perdida`);
+      await avisarPorLlamada(client, msg.from);
+      return;
+    }
+
     const from = msg.from;
     recordarMensajeVisto(msg.id?._serialized);
     const now = Date.now();

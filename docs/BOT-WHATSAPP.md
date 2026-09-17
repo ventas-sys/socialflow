@@ -151,6 +151,20 @@ no, lo engancha por su cuenta. El log de arranque dice cuál de estas pasó:
 Si aparece una de las dos últimas, no hay nada que configurar: hay que
 actualizar `whatsapp-web.js` o rehacer el enganche.
 
+**Segundo camino: la llamada perdida (18-sep-2026).** Con el enganche puesto y
+el evento bien nombrado, las llamadas SEGUÍAN sin cortarse. La causa más
+probable es que WhatsApp no le pasa la llamada a un dispositivo vinculado que
+no puede atenderla — el bridge es un navegador sin pantalla, no puede tomar
+una llamada — así que el evento nunca llega y no hay parche que lo arregle.
+
+Por eso hay un segundo camino que no depende del evento: cuando la llamada
+termina sin atender, WhatsApp deja un **mensaje de tipo `call_log`** en el
+chat. Ese mensaje sí entra por el flujo normal, y ahí se manda el aviso.
+
+No evita que el teléfono suene, pero **el que llamó igual recibe la
+explicación**, que es lo que importa. Los dos caminos comparten el mismo
+candado de horas, así que una llamada nunca genera dos mensajes.
+
 **Variables:**
 
 | Variable | Default | Para qué |
