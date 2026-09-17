@@ -100,3 +100,39 @@ Probado OK: saludos, productos con link filtrado, mayorista + seguimiento, recla
 - [ ] Colores de marca en el panel (quedó el naranja por defecto)
 - [ ] Hosting público de imágenes IA (para publicar fotos en IG vía API)
 - [ ] YouTube Data API + MCP (guía en `docs/SETUP-YOUTUBE-MCP.md`)
+
+---
+
+## Llamadas de WhatsApp (17-sep-2026)
+
+Pedido de Rodo: *"una respuesta automática para el que llama por teléfono al
+mismo número de WhatsApp… que le diga que este número es para WhatsApp
+escrito, que nos agende y nos escriba así le respondemos al toque"*.
+
+Cuando entra una llamada **de WhatsApp**, el bot la corta y le manda al que
+llamó un mensaje explicando que escriba por acá. Si está fuera del horario de
+atención, el mensaje además le dice a qué hora abrimos.
+
+**⚠️ Alcance: solo llamadas hechas DESDE WhatsApp.** Si alguien marca el
+011-3551-0715 desde un teléfono común, eso es el chip sonando: el bot no se
+entera y no hay nada que el código pueda hacer. Eso se resuelve con el
+contestador de la compañía, configurado desde el teléfono.
+
+**Cómo funciona** (`atenderLlamada` en `bridge/wa-bridge.mjs`):
+- Un solo aviso por contacto cada `WA_AVISO_LLAMADA_HORAS` (6 por defecto): si
+  insiste tres veces seguidas, la llamada se corta las tres pero el mensaje
+  sale una sola vez.
+- Si hay un asesor atendiendo ese chat, el bot corta pero **no escribe**: no
+  se mete en una conversación que ya está tomando una persona.
+- Llamadas de grupo y llamadas salientes se ignoran.
+- El registro de avisos se limpia solo a los 30 días.
+
+**Variables:**
+
+| Variable | Default | Para qué |
+|---|---|---|
+| `WA_LLAMADAS` | `cortar` | `cortar` corta y escribe · `avisar` no corta, solo escribe · `off` el bot no toca las llamadas |
+| `WA_AVISO_LLAMADA_HORAS` | `6` | Cada cuánto se le puede repetir el mensaje al mismo contacto |
+
+Un valor mal escrito en `WA_LLAMADAS` cae en `cortar` y el log de arranque lo
+avisa, para que no prometa una cosa y haga otra.
