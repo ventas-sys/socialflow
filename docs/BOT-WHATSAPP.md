@@ -160,3 +160,58 @@ actualizar `whatsapp-web.js` o rehacer el enganche.
 
 Un valor mal escrito en `WA_LLAMADAS` cae en `cortar` y el log de arranque lo
 avisa, para que no prometa una cosa y haga otra.
+
+---
+
+## Llamadas: hasta dónde se llegó y por qué se paró (17-sep-2026)
+
+**Estado: cerrado sin resolver. Rodo lo dio de baja** (*"no, así no me sirve,
+dejá"*). Lo que sigue queda para que nadie vuelva a empezar de cero.
+
+### Lo que SÍ quedó andando (mergeado, en producción)
+
+`atenderLlamada()` corta la llamada de WhatsApp y le escribe al que llamó, con
+candado de 6 h por contacto y sin meterse si hay un asesor atendiendo. El
+enganche al `Map` de WhatsApp Web está puesto y verificado, y el log de
+arranque lo confirma:
+
+```
+📵 Llamadas de WhatsApp: se cortan y el que llama recibe el mensaje...
+📵 Llamadas: enganchadas por la librería ✅
+```
+
+No molesta a nadie: si algún día el evento llega, funciona.
+
+### Por qué NO funciona igual
+
+**El evento `call` nunca llega.** Se descartaron dos causas antes de dar con
+la de fondo:
+
+1. El evento se llamaba mal (`incoming_call` en vez de `call`) — arreglado en
+   el PR #148. No alcanzó.
+2. El enganche podía no instalarse — se agregó una red de contención en el
+   PR #149. El log confirmó que el enganche YA estaba puesto por la librería.
+   Tampoco alcanzó.
+
+**Causa más probable:** WhatsApp no le ofrece la llamada a un dispositivo
+vinculado que no puede atenderla. El bridge es Chromium sin pantalla en el
+VPS: no tiene con qué tomar una llamada, así que WhatsApp ni le avisa. Si es
+eso, **no hay parche del lado nuestro que lo arregle**.
+
+### Lo que se probó y se descartó
+
+- **Avisar por el registro de llamada perdida** (`call_log`): funcionaba, pero
+  el mensaje sale DESPUÉS de que el teléfono sonó y se cortó. A Rodo no le
+  servía. Quedó en el **PR #150, cerrado sin mergear** — si algún día se
+  retoma, el código está ahí.
+- **Llamadas comunes (Claro):** el buzón quedó grabado con el mensaje de "este
+  número es solo de WhatsApp escrito" (se entra marcando **\*2747**, NO \*555
+  que es el saldo). Lo que no se consiguió es que **salte al toque** en vez de
+  sonar 15-20 s: haría falta desvío incondicional a la casilla, y no hubo
+  opción para activarlo.
+
+### Si se retoma
+
+El camino que queda sin explorar es un **número VoIP programable** aparte
+(Twilio o similar) con un IVR propio. Es otro proyecto: trámite regulatorio
+para un número argentino, costo por minuto, e infraestructura nueva en el VPS.
