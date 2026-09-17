@@ -132,6 +132,25 @@ whatsapp-web.js dice `@event Client#incoming_call`, pero `Constants.js` tiene
 `INCOMING_CALL: 'call'`. Registrado como `incoming_call` no pasa nada y las
 llamadas siguen sonando (pasó el 17-sep-2026).
 
+**Red de contención (18-sep-2026).** Cambiar el nombre del evento no alcanzó:
+las llamadas seguían sin cortarse. La librería engancha las llamadas
+**parcheando un `Map` interno de WhatsApp Web** (`WAWebCallCollection`), y si
+WhatsApp le cambia la forma a ese módulo el parche no se instala **sin tirar
+ningún error**.
+
+Por eso al arrancar `asegurarHookLlamadas()` revisa si quedó enganchado y, si
+no, lo engancha por su cuenta. El log de arranque dice cuál de estas pasó:
+
+| Línea en el log | Qué significa |
+|---|---|
+| `enganchadas por la librería ✅` | Todo normal |
+| `la librería NO las enganchó, lo hicimos nosotros ✅` | La librería falló, la red de contención funcionó |
+| `no existe WAWebCallCollection…` | WhatsApp Web cambió: **el bot no va a ver las llamadas** |
+| `WAWebCallCollection cambió de forma…` | Ídem |
+
+Si aparece una de las dos últimas, no hay nada que configurar: hay que
+actualizar `whatsapp-web.js` o rehacer el enganche.
+
 **Variables:**
 
 | Variable | Default | Para qué |

@@ -864,6 +864,61 @@ function fraseLlamada() {
   return base + `\n\nAhora estamos cerrados: atendemos de ${HORARIO_DESDE} a ${HORARIO_HASTA}. Dejá tu consulta igual, que la vemos apenas abrimos ⏰`;
 }
 
+// La librería engancha las llamadas parcheando un Map interno de WhatsApp Web
+// (WAWebCallCollection). Si WhatsApp renombra o reordena eso, el parche NO se
+// instala y no salta ningún error: las llamadas entran y el bot no se entera.
+// Por eso al arrancar revisamos si quedó enganchado y, si no, lo enganchamos
+// nosotros. También deja escrito en el log qué pasó, para no volver a adivinar.
+async function asegurarHookLlamadas(client) {
+  if (LLAMADAS_MODO === 'off') return;
+  try {
+    await client.pupPage.exposeFunction('onLlamadaUniproveedores', (datos) => {
+      atenderLlamada(client, {
+        id: datos?.id,
+        from: datos?.peerJid,
+        isGroup: !!datos?.isGroup,
+        fromMe: !!datos?.outgoing,
+        reject: () => client.pupPage.evaluate(
+          (jid, id) => window.WWebJS.rejectCall(jid, id), datos?.peerJid, datos?.id),
+      });
+    });
+  } catch { /* ya estaba expuesta (reconexión): seguimos */ }
+
+  const estado = await client.pupPage.evaluate(() => {
+    try {
+      const col = window.require('WAWebCallCollection');
+      if (!col) return { paso: 'sin-modulo' };
+      const clave = Object.keys(col).find(k => col[k] instanceof Map);
+      if (!clave) return { paso: 'sin-mapa' };
+      const mapa = col[clave];
+      const fuente = String(mapa.set);
+      if (fuente.includes('onIncomingCall')) return { paso: 'ya-enganchado' };
+      if (fuente.includes('onLlamadaUniproveedores')) return { paso: 'ya-enganchado-propio' };
+      const original = mapa.set.bind(mapa);
+      mapa.set = function (clave2, valor) {
+        try {
+          window.onLlamadaUniproveedores({
+            id: valor?.id, peerJid: valor?.peerJid,
+            isGroup: valor?.isGroup, outgoing: valor?.outgoing,
+          });
+        } catch { /* que un fallo del aviso no rompa la llamada */ }
+        return original(clave2, valor);
+      };
+      return { paso: 'enganchado-propio' };
+    } catch (e) {
+      return { paso: 'error', error: String(e?.message || e) };
+    }
+  });
+
+  console.log({
+    'ya-enganchado':        '📵 Llamadas: enganchadas por la librería ✅',
+    'ya-enganchado-propio': '📵 Llamadas: ya estaban enganchadas por nosotros ✅',
+    'enganchado-propio':    '📵 Llamadas: la librería NO las enganchó, lo hicimos nosotros ✅',
+    'sin-modulo':           '⚠️ Llamadas: no existe WAWebCallCollection en esta versión de WhatsApp Web. El bot NO va a ver las llamadas.',
+    'sin-mapa':             '⚠️ Llamadas: WAWebCallCollection cambió de forma (no hay Map adentro). El bot NO va a ver las llamadas.',
+  }[estado?.paso] || `⚠️ Llamadas: no se pudo revisar el enganche (${estado?.error || estado?.paso})`);
+}
+
 async function atenderLlamada(client, call) {
   if (LLAMADAS_MODO === 'off') return;
   if (call?.fromMe) return;                       // llamada que salió de acá
@@ -1404,6 +1459,7 @@ client.on('ready', async () => {
     avisar: `📵 Llamadas de WhatsApp: NO se cortan, solo se le escribe (WA_LLAMADAS=avisar)`,
     off:    '📵 Llamadas de WhatsApp: el bot no las toca (WA_LLAMADAS=off)',
   }[LLAMADAS_MODO] + (LLAMADAS_MODO_PEDIDO === LLAMADAS_MODO ? '' : ` (WA_LLAMADAS="${LLAMADAS_MODO_PEDIDO}" no se entiende)`));
+  await asegurarHookLlamadas(client);
 });
 
 client.on('disconnected', reason => {
