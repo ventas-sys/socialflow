@@ -222,3 +222,16 @@
 .full-chip:hover { border-color: #94a3b8; }
 .full-chip.active { background: #16a34a; border-color: #16a34a; color: #fff; }
 .full-modal-cant { margin-top: 0.45rem; }
+
+/* Cuánto pidió ML de este artículo, y el aviso si nos pasamos */
+.full-modal-pedido {
+  display: flex; flex-wrap: wrap; gap: 0.6rem 1rem;
+  font-size: 0.85rem; color: #475569;
+}
+.full-modal-pedido strong { font-size: 1.25rem; color: #1f2937; }
+.full-modal-exceso {
+  background: #dc2626; color: #fff; border-radius: 0.7rem;
+  padding: 0.8rem 0.9rem; text-align: center; font-weight: 900;
+  font-size: 1rem; margin-bottom: 0.5rem;
+}
+.full-modal-exceso.suave { background: #fef3c7; color: #92400e; border: 2px solid #fbbf24; }

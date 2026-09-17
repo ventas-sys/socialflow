@@ -157,14 +157,34 @@ export default function FullShipment({
     setCantidad(1)
     setMsg('')
     if (!info) { setPendiente({ noEncontrado: true, code: limpio }); return }
-    const ya = escaneos.find(s => normalize(s.ref) === normalize(info.code))
-    setPendiente({ ...info, yaLleva: Number(ya?.cantidad) || 0 })
+    // Cuánto pidió ML de este artículo y cuánto va armado, para avisar si se
+    // pasa de lo pedido
+    const fila = avance.find(f => f.k === `${info.tipo}:${info.id}`)
+    setPendiente({
+      ...info,
+      yaLleva: fila?.escaneado || 0,
+      pedidoML: fila?.pedido || 0,
+      hayPedido: pedido.length > 0,
+    })
   }
 
   // Confirmar: anota en el envío Y descuenta el stock de una vez
   const confirmar = async () => {
     if (!pendiente || pendiente.noEncontrado || !envio) return
     const n = Math.max(1, Math.round(Number(cantidad) || 1))
+    // Avisar ANTES de descontar si se está pasando de lo que pidió ML
+    const total = (pendiente.yaLleva || 0) + n
+    if (pendiente.pedidoML > 0 && total > pendiente.pedidoML) {
+      const sobran = total - pendiente.pedidoML
+      if (!window.confirm(
+        `⚠️ TE ESTÁS PASANDO\n\nML pidió ${pendiente.pedidoML} de este artículo y con estas ${n} ` +
+        `quedarían ${total}: ${sobran} de más.\n\n¿Cargarlas igual?`
+      )) return
+    } else if (pendiente.hayPedido && !pendiente.pedidoML) {
+      if (!window.confirm(
+        `⚠️ Este artículo NO figura en el pedido de ML de este envío.\n\n¿Cargarlo igual?`
+      )) return
+    }
     setBusy(true)
     try {
       const renglones = pendiente.bases.map(b => ({
@@ -515,11 +535,29 @@ export default function FullShipment({
                         <span>Ubicación</span>
                         <strong>{pendiente.ubicacion || 'SIN UBICACIÓN'}</strong>
                       </div>
-                      {pendiente.yaLleva > 0 && (
+                      {pendiente.pedidoML > 0 ? (
+                        <div className="full-modal-pedido">
+                          <span>ML pidió <strong>{pendiente.pedidoML}</strong></span>
+                          <span>Ya van <strong>{pendiente.yaLleva}</strong></span>
+                          <span>Faltan <strong>{Math.max(0, pendiente.pedidoML - pendiente.yaLleva)}</strong></span>
+                        </div>
+                      ) : pendiente.yaLleva > 0 ? (
                         <div className="full-modal-ya">Ya van {pendiente.yaLleva} en este envío</div>
-                      )}
+                      ) : null}
                     </div>
                   </div>
+
+                  {pendiente.pedidoML > 0 && (pendiente.yaLleva + cantidad) > pendiente.pedidoML && (
+                    <div className="full-modal-exceso">
+                      ⚠️ TE ESTÁS PASANDO — ML pidió {pendiente.pedidoML} y quedarían{' '}
+                      {pendiente.yaLleva + cantidad}: {pendiente.yaLleva + cantidad - pendiente.pedidoML} de más
+                    </div>
+                  )}
+                  {pendiente.hayPedido && !pendiente.pedidoML && (
+                    <div className="full-modal-exceso suave">
+                      ⚠️ Este artículo NO está en el pedido de ML de este envío
+                    </div>
+                  )}
 
                   <div className={`full-modal-empaque ${pendiente.primerEmpaque ? 'si' : 'no'}`}>
                     {pendiente.primerEmpaque
