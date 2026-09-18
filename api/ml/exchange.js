@@ -1068,13 +1068,18 @@ async function shipStatus(req, res) {
 const REPORTE_BASE = 'https://api.mercadopago.com/v1/account/release_report';
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// Los CSV de MP a veces vienen con ; y a veces con , y con campos entrecomillados.
+// El CSV de MP no empieza en la primera línea: arriba trae un bloque de resumen
+// (saldo inicial, saldo final, totales) y recién después la tabla de
+// movimientos. Así que el encabezado hay que BUSCARLO: es la primera línea con
+// varios separadores y nombres de columna conocidos.
 function partirCsv(texto) {
-  const lineas = String(texto || '').split(/\r?\n/).filter((l) => l.trim());
-  if (!lineas.length) return { columnas: [], filas: [] };
-  const pv = (lineas[0].match(/;/g) || []).length;
-  const co = (lineas[0].match(/,/g) || []).length;
-  const sep = pv > co ? ';' : ',';
+  const crudas = String(texto || '').split(/\r?\n/);
+  const lineas = crudas.filter((l) => l.trim());
+  if (!lineas.length) return { columnas: [], filas: [], encabezado: -1, sep: ',' };
+
+  const contar = (l, c) => (l.match(new RegExp('\\' + c, 'g')) || []).length;
+  const sep = lineas.reduce((a, l) => a + contar(l, ';'), 0) > lineas.reduce((a, l) => a + contar(l, ','), 0) ? ';' : ',';
+
   const partir = (linea) => {
     const out = [];
     let act = '', comillas = false;
@@ -1089,7 +1094,19 @@ function partirCsv(texto) {
     out.push(act);
     return out.map((c) => c.trim());
   };
-  return { columnas: partir(lineas[0]), filas: lineas.slice(1).map(partir) };
+
+  // La fila de encabezado: la primera que tenga al menos 4 columnas y algún
+  // nombre típico del reporte de MP.
+  let iEnc = 0;
+  for (let i = 0; i < Math.min(lineas.length, 40); i++) {
+    const cols = partir(lineas[i]);
+    if (cols.length >= 4 && cols.some((c) => /^(date|source_id|external_reference|record_type|description|settlement_net_amount|transaction_type)$/i.test(c))) {
+      iEnc = i;
+      break;
+    }
+  }
+
+  return { columnas: partir(lineas[iEnc]), filas: lineas.slice(iEnc + 1).map(partir), encabezado: iEnc, sep };
 }
 
 // "1.234,56" y "1,234.56" significan lo mismo: el último separador es el decimal.
@@ -1107,8 +1124,19 @@ function aNumero(v) {
   return Number.isFinite(n) ? n : null;
 }
 
+// El último número que aparezca en una línea suelta del bloque de resumen.
+function ultimoNumeroDeLinea(linea) {
+  const m = String(linea).match(/-?[\d][\d.,]*/g);
+  if (!m) return null;
+  for (let i = m.length - 1; i >= 0; i--) {
+    const n = aNumero(m[i]);
+    if (n != null) return n;
+  }
+  return null;
+}
+
 async function mpSaldoReal(req, res) {
-  const { token, mpToken, dias = 10 } = req.body || {};
+  const { token, mpToken, dias = 3 } = req.body || {};
   const tokens = [['MP', (mpToken || '').trim()], ['ML', (token || '').trim()]].filter(([, t]) => t);
   if (!tokens.length) return res.status(400).json({ ok: false, error: 'Falta algún token' });
 
@@ -1138,9 +1166,11 @@ async function mpSaldoReal(req, res) {
     });
     if (alta.status >= 300) continue;
 
-    // 3. Esperar a que MP lo genere
+    // 3. Esperar a que MP lo genere. La cuenta FULL tiene tantos movimientos que
+    //    con 100 segundos no alcanzaba, por eso ahora espera casi 4 minutos (la
+    //    función de Vercel corta a los 5).
     let archivo = null;
-    for (let i = 0; i < 25 && !archivo; i++) {
+    for (let i = 0; i < 55 && !archivo; i++) {
       await dormir(4000);
       const l = await httpRequest('GET', REPORTE_BASE + '/list', auth);
       if (l.status !== 200) continue;
@@ -1148,7 +1178,7 @@ async function mpSaldoReal(req, res) {
       archivo = arr.find((f) => f.file_name && !previos.has(f.file_name)) || null;
     }
     if (!archivo) {
-      pasos.push({ paso: 'esperar el archivo', estado: 0, detalle: 'MP no lo generó en 100 segundos. Probá de nuevo en un rato.' });
+      pasos.push({ paso: 'esperar el archivo', estado: 0, detalle: 'MP no lo generó en 3 minutos y medio. Probá de nuevo en un rato.' });
       continue;
     }
     pasos.push({ paso: 'archivo listo', estado: 200, detalle: archivo.file_name });
@@ -1158,8 +1188,22 @@ async function mpSaldoReal(req, res) {
     pasos.push({ paso: 'bajar el CSV', estado: bajada.status, detalle: `${(bajada.text || '').length} caracteres` });
     if (bajada.status !== 200 || !bajada.text) continue;
 
-    // 5. Leerlo: el saldo es la última columna de saldo acumulado con valor
-    const { columnas, filas } = partirCsv(bajada.text);
+    const texto = bajada.text;
+    const crudas = texto.split(/\r?\n/).filter((l) => l.trim());
+
+    // 5a. Primero se busca el saldo en el BLOQUE DE RESUMEN de arriba del
+    //     archivo, que es donde MP escribe "final available balance". Es el dato
+    //     bueno: el saldo de la cuenta, no el neto del período.
+    let disponible = null, deDonde = null, fechaSaldo = null;
+    for (const l of crudas.slice(0, 40)) {
+      if (/(final|closing|ending).*balance|balance.*(final|closing)|saldo.*final/i.test(l)) {
+        const n = ultimoNumeroDeLinea(l);
+        if (n != null) { disponible = n; deDonde = `resumen: ${l.slice(0, 120)}`; break; }
+      }
+    }
+
+    // 5b. Si no está el resumen, se usa la columna de saldo acumulado de la tabla.
+    const { columnas, filas, encabezado, sep } = partirCsv(texto);
     const buscarCol = (...patrones) => {
       for (const p of patrones) {
         const i = columnas.findIndex((c) => p.test(c));
@@ -1167,18 +1211,16 @@ async function mpSaldoReal(req, res) {
       }
       return -1;
     };
-    const iSaldo = buscarCol(/final.*balance|balance.*final/i, /^balance(_amount)?$/i, /balance/i);
+    const iSaldo = buscarCol(/final.*balance|balance.*final/i, /^balance(_amount)?$/i, /available.*balance/i, /balance/i);
     const iFecha = buscarCol(/^date$/i, /release.*date|money.*date/i, /date/i);
-
-    let disponible = null, fechaSaldo = null;
-    if (iSaldo > -1) {
+    if (disponible == null && iSaldo > -1) {
       for (let i = filas.length - 1; i >= 0; i--) {
         const n = aNumero(filas[i][iSaldo]);
-        if (n != null) { disponible = n; fechaSaldo = iFecha > -1 ? filas[i][iFecha] : null; break; }
+        if (n != null) { disponible = n; deDonde = `columna ${columnas[iSaldo]}`; fechaSaldo = iFecha > -1 ? filas[i][iFecha] : null; break; }
       }
     }
 
-    // Plan B: si no hay columna de saldo acumulado, se suma el neto del período.
+    // Neto del período, siempre: sirve de control aunque el saldo salga bien.
     const iCred = buscarCol(/net_credit/i, /^credit/i);
     const iDeb = buscarCol(/net_debit/i, /^debit/i);
     let netoPeriodo = null;
@@ -1192,12 +1234,19 @@ async function mpSaldoReal(req, res) {
       archivo: archivo.file_name,
       desde: iso(iniMs),
       hasta: iso(finMs),
-      saldo: disponible != null ? { disponible, fecha: fechaSaldo, fuente: 'reporte de liberaciones' } : null,
+      saldo: disponible != null ? { disponible, fecha: fechaSaldo, fuente: deDonde } : null,
       netoPeriodo,
       movimientos: filas.length,
-      columnas,
-      ultimas: filas.slice(-3),
       pasos,
+      // Para poder ajustar la lectura sin tener que adivinar: cómo se vio el
+      // archivo por dentro.
+      crudo: {
+        separador: sep,
+        filaEncabezado: encabezado,
+        columnas,
+        primeras: crudas.slice(0, 8).map((l) => l.slice(0, 300)),
+        ultimas: crudas.slice(-3).map((l) => l.slice(0, 300)),
+      },
     });
   }
 

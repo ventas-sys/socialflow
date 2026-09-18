@@ -232,3 +232,16 @@
 .mt-saldo-fila .verde { color: #16a34a; }
 .mt-saldo-fila .naranja { color: #b45309; }
 .mt-saldo-falta { color: #b45309; font-size: 0.85rem; font-weight: 600; margin: 0; }
+
+/* Diagnóstico del CSV de Mercado Pago (plegado, sólo para revisar) */
+.mt-crudo { margin-top: .6rem; }
+.mt-crudo-btn {
+  background: none; border: none; padding: 0; cursor: pointer;
+  color: #64748b; font-size: .78rem; text-decoration: underline;
+}
+.mt-crudo-cuerpo { margin-top: .4rem; font-size: .72rem; color: #475569; }
+.mt-crudo-cuerpo p { margin: .3rem 0; word-break: break-word; }
+.mt-crudo-cuerpo pre {
+  margin: .15rem 0; padding: .3rem .4rem; background: #f1f5f9; border-radius: 4px;
+  font-size: .68rem; white-space: pre-wrap; word-break: break-all;
+}

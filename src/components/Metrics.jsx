@@ -74,7 +74,7 @@ export default function Metrics({ mlAccounts, ensureToken }) {
           const directo = await pedir('mpsaldo', { mpToken: acc.mpToken || '' })
           if (directo?.saldo) return { key, ...directo }
           const reporte = await pedir('mpsaldoreal', {
-            mpToken: acc.mpToken || '', token: acc.accessToken || '', dias: 10,
+            mpToken: acc.mpToken || '', token: acc.accessToken || '', dias: 3,
           })
           return { key, ...reporte }
         } catch (err) {
@@ -378,10 +378,10 @@ export default function Metrics({ mlAccounts, ensureToken }) {
             <p className="mt-hint">
               Mercado Pago no deja preguntar el saldo de frente (da 403 con todos los permisos), así que el
               saldo se saca del <strong>reporte de liberaciones</strong>, que es el extracto de la cuenta.
-              MP tarda hasta un minuto en armarlo.
+              MP puede tardar varios minutos en armarlo, sobre todo en FULL.
             </p>
             <button className="mt-btn" onClick={cargarSaldos} disabled={saldosBusy}>
-              {saldosBusy ? '⏳ Armando el reporte (hasta 1 minuto)...' : '💳 Ver saldos'}
+              {saldosBusy ? '⏳ Armando el reporte (puede tardar varios minutos)...' : '💳 Ver saldos'}
             </button>
 
             {saldos && (
@@ -402,10 +402,11 @@ export default function Metrics({ mlAccounts, ensureToken }) {
                           <div className="mt-saldo-fila"><span>Entró en 10 días</span><strong>{plata(s.netoPeriodo)}</strong></div>
                         )}
                         <p className="mt-hint">
-                          {s.saldo.fuente === 'reporte de liberaciones'
-                            ? `Sacado del extracto de MP${s.saldo.fecha ? ` · último movimiento ${s.saldo.fecha}` : ''}`
+                          {s.saldo.fuente
+                            ? `Sacado del extracto de MP (${s.saldo.fuente})${s.saldo.fecha ? ` · ${s.saldo.fecha}` : ''}`
                             : s.tokenDe?.nickname ? `Token de ${s.tokenDe.nickname}` : ''}
                         </p>
+                        {s.crudo && <Crudo crudo={s.crudo} />}
                       </>
                     ) : (
                       <>
@@ -415,6 +416,7 @@ export default function Metrics({ mlAccounts, ensureToken }) {
                         {(s.pasos || []).map((i, n) => (
                           <p className="mt-hint" key={n}>{i.paso}: {i.estado}{i.detalle ? ` — ${String(i.detalle).slice(0, 140)}` : ''}</p>
                         ))}
+                        {s.crudo && <Crudo crudo={s.crudo} />}
                         {!s.pasos && (s.intentos || []).map(i => (
                           <p className="mt-hint" key={i.nombre}>{i.nombre}: {i.estado} — {String(i.cuerpo).slice(0, 120)}</p>
                         ))}
@@ -614,6 +616,31 @@ export default function Metrics({ mlAccounts, ensureToken }) {
             <p className="mt-hint">Según MercadoLibre, sobre los últimos 60 días.</p>
           </div>
         </>
+      )}
+    </div>
+  )
+}
+
+// Cómo se vio por dentro el CSV que mandó Mercado Pago. No es para el uso
+// diario: está para poder corregir la lectura cuando el número no cierra, sin
+// tener que adivinar qué columnas trae el archivo.
+function Crudo({ crudo }) {
+  const [abierto, setAbierto] = useState(false)
+  if (!crudo) return null
+  return (
+    <div className="mt-crudo">
+      <button className="mt-crudo-btn" onClick={() => setAbierto(!abierto)}>
+        {abierto ? '▾' : '▸'} Ver el archivo que mandó MP
+      </button>
+      {abierto && (
+        <div className="mt-crudo-cuerpo">
+          <p>Separador «{crudo.separador}» · encabezado en la fila {crudo.filaEncabezado}</p>
+          <p><strong>Columnas:</strong> {(crudo.columnas || []).join(' | ') || '(ninguna)'}</p>
+          <p><strong>Primeras líneas:</strong></p>
+          {(crudo.primeras || []).map((l, i) => <pre key={'p' + i}>{l}</pre>)}
+          <p><strong>Últimas líneas:</strong></p>
+          {(crudo.ultimas || []).map((l, i) => <pre key={'u' + i}>{l}</pre>)}
+        </div>
       )}
     </div>
   )
