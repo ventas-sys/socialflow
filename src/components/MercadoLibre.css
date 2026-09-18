@@ -149,3 +149,20 @@
   padding: 0.35rem 0.5rem;
   font-size: 0.85rem;
 }
+
+/* Diagnóstico de Mercado Pago: qué datos de plata deja leer ML */
+.mp-diag { margin-top: 0.8rem; display: grid; gap: 0.8rem; }
+.mp-diag-cuenta {
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 0.6rem; padding: 0.7rem 0.9rem;
+}
+.mp-diag-cuenta h4 { margin: 0 0 0.5rem; font-size: 0.95rem; }
+.mp-diag-no { color: #b91c1c; font-size: 0.88rem; margin: 0; }
+.mp-diag-tabla { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.mp-diag-tabla td { padding: 0.35rem 0.4rem; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+.mp-diag-tabla tr.anda { background: #f0fdf4; }
+.mp-diag-tabla tr.no { background: #fef2f2; }
+.mp-diag-estado { font-weight: 800; color: #475569; white-space: nowrap; }
+.mp-diag-resp {
+  font-family: ui-monospace, Menlo, monospace; font-size: 0.72rem; color: #64748b;
+  word-break: break-all; max-width: 420px;
+}

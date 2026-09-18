@@ -428,6 +428,37 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
     }
   }
 
+  // Diagnóstico de Mercado Pago: prueba con cuál de las dos cuentas se puede
+  // leer el saldo, los pagos con su comisión y el informe de liquidaciones.
+  // Sirve para saber qué se puede mostrar antes de construirlo.
+  const [mpMsg, setMpMsg] = useState('')
+  const [mpBusy, setMpBusy] = useState(false)
+  const [mpDatos, setMpDatos] = useState(null)
+
+  const probarMP = async () => {
+    setMpBusy(true); setMpMsg(''); setMpDatos(null)
+    try {
+      const salida = []
+      for (const key of ['full', 'ferre']) {
+        if (!mlAccounts[key]?.accessToken) { salida.push({ cuenta: key.toUpperCase(), sinConectar: true }); continue }
+        const token = await ensureToken(key)
+        const r = await fetch(`${API}?action=mptest`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        }).then(x => x.json())
+        if (!r.ok) { salida.push({ cuenta: key.toUpperCase(), error: r.error || 'Error' }); continue }
+        salida.push({ cuenta: key.toUpperCase(), nickname: r.cuenta, scopes: r.scopes, resultados: r.resultados })
+      }
+      setMpDatos(salida)
+      const andan = salida.flatMap(s => Object.values(s.resultados || {})).filter(x => x.anda).length
+      setMpMsg(`✅ Listo. ${andan} de las consultas respondieron bien. Pasame esta pantalla y te digo qué se puede armar.`)
+    } catch (err) {
+      setMpMsg('❌ ' + err.message)
+    } finally {
+      setMpBusy(false)
+    }
+  }
+
   // Dispara el proceso automático (el mismo del cron de las 18hs) una vez
   const [cronMsg, setCronMsg] = useState('')
   const [cronBusy, setCronBusy] = useState(false)
@@ -518,6 +549,39 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
             </button>
             {topMsg && <span className={`ml-cron-msg ${topMsg.startsWith('✅') ? 'ok' : 'warn'}`}>{topMsg}</span>}
           </div>
+          <div className="ml-top-row">
+            <button className="ml-btn-missing" onClick={probarMP} disabled={mpBusy}>
+              {mpBusy ? '⏳ Probando...' : '💳 Probar qué datos de plata deja ver ML'}
+            </button>
+            {mpMsg && <span className={`ml-cron-msg ${mpMsg.startsWith('✅') ? 'ok' : 'warn'}`}>{mpMsg}</span>}
+          </div>
+
+          {mpDatos && (
+            <div className="mp-diag">
+              {mpDatos.map(c => (
+                <div className="mp-diag-cuenta" key={c.cuenta}>
+                  <h4>{c.cuenta}{c.nickname ? ` · ${c.nickname}` : ''}</h4>
+                  {c.sinConectar && <p className="mp-diag-no">No está conectada.</p>}
+                  {c.error && <p className="mp-diag-no">Error: {c.error}</p>}
+                  {c.resultados && (
+                    <table className="mp-diag-tabla">
+                      <tbody>
+                        {Object.entries(c.resultados).map(([k, v]) => (
+                          <tr key={k} className={v.anda ? 'anda' : 'no'}>
+                            <td>{v.anda ? '✅' : '❌'}</td>
+                            <td>{v.que}</td>
+                            <td className="mp-diag-estado">{v.estado || 'sin respuesta'}</td>
+                            <td className="mp-diag-resp">{v.respuesta}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="ml-top-row">
             <label className="ml-desde">
               Ventas FLEX desde

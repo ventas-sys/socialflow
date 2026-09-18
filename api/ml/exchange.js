@@ -20,6 +20,7 @@ export default async function handler(req, res) {
     if (action === 'topsold') return await topSold(req, res);
     if (action === 'metrics') return await metrics(req, res);
     if (action === 'flexsales') return await flexSales(req, res);
+    if (action === 'mptest') return await mpTest(req, res);
     return await exchange(req, res);
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message });
@@ -107,6 +108,80 @@ async function topSold(req, res) {
 
   const top = [...acc.values()].sort((a, b) => b.unidades - a.unidades).slice(0, limit);
   return res.status(200).json({ ok: true, ordenes, canceladas, truncado, publicaciones: acc.size, top });
+}
+
+// DIAGNÓSTICO de Mercado Pago. La cuenta de MP es la misma que la de ML, pero
+// no todos los datos de plata se pueden pedir con el token de ML: el saldo a
+// veces sí, y las liquidaciones (lo que ML va a depositar, ya descontadas las
+// comisiones y el envío) pueden necesitar una autorización aparte.
+//
+// En vez de adivinar, esto prueba cada puerta y devuelve qué contestó cada una,
+// para saber qué se puede construir y qué hay que pedirle permiso a ML.
+async function mpTest(req, res) {
+  const { token } = req.body || {};
+  if (!token) return res.status(400).json({ ok: false, error: 'Falta access_token' });
+  const auth = { 'Authorization': 'Bearer ' + token };
+
+  const me = await httpRequest('GET', 'https://api.mercadolibre.com/users/me', auth);
+  if (me.status !== 200) throw new Error(me.body?.message || ('HTTP ' + me.status));
+  const sellerId = me.body.id;
+
+  const desde = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+  const hasta = new Date().toISOString();
+
+  const puertas = [
+    { clave: 'saldo',
+      que: 'Saldo de la cuenta (total, disponible y a liquidar)',
+      url: `https://api.mercadopago.com/users/${sellerId}/mercadopago_account/balance` },
+    { clave: 'saldoPorML',
+      que: 'El mismo saldo pero pedido por el lado de ML',
+      url: `https://api.mercadolibre.com/users/${sellerId}/mercadopago_account/balance` },
+    { clave: 'pagos',
+      que: 'Pagos con su comisión y el neto que queda (últimos 7 días)',
+      url: 'https://api.mercadopago.com/v1/payments/search?sort=date_created&criteria=desc&limit=3'
+        + `&range=date_created&begin_date=${encodeURIComponent(desde)}&end_date=${encodeURIComponent(hasta)}` },
+    { clave: 'liquidaciones',
+      que: 'Informe de liquidaciones (lo que ML deposita y cuándo)',
+      url: 'https://api.mercadopago.com/v1/account/settlement_report/list' },
+    { clave: 'liberaciones',
+      que: 'Informe de dinero liberado',
+      url: 'https://api.mercadopago.com/v1/account/release_report/list' },
+    { clave: 'facturacion',
+      que: 'Facturación de ML (cargos y comisiones del período)',
+      url: `https://api.mercadolibre.com/billing/integration/monthly/periods?group=ML&document_type=BILL&offset=0&limit=1` },
+  ];
+
+  const resultados = {};
+  for (const p of puertas) {
+    try {
+      const r = await httpRequest('GET', p.url, auth);
+      const cuerpo = r.body;
+      // Solo una muestra: lo que interesa es si contesta y con qué forma
+      let muestra = '';
+      if (cuerpo && typeof cuerpo === 'object') {
+        muestra = JSON.stringify(cuerpo).slice(0, 400);
+      } else {
+        muestra = String(cuerpo ?? '').slice(0, 300);
+      }
+      resultados[p.clave] = {
+        que: p.que,
+        estado: r.status,
+        anda: r.status >= 200 && r.status < 300,
+        respuesta: muestra,
+      };
+    } catch (e) {
+      resultados[p.clave] = { que: p.que, estado: 0, anda: false, respuesta: 'Error: ' + e.message };
+    }
+  }
+
+  return res.status(200).json({
+    ok: true,
+    cuenta: me.body.nickname,
+    sellerId,
+    // Los permisos que ML le dio a la aplicación (si los informa)
+    scopes: me.body.scopes || null,
+    resultados,
+  });
 }
 
 // Ventas FLEX de un período, con el costo del envío y a quién se lo cobró ML.
