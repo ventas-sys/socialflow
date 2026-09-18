@@ -49,20 +49,38 @@ export default function Metrics({ mlAccounts, ensureToken }) {
   const periodoLargo = rango === '15' || rango === '30'
   const pedirEnvios = conEnvios && !periodoLargo
 
-  // Saldo real de cada cuenta de Mercado Pago. Con el token de ML da 403, así
-  // que usa el Access Token de MP que se carga en la ficha de la cuenta (ML).
+  // Saldo real de cada cuenta de Mercado Pago.
+  //
+  // El endpoint de saldo da 403 con TODOS los tokens: lo probamos el 18/9 con
+  // el de ML y el de MP, en las dos cuentas, por nueve puertas distintas. Lo
+  // único que contesta 200 es el REPORTE DE LIBERACIONES, que es el extracto de
+  // la cuenta: cada movimiento con su saldo acumulado. El último saldo
+  // acumulado es el dinero disponible, y encima incluye retiros y devoluciones,
+  // cosa que sumar pagos no hace.
+  //
+  // Se intenta primero el saldo directo (instantáneo, por si algún día lo
+  // habilitan) y si no sale se pide el reporte, que MP tarda hasta un minuto en
+  // generar. Las dos cuentas van en paralelo para no esperar el doble.
   const cargarSaldos = async () => {
     setSaldosBusy(true); setSaldos(null)
     try {
-      const salida = []
-      for (const key of cuentas) {
+      const pedir = (action, body) => fetch(`${API}?action=${action}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }).then(x => x.json())
+      const salida = await Promise.all(cuentas.map(async key => {
         const acc = mlAccounts[key] || {}
-        const res = await fetch(`${API}?action=mpsaldo`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mpToken: acc.mpToken || '' }),
-        }).then(x => x.json())
-        salida.push({ key, ...res })
-      }
+        try {
+          const directo = await pedir('mpsaldo', { mpToken: acc.mpToken || '' })
+          if (directo?.saldo) return { key, ...directo }
+          const reporte = await pedir('mpsaldoreal', {
+            mpToken: acc.mpToken || '', token: acc.accessToken || '', dias: 10,
+          })
+          return { key, ...reporte }
+        } catch (err) {
+          return { key, error: err.message }
+        }
+      }))
       setSaldos(salida)
     } catch (err) {
       setSaldos([{ key: 'error', error: err.message }])
@@ -358,11 +376,12 @@ export default function Metrics({ mlAccounts, ensureToken }) {
           <div className="mt-panel">
             <h2>💳 Saldo en Mercado Pago</h2>
             <p className="mt-hint">
-              El saldo real de cada cuenta. ML no lo deja leer con su permiso, así que hace falta cargar el
-              <strong> Access Token de Mercado Pago</strong> de cada cuenta en la solapa 🛒 ML.
+              Mercado Pago no deja preguntar el saldo de frente (da 403 con todos los permisos), así que el
+              saldo se saca del <strong>reporte de liberaciones</strong>, que es el extracto de la cuenta.
+              MP tarda hasta un minuto en armarlo.
             </p>
             <button className="mt-btn" onClick={cargarSaldos} disabled={saldosBusy}>
-              {saldosBusy ? '⏳ Consultando...' : '💳 Ver saldos'}
+              {saldosBusy ? '⏳ Armando el reporte (hasta 1 minuto)...' : '💳 Ver saldos'}
             </button>
 
             {saldos && (
@@ -372,19 +391,31 @@ export default function Metrics({ mlAccounts, ensureToken }) {
                     <span className="mt-saldo-cuenta">{s.key.toUpperCase()}</span>
                     {s.saldo ? (
                       <>
-                        <div className="mt-saldo-fila"><span>En la cuenta</span><strong>{plata(s.saldo.total)}</strong></div>
+                        {s.saldo.total != null && (
+                          <div className="mt-saldo-fila"><span>En la cuenta</span><strong>{plata(s.saldo.total)}</strong></div>
+                        )}
                         <div className="mt-saldo-fila"><span>Disponible</span><strong className="verde">{plata(s.saldo.disponible)}</strong></div>
-                        <div className="mt-saldo-fila"><span>A liquidar</span><strong className="naranja">{plata(s.saldo.aLiquidar)}</strong></div>
-                        {s.tokenDe?.nickname && <p className="mt-hint">Token de {s.tokenDe.nickname}</p>}
+                        {s.saldo.aLiquidar != null && (
+                          <div className="mt-saldo-fila"><span>A liquidar</span><strong className="naranja">{plata(s.saldo.aLiquidar)}</strong></div>
+                        )}
+                        {s.netoPeriodo != null && (
+                          <div className="mt-saldo-fila"><span>Entró en 10 días</span><strong>{plata(s.netoPeriodo)}</strong></div>
+                        )}
+                        <p className="mt-hint">
+                          {s.saldo.fuente === 'reporte de liberaciones'
+                            ? `Sacado del extracto de MP${s.saldo.fecha ? ` · último movimiento ${s.saldo.fecha}` : ''}`
+                            : s.tokenDe?.nickname ? `Token de ${s.tokenDe.nickname}` : ''}
+                        </p>
                       </>
-                    ) : s.falta === 'mpToken' ? (
-                      <p className="mt-saldo-falta">
-                        Falta el Access Token de Mercado Pago. Cargalo en 🛒 ML, en la ficha de esta cuenta.
-                      </p>
                     ) : (
                       <>
-                        <p className="mt-saldo-falta">Mercado Pago no devolvió el saldo.</p>
-                        {(s.intentos || []).map(i => (
+                        <p className="mt-saldo-falta">
+                          {s.error || 'Mercado Pago no devolvió el saldo.'}
+                        </p>
+                        {(s.pasos || []).map((i, n) => (
+                          <p className="mt-hint" key={n}>{i.paso}: {i.estado}{i.detalle ? ` — ${String(i.detalle).slice(0, 140)}` : ''}</p>
+                        ))}
+                        {!s.pasos && (s.intentos || []).map(i => (
                           <p className="mt-hint" key={i.nombre}>{i.nombre}: {i.estado} — {String(i.cuerpo).slice(0, 120)}</p>
                         ))}
                       </>

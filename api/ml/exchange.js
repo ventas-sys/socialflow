@@ -1,4 +1,4 @@
-import { httpRequest, cors } from '../_http.js';
+import { httpRequest, httpText, cors } from '../_http.js';
 
 // OAuth de Mercado Libre, consolidado en una función para no exceder el
 // límite de funciones serverless de Vercel.
@@ -25,6 +25,7 @@ export default async function handler(req, res) {
     if (action === 'mpcobros') return await mpCobros(req, res);
     if (action === 'mpsaldo') return await mpSaldo(req, res);
     if (action === 'mpsaldotest') return await mpSaldoTest(req, res);
+    if (action === 'mpsaldoreal') return await mpSaldoReal(req, res);
     return await exchange(req, res);
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message });
@@ -1046,4 +1047,159 @@ async function shipStatus(req, res) {
     }));
   }
   return res.status(200).json({ ok: true, statuses });
+}
+
+// ---------------------------------------------------------------------------
+// SALDO REAL, por la única puerta que quedó abierta: el reporte de liberaciones
+// ---------------------------------------------------------------------------
+//
+// El 18/9 probamos nueve endpoints de saldo con los dos tokens (el de ML y el
+// de MP, en las dos cuentas). Todos contestan 403 o 404. Los únicos que
+// contestan 200 son los de REPORTES.
+//
+// El reporte de liberaciones de Mercado Pago es el extracto de la cuenta:
+// movimiento por movimiento, con el saldo acumulado después de cada uno. El
+// último saldo acumulado ES el dinero disponible. Y a diferencia de sumar
+// pagos, este camino sí incluye los retiros, las devoluciones y todo lo que no
+// viene de una venta.
+//
+// El reporte se pide, MP lo genera (entre 10 segundos y un minuto) y después
+// se baja el CSV.
+const REPORTE_BASE = 'https://api.mercadopago.com/v1/account/release_report';
+const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Los CSV de MP a veces vienen con ; y a veces con , y con campos entrecomillados.
+function partirCsv(texto) {
+  const lineas = String(texto || '').split(/\r?\n/).filter((l) => l.trim());
+  if (!lineas.length) return { columnas: [], filas: [] };
+  const pv = (lineas[0].match(/;/g) || []).length;
+  const co = (lineas[0].match(/,/g) || []).length;
+  const sep = pv > co ? ';' : ',';
+  const partir = (linea) => {
+    const out = [];
+    let act = '', comillas = false;
+    for (let i = 0; i < linea.length; i++) {
+      const ch = linea[i];
+      if (ch === '"') {
+        if (comillas && linea[i + 1] === '"') { act += '"'; i++; }
+        else comillas = !comillas;
+      } else if (ch === sep && !comillas) { out.push(act); act = ''; }
+      else act += ch;
+    }
+    out.push(act);
+    return out.map((c) => c.trim());
+  };
+  return { columnas: partir(lineas[0]), filas: lineas.slice(1).map(partir) };
+}
+
+// "1.234,56" y "1,234.56" significan lo mismo: el último separador es el decimal.
+function aNumero(v) {
+  if (v == null) return null;
+  let t = String(v).replace(/[^\d,.\-]/g, '').trim();
+  if (!t || t === '-') return null;
+  const ic = t.lastIndexOf(','), ip = t.lastIndexOf('.');
+  if (ic > -1 && ip > -1) {
+    t = ic > ip ? t.replace(/\./g, '').replace(',', '.') : t.replace(/,/g, '');
+  } else if (ic > -1) {
+    t = t.split(',').length === 2 && t.length - ic - 1 !== 3 ? t.replace(',', '.') : t.replace(/,/g, '');
+  }
+  const n = Number(t);
+  return Number.isFinite(n) ? n : null;
+}
+
+async function mpSaldoReal(req, res) {
+  const { token, mpToken, dias = 10 } = req.body || {};
+  const tokens = [['MP', (mpToken || '').trim()], ['ML', (token || '').trim()]].filter(([, t]) => t);
+  if (!tokens.length) return res.status(400).json({ ok: false, error: 'Falta algún token' });
+
+  const pasos = [];
+  const finMs = Date.now();
+  const iniMs = finMs - Number(dias) * 24 * 3600 * 1000;
+  const iso = (ms) => new Date(ms).toISOString().slice(0, 19) + 'Z';
+
+  for (const [origen, tk] of tokens) {
+    const auth = { 'Authorization': 'Bearer ' + tk };
+
+    // 1. Qué reportes ya existían, para reconocer el nuevo
+    const antes = await httpRequest('GET', REPORTE_BASE + '/list', auth);
+    pasos.push({ paso: `lista previa (token de ${origen})`, estado: antes.status });
+    if (antes.status !== 200) continue;
+    const previos = new Set((Array.isArray(antes.body) ? antes.body : []).map((f) => f.file_name));
+
+    // 2. Pedir uno nuevo
+    const alta = await httpRequest('POST', REPORTE_BASE, { ...auth, 'Content-Type': 'application/json' }, {
+      begin_date: iso(iniMs),
+      end_date: iso(finMs),
+    });
+    pasos.push({
+      paso: 'pedir el reporte',
+      estado: alta.status,
+      detalle: alta.status >= 300 ? String(JSON.stringify(alta.body || '')).slice(0, 200) : `${iso(iniMs)} → ${iso(finMs)}`,
+    });
+    if (alta.status >= 300) continue;
+
+    // 3. Esperar a que MP lo genere
+    let archivo = null;
+    for (let i = 0; i < 25 && !archivo; i++) {
+      await dormir(4000);
+      const l = await httpRequest('GET', REPORTE_BASE + '/list', auth);
+      if (l.status !== 200) continue;
+      const arr = Array.isArray(l.body) ? l.body : [];
+      archivo = arr.find((f) => f.file_name && !previos.has(f.file_name)) || null;
+    }
+    if (!archivo) {
+      pasos.push({ paso: 'esperar el archivo', estado: 0, detalle: 'MP no lo generó en 100 segundos. Probá de nuevo en un rato.' });
+      continue;
+    }
+    pasos.push({ paso: 'archivo listo', estado: 200, detalle: archivo.file_name });
+
+    // 4. Bajarlo
+    const bajada = await httpText('GET', `${REPORTE_BASE}/${archivo.file_name}`, auth);
+    pasos.push({ paso: 'bajar el CSV', estado: bajada.status, detalle: `${(bajada.text || '').length} caracteres` });
+    if (bajada.status !== 200 || !bajada.text) continue;
+
+    // 5. Leerlo: el saldo es la última columna de saldo acumulado con valor
+    const { columnas, filas } = partirCsv(bajada.text);
+    const buscarCol = (...patrones) => {
+      for (const p of patrones) {
+        const i = columnas.findIndex((c) => p.test(c));
+        if (i > -1) return i;
+      }
+      return -1;
+    };
+    const iSaldo = buscarCol(/final.*balance|balance.*final/i, /^balance(_amount)?$/i, /balance/i);
+    const iFecha = buscarCol(/^date$/i, /release.*date|money.*date/i, /date/i);
+
+    let disponible = null, fechaSaldo = null;
+    if (iSaldo > -1) {
+      for (let i = filas.length - 1; i >= 0; i--) {
+        const n = aNumero(filas[i][iSaldo]);
+        if (n != null) { disponible = n; fechaSaldo = iFecha > -1 ? filas[i][iFecha] : null; break; }
+      }
+    }
+
+    // Plan B: si no hay columna de saldo acumulado, se suma el neto del período.
+    const iCred = buscarCol(/net_credit/i, /^credit/i);
+    const iDeb = buscarCol(/net_debit/i, /^debit/i);
+    let netoPeriodo = null;
+    if (iCred > -1 || iDeb > -1) {
+      netoPeriodo = filas.reduce((a, f) => a + (aNumero(f[iCred]) || 0) - (aNumero(f[iDeb]) || 0), 0);
+    }
+
+    return res.status(200).json({
+      ok: true,
+      origenToken: origen,
+      archivo: archivo.file_name,
+      desde: iso(iniMs),
+      hasta: iso(finMs),
+      saldo: disponible != null ? { disponible, fecha: fechaSaldo, fuente: 'reporte de liberaciones' } : null,
+      netoPeriodo,
+      movimientos: filas.length,
+      columnas,
+      ultimas: filas.slice(-3),
+      pasos,
+    });
+  }
+
+  return res.status(200).json({ ok: false, saldo: null, pasos, error: 'No se pudo armar el reporte con ninguno de los dos tokens.' });
 }
