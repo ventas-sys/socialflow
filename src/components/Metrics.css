@@ -168,3 +168,24 @@
   .mt-cards { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
   .mt-card-val { font-size: 1.25rem; }
 }
+
+/* La plata de las ventas: bruto, lo que se lleva ML y lo que falta liberar */
+.mt-plata {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.6rem; margin: 0.9rem 0;
+}
+.mt-plata-item {
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.6rem; padding: 0.6rem 0.8rem;
+}
+.mt-plata-item span {
+  display: block; font-size: 0.7rem; text-transform: uppercase;
+  letter-spacing: 0.03em; color: #64748b; font-weight: 800;
+}
+.mt-plata-item strong { font-size: 1.15rem; color: #1f2937; }
+.mt-plata-item.neg strong { color: #b91c1c; }
+.mt-plata-item.fuerte { background: #eff6ff; border-color: #bfdbfe; }
+.mt-plata-item.fuerte strong { color: #1d4ed8; font-size: 1.3rem; }
+.mt-plata-item.ok strong { color: #16a34a; }
+.mt-plata-item.pend { background: #fffbeb; border-color: #fde68a; }
+.mt-plata-item.pend strong { color: #b45309; }
+.mt-hint.warn { color: #b91c1c; font-weight: 700; }

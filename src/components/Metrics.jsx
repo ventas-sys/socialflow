@@ -30,12 +30,62 @@ export default function Metrics({ mlAccounts, ensureToken }) {
   const [datos, setDatos] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  // La plata de las ventas se pide aparte: hay que leer pago por pago y tarda
+  const [plata2, setPlata2] = useState(null)
+  const [plataBusy, setPlataBusy] = useState(false)
+  const [plataMsg, setPlataMsg] = useState('')
 
   const cuentas = ['full', 'ferre'].filter(k => mlAccounts?.[k]?.accessToken)
   // El tipo de envío hay que preguntárselo a ML envío por envío: en 15 o 30
   // días son miles de consultas y la función se corta antes de terminar
   const periodoLargo = rango === '15' || rango === '30'
   const pedirEnvios = conEnvios && !periodoLargo
+
+  // Cuánto entró, cuánto se lleva ML y cuándo se libera el resto.
+  // El saldo de Mercado Pago da 403 con el token de ML, así que esto se calcula
+  // sumando los pagos: cada uno trae su comisión, su neto y su fecha de
+  // liberación. Es la plata DE LAS VENTAS del período, no el saldo de la cuenta
+  // (no incluye retiros ni movimientos que no vengan de ventas).
+  const cargarPlata = async () => {
+    setPlataBusy(true); setPlataMsg(''); setPlata2(null)
+    try {
+      const r = RANGOS.find(x => x.key === rango)
+      const from = inicioDiaAR(r.dias).toISOString()
+      const to = new Date().toISOString()
+      const cuales = cuenta === 'ambas' ? cuentas : [cuenta]
+      if (!cuales.length) throw new Error('No hay cuentas de MercadoLibre conectadas.')
+
+      const partes = []
+      for (const key of cuales) {
+        const token = await ensureToken(key)
+        const res = await fetch(`${API}?action=mpdinero`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, desde: from, hasta: to }),
+        }).then(x => x.json())
+        if (!res.ok) throw new Error(`${key.toUpperCase()}: ${res.error || 'Error'}`)
+        partes.push({ key, ...res })
+      }
+
+      const total = { pagos: 0, bruto: 0, comisionML: 0, costoEnvio: 0, otrosCargos: 0, neto: 0, liberado: 0, aLiquidar: 0 }
+      const dias = new Map()
+      partes.forEach(p => {
+        ;['pagos', 'bruto', 'comisionML', 'costoEnvio', 'otrosCargos', 'neto', 'liberado', 'aLiquidar']
+          .forEach(k => { total[k] += Number(p[k]) || 0 })
+        ;(p.calendario || []).forEach(d => {
+          const x = dias.get(d.dia) || { dia: d.dia, monto: 0, pagos: 0 }
+          x.monto += d.monto; x.pagos += d.pagos
+          dias.set(d.dia, x)
+        })
+      })
+      const calendario = [...dias.values()].sort((a, b) => a.dia.localeCompare(b.dia))
+      setPlata2({ total, calendario, cuentas: partes })
+      if (!total.pagos) setPlataMsg('No hubo pagos aprobados en el período elegido.')
+    } catch (err) {
+      setPlataMsg('❌ ' + err.message)
+    } finally {
+      setPlataBusy(false)
+    }
+  }
 
   const cargar = async () => {
     setBusy(true); setError(''); setDatos(null)
@@ -236,29 +286,84 @@ export default function Metrics({ mlAccounts, ensureToken }) {
             </div>
           )}
 
-          {datos.cuentas.some(c => c.saldo) && (
-            <div className="mt-panel">
-              <h2>💳 Mercado Pago</h2>
-              <div className="mt-table-wrap">
-                <table className="mt-table">
-                  <thead>
-                    <tr><th>Cuenta</th><th>Dinero en cuenta</th><th>Disponible</th><th>A liquidar</th></tr>
-                  </thead>
-                  <tbody>
-                    {datos.cuentas.filter(c => c.saldo).map(c => (
-                      <tr key={c.key}>
-                        <td><strong>{c.key.toUpperCase()}</strong></td>
-                        <td>{plata(c.saldo.total)}</td>
-                        <td>{plata(c.saldo.disponible)}</td>
-                        <td>{plata(c.saldo.aLiquidar)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <p className="mt-hint">A liquidar = lo que hay en la cuenta menos lo que ya está disponible.</p>
-            </div>
-          )}
+          <div className="mt-panel">
+            <h2>💵 La plata de estas ventas</h2>
+            <p className="mt-hint">
+              Cuánto entró, cuánto se lleva ML y cuándo te liberan el resto. Se lee pago por pago,
+              así que en períodos largos tarda un rato.
+            </p>
+            <button className="mt-btn" onClick={cargarPlata} disabled={plataBusy}>
+              {plataBusy ? '⏳ Leyendo los pagos...' : '💵 Calcular'}
+            </button>
+            {plataMsg && <p className={`mt-hint ${plataMsg.startsWith('❌') ? 'warn' : ''}`}>{plataMsg}</p>}
+
+            {plata2 && plata2.total.pagos > 0 && (
+              <>
+                <div className="mt-plata">
+                  <div className="mt-plata-item"><span>Venta bruta</span><strong>{plata(plata2.total.bruto)}</strong></div>
+                  <div className="mt-plata-item neg"><span>Comisión de ML</span><strong>− {plata(plata2.total.comisionML)}</strong></div>
+                  <div className="mt-plata-item neg"><span>Costo de envíos</span><strong>− {plata(plata2.total.costoEnvio)}</strong></div>
+                  {plata2.total.otrosCargos > 0 && (
+                    <div className="mt-plata-item neg"><span>Otros cargos</span><strong>− {plata(plata2.total.otrosCargos)}</strong></div>
+                  )}
+                  <div className="mt-plata-item fuerte"><span>Neto para vos</span><strong>{plata(plata2.total.neto)}</strong></div>
+                  <div className="mt-plata-item ok"><span>Ya liberado</span><strong>{plata(plata2.total.liberado)}</strong></div>
+                  <div className="mt-plata-item pend"><span>Falta liberar</span><strong>{plata(plata2.total.aLiquidar)}</strong></div>
+                </div>
+
+                {plata2.cuentas.length > 1 && (
+                  <div className="mt-table-wrap">
+                    <table className="mt-table">
+                      <thead>
+                        <tr><th>Cuenta</th><th>Bruto</th><th>Comisión</th><th>Envíos</th><th>Neto</th><th>Falta liberar</th></tr>
+                      </thead>
+                      <tbody>
+                        {plata2.cuentas.map(c => (
+                          <tr key={c.key}>
+                            <td><strong>{c.key.toUpperCase()}</strong></td>
+                            <td>{plata(c.bruto)}</td>
+                            <td>− {plata(c.comisionML)}</td>
+                            <td>− {plata(c.costoEnvio)}</td>
+                            <td><strong>{plata(c.neto)}</strong></td>
+                            <td>{plata(c.aLiquidar)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {plata2.calendario.length > 0 && (
+                  <>
+                    <h3 className="mt-sub">📆 Cuándo entra lo que falta liberar</h3>
+                    <div className="mt-table-wrap">
+                      <table className="mt-table">
+                        <thead><tr><th>Día</th><th>Pagos</th><th>Te entran</th></tr></thead>
+                        <tbody>
+                          {plata2.calendario.slice(0, 20).map(d => (
+                            <tr key={d.dia}>
+                              <td>{d.dia.split('-').reverse().join('/')}</td>
+                              <td>{num(d.pagos)}</td>
+                              <td><strong>{plata(d.monto)}</strong></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {plata2.calendario.length > 20 && (
+                      <p className="mt-hint">Hay {plata2.calendario.length - 20} fechas más.</p>
+                    )}
+                  </>
+                )}
+
+                <p className="mt-hint">
+                  ⚠️ Esto es la plata <strong>de las ventas del período</strong>, no el saldo de la cuenta:
+                  no incluye retiros ni movimientos que no vengan de ventas. El saldo en sí ML no lo deja leer
+                  con este permiso.
+                </p>
+              </>
+            )}
+          </div>
 
           <div className="mt-panel">
             <h2>Reputación por cuenta</h2>

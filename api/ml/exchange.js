@@ -21,6 +21,7 @@ export default async function handler(req, res) {
     if (action === 'metrics') return await metrics(req, res);
     if (action === 'flexsales') return await flexSales(req, res);
     if (action === 'mptest') return await mpTest(req, res);
+    if (action === 'mpdinero') return await mpDinero(req, res);
     return await exchange(req, res);
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message });
@@ -108,6 +109,129 @@ async function topSold(req, res) {
 
   const top = [...acc.values()].sort((a, b) => b.unidades - a.unidades).slice(0, limit);
   return res.status(200).json({ ok: true, ordenes, canceladas, truncado, publicaciones: acc.size, top });
+}
+
+// La plata de las ventas: cuánto entró bruto, cuánto se lleva ML en comisiones
+// y envío, cuánto queda neto, qué parte ya está liberada y qué parte falta
+// liberar (con la fecha de cada liberación).
+//
+// El SALDO de Mercado Pago da 403 con el token de ML (probado en las dos
+// cuentas el 18/9), así que todo esto sale de los PAGOS, que sí se pueden leer:
+// cada pago trae su comisión, su neto y el día en que ML lo libera.
+//
+// /v1/payments/search corta cerca del offset 1000, así que el período se parte
+// en ventanas y, si una ventana tiene demasiados pagos, se parte al medio.
+async function mpDinero(req, res) {
+  const { token, desde, hasta } = req.body || {};
+  if (!token) return res.status(400).json({ ok: false, error: 'Falta access_token' });
+  const auth = { 'Authorization': 'Bearer ' + token };
+
+  const me = await httpRequest('GET', 'https://api.mercadolibre.com/users/me', auth);
+  if (me.status !== 200) throw new Error(me.body?.message || ('HTTP ' + me.status));
+
+  const iniMs = desde ? new Date(desde).getTime() : Date.now() - 30 * 24 * 3600 * 1000;
+  const finMs = hasta ? new Date(hasta).getTime() : Date.now();
+
+  const pedir = async (d, h, offset) => {
+    const url = 'https://api.mercadopago.com/v1/payments/search'
+      + `?sort=date_approved&criteria=asc&status=approved&limit=100&offset=${offset}`
+      + `&range=date_approved&begin_date=${encodeURIComponent(new Date(d).toISOString())}`
+      + `&end_date=${encodeURIComponent(new Date(h).toISOString())}`;
+    const r = await httpRequest('GET', url, auth);
+    if (r.status !== 200) throw new Error(r.body?.message || r.body?.error || ('HTTP ' + r.status));
+    return r.body;
+  };
+
+  const acc = {
+    pagos: 0, bruto: 0, comisionML: 0, costoEnvio: 0, otrosCargos: 0, neto: 0,
+    liberado: 0, aLiquidar: 0,
+  };
+  const porFecha = new Map();   // cuándo entra la plata que todavía no se liberó
+  let muestra = null;           // los campos del primer pago, para poder revisar
+
+  const sumar = (pagos) => {
+    for (const p of pagos) {
+      acc.pagos++;
+      const bruto = Number(p.transaction_amount) || 0;
+      acc.bruto += bruto;
+
+      let comision = 0, envio = 0, otros = 0;
+      for (const f of (p.fee_details || [])) {
+        const monto = Number(f.amount) || 0;
+        const tipo = String(f.type || '').toLowerCase();
+        if (tipo.includes('shipping')) envio += monto;
+        else if (tipo.includes('fee')) comision += monto;
+        else otros += monto;
+      }
+      // Si el pago no trae el detalle, el costo de envío igual viene aparte
+      if (!envio) envio = Number(p.shipping_cost) || 0;
+      acc.comisionML += comision;
+      acc.costoEnvio += envio;
+      acc.otrosCargos += otros;
+
+      const neto = p.transaction_details?.net_received_amount != null
+        ? Number(p.transaction_details.net_received_amount)
+        : bruto - comision - envio - otros;
+      acc.neto += neto;
+
+      const liberado = String(p.money_release_status || '').toLowerCase() === 'released';
+      if (liberado) acc.liberado += neto;
+      else {
+        acc.aLiquidar += neto;
+        const dia = String(p.money_release_date || '').slice(0, 10);
+        if (dia) {
+          const x = porFecha.get(dia) || { dia, monto: 0, pagos: 0 };
+          x.monto += neto; x.pagos++;
+          porFecha.set(dia, x);
+        }
+      }
+
+      if (!muestra) {
+        muestra = {
+          tieneFeeDetails: Array.isArray(p.fee_details) && p.fee_details.length > 0,
+          tiposDeCargo: (p.fee_details || []).map(f => f.type),
+          tieneNeto: p.transaction_details?.net_received_amount != null,
+          estadoLiberacion: p.money_release_status || null,
+        };
+      }
+    }
+  };
+
+  const VENTANA = 2 * 24 * 3600 * 1000;
+  const traer = async (d, h, profundidad = 0) => {
+    const primera = await pedir(d, h, 0);
+    sumar(primera.results || []);
+    const total = primera.paging?.total || 0;
+    if (total > 1000 && profundidad < 5) {
+      // Demasiados pagos para paginar: se parte al medio y se pide cada mitad
+      const medio = d + Math.floor((h - d) / 2);
+      await traer(d, medio, profundidad + 1);
+      await traer(medio, h, profundidad + 1);
+      return;
+    }
+    const tope = Math.min(total, 1000);
+    const offsets = [];
+    for (let off = 100; off < tope; off += 100) offsets.push(off);
+    for (let i = 0; i < offsets.length; i += 5) {
+      const lote = await Promise.all(offsets.slice(i, i + 5).map(off => pedir(d, h, off)));
+      lote.forEach(b => sumar(b.results || []));
+    }
+  };
+
+  for (let ini = iniMs; ini < finMs; ini += VENTANA) {
+    await traer(ini, Math.min(ini + VENTANA, finMs));
+  }
+
+  const calendario = [...porFecha.values()].sort((a, b) => a.dia.localeCompare(b.dia));
+  return res.status(200).json({
+    ok: true,
+    cuenta: me.body.nickname,
+    desde: new Date(iniMs).toISOString(),
+    hasta: new Date(finMs).toISOString(),
+    ...acc,
+    calendario,
+    muestra,
+  });
 }
 
 // DIAGNÓSTICO de Mercado Pago. La cuenta de MP es la misma que la de ML, pero
