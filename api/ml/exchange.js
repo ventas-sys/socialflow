@@ -22,6 +22,7 @@ export default async function handler(req, res) {
     if (action === 'flexsales') return await flexSales(req, res);
     if (action === 'mptest') return await mpTest(req, res);
     if (action === 'mpdinero') return await mpDinero(req, res);
+    if (action === 'mpcobros') return await mpCobros(req, res);
     return await exchange(req, res);
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message });
@@ -109,6 +110,87 @@ async function topSold(req, res) {
 
   const top = [...acc.values()].sort((a, b) => b.unidades - a.unidades).slice(0, limit);
   return res.status(200).json({ ok: true, ordenes, canceladas, truncado, publicaciones: acc.size, top });
+}
+
+// PRÓXIMOS COBROS: el calendario de lo que ML va a depositar, día por día.
+// Es la vista "Próximos cobros y pagos" de Mercado Pago.
+//
+// La diferencia con mpDinero es de qué lado se mira: acá se buscan los pagos
+// por su FECHA DE LIBERACIÓN (no por cuándo se vendieron), así entra todo lo
+// que está por cobrarse aunque la venta sea vieja.
+async function mpCobros(req, res) {
+  const { token, dias = 90 } = req.body || {};
+  if (!token) return res.status(400).json({ ok: false, error: 'Falta access_token' });
+  const auth = { 'Authorization': 'Bearer ' + token };
+
+  const me = await httpRequest('GET', 'https://api.mercadolibre.com/users/me', auth);
+  if (me.status !== 200) throw new Error(me.body?.message || ('HTTP ' + me.status));
+
+  // Desde ayer (para no perder lo que se libera hoy) hasta N días adelante
+  const iniMs = Date.now() - 24 * 3600 * 1000;
+  const finMs = Date.now() + Number(dias) * 24 * 3600 * 1000;
+
+  const pedir = async (d, h, offset) => {
+    const url = 'https://api.mercadopago.com/v1/payments/search'
+      + `?sort=money_release_date&criteria=asc&status=approved&limit=100&offset=${offset}`
+      + `&range=money_release_date&begin_date=${encodeURIComponent(new Date(d).toISOString())}`
+      + `&end_date=${encodeURIComponent(new Date(h).toISOString())}`;
+    const r = await httpRequest('GET', url, auth);
+    if (r.status !== 200) throw new Error(r.body?.message || r.body?.error || ('HTTP ' + r.status));
+    return r.body;
+  };
+
+  const porDia = new Map();
+  let total = 0, pagos = 0;
+  // La fecha de liberación viene con la hora de Argentina adentro; se corta el
+  // día tal cual lo manda ML para que coincida con lo que se ve en la app de MP
+  const sumar = (lista) => {
+    for (const p of lista) {
+      const dia = String(p.money_release_date || '').slice(0, 10);
+      if (!dia) continue;
+      const bruto = Number(p.transaction_amount) || 0;
+      let cargos = 0;
+      for (const f of (p.fee_details || [])) cargos += Number(f.amount) || 0;
+      const neto = p.transaction_details?.net_received_amount != null
+        ? Number(p.transaction_details.net_received_amount)
+        : bruto - cargos;
+      const x = porDia.get(dia) || { dia, monto: 0, pagos: 0 };
+      x.monto += neto; x.pagos++;
+      porDia.set(dia, x);
+      total += neto; pagos++;
+    }
+  };
+
+  const VENTANA = 2 * 24 * 3600 * 1000;
+  const traer = async (d, h, profundidad = 0) => {
+    const primera = await pedir(d, h, 0);
+    sumar(primera.results || []);
+    const tot = primera.paging?.total || 0;
+    if (tot > 1000 && profundidad < 5) {
+      const medio = d + Math.floor((h - d) / 2);
+      await traer(d, medio, profundidad + 1);
+      await traer(medio, h, profundidad + 1);
+      return;
+    }
+    const tope = Math.min(tot, 1000);
+    const offsets = [];
+    for (let off = 100; off < tope; off += 100) offsets.push(off);
+    for (let i = 0; i < offsets.length; i += 5) {
+      const lote = await Promise.all(offsets.slice(i, i + 5).map(off => pedir(d, h, off)));
+      lote.forEach(b => sumar(b.results || []));
+    }
+  };
+
+  for (let ini = iniMs; ini < finMs; ini += VENTANA) {
+    await traer(ini, Math.min(ini + VENTANA, finMs));
+  }
+
+  return res.status(200).json({
+    ok: true,
+    cuenta: me.body.nickname,
+    total, pagos,
+    dias: [...porDia.values()].sort((a, b) => a.dia.localeCompare(b.dia)),
+  });
 }
 
 // La plata de las ventas: cuánto entró bruto, cuánto se lleva ML en comisiones

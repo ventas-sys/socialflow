@@ -34,12 +34,56 @@ export default function Metrics({ mlAccounts, ensureToken }) {
   const [plata2, setPlata2] = useState(null)
   const [plataBusy, setPlataBusy] = useState(false)
   const [plataMsg, setPlataMsg] = useState('')
+  // Próximos cobros: el calendario de lo que ML va a depositar
+  const [cobros, setCobros] = useState(null)
+  const [cobrosBusy, setCobrosBusy] = useState(false)
+  const [cobrosMsg, setCobrosMsg] = useState('')
+  const [mesVisto, setMesVisto] = useState(() => new Date().toISOString().slice(0, 7))
 
   const cuentas = ['full', 'ferre'].filter(k => mlAccounts?.[k]?.accessToken)
   // El tipo de envío hay que preguntárselo a ML envío por envío: en 15 o 30
   // días son miles de consultas y la función se corta antes de terminar
   const periodoLargo = rango === '15' || rango === '30'
   const pedirEnvios = conEnvios && !periodoLargo
+
+  // El calendario de lo que ML va a depositar, día por día y por cuenta.
+  // Se piden los próximos 90 días de una y después se navega por mes sin
+  // volver a consultar.
+  const cargarCobros = async () => {
+    setCobrosBusy(true); setCobrosMsg(''); setCobros(null)
+    try {
+      if (!cuentas.length) throw new Error('No hay cuentas de MercadoLibre conectadas.')
+      const partes = []
+      for (const key of cuentas) {
+        const token = await ensureToken(key)
+        const res = await fetch(`${API}?action=mpcobros`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, dias: 90 }),
+        }).then(x => x.json())
+        if (!res.ok) throw new Error(`${key.toUpperCase()}: ${res.error || 'Error'}`)
+        partes.push({ key, ...res })
+      }
+      // Un renglón por día con lo de cada cuenta y el total
+      const dias = new Map()
+      partes.forEach(p => {
+        (p.dias || []).forEach(d => {
+          const x = dias.get(d.dia) || { dia: d.dia, total: 0, pagos: 0 }
+          x[p.key] = (x[p.key] || 0) + d.monto
+          x.total += d.monto
+          x.pagos += d.pagos
+          dias.set(d.dia, x)
+        })
+      })
+      const lista = [...dias.values()].sort((a, b) => a.dia.localeCompare(b.dia))
+      setCobros({ dias: lista, cuentas: partes })
+      setMesVisto(lista[0]?.dia.slice(0, 7) || new Date().toISOString().slice(0, 7))
+      if (!lista.length) setCobrosMsg('ML no informó cobros por venir.')
+    } catch (err) {
+      setCobrosMsg('❌ ' + err.message)
+    } finally {
+      setCobrosBusy(false)
+    }
+  }
 
   // Cuánto entró, cuánto se lleva ML y cuándo se libera el resto.
   // El saldo de Mercado Pago da 403 con el token de ML, así que esto se calcula
@@ -285,6 +329,89 @@ export default function Metrics({ mlAccounts, ensureToken }) {
               <p className="mt-hint">Costo de envíos a cargo nuestro: <strong>{plata(datos.envios.costoNuestro)}</strong></p>
             </div>
           )}
+
+          <div className="mt-panel">
+            <h2>📆 Próximos cobros</h2>
+            <p className="mt-hint">
+              Lo que ML te va a depositar, día por día. Mira para adelante: entra todo lo que está por
+              liberarse, sin importar cuándo se vendió. No depende del período elegido arriba.
+            </p>
+            <button className="mt-btn" onClick={cargarCobros} disabled={cobrosBusy}>
+              {cobrosBusy ? '⏳ Leyendo los pagos...' : '📆 Ver el calendario'}
+            </button>
+            {cobrosMsg && <p className={`mt-hint ${cobrosMsg.startsWith('❌') ? 'warn' : ''}`}>{cobrosMsg}</p>}
+
+            {cobros && cobros.dias.length > 0 && (() => {
+              const delMes = cobros.dias.filter(d => d.dia.startsWith(mesVisto))
+              const meses = [...new Set(cobros.dias.map(d => d.dia.slice(0, 7)))]
+              const i = meses.indexOf(mesVisto)
+              const nombreMes = new Date(mesVisto + '-02').toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+              const totalMes = delMes.reduce((s, d) => s + d.total, 0)
+              const porCuenta = cobros.cuentas.map(c => ({
+                key: c.key,
+                monto: delMes.reduce((s, d) => s + (d[c.key] || 0), 0),
+              }))
+              return (
+                <>
+                  <div className="mt-mes">
+                    <button onClick={() => setMesVisto(meses[i - 1])} disabled={i <= 0}>‹</button>
+                    <span>{nombreMes}</span>
+                    <button onClick={() => setMesVisto(meses[i + 1])} disabled={i >= meses.length - 1}>›</button>
+                  </div>
+
+                  <div className="mt-cobrar">
+                    <span>A cobrar en {nombreMes}</span>
+                    <strong>{plata(totalMes)}</strong>
+                    <div className="mt-cobrar-cuentas">
+                      {porCuenta.map(c => (
+                        <span key={c.key}>{c.key.toUpperCase()}: <b>{plata(c.monto)}</b></span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-table-wrap">
+                    <table className="mt-table mt-cal">
+                      <thead>
+                        <tr>
+                          <th>Día</th>
+                          {cobros.cuentas.map(c => <th key={c.key}>{c.key.toUpperCase()}</th>)}
+                          <th>Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {delMes.map(d => {
+                          const f = new Date(d.dia + 'T12:00:00')
+                          const hoy = new Date().toISOString().slice(0, 10)
+                          return (
+                            <tr key={d.dia} className={d.dia === hoy ? 'hoy' : ''}>
+                              <td>
+                                <strong>{f.toLocaleDateString('es-AR', { weekday: 'long' })} {f.getDate()}</strong>
+                              </td>
+                              {cobros.cuentas.map(c => (
+                                <td key={c.key} className="mt-num">{d[c.key] ? plata(d[c.key]) : '—'}</td>
+                              ))}
+                              <td className="mt-num mt-verde">{plata(d.total)}</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr>
+                          <td><strong>Total del mes</strong></td>
+                          {porCuenta.map(c => <td key={c.key} className="mt-num"><strong>{plata(c.monto)}</strong></td>)}
+                          <td className="mt-num mt-verde"><strong>{plata(totalMes)}</strong></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                  <p className="mt-hint">
+                    Son los próximos 90 días. Es lo que ML libera por ventas ya cobradas: no incluye
+                    adelantos ni descuentos que ML te aplique después.
+                  </p>
+                </>
+              )
+            })()}
+          </div>
 
           <div className="mt-panel">
             <h2>💵 La plata de estas ventas</h2>
