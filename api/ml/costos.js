@@ -1,4 +1,4 @@
-import { httpRequest, cors } from '../../lib/http.js';
+import { httpRequest, httpGetText, cors } from '../../lib/http.js';
 import { calcularCostos, mapReputacion, precioSugerido, COMISION_CATEGORIAS_FALLBACK } from '../../lib/ml/costos.js';
 
 const LISTING_TYPE = { 'Clásica': 'gold_special', Premium: 'gold_pro' };
@@ -25,9 +25,17 @@ function extractMlToken(input) {
 }
 
 // Busca publicaciones activas parecidas en ML y arma min / promedio / mediana / max.
-// El endpoint de búsqueda de ML puede exigir token según la app — si hay token de
-// /conexiones se usa; si la búsqueda falla se devuelve el motivo en vez de romper.
+// Intenta primero la API oficial (puede exigir token según la app); si falla, cae a
+// "scrapear" la página pública del listado (gratis, sin token) leyendo su JSON-LD.
 async function buscarMercado(query, token) {
+  const porApi = await buscarMercadoApi(query, token);
+  if (porApi.ok) return porApi;
+  const porListado = await buscarMercadoListado(query);
+  if (porListado.ok) return porListado;
+  return { ok: false, motivo: porApi.motivo + ' · Tampoco pude leer el listado público (' + porListado.motivo + ')' };
+}
+
+async function buscarMercadoApi(query, token) {
   try {
     const headers = token ? { Authorization: 'Bearer ' + token } : {};
     const r = await httpRequest('GET',
@@ -35,27 +43,73 @@ async function buscarMercado(query, token) {
       headers, null);
     const results = r.body?.results;
     if (r.status !== 200 || !Array.isArray(results)) {
-      return { ok: false, motivo: 'Mercado Libre no dejó buscar (HTTP ' + r.status + ')' + (token ? '' : ' — conectá tu cuenta en /conexiones para habilitar el análisis de mercado') };
+      return { ok: false, motivo: 'La API de búsqueda no dejó buscar (HTTP ' + r.status + ')' };
     }
     const items = results
       .filter(x => Number.isFinite(x.price) && x.price > 0)
       .map(x => ({ title: x.title, price: x.price, permalink: x.permalink }));
-    if (!items.length) return { ok: false, motivo: 'No encontré publicaciones parecidas' };
-    const orden = [...items].sort((a, b) => a.price - b.price);
-    const precios = orden.map(x => x.price);
-    const mid = Math.floor(precios.length / 2);
-    return {
-      ok: true,
-      consulta: query,
-      cantidad: precios.length,
-      promedio: Math.round(precios.reduce((a, b) => a + b, 0) / precios.length),
-      mediana: Math.round(precios.length % 2 ? precios[mid] : (precios[mid - 1] + precios[mid]) / 2),
-      masBarato: orden[0],
-      masCaro: orden[orden.length - 1],
-    };
+    return armarEstadisticas(items, query, 'API Mercado Libre');
   } catch (e) {
     return { ok: false, motivo: e.message };
   }
+}
+
+// Los listados de ML (listado.mercadolibre.com.ar/<busqueda>) traen los productos en
+// bloques <script type="application/ld+json"> con offers.price — datos estructurados
+// pensados para buscadores, más estables que parsear el HTML visual.
+function parsearListadoLdJson(html) {
+  const items = [];
+  const re = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    try {
+      const data = JSON.parse(m[1]);
+      const nodos = [];
+      for (const d of Array.isArray(data) ? data : [data]) {
+        if (Array.isArray(d['@graph'])) nodos.push(...d['@graph']);
+        if (Array.isArray(d.itemListElement)) nodos.push(...d.itemListElement.map(x => x.item || x));
+        nodos.push(d);
+      }
+      for (const p of nodos) {
+        const price = Number(p?.offers?.price ?? p?.offers?.lowPrice);
+        if (p && (p['@type'] === 'Product' || p.offers) && Number.isFinite(price) && price > 0) {
+          items.push({ title: p.name || '(sin título)', price, permalink: p.url || p.offers?.url || '' });
+        }
+      }
+    } catch (e) { /* bloque no parseable, probamos el siguiente */ }
+  }
+  return items;
+}
+
+async function buscarMercadoListado(query) {
+  try {
+    const slug = String(query).toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9\s]/g, ' ').trim().replace(/\s+/g, '-');
+    if (!slug) return { ok: false, motivo: 'búsqueda vacía' };
+    const r = await httpGetText('https://listado.mercadolibre.com.ar/' + slug);
+    if (r.status !== 200) return { ok: false, motivo: 'listado HTTP ' + r.status };
+    return armarEstadisticas(parsearListadoLdJson(r.body), query, 'listado público de ML');
+  } catch (e) {
+    return { ok: false, motivo: e.message };
+  }
+}
+
+function armarEstadisticas(items, query, fuente) {
+  if (!items.length) return { ok: false, motivo: 'sin publicaciones parecidas (' + fuente + ')' };
+  const orden = [...items].sort((a, b) => a.price - b.price);
+  const precios = orden.map(x => x.price);
+  const mid = Math.floor(precios.length / 2);
+  return {
+    ok: true,
+    fuente,
+    consulta: query,
+    cantidad: precios.length,
+    promedio: Math.round(precios.reduce((a, b) => a + b, 0) / precios.length),
+    mediana: Math.round(precios.length % 2 ? precios[mid] : (precios[mid - 1] + precios[mid]) / 2),
+    masBarato: orden[0],
+    masCaro: orden[orden.length - 1],
+  };
 }
 
 async function resolveToItem(token) {

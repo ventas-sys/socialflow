@@ -194,7 +194,7 @@ function renderMercado(m){
       </div>
       <div class="note">🥇 Más barato: <a href="${escapeHtml(m.masBarato.permalink||'#')}" target="_blank" style="color:#ffb020;">${escapeHtml(m.masBarato.title)}</a></div>
       <div class="note">💎 Más caro: <a href="${escapeHtml(m.masCaro.permalink||'#')}" target="_blank" style="color:#ffb020;">${escapeHtml(m.masCaro.title)}</a></div>
-      <div class="note">Búsqueda: "${escapeHtml(m.consulta)}" — incluye variantes y otros modelos; mirá los links para validar que compare lo mismo.</div>
+      <div class="note">Búsqueda: "${escapeHtml(m.consulta)}" · Fuente: ${escapeHtml(m.fuente||'API Mercado Libre')} — incluye variantes y otros modelos; mirá los links para validar que compare lo mismo.</div>
     </div>`;
 }
 
