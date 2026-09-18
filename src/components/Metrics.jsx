@@ -406,7 +406,7 @@ export default function Metrics({ mlAccounts, ensureToken }) {
                             ? `Sacado del extracto de MP (${s.saldo.fuente})${s.saldo.fecha ? ` · ${s.saldo.fecha}` : ''}`
                             : s.tokenDe?.nickname ? `Token de ${s.tokenDe.nickname}` : ''}
                         </p>
-                        {s.crudo && <Crudo crudo={s.crudo} />}
+                        {(s.crudo || s.config) && <Crudo crudo={s.crudo} config={s.config} />}
                       </>
                     ) : (
                       <>
@@ -416,7 +416,7 @@ export default function Metrics({ mlAccounts, ensureToken }) {
                         {(s.pasos || []).map((i, n) => (
                           <p className="mt-hint" key={n}>{i.paso}: {i.estado}{i.detalle ? ` — ${String(i.detalle).slice(0, 140)}` : ''}</p>
                         ))}
-                        {s.crudo && <Crudo crudo={s.crudo} />}
+                        {(s.crudo || s.config) && <Crudo crudo={s.crudo} config={s.config} />}
                         {!s.pasos && (s.intentos || []).map(i => (
                           <p className="mt-hint" key={i.nombre}>{i.nombre}: {i.estado} — {String(i.cuerpo).slice(0, 120)}</p>
                         ))}
@@ -624,9 +624,9 @@ export default function Metrics({ mlAccounts, ensureToken }) {
 // Cómo se vio por dentro el CSV que mandó Mercado Pago. No es para el uso
 // diario: está para poder corregir la lectura cuando el número no cierra, sin
 // tener que adivinar qué columnas trae el archivo.
-function Crudo({ crudo }) {
+function Crudo({ crudo, config }) {
   const [abierto, setAbierto] = useState(false)
-  if (!crudo) return null
+  if (!crudo && !config) return null
   return (
     <div className="mt-crudo">
       <button className="mt-crudo-btn" onClick={() => setAbierto(!abierto)}>
@@ -634,12 +634,20 @@ function Crudo({ crudo }) {
       </button>
       {abierto && (
         <div className="mt-crudo-cuerpo">
+          {config && Object.entries(config).map(([nombre, r]) => (
+            <div key={nombre}>
+              <p><strong>{nombre}</strong> ({r.estado})</p>
+              <pre>{r.cuerpo}</pre>
+            </div>
+          ))}
+          {!crudo ? null : <>
           <p>Separador «{crudo.separador}» · encabezado en la fila {crudo.filaEncabezado}</p>
           <p><strong>Columnas:</strong> {(crudo.columnas || []).join(' | ') || '(ninguna)'}</p>
           <p><strong>Primeras líneas:</strong></p>
           {(crudo.primeras || []).map((l, i) => <pre key={'p' + i}>{l}</pre>)}
           <p><strong>Últimas líneas:</strong></p>
           {(crudo.ultimas || []).map((l, i) => <pre key={'u' + i}>{l}</pre>)}
+          </>}
         </div>
       )}
     </div>

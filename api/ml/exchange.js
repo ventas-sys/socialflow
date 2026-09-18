@@ -1141,6 +1141,7 @@ async function mpSaldoReal(req, res) {
   if (!tokens.length) return res.status(400).json({ ok: false, error: 'Falta algún token' });
 
   const pasos = [];
+  let config = null;   // lo último que contestó MP sobre la forma del reporte
   const finMs = Date.now();
   const iniMs = finMs - Number(dias) * 24 * 3600 * 1000;
   const iso = (ms) => new Date(ms).toISOString().slice(0, 19) + 'Z';
@@ -1153,6 +1154,25 @@ async function mpSaldoReal(req, res) {
     pasos.push({ paso: `lista previa (token de ${origen})`, estado: antes.status });
     if (antes.status !== 200) continue;
     const previos = new Set((Array.isArray(antes.body) ? antes.body : []).map((f) => f.file_name));
+
+    // Qué columnas ACEPTA el reporte de esta cuenta y cuáles tiene puestas. Las
+    // columnas son configurables por cuenta, así que FULL y FERRE pueden estar
+    // trayendo archivos distintos. Esto se pide siempre, aunque después falle
+    // la generación, porque es lo que dice si el saldo se puede pedir.
+    config = {};
+    for (const [nombre, url] of [
+      ['release: columnas puestas', REPORTE_BASE + '/config'],
+      ['release: columnas disponibles', REPORTE_BASE + '/columns'],
+      ['retiros: columnas disponibles', 'https://api.mercadopago.com/v1/account/bank_report/columns'],
+      ['liquidaciones: columnas disponibles', 'https://api.mercadopago.com/v1/account/settlement_report/columns'],
+    ]) {
+      try {
+        const r = await httpRequest('GET', url, auth);
+        config[nombre] = { estado: r.status, cuerpo: String(typeof r.body === 'object' ? JSON.stringify(r.body) : r.body ?? '').slice(0, 1500) };
+      } catch (e) {
+        config[nombre] = { estado: 0, cuerpo: e.message };
+      }
+    }
 
     // 2. Pedir uno nuevo
     const alta = await httpRequest('POST', REPORTE_BASE, { ...auth, 'Content-Type': 'application/json' }, {
@@ -1170,7 +1190,7 @@ async function mpSaldoReal(req, res) {
     //    con 100 segundos no alcanzaba, por eso ahora espera casi 4 minutos (la
     //    función de Vercel corta a los 5).
     let archivo = null;
-    for (let i = 0; i < 55 && !archivo; i++) {
+    for (let i = 0; i < 30 && !archivo; i++) {
       await dormir(4000);
       const l = await httpRequest('GET', REPORTE_BASE + '/list', auth);
       if (l.status !== 200) continue;
@@ -1178,7 +1198,7 @@ async function mpSaldoReal(req, res) {
       archivo = arr.find((f) => f.file_name && !previos.has(f.file_name)) || null;
     }
     if (!archivo) {
-      pasos.push({ paso: 'esperar el archivo', estado: 0, detalle: 'MP no lo generó en 3 minutos y medio. Probá de nuevo en un rato.' });
+      pasos.push({ paso: 'esperar el archivo', estado: 0, detalle: 'MP no lo generó en 2 minutos.' });
       continue;
     }
     pasos.push({ paso: 'archivo listo', estado: 200, detalle: archivo.file_name });
@@ -1211,7 +1231,11 @@ async function mpSaldoReal(req, res) {
       }
       return -1;
     };
-    const iSaldo = buscarCol(/final.*balance|balance.*final/i, /^balance(_amount)?$/i, /available.*balance/i, /balance/i);
+    // Ojo: BALANCE_AMOUNT NO sirve. Es el importe del movimiento que impacta en
+    // el saldo, no el saldo acumulado: en FERRE la última fila daba 0 con la
+    // cuenta teniendo $940.517. Sólo vale una columna que diga explícitamente
+    // que es el saldo disponible.
+    const iSaldo = buscarCol(/final.*balance|balance.*final/i, /available.*balance|balance.*available/i);
     const iFecha = buscarCol(/^date$/i, /release.*date|money.*date/i, /date/i);
     if (disponible == null && iSaldo > -1) {
       for (let i = filas.length - 1; i >= 0; i--) {
@@ -1238,6 +1262,7 @@ async function mpSaldoReal(req, res) {
       netoPeriodo,
       movimientos: filas.length,
       pasos,
+      config,
       // Para poder ajustar la lectura sin tener que adivinar: cómo se vio el
       // archivo por dentro.
       crudo: {
@@ -1250,5 +1275,5 @@ async function mpSaldoReal(req, res) {
     });
   }
 
-  return res.status(200).json({ ok: false, saldo: null, pasos, error: 'No se pudo armar el reporte con ninguno de los dos tokens.' });
+  return res.status(200).json({ ok: false, saldo: null, pasos, config, error: 'No se pudo armar el reporte con ninguno de los dos tokens.' });
 }
