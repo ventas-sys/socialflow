@@ -39,12 +39,37 @@ export default function Metrics({ mlAccounts, ensureToken }) {
   const [cobrosBusy, setCobrosBusy] = useState(false)
   const [cobrosMsg, setCobrosMsg] = useState('')
   const [mesVisto, setMesVisto] = useState(() => new Date().toISOString().slice(0, 7))
+  // Saldo real de Mercado Pago (necesita el Access Token propio de MP)
+  const [saldos, setSaldos] = useState(null)
+  const [saldosBusy, setSaldosBusy] = useState(false)
 
   const cuentas = ['full', 'ferre'].filter(k => mlAccounts?.[k]?.accessToken)
   // El tipo de envío hay que preguntárselo a ML envío por envío: en 15 o 30
   // días son miles de consultas y la función se corta antes de terminar
   const periodoLargo = rango === '15' || rango === '30'
   const pedirEnvios = conEnvios && !periodoLargo
+
+  // Saldo real de cada cuenta de Mercado Pago. Con el token de ML da 403, así
+  // que usa el Access Token de MP que se carga en la ficha de la cuenta (ML).
+  const cargarSaldos = async () => {
+    setSaldosBusy(true); setSaldos(null)
+    try {
+      const salida = []
+      for (const key of cuentas) {
+        const acc = mlAccounts[key] || {}
+        const res = await fetch(`${API}?action=mpsaldo`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mpToken: acc.mpToken || '' }),
+        }).then(x => x.json())
+        salida.push({ key, ...res })
+      }
+      setSaldos(salida)
+    } catch (err) {
+      setSaldos([{ key: 'error', error: err.message }])
+    } finally {
+      setSaldosBusy(false)
+    }
+  }
 
   // El calendario de lo que ML va a depositar, día por día y por cuenta.
   // Se piden los próximos 90 días de una y después se navega por mes sin
@@ -329,6 +354,46 @@ export default function Metrics({ mlAccounts, ensureToken }) {
               <p className="mt-hint">Costo de envíos a cargo nuestro: <strong>{plata(datos.envios.costoNuestro)}</strong></p>
             </div>
           )}
+
+          <div className="mt-panel">
+            <h2>💳 Saldo en Mercado Pago</h2>
+            <p className="mt-hint">
+              El saldo real de cada cuenta. ML no lo deja leer con su permiso, así que hace falta cargar el
+              <strong> Access Token de Mercado Pago</strong> de cada cuenta en la solapa 🛒 ML.
+            </p>
+            <button className="mt-btn" onClick={cargarSaldos} disabled={saldosBusy}>
+              {saldosBusy ? '⏳ Consultando...' : '💳 Ver saldos'}
+            </button>
+
+            {saldos && (
+              <div className="mt-saldos">
+                {saldos.map(s => (
+                  <div className={`mt-saldo ${s.saldo ? 'ok' : 'no'}`} key={s.key}>
+                    <span className="mt-saldo-cuenta">{s.key.toUpperCase()}</span>
+                    {s.saldo ? (
+                      <>
+                        <div className="mt-saldo-fila"><span>En la cuenta</span><strong>{plata(s.saldo.total)}</strong></div>
+                        <div className="mt-saldo-fila"><span>Disponible</span><strong className="verde">{plata(s.saldo.disponible)}</strong></div>
+                        <div className="mt-saldo-fila"><span>A liquidar</span><strong className="naranja">{plata(s.saldo.aLiquidar)}</strong></div>
+                        {s.tokenDe?.nickname && <p className="mt-hint">Token de {s.tokenDe.nickname}</p>}
+                      </>
+                    ) : s.falta === 'mpToken' ? (
+                      <p className="mt-saldo-falta">
+                        Falta el Access Token de Mercado Pago. Cargalo en 🛒 ML, en la ficha de esta cuenta.
+                      </p>
+                    ) : (
+                      <>
+                        <p className="mt-saldo-falta">Mercado Pago no devolvió el saldo.</p>
+                        {(s.intentos || []).map(i => (
+                          <p className="mt-hint" key={i.nombre}>{i.nombre}: {i.estado} — {String(i.cuerpo).slice(0, 120)}</p>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div className="mt-panel">
             <h2>📆 Próximos cobros</h2>

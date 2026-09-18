@@ -51,7 +51,8 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
       setMsg(m => ({ ...m, [key]: '⚠️ Completá App ID y Secret.' }))
       return
     }
-    await onSaveAccount(key, { clientId, clientSecret })
+    const mpToken = (f.mpToken ?? mlAccounts?.[key]?.mpToken ?? '').trim()
+    await onSaveAccount(key, { clientId, clientSecret, mpToken })
     setMsg(m => ({ ...m, [key]: '✅ Datos guardados. Ya podés conectar.' }))
   }
 
@@ -623,6 +624,20 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
                 onChange={e => setForm(key, 'clientSecret', e.target.value)}
                 placeholder="Clave secreta de la app"
               />
+              <label className="ml-label">
+                Access Token de Mercado Pago <span className="ml-opc">— opcional, para ver el saldo real</span>
+              </label>
+              <input
+                type="password"
+                value={f.mpToken ?? acc.mpToken ?? ''}
+                onChange={e => setForm(key, 'mpToken', e.target.value)}
+                placeholder="APP_USR-..."
+              />
+              <p className="ml-ayuda">
+                Se saca de <strong>mercadopago.com.ar/developers</strong> → Tus integraciones → tu aplicación →
+                <strong> Credenciales de producción</strong> → Access Token. Es de ESTA cuenta y sirve para leer
+                el saldo, que con el permiso de ML da error. Se guarda como la Secret Key: solo lo ve el master.
+              </p>
 
               <div className="ml-actions">
                 <button className="ml-btn-save" onClick={() => saveConfig(key)}>💾 Guardar</button>

@@ -220,3 +220,15 @@
 .mt-cal tfoot td { border-top: 2px solid #e2e8f0; background: #f8fafc; }
 .mt-num { text-align: right; }
 .mt-verde { color: #16a34a; font-weight: 700; }
+
+/* Saldo real de Mercado Pago, por cuenta */
+.mt-saldos { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.8rem; margin-top: 0.9rem; }
+.mt-saldo { border-radius: 0.7rem; padding: 0.9rem 1rem; border: 1px solid #e2e8f0; background: #f8fafc; }
+.mt-saldo.ok { background: #f0f9ff; border-color: #bae6fd; }
+.mt-saldo-cuenta { display: block; font-weight: 900; color: #0369a1; margin-bottom: 0.5rem; }
+.mt-saldo-fila { display: flex; justify-content: space-between; align-items: baseline; gap: 0.6rem; padding: 0.2rem 0; }
+.mt-saldo-fila span { font-size: 0.78rem; color: #64748b; font-weight: 700; }
+.mt-saldo-fila strong { font-size: 1.15rem; }
+.mt-saldo-fila .verde { color: #16a34a; }
+.mt-saldo-fila .naranja { color: #b45309; }
+.mt-saldo-falta { color: #b45309; font-size: 0.85rem; font-weight: 600; margin: 0; }

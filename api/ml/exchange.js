@@ -23,6 +23,7 @@ export default async function handler(req, res) {
     if (action === 'mptest') return await mpTest(req, res);
     if (action === 'mpdinero') return await mpDinero(req, res);
     if (action === 'mpcobros') return await mpCobros(req, res);
+    if (action === 'mpsaldo') return await mpSaldo(req, res);
     return await exchange(req, res);
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message });
@@ -110,6 +111,70 @@ async function topSold(req, res) {
 
   const top = [...acc.values()].sort((a, b) => b.unidades - a.unidades).slice(0, limit);
   return res.status(200).json({ ok: true, ordenes, canceladas, truncado, publicaciones: acc.size, top });
+}
+
+// SALDO REAL de la cuenta de Mercado Pago.
+//
+// Con el token de ML esto da 403 (probado en las dos cuentas el 18/9): ML y MP
+// comparten la cuenta pero no los permisos. Por eso acá se usa el Access Token
+// propio de Mercado Pago, que el usuario carga en la ficha de cada cuenta.
+//
+// Se prueban las dos formas que tiene MP de informarlo, porque cambia según
+// cómo esté dada de alta la cuenta.
+async function mpSaldo(req, res) {
+  const { mpToken, token } = req.body || {};
+  const usado = (mpToken || '').trim();
+  if (!usado) {
+    return res.status(200).json({
+      ok: false,
+      falta: 'mpToken',
+      error: 'Esta cuenta todavía no tiene cargado el Access Token de Mercado Pago.',
+    });
+  }
+  const auth = { 'Authorization': 'Bearer ' + usado };
+
+  // De quién es el token (sirve para avisar si se pegó el de la otra cuenta)
+  let userId = null, nickname = null;
+  try {
+    const u = await httpRequest('GET', 'https://api.mercadopago.com/users/me', auth);
+    if (u.status === 200) { userId = u.body?.id ?? null; nickname = u.body?.nickname ?? null; }
+  } catch {}
+
+  const intentos = [];
+  const probar = async (nombre, url) => {
+    try {
+      const r = await httpRequest('GET', url, auth);
+      intentos.push({ nombre, estado: r.status, cuerpo: r.status === 200 ? r.body : String(JSON.stringify(r.body || '')).slice(0, 200) });
+      return r.status === 200 ? r.body : null;
+    } catch (e) {
+      intentos.push({ nombre, estado: 0, cuerpo: e.message });
+      return null;
+    }
+  };
+
+  let saldo = null;
+  if (userId) {
+    const b = await probar('balance', `https://api.mercadopago.com/users/${userId}/mercadopago_account/balance`);
+    if (b) {
+      const total = b.total_balance ?? b.total_amount ?? null;
+      const disponible = b.available_balance ?? b.available_amount ?? null;
+      if (total != null || disponible != null) {
+        saldo = {
+          total: total ?? 0,
+          disponible: disponible ?? 0,
+          aLiquidar: (total ?? 0) - (disponible ?? 0),
+          fuente: 'balance',
+        };
+      }
+    }
+  }
+
+  return res.status(200).json({
+    ok: true,
+    tokenDe: { userId, nickname },
+    saldo,
+    intentos,
+  });
 }
 
 // PRÓXIMOS COBROS: el calendario de lo que ML va a depositar, día por día.
