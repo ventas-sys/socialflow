@@ -1137,7 +1137,9 @@ function ultimoNumeroDeLinea(linea) {
 
 async function mpSaldoReal(req, res) {
   const { token, mpToken, dias = 3 } = req.body || {};
-  const tokens = [['MP', (mpToken || '').trim()], ['ML', (token || '').trim()]].filter(([, t]) => t);
+  // Primero el token de ML: es el que viene generando el archivo en las dos
+  // cuentas. Con el de MP la generación se cuelga y se pierden dos minutos.
+  const tokens = [['ML', (token || '').trim()], ['MP', (mpToken || '').trim()]].filter(([, t]) => t);
   if (!tokens.length) return res.status(400).json({ ok: false, error: 'Falta algún token' });
 
   const pasos = [];
@@ -1235,12 +1237,31 @@ async function mpSaldoReal(req, res) {
     // el saldo, no el saldo acumulado: en FERRE la última fila daba 0 con la
     // cuenta teniendo $940.517. Sólo vale una columna que diga explícitamente
     // que es el saldo disponible.
-    const iSaldo = buscarCol(/final.*balance|balance.*final/i, /available.*balance|balance.*available/i);
+    const iSaldo = buscarCol(/final.*balance|balance.*final/i, /available.*balance|balance.*available/i, /^balance(_amount)?$/i);
     const iFecha = buscarCol(/^date$/i, /release.*date|money.*date/i, /date/i);
-    if (disponible == null && iSaldo > -1) {
+
+    // No sirve agarrar la última LÍNEA del archivo: abajo de todo MP suele
+    // dejar un renglón de totales, y ahí el saldo viene en cero (fue lo que
+    // pasó en FERRE, que daba $0 teniendo $940.517). Hay que buscar el
+    // movimiento MÁS NUEVO POR FECHA, salteando los renglones que no son
+    // movimientos.
+    let ultimas5 = [];
+    if (disponible == null && iSaldo > -1 && iFecha > -1) {
+      const conFecha = filas
+        .map((f) => ({ fecha: (f[iFecha] || '').trim(), saldo: aNumero(f[iSaldo]) }))
+        .filter((r) => r.fecha && /\d{4}-\d{2}-\d{2}|\d{2}\/\d{2}\/\d{4}/.test(r.fecha) && r.saldo != null)
+        .sort((a, b) => (a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0));
+      ultimas5 = conFecha.slice(-5);
+      const ultima = conFecha[conFecha.length - 1];
+      if (ultima) {
+        disponible = ultima.saldo;
+        fechaSaldo = ultima.fecha;
+        deDonde = `columna ${columnas[iSaldo]}, movimiento del ${ultima.fecha}`;
+      }
+    } else if (disponible == null && iSaldo > -1) {
       for (let i = filas.length - 1; i >= 0; i--) {
         const n = aNumero(filas[i][iSaldo]);
-        if (n != null) { disponible = n; deDonde = `columna ${columnas[iSaldo]}`; fechaSaldo = iFecha > -1 ? filas[i][iFecha] : null; break; }
+        if (n != null) { disponible = n; deDonde = `columna ${columnas[iSaldo]}`; break; }
       }
     }
 
@@ -1269,6 +1290,7 @@ async function mpSaldoReal(req, res) {
         separador: sep,
         filaEncabezado: encabezado,
         columnas,
+        ultimasPorFecha: ultimas5,
         primeras: crudas.slice(0, 8).map((l) => l.slice(0, 300)),
         ultimas: crudas.slice(-3).map((l) => l.slice(0, 300)),
       },
