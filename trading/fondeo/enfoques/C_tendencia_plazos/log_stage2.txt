@@ -1,0 +1,28 @@
+       sym  entry  tf  atr_stop  pass7  burn7  pass30  burn30   ratio30
+0   BTCUSD  don20  1h       1.0   12.3   32.6    34.9    63.4  0.541925
+1   GBPUSD  don20  1h       1.0    6.8   24.7    19.2    69.0  0.274286
+2   XAUUSD  don20  1h       1.0    5.5   21.6    17.1    70.4  0.239496
+3   BTCUSD  don55  1h       1.0    5.1   13.3    18.7    53.6  0.342491
+4   BTCUSD  don20  1h       2.0    5.1   36.6    17.9    78.8  0.224311
+5   EURUSD  don20  1h       1.0    4.7   23.6    15.4    73.1  0.207827
+6   USDJPY  don55  4h       2.0    1.3    1.2    10.4    17.1  0.574586
+7   BTCUSD  don20  4h       1.0    4.4    3.4    23.6    50.3  0.460039
+8   BTCUSD  don20  4h       4.0    1.0    5.1    14.6    32.3  0.438438
+9   GBPUSD  don20  4h       1.0    2.3    3.0    17.5    40.6  0.420673
+10  XAUUSD  don55  4h       1.0    1.9    1.6     8.5    20.2  0.400943
+  etapa 2 2/22 tareas, 61 s
+  etapa 2 4/22 tareas, 68 s
+  etapa 2 6/22 tareas, 98 s
+  etapa 2 8/22 tareas, 105 s
+  etapa 2 10/22 tareas, 164 s
+  etapa 2 12/22 tareas, 189 s
+  etapa 2 14/22 tareas, 228 s
+  etapa 2 16/22 tareas, 235 s
+  etapa 2 18/22 tareas, 278 s
+  etapa 2 20/22 tareas, 310 s
+  etapa 2 22/22 tareas, 315 s
+etapa 2 lista 315 s
+       sym  entry  tf  atr_stop  friday  risk   mode  pass7  burn7  pass14  burn14  score
+0   BTCUSD  don20  1h       1.0    True   2.8  fixed   22.6   54.3    30.3    63.1  21.35
+26  XAUUSD  don55  4h       1.0    True   2.8  fixed    4.7    5.7     9.0    14.2   6.60
+33  USDJPY  don55  4h       2.0    True   2.8  fixed    2.8    2.7     6.3     9.1   4.55

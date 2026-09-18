@@ -1,0 +1,44 @@
+  etapa 1 15/150 tareas, 19 s
+  etapa 1 30/150 tareas, 42 s
+  etapa 1 45/150 tareas, 66 s
+  etapa 1 60/150 tareas, 91 s
+  etapa 1 75/150 tareas, 117 s
+  etapa 1 90/150 tareas, 145 s
+  etapa 1 105/150 tareas, 172 s
+  etapa 1 120/150 tareas, 202 s
+  etapa 1 135/150 tareas, 230 s
+  etapa 1 150/150 tareas, 258 s
+etapa 1 lista 258 s
+       sym      entry  tf  atr_stop  pass7  burn7  pass30  burn30  edge30
+0   BTCUSD      don20  1h       1.0   12.3   32.6    34.9    63.4   -28.5
+1   GBPUSD      don20  1h       1.0    6.8   24.7    19.2    69.0   -49.8
+2   XAUUSD      don20  1h       1.0    5.5   21.6    17.1    70.4   -53.3
+3   BTCUSD      don55  1h       1.0    5.1   13.3    18.7    53.6   -34.9
+4   BTCUSD      don20  1h       2.0    5.1   36.6    17.9    78.8   -60.9
+5   EURUSD      don20  1h       1.0    4.7   23.6    15.4    73.1   -57.7
+6   BTCUSD  ema50_200  4h       1.0    1.3    0.0     5.1     0.0     5.1
+7   EURUSD  ema50_200  1h       2.0    0.2    0.0     3.8     0.0     3.8
+8   USDJPY  ema50_200  4h       2.0    0.9    0.0     3.8     0.0     3.8
+9   EURUSD  ema50_200  1h       4.0    0.4    0.0     2.5     0.0     2.5
+10  GBPUSD   ema20_50  4h       2.0    0.2    0.0     1.9     0.2     1.7
+11  USDJPY  ema50_200  4h       1.0    0.4    0.0     1.3     0.0     1.3
+Traceback (most recent call last):
+  File "/home/user/socialflow/trading/fondeo/enfoques/C_tendencia_plazos/run.py", line 232, in <module>
+    s2 = pd.read_csv(f'{HERE}/stage2.csv')
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/pandas/io/parsers/readers.py", line 873, in read_csv
+    return _read(filepath_or_buffer, kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/pandas/io/parsers/readers.py", line 300, in _read
+    parser = TextFileReader(filepath_or_buffer, **kwds)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/pandas/io/parsers/readers.py", line 1645, in __init__
+    self._engine = self._make_engine(f, self.engine)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/pandas/io/parsers/readers.py", line 1904, in _make_engine
+    self.handles = get_handle(
+                   ^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/dist-packages/pandas/io/common.py", line 930, in get_handle
+    handle = open(
+             ^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/home/user/socialflow/trading/fondeo/enfoques/C_tendencia_plazos/stage2.csv'

@@ -1,0 +1,241 @@
+{
+ "final": {
+  "symbol": "GBPUSD",
+  "strategy": {
+   "rng_type": "prelondon",
+   "expire_hour": 17,
+   "exit_hour": 23,
+   "sl_frac": 1.0,
+   "rr": 3.0,
+   "min_range_atr": 0.3,
+   "max_range_atr": 5.0,
+   "skip_dow": [
+    0,
+    4
+   ]
+  },
+  "trade_stats": {
+   "IS": {
+    "n": 935,
+    "win_pct": 38.7,
+    "tp_pct": 14.1,
+    "sl_pct": 53.8,
+    "avg_R": 0.081,
+    "std_R": 1.47,
+    "trades_per_week": 2.96,
+    "sl_pips_median": 30.1,
+    "both_sides": 6,
+    "long_avg_R": 0.046,
+    "short_avg_R": 0.116
+   },
+   "OOS": {
+    "n": 493,
+    "win_pct": 36.3,
+    "tp_pct": 14.8,
+    "sl_pct": 57.8,
+    "avg_R": 0.056,
+    "std_R": 1.52,
+    "trades_per_week": 3.0,
+    "sl_pips_median": 26.4,
+    "both_sides": 4,
+    "long_avg_R": -0.004,
+    "short_avg_R": 0.122
+   },
+   "by_year": {
+    "2012": {
+     "n": 17,
+     "avg_R": -0.24,
+     "win_pct": 47.1,
+     "sum_R": -4.1
+    },
+    "2013": {
+     "n": 153,
+     "avg_R": 0.38,
+     "win_pct": 47.1,
+     "sum_R": 58.5
+    },
+    "2014": {
+     "n": 150,
+     "avg_R": 0.06,
+     "win_pct": 42.0,
+     "sum_R": 8.6
+    },
+    "2015": {
+     "n": 155,
+     "avg_R": 0.02,
+     "win_pct": 31.6,
+     "sum_R": 3.0
+    },
+    "2016": {
+     "n": 154,
+     "avg_R": -0.05,
+     "win_pct": 35.7,
+     "sum_R": -7.3
+    },
+    "2017": {
+     "n": 152,
+     "avg_R": 0.0,
+     "win_pct": 34.9,
+     "sum_R": 0.5
+    },
+    "2018": {
+     "n": 154,
+     "avg_R": 0.11,
+     "win_pct": 40.3,
+     "sum_R": 16.9
+    },
+    "2019": {
+     "n": 154,
+     "avg_R": 0.21,
+     "win_pct": 39.6,
+     "sum_R": 32.6
+    },
+    "2020": {
+     "n": 156,
+     "avg_R": -0.08,
+     "win_pct": 31.4,
+     "sum_R": -13.2
+    },
+    "2021": {
+     "n": 156,
+     "avg_R": 0.06,
+     "win_pct": 37.8,
+     "sum_R": 10.0
+    },
+    "2022": {
+     "n": 27,
+     "avg_R": -0.06,
+     "win_pct": 37.0,
+     "sum_R": -1.5
+    }
+   }
+  }
+ },
+ "coin_3R_trade_stats": [
+  {
+   "seed": 0,
+   "IS_avg_R": -0.126,
+   "OOS_avg_R": -0.084,
+   "IS_win_pct": 23.8,
+   "OOS_win_pct": 24.8
+  },
+  {
+   "seed": 1,
+   "IS_avg_R": -0.054,
+   "OOS_avg_R": -0.016,
+   "IS_win_pct": 25.7,
+   "OOS_win_pct": 26.9
+  },
+  {
+   "seed": 2,
+   "IS_avg_R": -0.024,
+   "OOS_avg_R": -0.027,
+   "IS_win_pct": 26.3,
+   "OOS_win_pct": 26.5
+  },
+  {
+   "seed": 3,
+   "IS_avg_R": -0.024,
+   "OOS_avg_R": -0.143,
+   "IS_win_pct": 26.2,
+   "OOS_win_pct": 23.2
+  },
+  {
+   "seed": 4,
+   "IS_avg_R": -0.083,
+   "OOS_avg_R": -0.016,
+   "IS_win_pct": 24.9,
+   "OOS_win_pct": 26.7
+  }
+ ],
+ "endbal_7d": {
+  "ftmo_1step": {
+   "strategy_is": 100341.0,
+   "strategy_oos": 100249.0,
+   "coin_is": 99535,
+   "coin_oos": 99566,
+   "strategy_trades_oos": 3.0,
+   "coin_trades_oos": 5.0
+  },
+  "fundingpips_1step": {
+   "strategy_is": 100341.0,
+   "strategy_oos": 100249.0,
+   "coin_is": 99527,
+   "coin_oos": 99561,
+   "strategy_trades_oos": 3.0,
+   "coin_trades_oos": 4.8
+  },
+  "e8_one_8": {
+   "strategy_is": 100321.0,
+   "strategy_oos": 100248.0,
+   "coin_is": 99471,
+   "coin_oos": 99545,
+   "strategy_trades_oos": 3.0,
+   "coin_trades_oos": 4.9
+  },
+  "e8_one_14": {
+   "strategy_is": 100547.0,
+   "strategy_oos": 100399.0,
+   "coin_is": 99233,
+   "coin_oos": 99293,
+   "strategy_trades_oos": 3.0,
+   "coin_trades_oos": 5.0
+  },
+  "the5ers_hyper": {
+   "strategy_is": 100342.0,
+   "strategy_oos": 100249.0,
+   "coin_is": 99528,
+   "coin_oos": 99561,
+   "strategy_trades_oos": 3.0,
+   "coin_trades_oos": 4.8
+  },
+  "ftmo_p1": {
+   "strategy_is": 100628.0,
+   "strategy_oos": 100549.0,
+   "coin_is": 99081,
+   "coin_oos": 99103,
+   "strategy_trades_oos": 2.9,
+   "coin_trades_oos": 4.4
+  }
+ },
+ "runner_up_candle_bias": {
+  "symbol": "XAUUSD",
+  "strategy": {
+   "rng_type": "prevday",
+   "expire_hour": 14,
+   "exit_hour": 18,
+   "sl_frac": 0.5,
+   "rr": 0.0,
+   "trail": 1.5,
+   "min_range_atr": 1.0,
+   "max_range_atr": 6.0,
+   "skip_dow": [
+    0,
+    4
+   ]
+  },
+  "both_sides": {
+   "first_breakouts": 575,
+   "both": 0,
+   "frac": 0.0
+  },
+  "sim_b": {
+   "is_pass": 2.4,
+   "is_fail": 0.0,
+   "oos_pass": 0.6,
+   "oos_fail": 0.0
+  },
+  "optimista": {
+   "is_pass": 2.4,
+   "is_fail": 0.0,
+   "oos_pass": 0.6,
+   "oos_fail": 0.0
+  },
+  "original": {
+   "is_pass": 3.0,
+   "is_fail": 0.0,
+   "oos_pass": 1.2,
+   "oos_fail": 0.0
+  }
+ }
+}
