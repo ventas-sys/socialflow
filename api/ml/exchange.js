@@ -24,6 +24,7 @@ export default async function handler(req, res) {
     if (action === 'mpdinero') return await mpDinero(req, res);
     if (action === 'mpcobros') return await mpCobros(req, res);
     if (action === 'mpsaldo') return await mpSaldo(req, res);
+    if (action === 'mpsaldotest') return await mpSaldoTest(req, res);
     return await exchange(req, res);
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message });
@@ -111,6 +112,68 @@ async function topSold(req, res) {
 
   const top = [...acc.values()].sort((a, b) => b.unidades - a.unidades).slice(0, limit);
   return res.status(200).json({ ok: true, ordenes, canceladas, truncado, publicaciones: acc.size, top });
+}
+
+// BÚSQUEDA A FONDO DEL SALDO. El endpoint clásico da 403, pero hay otras
+// puertas por las que Mercado Pago informa el dinero de la cuenta, y además
+// puede que el problema sean los PERMISOS de la aplicación y no la puerta.
+//
+// Esto prueba cada candidato con los dos tokens que tenemos (el de ML y el de
+// MP) y devuelve exactamente qué contestó cada combinación, para saber por
+// dónde entrar en vez de adivinar.
+async function mpSaldoTest(req, res) {
+  const { token, mpToken } = req.body || {};
+  if (!token && !mpToken) return res.status(400).json({ ok: false, error: 'Falta algún token' });
+
+  // De quién es cada token
+  const quien = async (tk) => {
+    if (!tk) return null;
+    try {
+      const r = await httpRequest('GET', 'https://api.mercadopago.com/users/me', { 'Authorization': 'Bearer ' + tk });
+      return r.status === 200 ? { id: r.body?.id, nickname: r.body?.nickname, scopes: r.body?.scopes || null } : { error: r.status };
+    } catch (e) { return { error: e.message }; }
+  };
+  const deML = await quien(token);
+  const deMP = await quien(mpToken);
+  const uid = deML?.id || deMP?.id;
+
+  const candidatos = [
+    ['balance clásico', `https://api.mercadopago.com/users/${uid}/mercadopago_account/balance`],
+    ['balance sin users', 'https://api.mercadopago.com/v1/account/balance'],
+    ['balance corto', 'https://api.mercadopago.com/account/balance'],
+    ['asset management', 'https://api.mercadopago.com/v1/asset_management/balance'],
+    ['wallet', `https://api.mercadopago.com/users/${uid}/wallet/balance`],
+    ['account bank report', 'https://api.mercadopago.com/v1/account/bank_report/list'],
+    ['release report (lista)', 'https://api.mercadopago.com/v1/account/release_report/list'],
+    ['settlement (config)', 'https://api.mercadopago.com/v1/account/settlement_report/config'],
+    ['saldo por ML', `https://api.mercadolibre.com/users/${uid}/mercadopago_account/balance`],
+  ];
+
+  const probar = async (tk) => {
+    if (!tk) return null;
+    const salida = {};
+    for (const [nombre, url] of candidatos) {
+      try {
+        const r = await httpRequest('GET', url, { 'Authorization': 'Bearer ' + tk });
+        salida[nombre] = {
+          estado: r.status,
+          anda: r.status >= 200 && r.status < 300,
+          respuesta: String(typeof r.body === 'object' ? JSON.stringify(r.body) : r.body ?? '').slice(0, 250),
+        };
+      } catch (e) {
+        salida[nombre] = { estado: 0, anda: false, respuesta: e.message };
+      }
+    }
+    return salida;
+  };
+
+  return res.status(200).json({
+    ok: true,
+    tokenDeML: deML,
+    tokenDeMP: deMP,
+    conTokenDeML: await probar(token),
+    conTokenDeMP: await probar(mpToken),
+  });
 }
 
 // SALDO REAL de la cuenta de Mercado Pago.

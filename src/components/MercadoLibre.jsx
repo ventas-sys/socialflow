@@ -460,6 +460,41 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
     }
   }
 
+  // Búsqueda a fondo del saldo: prueba nueve puertas distintas con el token de
+  // ML y con el de Mercado Pago, y muestra qué contestó cada combinación.
+  const [saldoMsg, setSaldoMsg] = useState('')
+  const [saldoBusy, setSaldoBusy] = useState(false)
+  const [saldoDatos, setSaldoDatos] = useState(null)
+
+  const buscarSaldo = async () => {
+    setSaldoBusy(true); setSaldoMsg(''); setSaldoDatos(null)
+    try {
+      const salida = []
+      for (const key of ['full', 'ferre']) {
+        const acc = mlAccounts[key] || {}
+        if (!acc.accessToken && !acc.mpToken) continue
+        const token = acc.accessToken ? await ensureToken(key) : ''
+        const r = await fetch(`${API}?action=mpsaldotest`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, mpToken: acc.mpToken || '' }),
+        }).then(x => x.json())
+        salida.push({ cuenta: key.toUpperCase(), ...r })
+      }
+      setSaldoDatos(salida)
+      const ok = salida.flatMap(s => [
+        ...Object.values(s.conTokenDeML || {}),
+        ...Object.values(s.conTokenDeMP || {}),
+      ]).filter(x => x.anda).length
+      setSaldoMsg(ok
+        ? `✅ ${ok} respondieron bien. Pasame la pantalla y veo cuál sirve para el saldo.`
+        : '⚠️ Ninguna puerta devolvió el saldo. Pasame igual la pantalla: los mensajes dicen por qué.')
+    } catch (err) {
+      setSaldoMsg('❌ ' + err.message)
+    } finally {
+      setSaldoBusy(false)
+    }
+  }
+
   // Dispara el proceso automático (el mismo del cron de las 18hs) una vez
   const [cronMsg, setCronMsg] = useState('')
   const [cronBusy, setCronBusy] = useState(false)
@@ -556,6 +591,45 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
             </button>
             {mpMsg && <span className={`ml-cron-msg ${mpMsg.startsWith('✅') ? 'ok' : 'warn'}`}>{mpMsg}</span>}
           </div>
+
+          <div className="ml-top-row">
+            <button className="ml-btn-missing" onClick={buscarSaldo} disabled={saldoBusy}>
+              {saldoBusy ? '⏳ Probando 9 puertas...' : '🔎 Buscar el saldo por todos lados'}
+            </button>
+            {saldoMsg && <span className={`ml-cron-msg ${saldoMsg.startsWith('✅') ? 'ok' : 'warn'}`}>{saldoMsg}</span>}
+          </div>
+
+          {saldoDatos && (
+            <div className="mp-diag">
+              {saldoDatos.map(c => (
+                <div className="mp-diag-cuenta" key={c.cuenta}>
+                  <h4>{c.cuenta}</h4>
+                  <p className="mt-hint">
+                    Token de ML: {c.tokenDeML?.nickname || '—'}
+                    {c.tokenDeML?.scopes ? ` · permisos: ${[].concat(c.tokenDeML.scopes).join(' ')}` : ''}
+                    {' · '}Token de MP: {c.tokenDeMP?.nickname || '— sin cargar'}
+                  </p>
+                  {[['Con el token de ML', c.conTokenDeML], ['Con el token de MP', c.conTokenDeMP]].map(([titulo, res]) => res && (
+                    <div key={titulo}>
+                      <strong className="mp-diag-sub">{titulo}</strong>
+                      <table className="mp-diag-tabla">
+                        <tbody>
+                          {Object.entries(res).map(([k, v]) => (
+                            <tr key={k} className={v.anda ? 'anda' : 'no'}>
+                              <td>{v.anda ? '✅' : '❌'}</td>
+                              <td>{k}</td>
+                              <td className="mp-diag-estado">{v.estado || '—'}</td>
+                              <td className="mp-diag-resp">{v.respuesta}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
 
           {mpDatos && (
             <div className="mp-diag">
