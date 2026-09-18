@@ -89,7 +89,17 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
     - Del usuario: correr **🏆 Top 200 más vendidos** y revisar medida/foto/ubicación de esos SKU · cargar las **38 publicaciones** que faltan (necesitan SKU de ML y armado) · seguir cargando el **stock real** de los productos base con Compra/Ajuste.
     - De código: **envíos a bodega Full** (que descuente el stock al mandar mercadería a bodega; hoy no se descuenta nunca) · **mejorar la foto de factura** (hace falta que el usuario pase 2-3 facturas reales donde matcheó mal) · **zonas FLEX editables desde la app** (hoy los montos de cobro de ML y de pago al motoquero son constantes en Shipments.jsx).
 
-17. **PRÓXIMO TEMA (pedido el 17/9 para el 18/9) — la plata de ML y Mercado Pago, por cuenta**
+17. **LA PLATA DE ML Y MERCADO PAGO (18/9) — qué se puede y qué NO**
+    **EL SALDO DE MERCADO PAGO NO SE PUEDE LEER. Cerrado, no volver a intentarlo.**
+    `GET /users/{id}/mercadopago_account/balance` da **403 ForbiddenApiError** con: (a) el token de ML, (b) el mismo pedido por el host de ML, y (c) el **Access Token de producción propio de Mercado Pago** de cada cuenta, creado por el usuario el 18/9 en mercadopago.com.ar/developers. Probado en las DOS cuentas. No es un permiso que se pueda pedir: MP no expone el saldo a integraciones de terceros. Si vuelve a pedirse, la respuesta es esta, no reintentar.
+    **Lo que SÍ responde 200 (probado en las dos cuentas con el token de ML):**
+    - `/v1/payments/search` — cada pago con `fee_details` (comisión y envío), `transaction_details.net_received_amount` (neto) y `money_release_date` + `money_release_status`. **De acá sale todo lo que hay armado.**
+    - `/v1/account/settlement_report/list` y `/v1/account/release_report/list` — los informes de liquidaciones. Responden 200 pero todavía NO se usan: son archivos que hay que crear, esperar y bajar. Es el único camino para un saldo real (incluiría retiros y cargos), y quedó como opción sin hacer.
+    - `/billing/integration/monthly/periods` — facturación de ML. Anda en FULL (al 18/9: $51.876.240 del período, $2.280.266 impago) y da **403 en FERRE** por política de la cuenta.
+    **Lo construido:** `mptest` (diagnóstico de las 6 puertas), `mpdinero` (bruto, comisión, envíos, neto, liberado y a liquidar de un período) y `mpcobros` (calendario de próximos cobros por fecha de liberación, 90 días, las dos cuentas juntas y separadas — copiado de la pantalla "Próximos cobros y pagos" de MP). Todo en 📊 Métricas. El campo "Access Token de Mercado Pago" quedó en la ficha de cada cuenta (solapa ML): hoy no sirve para el saldo, pero queda cargado.
+    **Ojo con el volumen**: `/v1/payments/search` corta cerca del offset 1000, por eso los períodos se parten en ventanas de 2 días y, si una ventana se pasa, se parte al medio.
+
+18. ~~PRÓXIMO TEMA (pedido el 17/9 para el 18/9) — la plata de ML y Mercado Pago, por cuenta~~
     Lo que pidió textual: "poder ver el saldo de mercado pagos de cada cuenta y el dinero a liquidar · las ventas brutas y lo que mercado libre nos va a pagar y lo que tenemos disponible".
     - Hoy la solapa 📊 Métricas ya muestra un saldo de MP (total / disponible / a liquidar) pedido con el MISMO token de ML a `api.mercadopago.com/users/{id}/mercadopago_account/balance`; funciona a veces y no está abierto por cuenta. Punto de partida, no solución.
     - Lo que falta es la diferencia entre **venta bruta** y **lo que ML deposita**: ML descuenta comisión, costo de envío e impuestos. Ese dato NO sale de `/orders`; sale de las **liquidaciones** (informe de liquidaciones de MP / release report) o de `/payments/search` mirando `transaction_details.net_received_amount` y `fee_details`.
