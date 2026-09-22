@@ -1,0 +1,105 @@
+/* Revisión editable de una compra antes de aplicarla al stock.
+   Pensado para el celular primero: el depósito se carga con el teléfono. */
+
+.rc {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: #fff;
+  border: 2px solid #6366f1;
+  border-radius: 12px;
+}
+.rc-head { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
+.rc-head h3 { margin: 0; font-size: 1.05rem; }
+.rc-ref { font-size: .78rem; color: #64748b; }
+.rc-hint { margin: .4rem 0 .9rem; font-size: .82rem; color: #475569; }
+
+.rc-items { display: flex; flex-direction: column; gap: .6rem; }
+
+.rc-item {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: .6rem .7rem;
+  background: #f8fafc;
+}
+.rc-item.sinprod { border-color: #fca5a5; background: #fef2f2; }
+.rc-item.apagado { opacity: .5; }
+
+.rc-item-top { display: flex; align-items: flex-start; gap: .5rem; }
+.rc-texto { flex: 1; font-weight: 600; font-size: .9rem; word-break: break-word; }
+.rc-quitar {
+  background: none; border: none; cursor: pointer; font-size: 1.1rem;
+  line-height: 1; padding: .1rem .3rem;
+}
+
+.rc-fila { display: flex; align-items: center; gap: .5rem; margin-top: .5rem; }
+.rc-etiqueta { width: 70px; flex: none; font-size: .75rem; color: #64748b; }
+
+.rc-elegir {
+  flex: 1; text-align: left; padding: .45rem .55rem;
+  border: 1px solid #cbd5e1; border-radius: 8px; background: #fff;
+  font-size: .85rem; cursor: pointer; word-break: break-word;
+}
+.rc-falta { color: #dc2626; font-weight: 600; }
+.rc-tag {
+  display: inline-block; margin-right: .35rem; padding: 0 .35rem;
+  background: #10b981; color: #fff; border-radius: 4px;
+  font-size: .65rem; text-transform: uppercase; vertical-align: middle;
+}
+
+.rc-buscador { flex: 1; }
+.rc-buscador > input {
+  width: 100%; padding: .45rem .55rem; font-size: .85rem;
+  border: 1px solid #6366f1; border-radius: 8px;
+}
+.rc-resultados { margin-top: .3rem; max-height: 220px; overflow-y: auto; }
+.rc-resultados button {
+  display: block; width: 100%; text-align: left;
+  padding: .4rem .5rem; border: none; border-bottom: 1px solid #e2e8f0;
+  background: #fff; cursor: pointer; font-size: .82rem;
+}
+.rc-resultados button:hover { background: #eef2ff; }
+.rc-cand-nombre { word-break: break-word; }
+.rc-cand-code { margin-left: .4rem; color: #94a3b8; font-size: .72rem; }
+.rc-vacio { margin: .4rem 0; font-size: .78rem; color: #94a3b8; }
+.rc-cancelar-busq {
+  margin-top: .3rem; background: none; border: none; cursor: pointer;
+  color: #64748b; font-size: .78rem; text-decoration: underline; padding: 0;
+}
+
+.rc-cant { display: flex; align-items: center; gap: .3rem; }
+.rc-cant button {
+  width: 36px; height: 36px; flex: none;
+  border: 1px solid #cbd5e1; border-radius: 8px; background: #fff;
+  font-size: 1.1rem; cursor: pointer;
+}
+.rc-cant input {
+  width: 90px; text-align: center; padding: .4rem;
+  border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; font-weight: 600;
+}
+
+.rc-avisos { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .45rem; }
+.rc-aviso { font-size: .72rem; padding: .12rem .4rem; border-radius: 4px; }
+.rc-aviso.naranja { background: #fef3c7; color: #92400e; }
+.rc-aviso.rojo { background: #fee2e2; color: #991b1b; }
+
+.rc-resumen { margin-top: 1rem; }
+.rc-resumen h4 { margin: 0 0 .4rem; font-size: .9rem; }
+.rc-resumen table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+.rc-resumen th, .rc-resumen td { padding: .3rem .4rem; border-bottom: 1px solid #e2e8f0; text-align: left; }
+.rc-resumen th { color: #64748b; font-weight: 600; }
+.rc-resumen .mas { color: #059669; font-weight: 700; }
+.rc-resumen .menos { color: #dc2626; font-weight: 700; }
+.rc-resumen .queda { font-weight: 700; }
+
+.rc-pendientes {
+  margin-top: .8rem; padding: .5rem .6rem; border-radius: 8px;
+  background: #fef3c7; color: #92400e; font-size: .8rem;
+}
+
+.rc-acciones { display: flex; gap: .5rem; margin-top: 1rem; flex-wrap: wrap; }
+
+@media (max-width: 480px) {
+  .rc-fila { align-items: flex-start; flex-direction: column; gap: .25rem; }
+  .rc-etiqueta { width: auto; }
+  .rc-elegir, .rc-buscador { width: 100%; }
+}

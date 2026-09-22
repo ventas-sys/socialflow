@@ -1,6 +1,7 @@
 import React, { useState, useRef, useMemo, useEffect, useDeferredValue } from 'react'
 import * as XLSX from 'xlsx'
 import { findByRef as matchRef } from '../utils/refMatch'
+import RevisarCompra from './RevisarCompra'
 import { compressImage, MAX_PHOTOS, MAX_PHOTOS_BYTES, photosSize } from '../utils/images'
 import { extractImagesByRow } from '../utils/excelImages'
 import { comboAvailable, STOCK_TYPES } from './Combos'
@@ -423,6 +424,14 @@ export default function Inventory({
   // Buscar combo por SKU o código de barras
   const findComboByRef = (ref) => matchRef(combos, ref)
 
+  // Un renglón de la compra tal como se va a revisar: el texto original, la
+  // cantidad, y a qué producto o combo apunta (puede quedar sin asignar).
+  const renglonSeq = useRef(0)
+  const nuevoRenglon = (texto, cantidad, tipo, refId, match) => ({
+    uid: 'r' + (++renglonSeq.current),
+    texto, cantidad, tipo, refId, match, incluir: true,
+  })
+
   const handlePurchaseFile = async (e) => {
     const file = e.target.files?.[0]
     e.target.value = ''
@@ -438,21 +447,11 @@ export default function Inventory({
         setPurchaseResult('⚠️ El archivo está vacío.')
         return
       }
-      // Agrupar por producto base final. Un COMBO expande a sus productos:
-      // cada componente se ajusta por (cantidad del combo × cantidad del ajuste).
-      const byProduct = new Map()
-      const rows = []
-      const notFound = new Set()
+      // Un renglón del Excel = un renglón editable en la revisión. No se agrupa
+      // ni se descarta nada acá: lo que no matchea queda igual a la vista, sin
+      // producto, para que se pueda asignar a mano.
+      const items = []
       let reference = ''
-      const addDelta = (p, delta, origin, reason) => {
-        rows.push({ productId: p.id, productName: p.name, quantity: delta, reason })
-        if (!byProduct.has(p.id)) {
-          byProduct.set(p.id, { productName: p.name, origins: new Set(), current: p.quantity || 0, delta: 0 })
-        }
-        const e = byProduct.get(p.id)
-        e.delta += delta
-        e.origins.add(origin)
-      }
       raw.forEach(r => {
         const o = {}
         Object.entries(r).forEach(([k, v]) => {
@@ -463,44 +462,21 @@ export default function Inventory({
         const refCode = o.ref !== undefined ? String(o.ref).trim() : ''
         const qty = Math.round(parseNumber(o.qty))
         if (!refCode || qty === 0) return
-        // 1) ¿es un producto?
         const p = findByRef(refCode)
-        if (p) { addDelta(p, qty, refCode); return }
-        // 2) ¿es un combo? → expandir a sus productos base
+        if (p) { items.push(nuevoRenglon(refCode, qty, 'producto', p.id, 'codigo')); return }
         const combo = findComboByRef(refCode)
-        if (combo) {
-          const reason = `Ajuste combo ${combo.code || refCode}`
-          combo.items?.forEach(item => {
-            const bp = products.find(pp => pp.id === item.productId)
-            if (!bp) return
-            addDelta(bp, item.quantity * qty, `${refCode} (combo)`, reason)
-          })
-          return
-        }
-        notFound.add(refCode)
+        if (combo) { items.push(nuevoRenglon(refCode, qty, 'combo', combo.id, 'codigo')); return }
+        items.push(nuevoRenglon(refCode, qty, null, null, 'ninguno'))
       })
-      if (!rows.length) {
-        if (notFound.size > 0) {
-          setPurchaseResult(
-            `⚠️ Ninguno de los códigos existe como producto ni como combo. Revisá que el ` +
-            `SKU o código de barras coincida con algo ya cargado. Ejemplos que no se ` +
-            `encontraron: ${[...notFound].slice(0, 8).join(', ')}${notFound.size > 8 ? '…' : ''}.`
-          )
-        } else {
-          setPurchaseResult(
-            '⚠️ No se pudo cargar la compra. El archivo debe tener una columna con el ' +
-            'SKU o código de barras del producto y otra con la Cantidad. ' +
-            'Descargá la plantilla de compra para ver el formato.'
-          )
-        }
+      if (!items.length) {
+        setPurchaseResult(
+          '⚠️ No se pudo cargar la compra. El archivo debe tener una columna con el ' +
+          'SKU o código de barras del producto y otra con la Cantidad. ' +
+          'Descargá la plantilla de compra para ver el formato.'
+        )
         return
       }
-      setPurchasePreview({
-        rows,
-        reference,
-        lines: [...byProduct.values()],
-        notFound: [...notFound],
-      })
+      setPurchasePreview({ reference, items })
     } catch (err) {
       setPurchaseResult('❌ Error al leer el archivo: ' + err.message)
     }
@@ -563,50 +539,28 @@ export default function Inventory({
         return bestScore >= 0.5 ? best : null
       }
 
-      const byProduct = new Map()
-      const rows = []
-      const notFound = []
       const reference = [f.tipoComprobante, [f.puntoVenta, f.numeroComprobante].filter(Boolean).join('-'), f.proveedor?.razonSocial]
         .filter(Boolean).join(' ').trim() || 'Foto de factura'
-      const addDelta = (p, delta, origin, reason) => {
-        rows.push({ productId: p.id, productName: p.name, quantity: delta, reason: reason || `Compra por foto (${reference})` })
-        if (!byProduct.has(p.id)) {
-          byProduct.set(p.id, { productName: p.name, origins: new Set(), current: p.quantity || 0, delta: 0 })
-        }
-        const en = byProduct.get(p.id)
-        en.delta += delta
-        en.origins.add(origin)
-      }
-      items.forEach(it => {
+
+      // Cada renglón de la factura queda como está, con lo que la IA entendió
+      // como sugerencia. Lo que no reconoce NO se descarta: queda sin asignar
+      // para poder elegirle el producto a mano.
+      const renglones = items.map(it => {
         const qty = Math.round(Number(it.cantidad))
         const code = String(it.codigo || '').trim()
         const desc = String(it.descripcion || '').trim()
-        // 1) por código exacto (producto o combo)
+        const texto = [code, desc].filter(Boolean).join(' · ') || '(sin descripción)'
         if (code) {
           const p = findByRef(code)
-          if (p) { addDelta(p, qty, code); return }
+          if (p) return nuevoRenglon(texto, qty, 'producto', p.id, 'codigo')
           const combo = findComboByRef(code)
-          if (combo) {
-            combo.items?.forEach(item => {
-              const bp = products.find(pp => pp.id === item.productId)
-              if (bp) addDelta(bp, item.quantity * qty, `${code} (combo)`, `Compra por foto — combo ${combo.code}`)
-            })
-            return
-          }
+          if (combo) return nuevoRenglon(texto, qty, 'combo', combo.id, 'codigo')
         }
-        // 2) por descripción (aprox.)
         const fp = fuzzyProduct(desc)
-        if (fp) { addDelta(fp, qty, `"${desc}" ≈`); return }
-        notFound.push(`${desc || code} (×${qty})`)
+        if (fp) return nuevoRenglon(texto, qty, 'producto', fp.id, 'parecido')
+        return nuevoRenglon(texto, qty, null, null, 'ninguno')
       })
-      if (!rows.length) {
-        setPurchaseResult(
-          `⚠️ Leí la factura (${items.length} renglones) pero no pude asociar ninguno a tus productos. ` +
-          `Renglones: ${notFound.slice(0, 6).join(' · ')}. Cargalos con el buscador de Movimientos o por Excel.`
-        )
-        return
-      }
-      setPurchasePreview({ rows, reference, lines: [...byProduct.values()], notFound })
+      setPurchasePreview({ reference, items: renglones })
     } catch (err) {
       setPurchaseResult('❌ ' + err.message)
     } finally {
@@ -727,9 +681,37 @@ export default function Inventory({
 
   const confirmPurchase = async () => {
     if (!purchasePreview) return
+    // Los movimientos se arman recién ahora, con los renglones ya corregidos a
+    // mano. Un combo se expande a sus productos base × la cantidad.
+    const ref = purchasePreview.reference
+    const rows = []
+    purchasePreview.items.forEach(it => {
+      if (!it.incluir || !it.refId || !it.cantidad) return
+      if (it.tipo === 'combo') {
+        const combo = combos.find(c => c.id === it.refId)
+        combo?.items?.forEach(ci => {
+          const bp = products.find(p => p.id === ci.productId)
+          if (bp) rows.push({
+            productId: bp.id, productName: bp.name,
+            quantity: (ci.quantity || 0) * it.cantidad,
+            reason: `Compra — combo ${combo.code || combo.name}${ref ? ` (${ref})` : ''}`,
+          })
+        })
+        return
+      }
+      const p = products.find(x => x.id === it.refId)
+      if (p) rows.push({
+        productId: p.id, productName: p.name, quantity: it.cantidad,
+        reason: ref ? `Compra (${ref})` : 'Compra',
+      })
+    })
+    if (!rows.length) {
+      setPurchaseResult('⚠️ No quedó ningún renglón para cargar.')
+      return
+    }
     setPurchasing(true)
     try {
-      const result = await onPurchase(purchasePreview.rows, { reference: purchasePreview.reference })
+      const result = await onPurchase(rows, { reference: purchasePreview.reference })
       setPurchaseResult(
         `✅ Aplicado: ${result.entradas} entradas (+) y ${result.salidas} salidas (−) ` +
         `sobre ${result.updated} productos.`
@@ -1110,59 +1092,15 @@ export default function Inventory({
       )}
 
       {purchasePreview && (
-        <div className="purchase-preview">
-          <div className="pp-header">
-            <h3>Revisá antes de aplicar</h3>
-            {purchasePreview.reference && (
-              <span className="pp-ref">Ref: {purchasePreview.reference}</span>
-            )}
-          </div>
-          <p className="pp-note">
-            Se va a ajustar el stock de <strong>{purchasePreview.lines.length} productos</strong>.
-            Los combos descuentan sus productos base (× la cantidad).
-            Verificá que sea correcto y confirmá.
-          </p>
-          <div className="pp-table-wrap">
-            <table className="pp-table">
-              <thead>
-                <tr>
-                  <th>Código</th>
-                  <th>Producto</th>
-                  <th>Stock actual</th>
-                  <th>Cambio</th>
-                  <th>Stock nuevo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {purchasePreview.lines.map((l, i) => (
-                  <tr key={i}>
-                    <td className="pp-code">{[...l.origins].join(', ')}</td>
-                    <td>{l.productName}</td>
-                    <td>{l.current}</td>
-                    <td className={l.delta >= 0 ? 'pp-plus' : 'pp-minus'}>
-                      {l.delta >= 0 ? `+${l.delta}` : l.delta}
-                    </td>
-                    <td className="pp-new">{l.current + l.delta}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {purchasePreview.notFound.length > 0 && (
-            <p className="pp-notfound">
-              ⚠️ No se encontraron (se ignoran): {purchasePreview.notFound.slice(0, 10).join(', ')}
-              {purchasePreview.notFound.length > 10 ? '…' : ''}
-            </p>
-          )}
-          <div className="pp-actions">
-            <button className="btn-primary" onClick={confirmPurchase} disabled={purchasing}>
-              {purchasing ? '⏳ Aplicando...' : `✓ Confirmar y aplicar (${purchasePreview.lines.length})`}
-            </button>
-            <button className="btn-secondary" onClick={() => setPurchasePreview(null)} disabled={purchasing}>
-              Cancelar
-            </button>
-          </div>
-        </div>
+        <RevisarCompra
+          preview={purchasePreview}
+          products={products}
+          combos={combos}
+          aplicando={purchasing}
+          onChange={(items) => setPurchasePreview({ ...purchasePreview, items })}
+          onConfirm={confirmPurchase}
+          onCancel={() => setPurchasePreview(null)}
+        />
       )}
 
       {showForm && (
