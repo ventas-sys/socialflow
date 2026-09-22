@@ -105,19 +105,20 @@ export default function FullShipment({
     }
   }
 
+  // Un renglón del pedido trae hasta tres códigos (ML, universal y SKU): se
+  // prueban todos, porque en la app el producto puede estar cargado con
+  // cualquiera de ellos
+  const clave = (refs) => {
+    for (const r of [].concat(refs).filter(Boolean)) {
+      const m = buscar(r)
+      if (m) return `${m.type}:${m.type === 'product' ? m.p.id : m.c.id}`
+    }
+    return 'x:' + normalize([].concat(refs)[0] || '')
+  }
+
   // ---- Cuadro de avance: lo pedido por ML contra lo escaneado ----
   const avance = useMemo(() => {
     const porRef = new Map()
-    // Un renglón del pedido trae hasta tres códigos (ML, universal y SKU): se
-    // prueban todos, porque en la app el producto puede estar cargado con
-    // cualquiera de ellos
-    const clave = (refs) => {
-      for (const r of [].concat(refs).filter(Boolean)) {
-        const m = buscar(r)
-        if (m) return `${m.type}:${m.type === 'product' ? m.p.id : m.c.id}`
-      }
-      return 'x:' + normalize([].concat(refs)[0] || '')
-    }
     pedido.forEach(l => {
       const k = clave(l.refs?.length ? l.refs : l.ref)
       const x = porRef.get(k) || { k, ref: l.ref, nombre: l.nombre || '', pedido: 0, escaneado: 0, enSistema: !k.startsWith('x:'), variantes: [] }
@@ -340,6 +341,35 @@ export default function FullShipment({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [envio, escaneos, products, combos, pendiente])
 
+  // Qué cambió ML entre el listado que teníamos y el que se está cargando.
+  // Sirve para poder actualizar el pedido sin tocar lo ya armado: lo escaneado
+  // y descontado queda igual, y lo que se recalcula es cuánto falta.
+  const compararPedidos = (viejo, nuevo) => {
+    const juntar = (lista) => {
+      const m = new Map()
+      lista.forEach(l => {
+        const k = clave(l.refs?.length ? l.refs : l.ref)
+        const x = m.get(k) || { k, ref: l.ref, nombre: l.nombre || '', cantidad: 0 }
+        x.cantidad += Number(l.cantidad) || 0
+        if (!x.nombre && l.nombre) x.nombre = l.nombre
+        m.set(k, x)
+      })
+      return m
+    }
+    const antes = juntar(viejo)
+    const ahora = juntar(nuevo)
+    const cambios = []
+    new Set([...antes.keys(), ...ahora.keys()]).forEach(k => {
+      const a = antes.get(k)?.cantidad || 0
+      const b = ahora.get(k)?.cantidad || 0
+      if (a === b) return
+      const info = ahora.get(k) || antes.get(k)
+      cambios.push({ ref: info.ref, nombre: info.nombre, antes: a, ahora: b })
+    })
+    cambios.sort((x, y) => Math.abs(y.ahora - y.antes) - Math.abs(x.ahora - x.antes))
+    return cambios
+  }
+
   // ---- Listado que pidió ML ----
   const importarPedido = async (e) => {
     const file = e.target.files?.[0]
@@ -399,9 +429,42 @@ export default function FullShipment({
       }
       if (!filas.length) throw new Error('No reconocí el archivo. Tiene que ser el listado de preparación de ML (el PDF pasado a Excel) o un Excel con una columna de código y otra de cantidad.')
       const sinSistema = filas.filter(r => !(r.refs || [r.ref]).some(x => buscar(x))).length
-      await onUpdate(envio.id, { pedido: filas })
-      setMsg(`✅ Pedido de ML cargado: ${filas.length} renglones, ${filas.reduce((s, r) => s + r.cantidad, 0)} unidades.`
-        + (sinSistema ? ` ⚠️ ${sinSistema} no están cargados en la app.` : ''))
+      const unidades = filas.reduce((s, r) => s + r.cantidad, 0)
+
+      // Si el envío ya tenía un pedido cargado, esto es una ACTUALIZACIÓN: ML
+      // cambió lo que pide. Lo armado y descontado no se toca — sólo cambia
+      // contra qué se compara.
+      let cambios = []
+      if (pedido.length) {
+        cambios = compararPedidos(pedido, filas)
+        if (!cambios.length) {
+          setMsg('El listado nuevo pide exactamente lo mismo que el que ya estaba. No cambió nada.')
+          return
+        }
+        const nuevos = cambios.filter(c => c.antes === 0).length
+        const sacados = cambios.filter(c => c.ahora === 0).length
+        const movidos = cambios.length - nuevos - sacados
+        const armadas = escaneos.reduce((a, x) => a + (Number(x.cantidad) || 0), 0)
+        if (!window.confirm(
+          `ML cambió el pedido de este envío:\n\n` +
+          `· ${nuevos} ${nuevos === 1 ? 'artículo nuevo' : 'artículos nuevos'}\n` +
+          `· ${sacados} que ya no ${sacados === 1 ? 'pide' : 'piden'}\n` +
+          `· ${movidos} con otra cantidad\n\n` +
+          `Las ${armadas} unidades que ya armaste y descontaste NO se tocan: ` +
+          `queda todo como está y sólo se recalcula cuánto falta.\n\n¿Actualizar el pedido?`
+        )) return
+      }
+
+      await onUpdate(envio.id, {
+        pedido: filas,
+        ...(cambios.length ? { ultimoCambio: { fecha: new Date().toISOString(), cambios: cambios.slice(0, 60) } } : {}),
+      })
+      setMsg(
+        (cambios.length ? `✅ Pedido actualizado: ` : `✅ Pedido de ML cargado: `) +
+        `${filas.length} renglones, ${unidades} unidades.` +
+        (cambios.length ? ` Cambiaron ${cambios.length} artículos. Lo armado quedó intacto.` : '') +
+        (sinSistema ? ` ⚠️ ${sinSistema} no están cargados en la app.` : '')
+      )
     } catch (err) {
       setMsg('❌ ' + err.message)
     } finally {
@@ -548,13 +611,37 @@ export default function FullShipment({
             </div>
           )}
 
+          {envio.ultimoCambio?.cambios?.length > 0 && (
+            <details className="full-cambios">
+              <summary>
+                📝 ML cambió el pedido el {fmtFecha(envio.ultimoCambio.fecha)} —
+                {' '}{envio.ultimoCambio.cambios.length} artículos. Lo armado no se tocó.
+              </summary>
+              <table>
+                <thead>
+                  <tr><th>Código</th><th>Producto</th><th>Pedía</th><th>Pide ahora</th></tr>
+                </thead>
+                <tbody>
+                  {envio.ultimoCambio.cambios.map((c, i) => (
+                    <tr key={i} className={c.ahora === 0 ? 'sacado' : (c.antes === 0 ? 'nuevo' : '')}>
+                      <td className="full-code">{c.ref}</td>
+                      <td>{c.nombre || '—'}</td>
+                      <td className="num">{c.antes || '—'}</td>
+                      <td className="num">{c.ahora || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </details>
+          )}
+
           <div className="full-acciones">
             <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={importarPedido} />
             {canEdit && envio.estado !== 'cerrado' && (
               <>
                 <button className="full-btn" onClick={() => setShowScanner(true)}>📷 Escanear</button>
                 <button className="full-btn sec" onClick={() => fileRef.current?.click()} disabled={busy}>
-                  📥 Cargar pedido de ML
+                  📥 {pedido.length ? 'Actualizar pedido de ML' : 'Cargar pedido de ML'}
                 </button>
                 {pendientesDeDescontar.length > 0 && (
                   <button className="full-btn dark" onClick={descontar} disabled={busy}>

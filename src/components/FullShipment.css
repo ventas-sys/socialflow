@@ -261,3 +261,20 @@
 }
 .full-ok:hover:not(:disabled) { background: #059669; color: #fff; }
 .full-ok:disabled { opacity: .5; cursor: default; }
+
+/* Qué cambió ML entre el listado anterior y el nuevo. Se guarda en el envío
+   para poder mirarlo después: lo armado y descontado nunca se toca. */
+.full-cambios {
+  margin: .6rem 0;
+  padding: .5rem .7rem;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+}
+.full-cambios summary { cursor: pointer; font-size: .85rem; color: #1e40af; font-weight: 600; }
+.full-cambios table { width: 100%; margin-top: .5rem; border-collapse: collapse; font-size: .78rem; }
+.full-cambios th, .full-cambios td { padding: .25rem .4rem; border-bottom: 1px solid #dbeafe; text-align: left; }
+.full-cambios th { color: #64748b; }
+.full-cambios .num { text-align: right; }
+.full-cambios tr.nuevo td { background: #f0fdf4; }
+.full-cambios tr.sacado td { background: #fef2f2; text-decoration: line-through; opacity: .75; }
