@@ -245,3 +245,19 @@
 /* Corrección: sacar unidades del envío y devolverlas al stock */
 .full-modal-btn.devolver { background: #b45309; }
 .full-modal-btn.devolver:hover { background: #92400e; }
+
+/* Marcar un renglón como ya enviado, de un clic. Sólo aparece en la PC: en el
+   celular se escanea, y un toque de más descontaría stock sin querer. */
+.full-ok {
+  padding: .25rem .6rem;
+  border: 1px solid #059669;
+  border-radius: 6px;
+  background: #ecfdf5;
+  color: #047857;
+  font-weight: 700;
+  font-size: .8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.full-ok:hover:not(:disabled) { background: #059669; color: #fff; }
+.full-ok:disabled { opacity: .5; cursor: default; }

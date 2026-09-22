@@ -56,6 +56,9 @@ export default function FullShipment({
   const [soloFaltan, setSoloFaltan] = useState(false)
   const [busy, setBusy] = useState(false)
   const [manual, setManual] = useState('')
+  // Marcar de un clic sólo en la PC: en el celular se escanea, y un toque de
+  // más con el dedo descontaría stock sin querer.
+  const [esPC, setEsPC] = useState(false)
   const fileRef = useRef(null)
   const bufferRef = useRef({ txt: '', t: 0 })
 
@@ -265,6 +268,51 @@ export default function FullShipment({
       ? escaneos.filter(s => normalize(s.ref) !== normalize(ref))
       : escaneos.map(s => (normalize(s.ref) === normalize(ref) ? { ...s, cantidad: n } : s))
     await onUpdate(envio.id, { escaneos: nuevos })
+  }
+
+  useEffect(() => {
+    const mirar = () => {
+      const conMouse = window.matchMedia?.('(hover: hover) and (pointer: fine)')?.matches
+      setEsPC(!!conMouse && window.innerWidth >= 900)
+    }
+    mirar()
+    window.addEventListener('resize', mirar)
+    return () => window.removeEventListener('resize', mirar)
+  }, [])
+
+  // Marcar un renglón entero como ya enviado, sin escanearlo: descuenta el
+  // stock de lo que falta y lo anota en el envío. Es el mismo camino que la
+  // confirmación del escaneo, pero de un clic.
+  const marcarEnviado = async (f) => {
+    if (!envio || envio.estado === 'cerrado' || !f.falta) return
+    const info = resolver(f.ref)
+    if (!info) { setMsg(`❌ ${f.ref} no está en el sistema, no se puede descontar`); return }
+    const n = f.falta
+    if (!window.confirm(
+      `${f.nombre || f.ref}\n\nMarcar ${n} ${n === 1 ? 'unidad' : 'unidades'} como enviadas: ` +
+      `se descuentan del stock y se anotan en el envío N° ${envio.numero}.\n\n¿Confirmás?`
+    )) return
+    setBusy(true); setMsg('')
+    try {
+      await onDescontar(
+        info.bases.map(b => ({
+          productId: b.productId, productName: b.productName,
+          quantity: -Math.abs(b.quantity * n),
+          reason: `Envío a Full N° ${envio.numero}`,
+        })),
+        { reference: `Envío Full N° ${envio.numero}`, reason: `Envío a Full N° ${envio.numero}` }
+      )
+      const nuevos = [...escaneos]
+      const i = nuevos.findIndex(x => normalize(x.ref) === normalize(f.ref))
+      if (i >= 0) nuevos[i] = { ...nuevos[i], cantidad: (Number(nuevos[i].cantidad) || 0) + n, descontado: true }
+      else nuevos.push({ ref: f.ref, nombre: info.nombre, cantidad: n, tipo: info.tipo, descontado: true })
+      await onUpdate(envio.id, { escaneos: nuevos })
+      setMsg(`✅ ${info.nombre} — ${n} ${n === 1 ? 'unidad' : 'unidades'} marcadas como enviadas y descontadas del stock.`)
+    } catch (err) {
+      setMsg('❌ No se pudo descontar: ' + err.message)
+    } finally {
+      setBusy(false)
+    }
   }
 
   // Pistola lectora (teclado rápido que termina en Enter), como en Envíos
@@ -673,7 +721,9 @@ export default function FullShipment({
               <table className="full-tabla">
                 <thead>
                   <tr>
-                    <th>Código</th><th>Producto</th><th>Pedido ML</th><th>Armado</th><th>Falta</th><th>De más</th><th />
+                    <th>Código</th><th>Producto</th><th>Pedido ML</th><th>Armado</th><th>Falta</th><th>De más</th>
+                    {esPC && <th>Ya lo mandé</th>}
+                    <th />
                   </tr>
                 </thead>
                 <tbody>
@@ -695,6 +745,20 @@ export default function FullShipment({
                       </td>
                       <td className="num falta-n">{f.falta || ''}</td>
                       <td className="num demas-n">{f.demas || ''}</td>
+                      {esPC && (
+                        <td className="num">
+                          {canEdit && envio.estado !== 'cerrado' && f.falta > 0 && f.enSistema && (
+                            <button
+                              className="full-ok"
+                              disabled={busy}
+                              onClick={() => marcarEnviado(f)}
+                              title={`Descontar ${f.falta} del stock y anotarlas en el envío`}
+                            >
+                              ✓ {f.falta}
+                            </button>
+                          )}
+                        </td>
+                      )}
                       <td>
                         {canEdit && envio.estado !== 'cerrado' && f.escaneado > 0 && (
                           <button className="full-del" onClick={() => quitar(f.ref)} title="Sacar del envío">🗑️</button>
