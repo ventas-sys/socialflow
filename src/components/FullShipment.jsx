@@ -59,6 +59,7 @@ export default function FullShipment({
   // Marcar de un clic sólo en la PC: en el celular se escanea, y un toque de
   // más con el dedo descontaría stock sin querer.
   const [esPC, setEsPC] = useState(false)
+  const [elegidos, setElegidos] = useState(() => new Set())
   const fileRef = useRef(null)
   const bufferRef = useRef({ txt: '', t: 0 })
 
@@ -281,34 +282,53 @@ export default function FullShipment({
     return () => window.removeEventListener('resize', mirar)
   }, [])
 
-  // Marcar un renglón entero como ya enviado, sin escanearlo: descuenta el
-  // stock de lo que falta y lo anota en el envío. Es el mismo camino que la
-  // confirmación del escaneo, pero de un clic.
-  const marcarEnviado = async (f) => {
-    if (!envio || envio.estado === 'cerrado' || !f.falta) return
-    const info = resolver(f.ref)
-    if (!info) { setMsg(`❌ ${f.ref} no está en el sistema, no se puede descontar`); return }
-    const n = f.falta
-    if (!window.confirm(
-      `${f.nombre || f.ref}\n\nMarcar ${n} ${n === 1 ? 'unidad' : 'unidades'} como enviadas: ` +
-      `se descuentan del stock y se anotan en el envío N° ${envio.numero}.\n\n¿Confirmás?`
-    )) return
-    setBusy(true); setMsg('')
-    try {
-      await onDescontar(
-        info.bases.map(b => ({
-          productId: b.productId, productName: b.productName,
-          quantity: -Math.abs(b.quantity * n),
-          reason: `Envío a Full N° ${envio.numero}`,
-        })),
-        { reference: `Envío Full N° ${envio.numero}`, reason: `Envío a Full N° ${envio.numero}` }
-      )
-      const nuevos = [...escaneos]
+  // Marcar varios renglones como ya enviados, sin escanearlos: descuenta del
+  // stock lo que falta de cada uno y lo anota en el envío.
+  //
+  // Va todo junto a propósito. Al principio era un botón por renglón, pero
+  // preguntaba y escribía en la base una vez por clic, y marcar veinte
+  // artículos tardaba una eternidad. Ahora se tildan los que hicieron falta,
+  // se pregunta una sola vez y se escribe una sola vez.
+  const marcarElegidos = async () => {
+    if (!envio || envio.estado === 'cerrado') return
+    const filas = avance.filter(f => elegidos.has(f.k) && f.falta > 0 && f.enSistema)
+    if (!filas.length) return
+
+    const renglones = []
+    const nuevos = [...escaneos]
+    const sinResolver = []
+    filas.forEach(f => {
+      const info = resolver(f.ref)
+      if (!info) { sinResolver.push(f.ref); return }
+      const n = f.falta
+      info.bases.forEach(b => renglones.push({
+        productId: b.productId, productName: b.productName,
+        quantity: -Math.abs(b.quantity * n),
+        reason: `Envío a Full N° ${envio.numero}`,
+      }))
       const i = nuevos.findIndex(x => normalize(x.ref) === normalize(f.ref))
       if (i >= 0) nuevos[i] = { ...nuevos[i], cantidad: (Number(nuevos[i].cantidad) || 0) + n, descontado: true }
       else nuevos.push({ ref: f.ref, nombre: info.nombre, cantidad: n, tipo: info.tipo, descontado: true })
+    })
+    if (!renglones.length) { setMsg('❌ Ninguno de los elegidos está en el sistema'); return }
+
+    const unidades = filas.reduce((a, f) => a + f.falta, 0)
+    if (!window.confirm(
+      `Marcar ${filas.length} ${filas.length === 1 ? 'artículo' : 'artículos'} como enviados ` +
+      `(${unidades} unidades en total).\n\nSe descuentan del stock y se anotan en el envío N° ${envio.numero}.` +
+      (sinResolver.length ? `\n\n⚠️ ${sinResolver.length} quedan afuera porque no están en el sistema.` : '') +
+      `\n\n¿Confirmás?`
+    )) return
+
+    setBusy(true); setMsg('')
+    try {
+      await onDescontar(renglones, {
+        reference: `Envío Full N° ${envio.numero}`,
+        reason: `Envío a Full N° ${envio.numero}`,
+      })
       await onUpdate(envio.id, { escaneos: nuevos })
-      setMsg(`✅ ${info.nombre} — ${n} ${n === 1 ? 'unidad' : 'unidades'} marcadas como enviadas y descontadas del stock.`)
+      setElegidos(new Set())
+      setMsg(`✅ ${filas.length} ${filas.length === 1 ? 'artículo marcado' : 'artículos marcados'} como enviados — ${unidades} unidades descontadas del stock.`)
     } catch (err) {
       setMsg('❌ No se pudo descontar: ' + err.message)
     } finally {
@@ -568,6 +588,11 @@ export default function FullShipment({
   const reabrir = async () => envio && onUpdate(envio.id, { estado: 'abierto' })
 
   const filasTabla = soloFaltan ? avance.filter(f => f.falta > 0) : avance
+  // Lo que se puede marcar de un tilde: falta algo y está cargado en la app
+  const marcables = filasTabla.filter(f => f.falta > 0 && f.enSistema)
+  const elegidasUnidades = avance
+    .filter(f => elegidos.has(f.k))
+    .reduce((a, f) => a + f.falta, 0)
 
   return (
     <div className="full-container">
@@ -809,7 +834,16 @@ export default function FullShipment({
                 <thead>
                   <tr>
                     <th>Código</th><th>Producto</th><th>Pedido ML</th><th>Armado</th><th>Falta</th><th>De más</th>
-                    {esPC && <th>Ya lo mandé</th>}
+                    {esPC && (
+                      <th className="full-check-col">
+                        <input
+                          type="checkbox"
+                          title="Elegir todo lo que falta"
+                          checked={marcables.length > 0 && marcables.every(f => elegidos.has(f.k))}
+                          onChange={e => setElegidos(e.target.checked ? new Set(marcables.map(f => f.k)) : new Set())}
+                        />
+                      </th>
+                    )}
                     <th />
                   </tr>
                 </thead>
@@ -833,16 +867,19 @@ export default function FullShipment({
                       <td className="num falta-n">{f.falta || ''}</td>
                       <td className="num demas-n">{f.demas || ''}</td>
                       {esPC && (
-                        <td className="num">
+                        <td className="full-check-col">
                           {canEdit && envio.estado !== 'cerrado' && f.falta > 0 && f.enSistema && (
-                            <button
-                              className="full-ok"
+                            <input
+                              type="checkbox"
                               disabled={busy}
-                              onClick={() => marcarEnviado(f)}
-                              title={`Descontar ${f.falta} del stock y anotarlas en el envío`}
-                            >
-                              ✓ {f.falta}
-                            </button>
+                              checked={elegidos.has(f.k)}
+                              onChange={e => setElegidos(prev => {
+                                const n = new Set(prev)
+                                if (e.target.checked) n.add(f.k); else n.delete(f.k)
+                                return n
+                              })}
+                              title={`Marcar las ${f.falta} que faltan como enviadas`}
+                            />
                           )}
                         </td>
                       )}
@@ -855,6 +892,21 @@ export default function FullShipment({
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {esPC && elegidos.size > 0 && (
+            <div className="full-barra">
+              <span>
+                <strong>{elegidos.size}</strong> {elegidos.size === 1 ? 'artículo elegido' : 'artículos elegidos'}
+                {' · '}<strong>{elegidasUnidades}</strong> unidades
+              </span>
+              <button className="full-btn ok" onClick={marcarElegidos} disabled={busy}>
+                {busy ? '⏳ Descontando...' : '✓ Marcar como enviados y descontar'}
+              </button>
+              <button className="full-btn plano" onClick={() => setElegidos(new Set())} disabled={busy}>
+                Destildar todo
+              </button>
             </div>
           )}
 

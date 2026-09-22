@@ -246,21 +246,32 @@
 .full-modal-btn.devolver { background: #b45309; }
 .full-modal-btn.devolver:hover { background: #92400e; }
 
-/* Marcar un renglón como ya enviado, de un clic. Sólo aparece en la PC: en el
+/* Marcar renglones como ya enviados con un tilde. Sólo aparece en la PC: en el
    celular se escanea, y un toque de más descontaría stock sin querer. */
-.full-ok {
-  padding: .25rem .6rem;
-  border: 1px solid #059669;
-  border-radius: 6px;
+.full-check-col { width: 42px; text-align: center; }
+.full-check-col input { width: 18px; height: 18px; cursor: pointer; }
+
+/* Barra que aparece abajo cuando hay algo tildado: se confirma todo junto, en
+   un solo descuento, en vez de preguntar renglón por renglón. */
+.full-barra {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  flex-wrap: wrap;
+  margin-top: .6rem;
+  padding: .6rem .9rem;
   background: #ecfdf5;
-  color: #047857;
-  font-weight: 700;
-  font-size: .8rem;
-  cursor: pointer;
-  white-space: nowrap;
+  border: 2px solid #059669;
+  border-radius: 10px;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, .08);
 }
-.full-ok:hover:not(:disabled) { background: #059669; color: #fff; }
-.full-ok:disabled { opacity: .5; cursor: default; }
+.full-barra > span { font-size: .9rem; color: #065f46; }
+.full-btn.ok { background: #059669; color: #fff; border-color: #059669; }
+.full-btn.ok:hover:not(:disabled) { background: #047857; }
+.full-btn.plano { background: none; border: none; color: #64748b; text-decoration: underline; }
 
 /* Qué cambió ML entre el listado anterior y el nuevo. Se guarda en el envío
    para poder mirarlo después: lo armado y descontado nunca se toca. */
