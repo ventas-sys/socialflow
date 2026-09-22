@@ -821,6 +821,35 @@ export default function App() {
     if (cMap.size) setCombos(prev => prev.map(c => (cMap.has(c.id) ? { ...c, ...cMap.get(c.id) } : c)))
   }
 
+  // Borrar EN TANDA la foto propia de varios combos. El combo no se toca: se
+  // borra su doc de fotos y queda en hasPhotos:false, con lo que pasa a mostrar
+  // la del producto base (si es un solo producto base).
+  //
+  // Los docs de fotos se borran de a uno porque viven en otra colección y cada
+  // uno pesa; el flag de los combos sí va en lotes de 400.
+  const borrarFotosDeCombos = async (ids, onAvance) => {
+    if (!user || !ids?.length) return 0
+    let hechos = 0
+    for (let i = 0; i < ids.length; i += 20) {
+      const tanda = ids.slice(i, i + 20)
+      await Promise.all(tanda.map(async (id) => {
+        await deleteDoc(doc(db, 'photos', id)).catch(() => {})
+        photoCache.current.delete(id)
+      }))
+      hechos += tanda.length
+      onAvance?.(hechos)
+    }
+    for (let i = 0; i < ids.length; i += 400) {
+      const batch = writeBatch(db)
+      ids.slice(i, i + 400).forEach(id =>
+        batch.update(doc(db, 'combos', id), { hasPhotos: false, updatedAt: Timestamp.now() }))
+      await batch.commit()
+    }
+    const set = new Set(ids)
+    setCombos(prev => prev.map(c => (set.has(c.id) ? { ...c, hasPhotos: false } : c)))
+    return ids.length
+  }
+
   const deleteCombo = async (comboId) => {
     if (!user) return
     await deleteDoc(doc(db, 'combos', comboId))
@@ -1145,6 +1174,7 @@ export default function App() {
                 onImport={importCombos}
                 editRequest={comboEditRequest}
                 loadPhotos={loadPhotos}
+                onBorrarFotos={borrarFotosDeCombos}
               />
             )}
             {currentTab === 'movements' && canSee('movements') && (

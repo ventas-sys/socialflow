@@ -64,7 +64,10 @@ export function comboAvailable(combo, products) {
   return available === Infinity ? 0 : Math.max(0, available)
 }
 
-export default function Combos({ combos, products, onAdd, onUpdate, onDelete, onImport, editRequest, loadPhotos, canEdit = true }) {
+export default function Combos({
+  combos, products, onAdd, onUpdate, onDelete, onImport, editRequest, loadPhotos,
+  onBorrarFotos, canEdit = true,
+}) {
   // Índice por id: sin esto, cada tarjeta de combo recorre TODOS los productos
   const productById = useMemo(() => {
     const m = new Map()
@@ -80,6 +83,37 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
   const [soloFotoPropia, setSoloFotoPropia] = useState(false)
   const conFotoPropia = useMemo(() => combos.filter(c => c.hasPhotos), [combos])
   const visibles = soloFotoPropia ? conFotoPropia : combos
+  const [borrandoFotos, setBorrandoFotos] = useState(null)  // cuántas van
+
+  // Borra la foto CARGADA EN EL COMBO de todos los que tengan una. El combo no
+  // se toca: pasa a mostrar la del producto base. Los que mezclan productos
+  // distintos quedan sin foto, porque esos no heredan — está decidido así.
+  const borrarTodasLasFotosPropias = async () => {
+    const ids = conFotoPropia.map(c => c.id)
+    if (!ids.length || !onBorrarFotos) return
+    const mezclados = conFotoPropia.filter(
+      c => [...new Set((c.items || []).map(i => i.productId).filter(Boolean))].length !== 1
+    ).length
+    if (!window.confirm(
+      `Borrar la foto propia de ${ids.length} combos.\n\n` +
+      `Los combos NO se borran: pasan a mostrar la foto del producto base.\n` +
+      (mezclados
+        ? `⚠️ ${mezclados} mezclan productos distintos y van a quedar SIN foto.\n`
+        : '') +
+      `\nEsto no se puede deshacer. ¿Confirmás?`
+    )) return
+    if (!window.confirm(`Última confirmación: se borran ${ids.length} fotos. ¿Seguro?`)) return
+    setBorrandoFotos(0)
+    try {
+      await onBorrarFotos(ids, (n) => setBorrandoFotos(n))
+      setImportResult(`✅ Se borraron ${ids.length} fotos propias. Esos combos ahora muestran la del producto base.`)
+      setSoloFotoPropia(false)
+    } catch (err) {
+      setImportResult('❌ No se pudieron borrar: ' + err.message)
+    } finally {
+      setBorrandoFotos(null)
+    }
+  }
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -850,9 +884,22 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
             🖼️ Con foto propia ({conFotoPropia.length})
           </button>
           {soloFotoPropia && (
-            <span className="combos-filtros-hint">
-              Foto cargada en el combo. Los demás muestran la del producto base.
-            </span>
+            <>
+              <span className="combos-filtros-hint">
+                Foto cargada en el combo. Los demás muestran la del producto base.
+              </span>
+              {canEdit && conFotoPropia.length > 0 && (
+                <button
+                  className="combo-chip peligro"
+                  onClick={borrarTodasLasFotosPropias}
+                  disabled={borrandoFotos !== null}
+                >
+                  {borrandoFotos !== null
+                    ? `⏳ Borrando ${borrandoFotos} de ${conFotoPropia.length}...`
+                    : `🗑️ Borrar las ${conFotoPropia.length} fotos propias`}
+                </button>
+              )}
+            </>
           )}
         </div>
       )}

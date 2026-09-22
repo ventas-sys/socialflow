@@ -608,3 +608,6 @@
 }
 .combo-chip.activo { background: #6366f1; border-color: #6366f1; color: #fff; font-weight: 600; }
 .combos-filtros-hint { font-size: .78rem; color: #64748b; }
+.combo-chip.peligro { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; font-weight: 600; }
+.combo-chip.peligro:hover:not(:disabled) { background: #dc2626; border-color: #dc2626; color: #fff; }
+.combo-chip:disabled { opacity: .6; cursor: default; }
