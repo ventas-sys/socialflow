@@ -75,6 +75,11 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
   const [editingId, setEditingId] = useState(null)
   const [duplicando, setDuplicando] = useState(false)
   const [formData, setFormData] = useState(EMPTY_FORM)
+  // Los combos con foto CARGADA EN EL COMBO. En el listado no se distinguen de
+  // los que heredan la foto del producto base, y hace falta poder revisarlos.
+  const [soloFotoPropia, setSoloFotoPropia] = useState(false)
+  const conFotoPropia = useMemo(() => combos.filter(c => c.hasPhotos), [combos])
+  const visibles = soloFotoPropia ? conFotoPropia : combos
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -497,6 +502,9 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
         { header: 'Nombre Combo', key: 'name', width: 28 },
         { header: 'Precio', key: 'price', width: 10 },
         { header: 'Ubicación', key: 'location', width: 14 },
+        // Distingue la foto CARGADA EN EL COMBO de la que se muestra heredada
+        // del producto base: en el listado las dos se ven igual
+        { header: 'Foto propia', key: 'fotoPropia', width: 12 },
         { header: 'Tipo', key: 'tipo', width: 8 },
         { header: 'Producto (SKU)', key: 'item', width: 20 },
         { header: 'Cantidad', key: 'qty', width: 10 },
@@ -517,6 +525,7 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
             name: c.name || '',
             price: idx === 0 ? (c.price || 0) : '',
             location: idx === 0 ? (c.location || '') : '',
+            fotoPropia: idx === 0 ? (c.hasPhotos ? 'SÍ' : '') : '',
             tipo: idx === 0 ? (c.stockType || '') : '',
             item: p ? (p.code || p.barcode || p.name) : '',
             qty: it ? it.quantity : '',
@@ -826,14 +835,41 @@ export default function Combos({ combos, products, onAdd, onUpdate, onDelete, on
         </div>
       )}
 
+      {combos.length > 0 && (
+        <div className="combos-filtros">
+          <button
+            className={`combo-chip ${soloFotoPropia ? '' : 'activo'}`}
+            onClick={() => setSoloFotoPropia(false)}
+          >
+            Todos ({combos.length})
+          </button>
+          <button
+            className={`combo-chip ${soloFotoPropia ? 'activo' : ''}`}
+            onClick={() => setSoloFotoPropia(true)}
+          >
+            🖼️ Con foto propia ({conFotoPropia.length})
+          </button>
+          {soloFotoPropia && (
+            <span className="combos-filtros-hint">
+              Foto cargada en el combo. Los demás muestran la del producto base.
+            </span>
+          )}
+        </div>
+      )}
+
       {combos.length === 0 ? (
         <div className="empty-state">
           <p>🧩</p>
           <p>No hay combos todavía. Creá uno combinando productos del inventario.</p>
         </div>
+      ) : visibles.length === 0 ? (
+        <div className="empty-state">
+          <p>🖼️</p>
+          <p>Ningún combo tiene foto propia: todos muestran la del producto base.</p>
+        </div>
       ) : (
         <div className="combos-grid">
-          {combos.map(combo => {
+          {visibles.map(combo => {
             const available = comboAvailable(combo, productById)
             return (
               <div key={combo.id} className="combo-card">

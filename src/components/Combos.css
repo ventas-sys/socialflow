@@ -587,3 +587,24 @@
     color: #bfdbfe;
   }
 }
+
+/* Filtro para revisar los combos con foto CARGADA EN EL COMBO: en el listado
+   se ven igual que los que heredan la del producto base. */
+.combos-filtros {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+  margin: .8rem 0;
+}
+.combo-chip {
+  padding: .35rem .8rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #fff;
+  color: #475569;
+  font-size: .85rem;
+  cursor: pointer;
+}
+.combo-chip.activo { background: #6366f1; border-color: #6366f1; color: #fff; font-weight: 600; }
+.combos-filtros-hint { font-size: .78rem; color: #64748b; }
