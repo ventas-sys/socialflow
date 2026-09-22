@@ -390,6 +390,26 @@ export default function FullShipment({
     return cambios
   }
 
+  // Volver al pedido que había antes de la última actualización. Lo armado y
+  // descontado no se toca nunca: esto sólo cambia contra qué se compara.
+  const volverAlAnterior = async () => {
+    if (!envio?.pedidoAnterior?.length) return
+    const u = envio.pedidoAnterior.reduce((a, r) => a + (Number(r.cantidad) || 0), 0)
+    if (!window.confirm(
+      `Volver al pedido anterior: ${envio.pedidoAnterior.length} renglones · ${u} unidades.\n\n` +
+      `Lo armado y descontado no se toca.\n\n¿Confirmás?`
+    )) return
+    setBusy(true); setMsg('')
+    try {
+      await onUpdate(envio.id, { pedido: envio.pedidoAnterior, pedidoAnterior: [], ultimoCambio: null })
+      setMsg(`↩️ Se volvió al pedido anterior: ${envio.pedidoAnterior.length} renglones, ${u} unidades.`)
+    } catch (err) {
+      setMsg('❌ No se pudo volver atrás: ' + err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   // ---- Listado que pidió ML ----
   const importarPedido = async (e) => {
     const file = e.target.files?.[0]
@@ -438,10 +458,19 @@ export default function FullShipment({
             if (!cols.name && COLS_NAME.includes(n)) cols.name = k
           })
           if (!cols.ref) continue
+          // Sin columna de cantidad NO se sigue. Antes se asumía 1 por renglón
+          // y eso pisó un pedido de 3262 unidades con uno de 52 sin decir nada.
+          if (!cols.qty) {
+            throw new Error(
+              `Encontré los códigos pero ninguna columna de cantidad en la hoja "${nombre}". ` +
+              `Las columnas son: ${Object.keys(raw[0]).join(' · ')}. ` +
+              `Renombrá la de unidades a "Cantidad" y volvé a subirlo.`
+            )
+          }
           filas = raw.map(r => ({
             ref: String(r[cols.ref] ?? '').trim(),
             refs: [String(r[cols.ref] ?? '').trim()],
-            cantidad: Math.max(0, Math.round(Number(String(r[cols.qty] ?? 1).replace(',', '.')) || 0)),
+            cantidad: Math.max(0, Math.round(Number(String(r[cols.qty] ?? 0).replace(/\./g, '').replace(',', '.')) || 0)),
             nombre: cols.name ? String(r[cols.name] ?? '').trim() : '',
           })).filter(r => r.ref)
           if (filas.length) break
@@ -465,11 +494,20 @@ export default function FullShipment({
         const sacados = cambios.filter(c => c.ahora === 0).length
         const movidos = cambios.length - nuevos - sacados
         const armadas = escaneos.reduce((a, x) => a + (Number(x.cantidad) || 0), 0)
+        const unidadesAntes = pedido.reduce((a, r) => a + (Number(r.cantidad) || 0), 0)
+        // Si el total se desploma, casi siempre es que el archivo se leyó mal
+        const sospechoso = unidadesAntes > 0 && unidades < unidadesAntes / 2
         if (!window.confirm(
           `ML cambió el pedido de este envío:\n\n` +
+          `ANTES: ${pedido.length} renglones · ${unidadesAntes} unidades\n` +
+          `AHORA: ${filas.length} renglones · ${unidades} unidades\n\n` +
           `· ${nuevos} ${nuevos === 1 ? 'artículo nuevo' : 'artículos nuevos'}\n` +
           `· ${sacados} que ya no ${sacados === 1 ? 'pide' : 'piden'}\n` +
           `· ${movidos} con otra cantidad\n\n` +
+          (sospechoso
+            ? `⚠️ OJO: el total cayó de ${unidadesAntes} a ${unidades} unidades. ` +
+              `Si ML no bajó el pedido tanto, el archivo se leyó mal — cancelá y revisalo.\n\n`
+            : '') +
           `Las ${armadas} unidades que ya armaste y descontaste NO se tocan: ` +
           `queda todo como está y sólo se recalcula cuánto falta.\n\n¿Actualizar el pedido?`
         )) return
@@ -477,7 +515,12 @@ export default function FullShipment({
 
       await onUpdate(envio.id, {
         pedido: filas,
-        ...(cambios.length ? { ultimoCambio: { fecha: new Date().toISOString(), cambios: cambios.slice(0, 60) } } : {}),
+        // El pedido anterior se guarda entero para poder volver atrás de un
+        // clic si el archivo se leyó mal
+        ...(cambios.length ? {
+          pedidoAnterior: pedido,
+          ultimoCambio: { fecha: new Date().toISOString(), cambios: cambios.slice(0, 60) },
+        } : {}),
       })
       setMsg(
         (cambios.length ? `✅ Pedido actualizado: ` : `✅ Pedido de ML cargado: `) +
@@ -642,6 +685,11 @@ export default function FullShipment({
                 📝 ML cambió el pedido el {fmtFecha(envio.ultimoCambio.fecha)} —
                 {' '}{envio.ultimoCambio.cambios.length} artículos. Lo armado no se tocó.
               </summary>
+              {canEdit && envio.pedidoAnterior?.length > 0 && (
+                <button className="full-btn plano" onClick={volverAlAnterior} disabled={busy}>
+                  ↩️ Volver al pedido anterior ({envio.pedidoAnterior.reduce((a, r) => a + (Number(r.cantidad) || 0), 0)} unidades)
+                </button>
+              )}
               <table>
                 <thead>
                   <tr><th>Código</th><th>Producto</th><th>Pedía</th><th>Pide ahora</th></tr>
