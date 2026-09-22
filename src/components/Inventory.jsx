@@ -41,6 +41,17 @@ const COLUMN_MAP = {
   tipo: 'stockType', 'tipo de stock': 'stockType', 'tipo stock': 'stockType', canal: 'stockType', 'full ferre base': 'stockType',
   'codigo (armado p)': 'code2', 'armado p': 'code2', 'codigo armado': 'code2', 'codigo interno': 'code2',
   descripcion: 'description', description: 'description', detalle: 'description',
+  'primer empaque': 'primerEmpaque', 'primer_empaque': 'primerEmpaque', 'lleva primer empaque': 'primerEmpaque',
+  empaque: 'primerEmpaque', 'bolsa extra': 'primerEmpaque',
+  medidas: 'dims', 'medida': 'dims', dims: 'dims', tamano: 'dims', 'tamano cm': 'dims',
+  'medidas cm': 'dims', 'largo x ancho x alto': 'dims',
+  fragil: 'fragile', 'fragil si no': 'fragile',
+}
+
+// "SÍ", "si", "x", "1", "true" → true. Vacío, "no", "0" → false.
+const esSi = (v) => {
+  const t = String(v ?? '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  return ['si', 's', 'x', '1', 'true', 'verdadero', 'sí'].includes(t)
 }
 
 // Columnas del Excel de compra (identifica el producto + cantidad comprada)
@@ -283,6 +294,9 @@ export default function Inventory({
             location: p.location !== undefined ? String(p.location).trim() : '',
             stockType: p.stockType !== undefined ? String(p.stockType).trim().toUpperCase() : '',
             description: p.description !== undefined ? String(p.description).trim() : '',
+            primerEmpaque: esSi(p.primerEmpaque),
+            fragile: esSi(p.fragile),
+            dims: p.dims !== undefined ? String(p.dims).trim() : '',
             photos: photosByRow.get(raw.__rowNum__) || [],
           })
         }
@@ -303,6 +317,9 @@ export default function Inventory({
         if (!g.price && p.price) g.price = parseNumber(p.price)
         if (!g.quantity && p.quantity) g.quantity = Math.round(parseNumber(p.quantity))
         if (!g.stockType && p.stockType) g.stockType = String(p.stockType).trim().toUpperCase()
+        if (!g.dims && p.dims) g.dims = String(p.dims).trim()
+        if (!g.primerEmpaque && esSi(p.primerEmpaque)) g.primerEmpaque = true
+        if (!g.fragile && esSi(p.fragile)) g.fragile = true
         if (!g.photos.length) { const ph = photosByRow.get(raw.__rowNum__); if (ph) g.photos = ph }
       }
 
@@ -365,6 +382,11 @@ export default function Inventory({
         { header: 'Cantidad', key: 'quantity', width: 10 },
         { header: 'Stock Mínimo', key: 'minStock', width: 12 },
         { header: 'Ubicación', key: 'location', width: 14 },
+        // Estas dos se llenan mejor de la PC, con el listado entero a la vista,
+        // y vuelven a entrar por el mismo importador
+        { header: 'Primer empaque', key: 'primerEmpaque', width: 14 },
+        { header: 'Medidas (cm)', key: 'dims', width: 16 },
+        { header: 'Frágil', key: 'fragile', width: 8 },
         { header: 'Tipo', key: 'tipo', width: 8 },
         { header: 'Descripción', key: 'description', width: 26 },
       ]
@@ -382,6 +404,9 @@ export default function Inventory({
           quantity: p.quantity || 0,
           minStock: p.minStock || 5,
           location: p.location || '',
+          primerEmpaque: p.primerEmpaque ? 'SÍ' : '',
+          dims: p.dims || '',
+          fragile: p.fragile ? 'SÍ' : '',
           tipo: p.stockType || '',
           description: p.description || '',
         })
@@ -797,11 +822,11 @@ export default function Inventory({
 
   const downloadTemplate = () => {
     const ws = XLSX.utils.aoa_to_sheet([
-      ['FOTO', 'Nombre', 'SKU', 'Código de Barras', 'Categoría', 'Precio', 'Cantidad', 'Stock Mínimo', 'Ubicación', 'Tipo', 'Descripción'],
-      ['', 'Martillo carpintero', 'SKU-001', '7790001001234', 'Herramientas', 1500, 10, 5, 'Estante A3', 'FERRE', 'Mango de madera'],
-      ['', 'Destornillador Phillips', 'SKU-002', '7790001005678', 'Herramientas', 800, 25, 5, 'Estante A4', 'BASE', ''],
+      ['FOTO', 'Nombre', 'SKU', 'Código de Barras', 'Categoría', 'Precio', 'Cantidad', 'Stock Mínimo', 'Ubicación', 'Primer empaque', 'Medidas (cm)', 'Frágil', 'Tipo', 'Descripción'],
+      ['', 'Martillo carpintero', 'SKU-001', '7790001001234', 'Herramientas', 1500, 10, 5, 'Estante A3', '', '30 x 12 x 4', '', 'FERRE', 'Mango de madera'],
+      ['', 'Destornillador Phillips', 'SKU-002', '7790001005678', 'Herramientas', 800, 25, 5, 'Estante A4', 'SÍ', '20 x 4 x 4', '', 'BASE', ''],
     ])
-    ws['!cols'] = [{ wch: 12 }, { wch: 24 }, { wch: 12 }, { wch: 16 }, { wch: 14 }, { wch: 9 }, { wch: 9 }, { wch: 11 }, { wch: 14 }, { wch: 8 }, { wch: 24 }]
+    ws['!cols'] = [{ wch: 12 }, { wch: 24 }, { wch: 12 }, { wch: 16 }, { wch: 14 }, { wch: 9 }, { wch: 9 }, { wch: 11 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 8 }, { wch: 8 }, { wch: 24 }]
 
     // Hoja de instrucciones (incluye cómo cargar las fotos)
     const info = XLSX.utils.aoa_to_sheet([
@@ -826,6 +851,12 @@ export default function Inventory({
       ['   cambiá lo que quieras y volvé a Importar el mismo archivo.'],
       ['   La app reconoce el SKU o el código de barras y actualiza sin duplicar.'],
       ['   Al exportar, las fotos vienen pegadas en la columna FOTO.'],
+      [''],
+      ['6) Columna "Primer empaque": poné SÍ si el artículo lleva bolsa extra'],
+      ['   antes de embalarlo. Dejala vacía si no lleva. Igual "Frágil".'],
+      [''],
+      ['7) Columna "Medidas (cm)": el tamaño del artículo, largo x ancho x alto'],
+      ['   (ej: 15 x 20 x 20). Sirve para elegir la bolsa al empaquetar.'],
     ])
     info['!cols'] = [{ wch: 70 }]
 
@@ -894,17 +925,22 @@ export default function Inventory({
   }, [combos])
   const comboOriginal = (row) => comboPorId.get(row.id) || row
 
-  // La foto del combo: si no tiene una propia se muestra la del primer producto
-  // base que sí tenga. Casi todos los combos son un solo artículo, así que la
-  // foto del producto es exactamente lo que hay que ver al armarlo.
+  // La foto del combo.
+  //
+  // Casi todos los combos son UN SOLO artículo repetido (3 llaveros, 10 trabas),
+  // y ahí la foto del producto base es exactamente lo que hay que ver al
+  // armarlo. Pero si el combo mezcla productos DISTINTOS, ninguna de las fotos
+  // lo representa: mostrar la del primero engaña a quien arma. En ese caso se
+  // deja sin foto, salvo que el combo tenga una propia.
   const fotoCombo = (c, byId) => {
     if (c.hasPhotos) return { fotoId: c.id, fotoKind: 'combo', hasPhotos: true }
-    const base = (c.items || [])
-      .map(it => byId.get(it.productId))
-      .find(p => p?.hasPhotos)
-    return base
+    const sinFoto = { fotoId: c.id, fotoKind: 'combo', hasPhotos: false }
+    const ids = [...new Set((c.items || []).map(it => it.productId).filter(Boolean))]
+    if (ids.length !== 1) return sinFoto
+    const base = byId.get(ids[0])
+    return base?.hasPhotos
       ? { fotoId: base.id, fotoKind: 'product', hasPhotos: true }
-      : { fotoId: c.id, fotoKind: 'combo', hasPhotos: false }
+      : sinFoto
   }
 
   // Filas ya armadas y ORDENADAS una sola vez (no en cada tecla). Cada fila se

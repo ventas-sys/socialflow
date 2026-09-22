@@ -92,7 +92,11 @@ export default function FullShipment({
       const bp = products.find(pp => pp.id === it.productId)
       return bp ? { productId: bp.id, productName: bp.name, quantity: it.quantity || 1, bp } : null
     }).filter(Boolean)
-    const conFoto = bases.find(b => b.bp.hasPhotos)
+    // Misma regla que en Inventario: la foto del base sólo sirve si el combo es
+    // un único producto repetido. Si mezcla productos distintos, ninguna foto
+    // lo representa y es peor mostrar una que engañe.
+    const unicoBase = [...new Set(bases.map(b => b.productId))].length === 1
+    const conFoto = unicoBase ? bases.find(b => b.bp.hasPhotos) : null
     const lugares = [...new Set(bases.map(b => (b.bp.location || '').trim()).filter(Boolean))]
     return {
       tipo: 'combo', id: c.id, nombre: c.name, code: c.code || ref,
