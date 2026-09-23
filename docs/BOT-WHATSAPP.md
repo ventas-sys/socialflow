@@ -215,3 +215,27 @@ eso, **no hay parche del lado nuestro que lo arregle**.
 El camino que queda sin explorar es un **número VoIP programable** aparte
 (Twilio o similar) con un IVR propio. Es otro proyecto: trámite regulatorio
 para un número argentino, costo por minuto, e infraestructura nueva en el VPS.
+
+---
+
+## Números que el bot no contesta (23-sep-2026)
+
+Rodo: *"este número no respondas porque es BOT, dejalo que escriba en
+WhatsApp"*. Hay servicios automáticos que escriben solos y no tiene sentido
+que Tatiana les conteste ni que despierten al supervisor.
+
+Los números de `WA_NUMEROS_IGNORADOS` pueden escribir lo que quieran: el bot
+**no responde, no avisa al supervisor y no les arma follow-up**. El corte está
+arriba de todo en `handleIncoming`, antes de registrar actividad, así tampoco
+les entran los recordatorios.
+
+| Variable | Default | Para qué |
+|---|---|---|
+| `WA_NUMEROS_IGNORADOS` | `+1 213 805 8674` | Números separados por coma |
+
+Se comparan **solo los dígitos**, así que da igual el formato:
+`+1 (213) 805-8674`, `12138058674` y `1-213-805-8674` son el mismo número.
+
+⚠️ El id de WhatsApp puede traer sufijo de dispositivo (`12138058674:12@c.us`).
+Hay que cortar por `@` **y por `:`** antes de quedarse con los dígitos; si no,
+el sufijo se pega al número y no matchea nunca.
