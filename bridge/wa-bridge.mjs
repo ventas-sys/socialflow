@@ -145,6 +145,29 @@ const reminderSent = new Set();      // chatId que ya recibieron el recordatorio
 const productFollowup = new Map();   // chatId -> ts del link de producto (para "¿pudiste comprarlo?")
 const agendadosGoogle = new Set();   // chatId ya agendados en Google Contactos (evita duplicados tipo "Cliente 28..32")
 const avisosPendientes = [];         // casos que entraron con el local cerrado (salen en un resumen al abrir)
+// ─── Números que el bot NO contesta ──────────────────────────────────────────
+// Bots, servicios automáticos y cualquier número que escriba solo. Pueden
+// escribir todo lo que quieran: el bot los deja hablar y no responde, no avisa
+// al supervisor y no les arma seguimiento. Simplemente no existen para él.
+//
+// WA_NUMEROS_IGNORADOS: números separados por coma. Se comparan solo los
+// dígitos, así que da igual cómo los escribas: +1 (213) 805-8674, 12138058674
+// o 1-213-805-8674 son el mismo número.
+const IGNORADOS = new Set(
+  (process.env.WA_NUMEROS_IGNORADOS ?? '+1 213 805 8674')   // 23-sep-2026: bot
+    .split(',')
+    .map(n => n.replace(/\D/g, ''))
+    .filter(Boolean)
+);
+
+function esIgnorado(chatId) {
+  // El id puede venir como 12138058674@c.us o 12138058674:12@c.us (el :12 es
+  // el dispositivo). Cortamos por @ y por : antes de quedarnos con los dígitos:
+  // sin eso, el sufijo se pega al número y no matchea con nada.
+  const digitos = String(chatId || '').split('@')[0].split(':')[0].replace(/\D/g, '');
+  return !!digitos && IGNORADOS.has(digitos);
+}
+
 const avisoLlamada = new Map();      // chatId -> ts del ultimo aviso de "no atendemos llamadas"
 let humanLabelId = null;
 
@@ -1178,6 +1201,15 @@ async function handleIncoming(client, msg) {
   try {
     if (msg.fromMe) return;
     if (msg.from === 'status@broadcast') return;
+
+    // Número en la lista de ignorados: que escriba lo que quiera. Cortamos acá
+    // arriba a propósito, antes de registrar actividad, así tampoco le entran
+    // los follow-ups ni los recordatorios.
+    if (esIgnorado(msg.from)) {
+      console.log(`[${msg.from}] 🔇 número ignorado: se lo deja escribir, no se responde`);
+      return;
+    }
+
     const from = msg.from;
     recordarMensajeVisto(msg.id?._serialized);
     const now = Date.now();
@@ -1451,6 +1483,9 @@ client.on('ready', async () => {
   console.log(DESMARCAR_ATENDIDO
     ? '⚪ La etiqueta HUMANO se saca sola en cuanto contesta un asesor'
     : '⚠️ La etiqueta HUMANO NO se saca sola (WA_DESMARCAR_ATENDIDO=no): la lista se va a ir llenando');
+  console.log(IGNORADOS.size
+    ? `🔇 Números ignorados (escriben y el bot no responde): ${IGNORADOS.size}`
+    : '🔇 No hay números ignorados');
   console.log(AVISOS_FUERA_HORARIO
     ? `🔔 Avisos al supervisor a CUALQUIER hora (WA_AVISOS_FUERA_HORARIO=si)`
     : `🌙 Horario de atención ${HORARIO_DESDE} a ${HORARIO_HASTA} (cerrado: ${DIAS_CERRADOS.join(',') || 'ninguno'}). Fuera de eso el cliente recibe una frase con humor y el aviso al supervisor se encola hasta la apertura${avisosPendientes.length ? ` · ${avisosPendientes.length} esperando` : ''}`);

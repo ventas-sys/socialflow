@@ -900,3 +900,45 @@ presupuesto de Ads · 15-oct-2026 revisar el cargo de $80 en FERRE.
 
 **Duda abierta:** el *pico* cebador, ¿también es ARBETTER y libre de BPA? Del
 *tapón* ya está confirmado que sí y Tatiana lo tiene cargado; del pico no.
+
+---
+
+## Mensaje post-entrega: PRENDIDO (22-sep-2026)
+
+Estaba apagado desde que se construyó. Rodo preguntó por qué no le escribía a
+los compradores que recibían el pedido — el objetivo es que califiquen.
+
+**Diagnóstico**, con `?action=postventa&ver=1` (muestra el estado sin mandar
+nada):
+
+```json
+{"ok":true,"activo":false,"demora_minutos":5,"falta_kv":false,
+ "en_cola":0,"ya_enviados":0,"cola":[]}
+```
+
+`activo: false` → faltaba `ML_POSTVENTA=on` en Vercel. Nada más: el topic
+`shipments` YA estaba tildado en DevCenter y el almacenamiento andaba
+(`falta_kv: false`).
+
+⚠️ **Ojo con el orden de los chequeos.** La bitácora decía que faltaban dos
+cosas (el topic y el interruptor) y arranqué dando por hecho las dos. Pero
+mirando el código, el webhook de envíos corta ANTES de encolar cuando el
+interruptor está apagado:
+
+```js
+if (topic === 'shipments') {
+  if (!postventaOn()) return res.status(200).json({ ok: true, skipped: 'postventa apagada' });
+```
+
+Así que `en_cola: 0` se explica **solo con el interruptor**, y no prueba nada
+sobre el topic. Para saber si el topic llega hay que mirar
+`ultimo_webhook_de_ml` en `?action=diag`, o tildarlo y ver si la cola se
+mueve.
+
+**Quedó así:** `ML_POSTVENTA=on` (tipo Config, no Secret: el valor no es
+secreto y conviene poder leerlo después), entorno Production, redeploy hecho.
+Verificado: `activo: true`.
+
+**Pendiente de verificar:** que `ya_enviados` empiece a subir con las entregas
+del día. Si con entregas hechas sigue en 0, ahí sí el problema es que el aviso
+de `shipments` no está llegando.
