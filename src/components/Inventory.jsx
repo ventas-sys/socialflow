@@ -7,6 +7,7 @@ import { extractImagesByRow } from '../utils/excelImages'
 import { comboAvailable, STOCK_TYPES } from './Combos'
 import Scanner from './Scanner'
 import LazyThumb from './LazyThumb'
+import { fotoDeCombo } from '../utils/fotoCombo'
 import { stockStatus, daysLeftText } from '../utils/stock'
 import './Inventory.css'
 
@@ -925,23 +926,7 @@ export default function Inventory({
   }, [combos])
   const comboOriginal = (row) => comboPorId.get(row.id) || row
 
-  // La foto del combo.
-  //
-  // Casi todos los combos son UN SOLO artículo repetido (3 llaveros, 10 trabas),
-  // y ahí la foto del producto base es exactamente lo que hay que ver al
-  // armarlo. Pero si el combo mezcla productos DISTINTOS, ninguna de las fotos
-  // lo representa: mostrar la del primero engaña a quien arma. En ese caso se
-  // deja sin foto, salvo que el combo tenga una propia.
-  const fotoCombo = (c, byId) => {
-    if (c.hasPhotos) return { fotoId: c.id, fotoKind: 'combo', hasPhotos: true }
-    const sinFoto = { fotoId: c.id, fotoKind: 'combo', hasPhotos: false }
-    const ids = [...new Set((c.items || []).map(it => it.productId).filter(Boolean))]
-    if (ids.length !== 1) return sinFoto
-    const base = byId.get(ids[0])
-    return base?.hasPhotos
-      ? { fotoId: base.id, fotoKind: 'product', hasPhotos: true }
-      : sinFoto
-  }
+  const fotoCombo = (c, byId) => fotoDeCombo(c, byId)
 
   // Filas ya armadas y ORDENADAS una sola vez (no en cada tecla). Cada fila se
   // guarda con su "texto de búsqueda" (_buscar) ya calculado y en minúsculas:

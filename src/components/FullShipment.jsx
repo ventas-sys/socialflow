@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react'
+import { fotoDeCombo } from '../utils/fotoCombo'
 import * as XLSX from 'xlsx'
 import { findProductOrCombo } from '../utils/refMatch'
 import Scanner from './Scanner'
@@ -104,20 +105,17 @@ export default function FullShipment({
       const bp = products.find(pp => pp.id === it.productId)
       return bp ? { productId: bp.id, productName: bp.name, quantity: it.quantity || 1, bp } : null
     }).filter(Boolean)
-    // Misma regla que en Inventario: la foto del base sólo sirve si el combo es
-    // un único producto repetido. Si mezcla productos distintos, ninguna foto
-    // lo representa y es peor mostrar una que engañe.
-    const unicoBase = [...new Set(bases.map(b => b.productId))].length === 1
-    const conFoto = unicoBase ? bases.find(b => b.bp.hasPhotos) : null
+    // Misma regla que en Inventario y Combos, en un solo lugar
+    const foto = fotoDeCombo(c, products)
     const lugares = [...new Set(bases.map(b => (b.bp.location || '').trim()).filter(Boolean))]
     return {
       tipo: 'combo', id: c.id, nombre: c.name, code: c.code || ref,
       ubicacion: lugares.join(' · ') || c.location || '',
       primerEmpaque: bases.some(b => b.bp.primerEmpaque),
       fragile: bases.some(b => b.bp.fragile),
-      fotoId: c.hasPhotos ? c.id : (conFoto ? conFoto.bp.id : c.id),
-      fotoKind: c.hasPhotos ? 'combo' : (conFoto ? 'product' : 'combo'),
-      fotoHas: !!(c.hasPhotos || conFoto),
+      fotoId: foto.fotoId,
+      fotoKind: foto.fotoKind,
+      fotoHas: foto.hasPhotos,
       bases: bases.map(({ bp, ...b }) => b),
     }
   }

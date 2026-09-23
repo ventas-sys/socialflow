@@ -4,6 +4,7 @@ import { findByRef } from '../utils/refMatch'
 import { compressImage, MAX_PHOTOS, MAX_PHOTOS_BYTES, photosSize } from '../utils/images'
 import { extractImagesByRow } from '../utils/excelImages'
 import LazyThumb from './LazyThumb'
+import { fotoDeCombo, porQueSinFoto } from '../utils/fotoCombo'
 import './Combos.css'
 
 export const STOCK_TYPES = ['FULL', 'FERRE', 'BASE']
@@ -80,9 +81,23 @@ export default function Combos({
   const [formData, setFormData] = useState(EMPTY_FORM)
   // Los combos con foto CARGADA EN EL COMBO. En el listado no se distinguen de
   // los que heredan la foto del producto base, y hace falta poder revisarlos.
-  const [soloFotoPropia, setSoloFotoPropia] = useState(false)
+  const [soloFotoPropia, setSoloFotoPropia] = useState('todos')
   const conFotoPropia = useMemo(() => combos.filter(c => c.hasPhotos), [combos])
-  const visibles = soloFotoPropia ? conFotoPropia : combos
+  // De dónde sale la foto de cada combo (propia, heredada del producto base, o
+  // ninguna y por qué). La solapa Combos mostraba sólo la propia: un combo de
+  // un único producto se veía vacío aunque el producto tuviera foto.
+  const fotoPorCombo = useMemo(() => {
+    const m = new Map()
+    for (const c of combos) m.set(c.id, fotoDeCombo(c, productById))
+    return m
+  }, [combos, productById])
+  const sinNingunaFoto = useMemo(
+    () => combos.filter(c => !fotoPorCombo.get(c.id)?.hasPhotos),
+    [combos, fotoPorCombo],
+  )
+  const visibles = soloFotoPropia === 'propia' ? conFotoPropia
+    : soloFotoPropia === 'sin' ? sinNingunaFoto
+    : combos
   const [borrandoFotos, setBorrandoFotos] = useState(null)  // cuántas van
 
   // Borra la foto CARGADA EN EL COMBO de todos los que tengan una. El combo no
@@ -107,7 +122,7 @@ export default function Combos({
     try {
       await onBorrarFotos(ids, (n) => setBorrandoFotos(n))
       setImportResult(`✅ Se borraron ${ids.length} fotos propias. Esos combos ahora muestran la del producto base.`)
-      setSoloFotoPropia(false)
+      setSoloFotoPropia('todos')
     } catch (err) {
       setImportResult('❌ No se pudieron borrar: ' + err.message)
     } finally {
@@ -872,18 +887,29 @@ export default function Combos({
       {combos.length > 0 && (
         <div className="combos-filtros">
           <button
-            className={`combo-chip ${soloFotoPropia ? '' : 'activo'}`}
-            onClick={() => setSoloFotoPropia(false)}
+            className={`combo-chip ${soloFotoPropia === 'todos' ? 'activo' : ''}`}
+            onClick={() => setSoloFotoPropia('todos')}
           >
             Todos ({combos.length})
           </button>
           <button
-            className={`combo-chip ${soloFotoPropia ? 'activo' : ''}`}
-            onClick={() => setSoloFotoPropia(true)}
+            className={`combo-chip ${soloFotoPropia === 'propia' ? 'activo' : ''}`}
+            onClick={() => setSoloFotoPropia('propia')}
           >
             🖼️ Con foto propia ({conFotoPropia.length})
           </button>
-          {soloFotoPropia && (
+          <button
+            className={`combo-chip ${soloFotoPropia === 'sin' ? 'activo' : ''}`}
+            onClick={() => setSoloFotoPropia('sin')}
+          >
+            🚫 Sin ninguna foto ({sinNingunaFoto.length})
+          </button>
+          {soloFotoPropia === 'sin' && (
+            <span className="combos-filtros-hint">
+              Ni propia ni del producto base. Abajo de cada uno dice por qué.
+            </span>
+          )}
+          {soloFotoPropia === 'propia' && (
             <>
               <span className="combos-filtros-hint">
                 Foto cargada en el combo. Los demás muestran la del producto base.
@@ -912,20 +938,23 @@ export default function Combos({
       ) : visibles.length === 0 ? (
         <div className="empty-state">
           <p>🖼️</p>
-          <p>Ningún combo tiene foto propia: todos muestran la del producto base.</p>
+          <p>{soloFotoPropia === 'sin'
+            ? 'Todos los combos tienen foto: propia o del producto base.'
+            : 'Ningún combo tiene foto propia: todos muestran la del producto base.'}</p>
         </div>
       ) : (
         <div className="combos-grid">
           {visibles.map(combo => {
             const available = comboAvailable(combo, productById)
+            const foto = fotoPorCombo.get(combo.id) || {}
             return (
               <div key={combo.id} className="combo-card">
                 <div className="combo-card-header">
                   <div className="combo-title-row">
                     <LazyThumb
-                      id={combo.id}
-                      hasPhotos={combo.hasPhotos}
-                      kind="combo"
+                      id={foto.fotoId || combo.id}
+                      hasPhotos={foto.hasPhotos}
+                      kind={foto.fotoKind || 'combo'}
                       loadPhotos={loadPhotos}
                       className="combo-photo"
                     />
@@ -942,6 +971,12 @@ export default function Combos({
                           <span className={`badge-st ${combo.stockType.toLowerCase()}`}> {combo.stockType}</span>
                         )}
                       </div>
+                      {!foto.hasPhotos && (
+                        <div className="combo-sinfoto">🚫 {porQueSinFoto(foto)}</div>
+                      )}
+                      {foto.motivo === 'heredada' && (
+                        <div className="combo-fotoheredada">📷 Foto del producto base</div>
+                      )}
                     </div>
                   </div>
                   <span className={`badge ${available > 0 ? 'ok' : 'warn'}`}>

@@ -611,3 +611,8 @@
 .combo-chip.peligro { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; font-weight: 600; }
 .combo-chip.peligro:hover:not(:disabled) { background: #dc2626; border-color: #dc2626; color: #fff; }
 .combo-chip:disabled { opacity: .6; cursor: default; }
+
+/* Por qué un combo no muestra foto: sin esto había que adivinar si era un bug
+   o si simplemente faltaba la foto del producto base. */
+.combo-sinfoto { margin-top: .2rem; font-size: .72rem; color: #b91c1c; }
+.combo-fotoheredada { margin-top: .2rem; font-size: .72rem; color: #64748b; }
