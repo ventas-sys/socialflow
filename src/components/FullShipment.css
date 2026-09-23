@@ -289,3 +289,11 @@
 .full-cambios .num { text-align: right; }
 .full-cambios tr.nuevo td { background: #f0fdf4; }
 .full-cambios tr.sacado td { background: #fef2f2; text-decoration: line-through; opacity: .75; }
+
+/* Aviso de que el envío descontó más de lo que tiene armado: sólo puede pasar
+   por descuentos viejos hechos cuando "descontado" era un sí/no. */
+.full-aviso.mal {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #991b1b;
+}

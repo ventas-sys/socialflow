@@ -73,6 +73,18 @@ export default function FullShipment({
 
   // ---- Lo escaneado, resuelto a producto/combo con foto, ubicación y avisos ----
   const escaneos = envio?.escaneos || []
+
+  // Cuántas unidades de un renglón YA salieron del stock.
+  //
+  // Antes esto era un booleano y la app no sabía CUÁNTAS había sacado. Con eso,
+  // bajar la cantidad armada o borrar el renglón dejaba el stock descontado
+  // igual, "falta" volvía a crecer, y al marcarlo de nuevo se descontaba DOS
+  // VECES. Ahora es un número y la regla es simple: lo armado siempre es igual
+  // a lo que salió del stock.
+  const yaDescontado = (s) => {
+    if (s?.descontado === true) return Number(s.cantidad) || 0   // renglones viejos
+    return Math.max(0, Number(s?.descontado) || 0)
+  }
   const pedido = envio?.pedido || []
 
   const resolver = (ref) => {
@@ -149,8 +161,11 @@ export default function FullShipment({
     const escaneadas = avance.reduce((s, f) => s + f.escaneado, 0)
     const faltan = avance.reduce((s, f) => s + f.falta, 0)
     const demas = avance.reduce((s, f) => s + f.demas, 0)
-    return { pedidas, escaneadas, faltan, demas, completo: pedidas > 0 && faltan === 0 }
-  }, [avance])
+    // Lo que este envío sacó del stock. Tiene que dar igual que "armado": si no
+    // da, es que algo se descontó de más o de menos.
+    const salidas = escaneos.reduce((a, s) => a + yaDescontado(s), 0)
+    return { pedidas, escaneadas, faltan, demas, salidas, completo: pedidas > 0 && faltan === 0 }
+  }, [avance, escaneos])
 
   // ---- Escanear ----
   // El escaneo NO guarda solo: abre la pantalla completa con la foto, el SKU,
@@ -201,7 +216,9 @@ export default function FullShipment({
         )
         const queda = (pendiente.yaLleva || 0) - sacar
         const nuevos = queda > 0
-          ? escaneos.map(s => (normalize(s.ref) === normalize(pendiente.code) ? { ...s, cantidad: queda } : s))
+          ? escaneos.map(s => (normalize(s.ref) === normalize(pendiente.code)
+              ? { ...s, cantidad: queda, descontado: Math.min(yaDescontado(s), queda) }
+              : s))
           : escaneos.filter(s => normalize(s.ref) !== normalize(pendiente.code))
         await onUpdate(envio.id, { escaneos: nuevos })
         setMsg(`↩️ ${pendiente.nombre} — se sacaron ${sacar} del envío y volvieron al stock. Quedan ${queda}.`)
@@ -241,8 +258,12 @@ export default function FullShipment({
       })
       const nuevos = [...escaneos]
       const i = nuevos.findIndex(s => normalize(s.ref) === normalize(pendiente.code))
-      if (i >= 0) nuevos[i] = { ...nuevos[i], cantidad: (Number(nuevos[i].cantidad) || 0) + n, descontado: true }
-      else nuevos.push({ ref: pendiente.code, nombre: pendiente.nombre, cantidad: n, tipo: pendiente.tipo, descontado: true })
+      if (i >= 0) nuevos[i] = {
+        ...nuevos[i],
+        cantidad: (Number(nuevos[i].cantidad) || 0) + n,
+        descontado: yaDescontado(nuevos[i]) + n,
+      }
+      else nuevos.push({ ref: pendiente.code, nombre: pendiente.nombre, cantidad: n, tipo: pendiente.tipo, descontado: n })
       await onUpdate(envio.id, { escaneos: nuevos })
       setMsg(`✅ ${pendiente.nombre} — ${n} ${n === 1 ? 'unidad' : 'unidades'} anotadas en el envío N° ${envio.numero} y descontadas del stock.`)
       setPendiente(null)
@@ -259,22 +280,55 @@ export default function FullShipment({
     if (volverACamara) setShowScanner(true)
   }
 
-  const quitar = async (ref) => {
+  // Cambiar lo armado de un renglón. Si baja por debajo de lo que ya salió del
+  // stock, esas unidades VUELVEN al stock: salieron de la caja del envío, así
+  // que están de nuevo en el depósito. Antes no volvían y ese era el agujero
+  // por el que se descontaba dos veces.
+  const ajustarRenglon = async (ref, cantidad) => {
+    if (!envio || envio.estado === 'cerrado') return
     const linea = escaneos.find(s => normalize(s.ref) === normalize(ref))
-    if (linea?.descontado && !window.confirm(
-      `Ese renglón YA descontó stock. Si lo sacás del envío, el stock NO vuelve solo: ` +
-      `hay que cargar la entrada desde Movimientos.\n\n¿Sacarlo igual?`
-    )) return
-    const nuevos = escaneos.filter(s => normalize(s.ref) !== normalize(ref))
-    await onUpdate(envio.id, { escaneos: nuevos })
-  }
-  const cambiarCantidad = async (ref, cantidad) => {
+    if (!linea) return
     const n = Math.max(0, Math.round(Number(cantidad) || 0))
-    const nuevos = n === 0
-      ? escaneos.filter(s => normalize(s.ref) !== normalize(ref))
-      : escaneos.map(s => (normalize(s.ref) === normalize(ref) ? { ...s, cantidad: n } : s))
-    await onUpdate(envio.id, { escaneos: nuevos })
+    if (n === (Number(linea.cantidad) || 0)) return
+    const salidas = yaDescontado(linea)
+    const devolver = Math.max(0, salidas - n)
+    const info = devolver ? resolver(ref) : null
+    if (devolver && !info) {
+      setMsg(`❌ ${ref} no está en el sistema: no se puede devolver el stock a mano desde acá`)
+      return
+    }
+    if (devolver && !window.confirm(
+      `${linea.nombre || ref}\n\n` +
+      `Armado: de ${linea.cantidad} a ${n}.\n` +
+      `Se DEVUELVEN ${devolver} unidades al stock.\n\n¿Confirmás?`
+    )) return
+    setBusy(true); setMsg('')
+    try {
+      if (devolver) {
+        await onDescontar(
+          info.bases.map(b => ({
+            productId: b.productId, productName: b.productName,
+            quantity: Math.abs(b.quantity * devolver),
+            reason: `Corrección envío a Full N° ${envio.numero}`,
+          })),
+          { reference: `Envío Full N° ${envio.numero}`, reason: `Corrección envío a Full N° ${envio.numero}` }
+        )
+      }
+      const nuevos = n === 0
+        ? escaneos.filter(s => normalize(s.ref) !== normalize(ref))
+        : escaneos.map(s => (normalize(s.ref) === normalize(ref)
+            ? { ...s, cantidad: n, descontado: Math.min(salidas, n) }
+            : s))
+      await onUpdate(envio.id, { escaneos: nuevos })
+      if (devolver) setMsg(`↩️ ${devolver} unidades volvieron al stock.`)
+    } catch (err) {
+      setMsg('❌ No se pudo corregir: ' + err.message)
+    } finally {
+      setBusy(false)
+    }
   }
+  const quitar = (ref) => ajustarRenglon(ref, 0)
+  const cambiarCantidad = (ref, cantidad) => ajustarRenglon(ref, cantidad)
 
   useEffect(() => {
     const mirar = () => {
@@ -311,8 +365,12 @@ export default function FullShipment({
         reason: `Envío a Full N° ${envio.numero}`,
       }))
       const i = nuevos.findIndex(x => normalize(x.ref) === normalize(f.ref))
-      if (i >= 0) nuevos[i] = { ...nuevos[i], cantidad: (Number(nuevos[i].cantidad) || 0) + n, descontado: true }
-      else nuevos.push({ ref: f.ref, nombre: info.nombre, cantidad: n, tipo: info.tipo, descontado: true })
+      if (i >= 0) nuevos[i] = {
+        ...nuevos[i],
+        cantidad: (Number(nuevos[i].cantidad) || 0) + n,
+        descontado: yaDescontado(nuevos[i]) + n,
+      }
+      else nuevos.push({ ref: f.ref, nombre: info.nombre, cantidad: n, tipo: info.tipo, descontado: n })
     })
     if (!renglones.length) { setMsg('❌ Ninguno de los elegidos está en el sistema'); return }
 
@@ -398,6 +456,7 @@ export default function FullShipment({
   // descontado no se toca nunca: esto sólo cambia contra qué se compara.
   const volverAlAnterior = async () => {
     if (!envio?.pedidoAnterior?.length) return
+    if (envio.estado === 'cerrado') { setMsg('❌ Este envío está cerrado. Reabrilo primero.'); return }
     const u = envio.pedidoAnterior.reduce((a, r) => a + (Number(r.cantidad) || 0), 0)
     if (!window.confirm(
       `Volver al pedido anterior: ${envio.pedidoAnterior.length} renglones · ${u} unidades.\n\n` +
@@ -419,6 +478,7 @@ export default function FullShipment({
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file || !envio) return
+    if (envio.estado === 'cerrado') { setMsg('❌ Este envío está cerrado. Reabrilo si de verdad querés cambiarle el pedido.'); return }
     setBusy(true); setMsg('')
     try {
       const wb = XLSX.read(await file.arrayBuffer())
@@ -540,7 +600,7 @@ export default function FullShipment({
   }
 
   // ---- Descontar stock ----
-  const pendientesDeDescontar = escaneos.filter(s => !s.descontado)
+  const pendientesDeDescontar = escaneos.filter(s => yaDescontado(s) < (Number(s.cantidad) || 0))
   const descontar = async () => {
     if (!envio || !pendientesDeDescontar.length) return
     const renglones = []
@@ -548,10 +608,13 @@ export default function FullShipment({
     pendientesDeDescontar.forEach(s => {
       const info = resolver(s.ref)
       if (!info) { noEncontrados.push(s.ref); return }
+      // Sólo lo que todavía NO salió del stock de este renglón
+      const falta = (Number(s.cantidad) || 0) - yaDescontado(s)
+      if (falta <= 0) return
       info.bases.forEach(b => renglones.push({
         productId: b.productId,
         productName: b.productName,
-        quantity: -Math.abs(b.quantity * (Number(s.cantidad) || 0)),
+        quantity: -Math.abs(b.quantity * falta),
         reason: `Envío a Full N° ${envio.numero}`,
       }))
     })
@@ -565,7 +628,7 @@ export default function FullShipment({
     try {
       await onDescontar(renglones, { reference: `Envío Full N° ${envio.numero}`, reason: `Envío a Full N° ${envio.numero}` })
       await onUpdate(envio.id, {
-        escaneos: escaneos.map(s => ({ ...s, descontado: true })),
+        escaneos: escaneos.map(s => ({ ...s, descontado: Number(s.cantidad) || 0 })),
         descontadoAt: new Date().toISOString(),
       })
       setMsg(`✅ Stock descontado: ${unidades} unidades.`
@@ -629,7 +692,11 @@ export default function FullShipment({
   }
   const cerrar = async () => {
     if (!envio) return
-    if (!window.confirm(`¿Cerrar el Envío a Full N° ${envio.numero}? No se va a poder escanear más en él.`)) return
+    if (!window.confirm(
+      `¿Cerrar el Envío a Full N° ${envio.numero}?\n\n` +
+      `Queda bloqueado: no se puede escanear, ni marcar, ni cambiar cantidades, ni actualizar el pedido de ML. ` +
+      `Para tocarlo hay que reabrirlo a propósito.`
+    )) return
     await onUpdate(envio.id, { estado: 'cerrado', closedAt: new Date().toISOString() })
   }
   const reabrir = async () => envio && onUpdate(envio.id, { estado: 'abierto' })
@@ -679,7 +746,14 @@ export default function FullShipment({
 
           {escaneos.length > 0 && !pendientesDeDescontar.length && (
             <div className="full-aviso ok">
-              ✅ Todo lo de este envío ya está descontado del stock.
+              ✅ Todo lo de este envío ya está descontado del stock ({totales.salidas} unidades).
+            </div>
+          )}
+
+          {totales.salidas > totales.escaneadas && (
+            <div className="full-aviso mal">
+              ⚠️ Este envío sacó {totales.salidas} unidades del stock pero tiene {totales.escaneadas} armadas:
+              hay {totales.salidas - totales.escaneadas} descontadas de más. Cargá la entrada desde Movimientos.
             </div>
           )}
 
