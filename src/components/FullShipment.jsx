@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react'
 import { fotoDeCombo } from '../utils/fotoCombo'
 import * as XLSX from 'xlsx'
-import { findProductOrCombo } from '../utils/refMatch'
+import { findProductOrCombo, barcodesOf } from '../utils/refMatch'
 import Scanner from './Scanner'
 import LazyThumb from './LazyThumb'
 import './FullShipment.css'
@@ -46,7 +46,7 @@ const fmtFecha = (t) => {
 
 export default function FullShipment({
   products, combos, envios = [], loadPhotos,
-  onCreate, onUpdate, onDelete, onDescontar, canEdit = true,
+  onCreate, onUpdate, onDelete, onDescontar, onAsociarCodigos, canEdit = true,
 }) {
   const [envioId, setEnvioId] = useState('')
   const [showScanner, setShowScanner] = useState(false)
@@ -61,6 +61,9 @@ export default function FullShipment({
   // más con el dedo descontaría stock sin querer.
   const [esPC, setEsPC] = useState(false)
   const [elegidos, setElegidos] = useState(() => new Set())
+  // Códigos del pedido de ML que apuntan a algo que SÍ está en el sistema pero
+  // que todavía no están cargados como código de barras de ese combo
+  const [porAsociar, setPorAsociar] = useState(null)
   const fileRef = useRef(null)
   const bufferRef = useRef({ txt: '', t: 0 })
 
@@ -450,6 +453,42 @@ export default function FullShipment({
     return cambios
   }
 
+  // Guardar los códigos sueltos como código de barras del combo/producto que ya
+  // existe. Es ADITIVO: los códigos que ya tenía quedan como están.
+  const asociarCodigos = async () => {
+    if (!porAsociar?.length || !onAsociarCodigos) return
+    const total = porAsociar.reduce((a, x) => a + x.faltan.length, 0)
+    if (!window.confirm(
+      `Asociar ${total} ${total === 1 ? 'código' : 'códigos'} a ${porAsociar.length} ` +
+      `${porAsociar.length === 1 ? 'artículo' : 'artículos'} que ya están en el sistema.\n\n` +
+      `Se AGREGAN como código de barras: los que ya tenían cargados no se tocan.\n\n¿Confirmás?`
+    )) return
+    setBusy(true); setMsg('')
+    try {
+      const patches = { products: [], combos: [] }
+      porAsociar.forEach(x => {
+        const actual = x.tipo === 'product'
+          ? products.find(p => p.id === x.id)
+          : combos.find(c => c.id === x.id)
+        if (!actual) return
+        const previos = barcodesOf(actual)
+        const nuevos = [...previos]
+        x.faltan.forEach(r => {
+          if (!nuevos.some(b => normalize(b) === normalize(r))) nuevos.push(r)
+        })
+        const destino = x.tipo === 'product' ? patches.products : patches.combos
+        destino.push({ id: x.id, patch: { barcodes: nuevos, barcode: nuevos[0] || '' } })
+      })
+      await onAsociarCodigos(patches)
+      setPorAsociar(null)
+      setMsg(`🔗 ${total} códigos asociados. Volvé a escanear las etiquetas: ahora tienen que entrar.`)
+    } catch (err) {
+      setMsg('❌ No se pudieron asociar: ' + err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   // Volver al pedido que había antes de la última actualización. Lo armado y
   // descontado no se toca nunca: esto sólo cambia contra qué se compara.
   const volverAlAnterior = async () => {
@@ -540,6 +579,26 @@ export default function FullShipment({
       }
       if (!filas.length) throw new Error('No reconocí el archivo. Tiene que ser el listado de preparación de ML (el PDF pasado a Excel) o un Excel con una columna de código y otra de cantidad.')
       const sinSistema = filas.filter(r => !(r.refs || [r.ref]).some(x => buscar(x))).length
+
+      // Las etiquetas de Full traen el CÓDIGO ML (4 letras + 5 números, el que
+      // se escanea) y el SKU (MLA...). Si el combo está cargado con el MLA pero
+      // nunca se le guardó el código ML, escanear la etiqueta da "no está en el
+      // sistema" aunque el artículo exista. Acá se detectan esos casos para
+      // poder asociarlos: se AGREGAN códigos, no se pisa ninguno.
+      const sueltos = []
+      const vistos = new Set()
+      filas.forEach(l => {
+        const refs = (l.refs?.length ? l.refs : [l.ref]).filter(Boolean)
+        const m = refs.map(r => buscar(r)).find(Boolean)
+        if (!m) return                                  // no está en el sistema: otro problema
+        const x = m.type === 'product' ? m.p : m.c
+        const yaTiene = new Set([x.code, ...barcodesOf(x)].filter(Boolean).map(v => normalize(v)))
+        const faltan = refs.filter(r => !yaTiene.has(normalize(r)))
+        if (!faltan.length || vistos.has(x.id)) return
+        vistos.add(x.id)
+        sueltos.push({ tipo: m.type, id: x.id, nombre: x.name, code: x.code || '', faltan })
+      })
+      setPorAsociar(sueltos.length ? sueltos : null)
       const unidades = filas.reduce((s, r) => s + r.cantidad, 0)
 
       // Si el envío ya tenía un pedido cargado, esto es una ACTUALIZACIÓN: ML
@@ -588,7 +647,8 @@ export default function FullShipment({
         (cambios.length ? `✅ Pedido actualizado: ` : `✅ Pedido de ML cargado: `) +
         `${filas.length} renglones, ${unidades} unidades.` +
         (cambios.length ? ` Cambiaron ${cambios.length} artículos. Lo armado quedó intacto.` : '') +
-        (sinSistema ? ` ⚠️ ${sinSistema} no están cargados en la app.` : '')
+        (sinSistema ? ` ⚠️ ${sinSistema} no están cargados en la app.` : '') +
+        (sueltos.length ? ` 🔗 ${sueltos.length} tienen códigos sin asociar (abajo).` : '')
       )
     } catch (err) {
       setMsg('❌ ' + err.message)
@@ -752,6 +812,37 @@ export default function FullShipment({
             <div className="full-aviso mal">
               ⚠️ Este envío sacó {totales.salidas} unidades del stock pero tiene {totales.escaneadas} armadas:
               hay {totales.salidas - totales.escaneadas} descontadas de más. Cargá la entrada desde Movimientos.
+            </div>
+          )}
+
+          {canEdit && porAsociar?.length > 0 && (
+            <div className="full-asociar">
+              <div className="full-asociar-top">
+                <strong>🔗 {porAsociar.length} artículos del pedido tienen códigos sin asociar</strong>
+                <button className="full-btn" onClick={asociarCodigos} disabled={busy}>
+                  {busy ? '⏳ Asociando...' : 'Asociar todos'}
+                </button>
+                <button className="full-btn plano" onClick={() => setPorAsociar(null)} disabled={busy}>
+                  Ahora no
+                </button>
+              </div>
+              <p className="full-asociar-hint">
+                Están cargados en el sistema con su SKU de ML, pero les falta el código de la etiqueta
+                de Full. Por eso al escanearlos dice "no está en el sistema". Asociarlos sólo AGREGA
+                códigos: los que ya tenían quedan igual.
+              </p>
+              <table>
+                <thead><tr><th>Artículo</th><th>SKU cargado</th><th>Códigos a agregar</th></tr></thead>
+                <tbody>
+                  {porAsociar.map(x => (
+                    <tr key={x.id}>
+                      <td>{x.nombre}</td>
+                      <td className="full-code">{x.code || '—'}</td>
+                      <td className="full-code">{x.faltan.join(' · ')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
 

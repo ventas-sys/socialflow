@@ -1217,6 +1217,7 @@ export default function App() {
                 onCreate={createFullEnvio}
                 onUpdate={updateFullEnvio}
                 onDelete={deleteFullEnvio}
+                onAsociarCodigos={bulkApplyPatches}
                 onDescontar={registerPurchase}
                 canEdit={canEdit}
               />
