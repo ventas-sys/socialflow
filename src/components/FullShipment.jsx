@@ -24,6 +24,15 @@ const normalize = (s) =>
 // de color/medida), así que el renglón se identifica por el Código ML.
 const RX_ML = /c[oó]digo\s*ml:\s*([A-Z0-9]+)[\s\S]*?c[oó]digo\s*universal:\s*(\S+)[\s\S]*?sku:\s*(\S+)/i
 
+// El código impreso en la etiqueta de Full, el que se escanea: EXACTAMENTE
+// 4 letras y 4 o 5 números (HWOM34860, CUVC95180, THCX12987, HHIW37458).
+//
+// Sólo se asocia eso. Queda afuera a propósito:
+//   · el MLA de la publicación (MLA1377221527) — es el SKU, no se escanea
+//   · los códigos todo números (7793300417083) — son EAN del fabricante y
+//     pueden repetirse entre artículos distintos
+const ES_ETIQUETA_FULL = /^[A-Z]{4}\d{4,5}$/i
+
 // Encabezados posibles de un Excel armado a mano (formato libre)
 const COLS_REF = ['sku', 'codigo', 'codigo universal', 'codigo de barras', 'publicacion', 'nro de publicacion',
   'n de publicacion', 'numero de publicacion', 'codigo de publicacion', 'mla', 'sku del producto',
@@ -593,7 +602,11 @@ export default function FullShipment({
         if (!m) return                                  // no está en el sistema: otro problema
         const x = m.type === 'product' ? m.p : m.c
         const yaTiene = new Set([x.code, ...barcodesOf(x)].filter(Boolean).map(v => normalize(v)))
-        const faltan = refs.filter(r => !yaTiene.has(normalize(r)))
+        // Sólo se propone el CÓDIGO DE LA ETIQUETA. El MLA es el SKU de la
+        // publicación, no un código de barras: agregarlo no sirve para escanear
+        // y ensucia la lista. Lo mismo cualquier otra cosa que no tenga forma
+        // de etiqueta de Full.
+        const faltan = refs.filter(r => ES_ETIQUETA_FULL.test(r) && !yaTiene.has(normalize(r)))
         if (!faltan.length || vistos.has(x.id)) return
         vistos.add(x.id)
         sueltos.push({ tipo: m.type, id: x.id, nombre: x.name, code: x.code || '', faltan })
@@ -829,7 +842,8 @@ export default function FullShipment({
               <p className="full-asociar-hint">
                 Están cargados en el sistema con su SKU de ML, pero les falta el código de la etiqueta
                 de Full. Por eso al escanearlos dice "no está en el sistema". Asociarlos sólo AGREGA
-                códigos: los que ya tenían quedan igual.
+                códigos: los que ya tenían quedan igual. Se asocian únicamente los códigos de
+                4 letras + 4 o 5 números; los MLA y los códigos todo números no se tocan.
               </p>
               <table>
                 <thead><tr><th>Artículo</th><th>SKU cargado</th><th>Códigos a agregar</th></tr></thead>

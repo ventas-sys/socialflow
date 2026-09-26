@@ -127,6 +127,7 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
 21. **ASOCIAR CÓDIGOS AL CARGAR EL PEDIDO DE FULL (25/9)**
     Las etiquetas de Full traen **CÓDIGO ML** (4 letras + 5 números, ej. HWOM34860 — el que se escanea) y **SKU** (MLA...). Muchos combos están cargados con el MLA pero nunca se les guardó el código ML, así que escanear la etiqueta daba "No está en el sistema" aunque el artículo existiera. Al usuario le pasó con ~10 códigos de un envío (casos reales: HWOM34860 / MLA2055286479, VDHM36476 / MLA3903239316, PJRB41104 / MLA2079995353).
     Ahora, al importar el pedido de ML en 🏬 Envío a Full, se cruzan los tres códigos de cada renglón contra lo que hay en el sistema. Si alguno matchea pero al combo le falta alguno de esos códigos, sale un cartel naranja con la lista y un botón **Asociar todos**. Es **aditivo**: usa `bulkApplyPatches` y reescribe `barcodes` conservando los que ya estaban. Nunca borra.
+    **REGLA EXACTA (definida por el usuario el 26/9, no aflojarla):** se asocian **SÓLO los códigos de 4 letras + 4 o 5 números** (`/^[A-Z]{4}\d{4,5}$/i` — HWOM34860, CUVC95180, THCX12987). Quedan afuera a propósito **el MLA** de la publicación (es el SKU, no se escanea) y **los códigos todo números** (EAN del fabricante, se repiten entre artículos distintos). La primera versión proponía todos los códigos del renglón y el usuario lo marcó como error.
     Lo que NO está en el sistema por ningún código sigue contándose aparte ("⚠️ N no están cargados en la app").
 
 ## Reglas de negocio clave (definidas por el usuario)
