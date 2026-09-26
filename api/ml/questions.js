@@ -27,7 +27,7 @@ import { getAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, 
 import { construirReporte } from '../../lib/ml/conversion.js';
 import { filaMedidas, ordenarFilas, medidasCsv } from '../../lib/ml/medidas.js';
 import { compararCatalogos, faltantesCsv } from '../../lib/ml/catalogo.js';
-import { searchMyItems, getItemsFichaBulk, mlAdsGet, getUserItemsVisits } from '../../lib/ml/ml-api.js';
+import { searchMyItems, getItemsFichaBulk, mlAdsGet, getUserItemsVisits, getOrdersActualizadas } from '../../lib/ml/ml-api.js';
 import { resumenKeys } from '../../lib/gemini-keys.js';
 import { modeloTexto } from '../../lib/gemini-texto.js';
 import { getShipment, getOrder, sendPostSaleMessage, getUnreadMessages } from '../../lib/ml/ml-api.js';
@@ -53,6 +53,66 @@ function postventaOn() {
 // Un mensaje que quedó colgado más de un día ya no se manda (para que al
 // prender el interruptor no salga una andanada de mensajes viejos).
 const POSTVENTA_VENCE_MS = 24 * 60 * 60 * 1000;
+
+// ─── Barrido de entregas ─────────────────────────────────────────────────────
+// El webhook de ML NO llega (26-sep-2026: el diagnóstico mostró
+// "ultimo_webhook_de_ml": null con el store en KV, o sea persistente). Las
+// preguntas se salvan porque hay un barrido que las busca; el post-entrega
+// dependía SOLO del webhook, así que la cola nunca se llenaba y no salió
+// jamás un mensaje.
+//
+// Esto hace con las entregas lo mismo que el barrido hace con las preguntas:
+// busca las órdenes que se movieron hace poco, mira cuáles quedaron
+// entregadas y las encola. `encolar` es idempotente, así que pasar mil veces
+// por la misma orden no genera mil mensajes.
+const BARRIDO_HORAS = Number(process.env.ML_POSTVENTA_BARRIDO_HORAS || 24);
+const BARRIDO_MAX = Number(process.env.ML_POSTVENTA_BARRIDO_MAX || 60);
+const ENVIOS_EN_PARALELO = 8;
+
+async function barrerEntregas({ accounts, ahora = Date.now() }) {
+  const desde = new Date(ahora - BARRIDO_HORAS * 3_600_000).toISOString();
+  const hasta = new Date(ahora).toISOString();
+  const resumen = [];
+
+  for (const acc of accounts) {
+    const fila = { cuenta: acc.label, ordenes: 0, entregadas: 0, agendadas: 0, error: null };
+    try {
+      const token = await tokenOf(acc);
+      const ordenes = await getOrdersActualizadas(token, acc.user_id, desde, hasta, BARRIDO_MAX);
+      fila.ordenes = ordenes.length;
+      // Para saber si el filtro de fecha funcionó de verdad: si ML lo ignora,
+      // acá van a aparecer órdenes viejísimas y se ve al toque.
+      const fechas = ordenes.map(o => o?.last_updated).filter(Boolean).sort();
+      fila.movidas_entre = fechas.length ? [fechas[0], fechas[fechas.length - 1]] : null;
+
+      const conEnvio = ordenes.filter(o => o?.shipping?.id);
+      for (let i = 0; i < conEnvio.length; i += ENVIOS_EN_PARALELO) {
+        const tanda = conEnvio.slice(i, i + ENVIOS_EN_PARALELO);
+        const envios = await Promise.all(tanda.map(o =>
+          getShipment(token, o.shipping.id).catch(() => null)));
+        for (let j = 0; j < tanda.length; j++) {
+          if (envios[j]?.status !== 'delivered') continue;
+          fila.entregadas++;
+          const orden = tanda[j];
+          const r = await encolar({
+            orderId: orden.id,
+            packId: orden.pack_id || orden.id,
+            buyerId: orden.buyer?.id,
+            cuenta: acc.label,
+            titulo: orden.order_items?.[0]?.item?.title || '',
+            ahora,
+          });
+          if (r.ok) fila.agendadas++;
+        }
+      }
+    } catch (e) {
+      fila.error = e.message;
+      console.error('[ml-postventa] barrido falló', { cuenta: acc.label, error: e.message });
+    }
+    resumen.push(fila);
+  }
+  return resumen;
+}
 
 // Manda los mensajes post-entrega que ya cumplieron la demora.
 async function procesarPostventa({ accounts, ahora = Date.now() }) {
@@ -686,9 +746,14 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true, ...base, nota: 'Apagado. Poné ML_POSTVENTA=on en Vercel para activarlo.' });
       }
       if (!accounts.length) return res.status(400).json({ error: 'No hay cuentas configuradas (ML_ACCOUNTS).' });
+      // Primero llenamos la cola buscando las entregas (el webhook de ML no
+      // llega), después mandamos lo que ya cumplió la demora.
+      const barrido = await barrerEntregas({ accounts });
       const procesados = await procesarPostventa({ accounts });
       return res.status(200).json({
         ok: true, ...base,
+        barrido,
+        en_cola: (await verCola()).length,
         procesados: procesados.length,
         enviados_ahora: procesados.filter(p => p.resultado === 'enviado').length,
         detalle: procesados,
