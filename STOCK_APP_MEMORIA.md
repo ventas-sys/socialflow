@@ -3,6 +3,21 @@
 **ÚNICA fuente de verdad del proyecto. Leer entera antes de tocar nada.**
 Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/socialflow
 
+## 📍 ESTADO AL 26/9/2026 — arrancar por acá
+
+Último commit: `387b19a`. Todo desplegado y verde en los dos proyectos de Vercel.
+
+**Esperando que el usuario pruebe (lo primero a preguntar el lunes):**
+1. **Asociar códigos de Full.** Subir de nuevo el Excel del pedido de ML en 🏬 Envío a Full → tiene que salir el cartel naranja con los códigos de etiqueta para asociar (punto 21).
+2. **Doble descuento del envío 77068364.** El aviso rojo de ese envío dice cuántas unidades quedaron descontadas de más por el bug viejo (punto 19/22). Hay que ver con él cómo cargar la entrada de corrección — la app NO lo puede resolver sola porque no sabe qué salió físicamente del depósito.
+3. **Combos sin foto.** Chip 🚫 Sin ninguna foto en 🧩 Combos, y qué motivo da `BNCB71739` (punto 20).
+
+**Pendientes del usuario (no son de código):** importar `productos-para-importar.xlsx` y DESPUÉS `combos-para-importar.xlsx` · código base del combo MLA1678711679 "Repuesto Monocomando" (vino como `0`) · cargar las 38 publicaciones que faltan · correr 🏆 Top 200 y completar medida/foto/ubicación · seguir cargando stock real con Compra/Ajuste.
+
+**De código no queda nada abierto.**
+
+**NO recrear los check-ins automáticos del PR.** Se le mandaban cada 8-10 horas diciendo "Sin cambios. Re-armado." y el 25/9 los marcó como ruido ("Q es esto q estas repitiendo"). Se borraron. Avisar de los deploys sólo cuando hay algo que probar.
+
 ## ⚠️ Entorno (leer PRIMERO en cada sesión nueva)
 - **Zona horaria: Argentina (UTC-3)**. Todo lo que se le muestre al usuario va en hora argentina, no UTC: los servidores (Vercel, los cron) corren en UTC y hay que restar 3 horas. El sello de versión de la app ya sale en hora AR (`vite.config.js`); los cron `0 16` y `0 21` UTC son las 13 y 18hs AR.
 - El repo `ventas-sys/socialflow` en `main` es OTRO proyecto (redes/WhatsApp, .html). La app de stock (React, `src/`) vive SOLO en la rama `claude/stock-inventory-app-06rlv5`. Si el contenedor clona otra rama: `git fetch origin claude/stock-inventory-app-06rlv5 && git checkout -B claude/stock-inventory-app-06rlv5 origin/claude/stock-inventory-app-06rlv5` y `npm install`.
@@ -129,6 +144,10 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
     Ahora, al importar el pedido de ML en 🏬 Envío a Full, se cruzan los tres códigos de cada renglón contra lo que hay en el sistema. Si alguno matchea pero al combo le falta alguno de esos códigos, sale un cartel naranja con la lista y un botón **Asociar todos**. Es **aditivo**: usa `bulkApplyPatches` y reescribe `barcodes` conservando los que ya estaban. Nunca borra.
     **REGLA EXACTA (definida por el usuario el 26/9, no aflojarla):** se asocian **SÓLO los códigos de 4 letras + 4 o 5 números** (`/^[A-Z]{4}\d{4,5}$/i` — HWOM34860, CUVC95180, THCX12987). Quedan afuera a propósito **el MLA** de la publicación (es el SKU, no se escanea) y **los códigos todo números** (EAN del fabricante, se repiten entre artículos distintos). La primera versión proponía todos los códigos del renglón y el usuario lo marcó como error.
     Lo que NO está en el sistema por ningún código sigue contándose aparte ("⚠️ N no están cargados en la app").
+
+22. **LO QUE SE HIZO EL 26/9**
+    - **Regla de asociación afinada** (ver punto 21): sólo códigos de **4 letras + 4 o 5 números**. La primera versión proponía todos los códigos del renglón y el usuario lo marcó como error; lo peligroso eran los **EAN todo números** (7793300417083), que se repiten entre artículos distintos y habrían hecho que dos combos respondan al mismo código.
+    - **Botón 🔄 Actualizar** al lado de la versión, en el encabezado (`forzarActualizacion` en App.jsx): desregistra el service worker, borra todos los cachés y recarga con `?v=<timestamp>`. El chequeo automático de `version.json` no siempre alcanza en el celular — al usuario le quedó la versión vieja el 26/9. Ojo con el huevo y la gallina: la primera actualización a un celular trabado hay que hacerla a mano (cerrar la app desde recientes / borrar caché desde Información de la app).
 
 ## Reglas de negocio clave (definidas por el usuario)
 - Stock: descuenta TODO lo despachado desde el depósito propio (FLEX+correo/colecta+ventas sin envío de ML), NUNCA `fulfillment` (Full ya salió al enviarse a bodega). Igual para ambas cuentas. 2 veces/día (13 y 18hs AR). Stock puede quedar negativo. **Clasificación explícita desde el 28/8** (`clasificar`/`descuenta` en api/ml/cron.js): la regla vieja era "todo lo que no sea fulfillment descuenta", así que si fallaba el pedido del envío a ML el tipo quedaba nulo y la venta se descontaba igual — incluidas las de Full — y además no se miraba el estado de la orden (canceladas y sin cobrar también descontaban; caso real: 771 Full + 60 canceladas en 48hs de la cuenta FULL). Ahora: descuentan flex (`self_service`) + correo (`drop_off`/`xd_drop_off`/`cross_docking`) + sin envío, con estado `paid`/`partially_paid`; NO descuentan Full, canceladas/inválidas, sin cobrar (quedan para la corrida siguiente) ni las de tipo desconocido (se reintenta el pedido a ML y si igual no se sabe NO se descuenta: preferimos que falte un descuento antes que descontar una de Full). El resumen del botón "Probar automático ahora" muestra el desglose. Verificado 28/8 en producción: FULL 168 flex + 2 correo (771 Full salteadas — es correcto, ~98% de esa cuenta va por bodega), FERRE 103 flex + 83 correo + 6 sin envío.
