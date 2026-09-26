@@ -942,3 +942,63 @@ Verificado: `activo: true`.
 **Pendiente de verificar:** que `ya_enviados` empiece a subir con las entregas
 del día. Si con entregas hechas sigue en 0, ahí sí el problema es que el aviso
 de `shipments` no está llegando.
+
+---
+
+## El webhook de ML NO llega — y el post-entrega dependía de él (26-sep-2026)
+
+El mensaje post-entrega quedó prendido el 22-sep (`activo: true`) y cuatro días
+después seguía en **`ya_enviados: 0`**, con cientos de entregas por día.
+
+El diagnóstico mostró la causa:
+
+```
+"ultimo_webhook_de_ml": null
+"ultimo_webhook_de_preguntas": null
+"guardado_de_tokens": "kv"
+```
+
+**Mercado Libre no nos está notificando NADA.** Y no es que el registro se
+pierda: el store es KV, o sea persistente. El topic `shipments` está tildado en
+DevCenter (verificado por captura), pero los avisos no llegan igual.
+
+### Por qué las preguntas sí funcionan
+
+Porque **no dependen del webhook**: el cron del VPS (`bridge/ml-sweep.sh`) le
+pega a `?action=sweep` cada 5 minutos y responde lo que haya pendiente. Ese
+barrido se armó como red de seguridad y hace rato es el único camino que
+funciona — el diagnóstico del mismo día decía *"19 de las últimas 20 respuestas
+son de Tatiana"* en las dos cuentas.
+
+El post-entrega, en cambio, se llenaba **solo** desde el webhook de
+`shipments`. Sin webhook, la cola nunca tuvo un solo elemento.
+
+### La solución: barrer las entregas igual que las preguntas
+
+`barrerEntregas()` en `api/ml/questions.js`, que corre al principio de
+`?action=postventa` — la misma URL que el cron ya golpea cada 5 minutos, así
+que **no hay nada nuevo que instalar en el VPS**.
+
+Busca las órdenes que se movieron hace poco (`getOrdersActualizadas`, filtrando
+por `order.date_last_updated`), mira cuáles tienen el envío en `delivered` y
+las encola. `encolar()` es idempotente: pasar mil veces por la misma orden no
+genera mil mensajes.
+
+| Variable | Default | Para qué |
+|---|---|---|
+| `ML_POSTVENTA_BARRIDO_HORAS` | `24` | Cuántas horas hacia atrás mirar |
+| `ML_POSTVENTA_BARRIDO_MAX` | `60` | Tope de órdenes por pasada |
+
+⚠️ **Verificar en la primera corrida real.** La respuesta trae `barrido` con
+`ordenes`, `entregadas`, `agendadas` y **`movidas_entre`** (la fecha más vieja
+y la más nueva de las órdenes que volvieron). Ese último campo está puesto a
+propósito: si ML ignorara el filtro `date_last_updated`, ahí aparecerían
+órdenes viejísimas y se vería al toque. Si eso pasa, hay que cambiar la
+estrategia a recorrer por `date_created` con un cursor.
+
+### Lo que queda sin resolver
+
+**Por qué ML no manda ningún webhook.** No se investigó: el barrido lo vuelve
+irrelevante para que las cosas funcionen. Si algún día se quiere el aviso en
+tiempo real, hay que revisar en DevCenter que la callback URL de la app sea
+exactamente `https://socialflow-flax.vercel.app/api/ml/questions`.
