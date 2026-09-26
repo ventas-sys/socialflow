@@ -93,6 +93,24 @@ export default function App() {
     }
   }, [])
 
+  // Forzar la actualización a mano. En el celular la PWA a veces se queda con
+  // la copia vieja aunque haya versión nueva: el service worker sigue sirviendo
+  // lo que tiene cacheado y el chequeo automático no alcanza. Esto borra el
+  // service worker y TODOS los cachés, y recarga de cero.
+  const [actualizando, setActualizando] = useState(false)
+  const forzarActualizacion = async () => {
+    setActualizando(true)
+    try {
+      const regs = await navigator.serviceWorker?.getRegistrations?.() || []
+      await Promise.all(regs.map(r => r.unregister().catch(() => {})))
+      const claves = await caches?.keys?.() || []
+      await Promise.all(claves.map(k => caches.delete(k).catch(() => {})))
+    } catch {}
+    sessionStorage.removeItem('verReloadAt')
+    // El ?v= evita que el navegador sirva el index.html de su propio caché
+    window.location.replace(window.location.pathname + '?v=' + Date.now())
+  }
+
   const promptInstall = async () => {
     if (!installEvt) return
     installEvt.prompt()
@@ -1068,7 +1086,13 @@ export default function App() {
       <header className="app-header">
         <div className="header-left">
           <h1 className="app-title">📦 Stock & ML Inventory</h1>
-          <p className="app-subtitle">Gestión de inventario en tiempo real · v{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'}</p>
+          <p className="app-subtitle">
+            Gestión de inventario en tiempo real · v{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'}
+            <button className="btn-actualizar" onClick={forzarActualizacion} disabled={actualizando}
+              title="Borra la copia guardada y vuelve a bajar la app">
+              {actualizando ? '⏳' : '🔄 Actualizar'}
+            </button>
+          </p>
         </div>
         <div className="header-right">
           <div className="user-info">
