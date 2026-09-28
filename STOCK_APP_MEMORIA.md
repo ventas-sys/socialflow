@@ -12,7 +12,11 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
 2. **Doble descuento del envío 77068364.** El aviso rojo de ese envío dice cuántas unidades quedaron descontadas de más por el bug viejo (punto 19/22). Hay que ver con él cómo cargar la entrada de corrección — la app NO lo puede resolver sola porque no sabe qué salió físicamente del depósito.
 3. **Combos sin foto.** Chip 🚫 Sin ninguna foto en 🧩 Combos, y qué motivo da `BNCB71739` (punto 20).
 
-**Pendientes del usuario (no son de código):** importar `productos-para-importar.xlsx` y DESPUÉS `combos-para-importar.xlsx` · código base del combo MLA1678711679 "Repuesto Monocomando" (vino como `0`) · cargar las 38 publicaciones que faltan · correr 🏆 Top 200 y completar medida/foto/ubicación · seguir cargando stock real con Compra/Ajuste.
+**Pendientes del usuario (no son de código):**
+- Importar **`productos-para-importar.xlsx`** (23 productos) y DESPUÉS **`combos-para-importar.xlsx`** (109 combos). En ese orden: los combos necesitan que el producto base exista. Salieron de dos archivos que mandó el 14/9: `SKU_no_repetidos_inventario_vs_productos` (SKU que están en el inventario del ERP pero no como producto en la app) y `faltantes_full_comparado_con_productos` (publicaciones de FULL sin combo armado). **Para qué sirve:** sin el combo, la publicación de ML no descuenta stock al venderse ni aparece en 🏬 Envío a Full.
+- Código base del combo MLA1678711679 "Repuesto Monocomando" (vino como `0`) · cargar las 38 publicaciones que faltan · correr 🏆 Top 200 y completar medida/foto/ubicación · seguir cargando stock real con Compra/Ajuste.
+
+**Resultado del borrado masivo de fotos de combos (verificado 28/9): quedaron 0 con foto propia y 2861 de 3437 SIN NINGUNA foto.** Sólo 576 heredan la del producto base. Fue lo que el usuario pidió explícitamente, pero el efecto práctico es que la mayoría de los combos ya no muestra foto al armar. La salida es cargar la foto en el PRODUCTO BASE: una sola foto arregla todos los combos que lo usan. Pendiente de ofrecerle un listado de qué productos base faltan con foto, ordenado por cuántos combos afecta cada uno.
 
 **De código no queda nada abierto.**
 
