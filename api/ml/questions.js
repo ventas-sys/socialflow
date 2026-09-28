@@ -27,13 +27,13 @@ import { getAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, 
 import { construirReporte } from '../../lib/ml/conversion.js';
 import { filaMedidas, ordenarFilas, medidasCsv } from '../../lib/ml/medidas.js';
 import { compararCatalogos, faltantesCsv } from '../../lib/ml/catalogo.js';
-import { searchMyItems, getItemsFichaBulk, mlAdsGet, getUserItemsVisits, getOrdersActualizadas } from '../../lib/ml/ml-api.js';
+import { searchMyItems, getItemsFichaBulk, mlAdsGet, getUserItemsVisits, getOrdersPagina } from '../../lib/ml/ml-api.js';
 import { resumenKeys } from '../../lib/gemini-keys.js';
 import { modeloTexto } from '../../lib/gemini-texto.js';
 import { getShipment, getOrder, sendPostSaleMessage, getUnreadMessages } from '../../lib/ml/ml-api.js';
 import { armarMensaje, encolar, vencidos, marcarEnviado, verCola, verEnviados, necesitaKv, DEMORA_MS } from '../../lib/ml/postventa.js';
 import { generateAnswer, probarIA } from '../../lib/ml/qa-brain.js';
-import { storeKind, kvDetalle, markWebhook, lastWebhook, markWebhookResultado, lastWebhookResultado } from '../../lib/ml/token-store.js';
+import { storeKind, kvDetalle, markWebhook, lastWebhook, markWebhookResultado, lastWebhookResultado, readJson, writeJson } from '../../lib/ml/token-store.js';
 
 // Access token de la cuenta (con cache + guardado del refresh rotado).
 async function tokenOf(acc) {
@@ -61,42 +61,74 @@ const POSTVENTA_VENCE_MS = 24 * 60 * 60 * 1000;
 // dependía SOLO del webhook, así que la cola nunca se llenaba y no salió
 // jamás un mensaje.
 //
-// Esto hace con las entregas lo mismo que el barrido hace con las preguntas:
-// busca las órdenes que se movieron hace poco, mira cuáles quedaron
-// entregadas y las encola. `encolar` es idempotente, así que pasar mil veces
-// por la misma orden no genera mil mensajes.
-const BARRIDO_HORAS = Number(process.env.ML_POSTVENTA_BARRIDO_HORAS || 24);
-// 60 resultó muy poco: en FULL, con 800-900 ventas por día, las 60 órdenes
-// movidas más recientemente cubren hora y media y son todas ventas nuevas.
-// 120 cubre ~3 h y sigue entrando cómodo en los 60 s de la función.
+// Primero se probó buscar las órdenes MOVIDAS hace poco (`date_last_updated`).
+// No sirve, y los contadores del 28-sep lo dejaron a la vista:
+//
+//   full:  ordenes 120 · con_envio 120 · envios_fallados 0
+//          estados {ready_to_ship: 116, pending: 3, cancelled: 1}
+//
+// La búsqueda anda y las consultas de envío andan: ni una sola entrega porque
+// **el estado del envío no actualiza la orden**. Una orden entregada hoy sigue
+// teniendo el `last_updated` del día que se vendió, así que mirar lo movido
+// recién trae ventas nuevas — por más que se suba el tope.
+//
+// Por eso ahora se recorren las órdenes por FECHA DE VENTA: las de los últimos
+// días son las que se están entregando ahora. Como son miles, se avanza con un
+// cursor guardado en el KV, unas pocas por pasada, dando vueltas en círculo.
+// `encolar()` es idempotente, así que repasar la misma orden no duplica nada.
+const VENTANA_DIAS = Number(process.env.ML_POSTVENTA_VENTANA_DIAS || 12);
 const BARRIDO_MAX = Number(process.env.ML_POSTVENTA_BARRIDO_MAX || 120);
 const ENVIOS_EN_PARALELO = 8;
+const KEY_CURSOR = 'ml:postventa:cursor';
 
 async function barrerEntregas({ accounts, ahora = Date.now() }) {
-  const desde = new Date(ahora - BARRIDO_HORAS * 3_600_000).toISOString();
+  const desde = new Date(ahora - VENTANA_DIAS * 86_400_000).toISOString();
   const hasta = new Date(ahora).toISOString();
+  const cursores = (await readJson(KEY_CURSOR)) || {};
+  const yaEnviados = new Set((await verEnviados()).map(e => String(e.orderId)));
   const resumen = [];
 
   for (const acc of accounts) {
-    // Los contadores de más son para diagnóstico: `entregadas: 0` puede
-    // significar tres cosas muy distintas (las órdenes que volvieron son
-    // ventas nuevas / la búsqueda no trae el id del envío / la consulta del
-    // envío falla) y sin esto no se distinguen.
+    // Los contadores están para diagnóstico: `entregadas: 0` puede significar
+    // cosas muy distintas (órdenes demasiado nuevas / la búsqueda sin
+    // `shipping.id` / la consulta del envío fallando) y sin esto no se
+    // distinguen. Ya sirvieron una vez; se quedan.
     const fila = {
-      cuenta: acc.label, ordenes: 0, con_envio: 0, envios_mirados: 0,
-      envios_fallados: 0, estados: {}, entregadas: 0, agendadas: 0, error: null,
+      cuenta: acc.label, desde_orden: cursores[acc.label] || 0, ordenes: 0,
+      ya_avisadas: 0, con_envio: 0, envios_mirados: 0, envios_fallados: 0,
+      estados: {}, entregadas: 0, agendadas: 0, total_en_ventana: 0, error: null,
     };
     try {
       const token = await tokenOf(acc);
-      const ordenes = await getOrdersActualizadas(token, acc.user_id, desde, hasta, BARRIDO_MAX);
+      let offset = cursores[acc.label] || 0;
+      const ordenes = [];
+      let total = 0;
+      while (ordenes.length < BARRIDO_MAX) {
+        // Pedir solo lo que falta para el tope: con páginas fijas de 50 la
+        // última se pasaba de largo (traía 150 en vez de 120) y el barrido
+        // consultaba más envíos de los que entran en el tiempo de la función.
+        const pedir = Math.min(50, BARRIDO_MAX - ordenes.length);
+        const pagina = await getOrdersPagina(token, acc.user_id, desde, hasta, offset + ordenes.length, pedir);
+        total = pagina.total;
+        ordenes.push(...pagina.ordenes);
+        if (pagina.ordenes.length < pedir) break;   // se acabaron las órdenes
+      }
       fila.ordenes = ordenes.length;
-      // Para saber si el filtro de fecha funcionó de verdad: si ML lo ignora,
-      // acá van a aparecer órdenes viejísimas y se ve al toque.
-      const fechas = ordenes.map(o => o?.last_updated).filter(Boolean).sort();
-      fila.movidas_entre = fechas.length ? [fechas[0], fechas[fechas.length - 1]] : null;
+      fila.total_en_ventana = total;
+      // Evidencia de que la ventana es la que se pidió.
+      const fechas = ordenes.map(o => o?.date_created).filter(Boolean).sort();
+      fila.vendidas_entre = fechas.length ? [fechas[0], fechas[fechas.length - 1]] : null;
 
-      const conEnvio = ordenes.filter(o => o?.shipping?.id);
+      // Avanza el cursor y da la vuelta al llegar al final de la ventana.
+      const siguiente = offset + ordenes.length;
+      cursores[acc.label] = siguiente >= total ? 0 : siguiente;
+
+      // A las que ya recibieron el mensaje no hace falta preguntarles el envío.
+      const pendientes = ordenes.filter(o => !yaEnviados.has(String(o?.id)));
+      fila.ya_avisadas = ordenes.length - pendientes.length;
+      const conEnvio = pendientes.filter(o => o?.shipping?.id);
       fila.con_envio = conEnvio.length;
+
       for (let i = 0; i < conEnvio.length; i += ENVIOS_EN_PARALELO) {
         const tanda = conEnvio.slice(i, i + ENVIOS_EN_PARALELO);
         const envios = await Promise.all(tanda.map(o =>
@@ -126,6 +158,7 @@ async function barrerEntregas({ accounts, ahora = Date.now() }) {
     }
     resumen.push(fila);
   }
+  await writeJson(KEY_CURSOR, cursores);
   return resumen;
 }
 

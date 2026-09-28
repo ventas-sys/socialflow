@@ -979,54 +979,70 @@ El post-entrega, en cambio, se llenaba **solo** desde el webhook de
 `?action=postventa` — la misma URL que el cron ya golpea cada 5 minutos, así
 que **no hay nada nuevo que instalar en el VPS**.
 
-Busca las órdenes que se movieron hace poco (`getOrdersActualizadas`, filtrando
-por `order.date_last_updated`), mira cuáles tienen el envío en `delivered` y
-las encola. `encolar()` es idempotente: pasar mil veces por la misma orden no
-genera mil mensajes.
+El primer intento buscaba las órdenes movidas hace poco
+(`order.date_last_updated`). **No funciona** — por qué, y con qué se reemplazó,
+está en la sección que sigue.
+
+### 28-sep-2026: por qué `date_last_updated` no sirve, y qué se hizo
+
+Primera corrida, con tope 60:
+
+```
+full:  ordenes 60, entregadas 0, movidas_entre ["2026-09-28T08:42","2026-09-28T10:20"]
+local: ordenes 60, entregadas 0, movidas_entre ["2026-09-27T19:45","2026-09-28T10:15"]
+```
+
+`movidas_entre` traía fechas del día, así que ML **sí respeta** el filtro. Pero
+`ordenes: 60` era el tope y esas 60 cubrían 1 h 38 min: con 800-900 ventas
+diarias, todas ventas nuevas. Se subió el tope a 120 y se agregaron contadores
+(`con_envio`, `envios_mirados`, `envios_fallados`, `estados`) porque tres causas
+distintas daban el mismo `entregadas: 0` y no se distinguían.
+
+Segunda corrida, con los contadores:
+
+```
+full:  ordenes 120 · con_envio 120 · envios_mirados 120 · envios_fallados 0
+       estados {ready_to_ship: 116, pending: 3, cancelled: 1}
+local: ordenes 120 · con_envio 115 · envios_fallados 0
+       estados {ready_to_ship: 109, shipped: 3, cancelled: 1, pending: 2}
+```
+
+**Eso cerró el diagnóstico.** La búsqueda trae el id del envío (`con_envio` =
+todas) y las consultas funcionan (`envios_fallados: 0`). Lo que no aparece es
+una sola entrega: 116 de 120 en `ready_to_ship`, ni un `delivered`. En tres
+horas FULL entrega más de cien paquetes — si el estado del envío actualizara la
+orden, estarían ahí.
+
+⚠️ **Conclusión: el estado del envío NO actualiza la orden.** Una orden
+entregada hoy conserva el `last_updated` del día que se vendió. Recorrer por
+`date_last_updated` trae siempre ventas nuevas y **nunca** va a encontrar una
+entrega, por más que se suba el tope. La estrategia estaba muerta de raíz.
+
+### La solución: recorrer por fecha de venta con un cursor
+
+Las órdenes que se entregan hoy son las que se **vendieron** hace unos días.
+`barrerEntregas()` ahora pide las órdenes creadas en los últimos `VENTANA_DIAS`
+(12 por defecto) ordenadas de la más vieja a la más nueva, y avanza con un
+cursor guardado en el KV (`ml:postventa:cursor`, uno por cuenta): 120 órdenes
+por pasada, y al llegar al final vuelve a empezar.
+
+Con el cron cada 5 minutos son 288 pasadas por día × 120 = 34.560 órdenes
+miradas, contra ~10.000 en la ventana de FULL: da unas **3 vueltas completas
+por día**, así que una entrega se detecta dentro de las horas siguientes.
+`encolar()` es idempotente, y las órdenes que ya recibieron el mensaje se
+saltean antes de consultar el envío (`ya_avisadas`), así no se gastan llamadas.
 
 | Variable | Default | Para qué |
 |---|---|---|
-| `ML_POSTVENTA_BARRIDO_HORAS` | `24` | Cuántas horas hacia atrás mirar |
-| `ML_POSTVENTA_BARRIDO_MAX` | `120` | Tope de órdenes por pasada |
+| `ML_POSTVENTA_VENTANA_DIAS` | `12` | Cuántos días de ventas recorrer |
+| `ML_POSTVENTA_BARRIDO_MAX` | `120` | Órdenes por pasada |
 
-### Primera corrida real (28-sep-2026): el filtro anda, el tope no alcanzaba
+La respuesta trae `desde_orden` (dónde arrancó el cursor), `total_en_ventana`,
+`vendidas_entre` y los contadores de envíos, así se ve la vuelta completa.
 
-```
-barrido: [
-  {cuenta:"full",  ordenes:60, entregadas:0, movidas_entre:["2026-09-28T08:42","2026-09-28T10:20"]},
-  {cuenta:"local", ordenes:60, entregadas:0, movidas_entre:["2026-09-27T19:45","2026-09-28T10:15"]}
-]
-```
-
-**`movidas_entre` trae fechas de ese mismo día**, así que ML **sí respeta**
-`order.date_last_updated`. Queda descartado el plan B de recorrer por
-`date_created` con cursor.
-
-Pero `entregadas: 0` en las dos cuentas. La pista está en el propio número:
-`ordenes: 60` es exactamente el tope, y en FULL esas 60 órdenes cubren **1 h
-38 min**. Con 800-900 ventas por día, las órdenes movidas más recientemente
-son todas ventas nuevas; el barrido nunca llegaba a mirar una entrega.
-
-⚠️ **Tres causas distintas dan el mismo `entregadas: 0`** y con los campos que
-había no se distinguían:
-
-1. las órdenes que vuelven son ventas nuevas (ninguna entregada todavía);
-2. `/orders/search` no trae `shipping.id`, así que no se consulta ni un envío;
-3. `getShipment` falla y el `.catch(() => null)` se lo traga en silencio.
-
-Por eso el barrido ahora reporta además **`con_envio`**, **`envios_mirados`**,
-**`envios_fallados`** y **`estados`** (cuántos envíos en cada estado). Una sola
-corrida alcanza para saber cuál es:
-
-| Qué se ve | Qué significa |
-|---|---|
-| `con_envio: 0` | causa 2 — la búsqueda no trae el id del envío |
-| `envios_fallados` alto | causa 3 — la consulta del envío está fallando |
-| `estados` sin `delivered` | causa 1 — hay que mirar más atrás |
-
-Y el tope subió de 60 a 120 (cubre ~3 h en FULL y sigue entrando en los 60 s
-de la función). Si hace falta más, se cambia `ML_POSTVENTA_BARRIDO_MAX` en
-Vercel sin tocar código.
+⚠️ **Cuidado al paginar:** pedir siempre páginas de 50 hace que la última se
+pase del tope (150 en vez de 120) y el barrido consulte más envíos de los que
+entran en los 60 s de la función. Hay que pedir `min(50, tope - juntadas)`.
 
 ### Lo que queda sin resolver
 
