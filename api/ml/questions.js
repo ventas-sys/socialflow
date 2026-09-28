@@ -33,7 +33,7 @@ import { modeloTexto } from '../../lib/gemini-texto.js';
 import { getShipment, getOrder, sendPostSaleMessage, getUnreadMessages } from '../../lib/ml/ml-api.js';
 import { armarMensaje, encolar, vencidos, marcarEnviado, verCola, verEnviados, necesitaKv, DEMORA_MS } from '../../lib/ml/postventa.js';
 import { generateAnswer, probarIA } from '../../lib/ml/qa-brain.js';
-import { storeKind, kvDetalle, markWebhook, lastWebhook, markWebhookResultado, lastWebhookResultado, readJson, writeJson } from '../../lib/ml/token-store.js';
+import { storeKind, kvDetalle, markWebhook, lastWebhook, markWebhookResultado, lastWebhookResultado, readJson, writeJson, kvPrueba, kvUltimoError } from '../../lib/ml/token-store.js';
 
 // Access token de la cuenta (con cache + guardado del refresh rotado).
 async function tokenOf(acc) {
@@ -538,6 +538,10 @@ export default async function handler(req, res) {
         keys_de_gemini: resumenKeys(),
         guardado_de_tokens: info.store,
         kv: kvDetalle(),
+        // storeKind() solo mira si las variables están cargadas. Esto prueba
+        // de verdad que el KV guarda y devuelve lo mismo que se guardó.
+        kv_prueba: await kvPrueba(),
+        kv_ultimo_error: kvUltimoError(),
         ultimo_webhook_de_ml: webhook || null,
         ultimo_webhook_de_preguntas: webhookPreguntas || null,
         que_paso_con_esa_pregunta: resultadoPreguntas || null,
@@ -796,12 +800,24 @@ export default async function handler(req, res) {
       if (!accounts.length) return res.status(400).json({ error: 'No hay cuentas configuradas (ML_ACCOUNTS).' });
       // Primero llenamos la cola buscando las entregas (el webhook de ML no
       // llega), después mandamos lo que ya cumplió la demora.
+      // El KV se prueba ANTES de barrer: si no guarda, la cola se llena y se
+      // pierde en el mismo request, y el barrido parece andar cuando no anda.
+      const kv_prueba = await kvPrueba();
       const barrido = await barrerEntregas({ accounts });
       const procesados = await procesarPostventa({ accounts });
+      const enCola = (await verCola()).length;
+      const agendadas = barrido.reduce((s, f) => s + (f.agendadas || 0), 0);
       return res.status(200).json({
         ok: true, ...base,
+        kv_prueba,
+        kv_ultimo_error: kvUltimoError(),
         barrido,
-        en_cola: (await verCola()).length,
+        en_cola: enCola,
+        // Si se agendaron entregas y la cola quedó vacía, lo que falla es el
+        // guardado, no el barrido. Sin este aviso parecen dos datos sueltos.
+        alerta: agendadas > 0 && enCola === 0
+          ? `Se agendaron ${agendadas} entregas y la cola quedó vacía: el KV no está guardando. Mirá kv_prueba.`
+          : null,
         procesados: procesados.length,
         enviados_ahora: procesados.filter(p => p.resultado === 'enviado').length,
         detalle: procesados,

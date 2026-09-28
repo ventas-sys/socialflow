@@ -1044,6 +1044,52 @@ La respuesta trae `desde_orden` (dónde arrancó el cursor), `total_en_ventana`,
 pase del tope (150 en vez de 120) y el barrido consulte más envíos de los que
 entran en los 60 s de la función. Hay que pedir `min(50, tope - juntadas)`.
 
+### 28-sep-2026: el barrido anda, pero el KV no guarda
+
+Primera corrida con el recorrido por fecha de venta:
+
+```
+full:  desde_orden 0 · ordenes 120 · con_envio 120 · envios_fallados 0
+       estados {delivered: 114, cancelled: 6}
+       entregadas 114 · agendadas 114 · total_en_ventana 5933
+local: estados {delivered: 107, cancelled: 8}
+       entregadas 107 · agendadas 107 · total_en_ventana 1470
+en_cola: 0 · cola: [] · ya_enviados: 0
+```
+
+**El barrido funciona**: 221 entregas encontradas donde antes había cero. Pero
+`agendadas: 221` con `en_cola: 0` **en la misma respuesta** es imposible si el
+guardado anduviera — `en_cola` se calcula después del barrido.
+
+Tres señales más, todas coherentes entre sí:
+
+- `desde_orden: 0` en las dos cuentas: el cursor no sobrevivió a la corrida anterior.
+- `ya_avisadas: 0`: la lista de enviados vuelve vacía.
+- `agendadas` = `entregadas` exacto: cada `encolar()` leyó una cola vacía.
+
+⚠️ **La causa está en `token-store.js`.** `httpRequest` resuelve con **cualquier**
+código de estado — un 401 o un 413 del KV no lanza excepción. `writeJson` no
+miraba el estado, así que una escritura fallida se veía igual que una exitosa; y
+`readJson` interpretaba la respuesta de error como "la clave no existe", en vez
+de caer a memoria.
+
+**Que `storeKind()` diga `kv` no prueba nada:** solo mira si las variables de
+entorno están cargadas, nunca que el KV guarde de verdad. Ese fue el error de
+fondo — se venía leyendo ese campo como si fuera una confirmación.
+
+**Lo que se hizo:**
+
+1. `writeJson` y `readJson` miran el estado HTTP; el último fallo queda en
+   `kvUltimoError()` y sale en el diagnóstico.
+2. `readJson` cae a memoria ante un error del KV (antes devolvía `null`, que el
+   resto del código leía como "no hay nada guardado").
+3. `kvPrueba()`: escribe, lee y compara. Hace **dos** pruebas — una chica (como
+   un token, ~100 bytes) y una del tamaño de una cola real (~30 KB) — porque si
+   el KV rechazara por tamaño, los tokens andarían y la cola no, que es
+   exactamente el cuadro que se vio.
+4. `?action=postventa` trae `kv_prueba`, `kv_ultimo_error` y una `alerta`
+   explícita cuando se agendan entregas y la cola queda vacía.
+
 ### Lo que queda sin resolver
 
 **Por qué ML no manda ningún webhook.** No se investigó: el barrido lo vuelve
