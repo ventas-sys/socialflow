@@ -987,14 +987,46 @@ genera mil mensajes.
 | Variable | Default | Para qué |
 |---|---|---|
 | `ML_POSTVENTA_BARRIDO_HORAS` | `24` | Cuántas horas hacia atrás mirar |
-| `ML_POSTVENTA_BARRIDO_MAX` | `60` | Tope de órdenes por pasada |
+| `ML_POSTVENTA_BARRIDO_MAX` | `120` | Tope de órdenes por pasada |
 
-⚠️ **Verificar en la primera corrida real.** La respuesta trae `barrido` con
-`ordenes`, `entregadas`, `agendadas` y **`movidas_entre`** (la fecha más vieja
-y la más nueva de las órdenes que volvieron). Ese último campo está puesto a
-propósito: si ML ignorara el filtro `date_last_updated`, ahí aparecerían
-órdenes viejísimas y se vería al toque. Si eso pasa, hay que cambiar la
-estrategia a recorrer por `date_created` con un cursor.
+### Primera corrida real (28-sep-2026): el filtro anda, el tope no alcanzaba
+
+```
+barrido: [
+  {cuenta:"full",  ordenes:60, entregadas:0, movidas_entre:["2026-09-28T08:42","2026-09-28T10:20"]},
+  {cuenta:"local", ordenes:60, entregadas:0, movidas_entre:["2026-09-27T19:45","2026-09-28T10:15"]}
+]
+```
+
+**`movidas_entre` trae fechas de ese mismo día**, así que ML **sí respeta**
+`order.date_last_updated`. Queda descartado el plan B de recorrer por
+`date_created` con cursor.
+
+Pero `entregadas: 0` en las dos cuentas. La pista está en el propio número:
+`ordenes: 60` es exactamente el tope, y en FULL esas 60 órdenes cubren **1 h
+38 min**. Con 800-900 ventas por día, las órdenes movidas más recientemente
+son todas ventas nuevas; el barrido nunca llegaba a mirar una entrega.
+
+⚠️ **Tres causas distintas dan el mismo `entregadas: 0`** y con los campos que
+había no se distinguían:
+
+1. las órdenes que vuelven son ventas nuevas (ninguna entregada todavía);
+2. `/orders/search` no trae `shipping.id`, así que no se consulta ni un envío;
+3. `getShipment` falla y el `.catch(() => null)` se lo traga en silencio.
+
+Por eso el barrido ahora reporta además **`con_envio`**, **`envios_mirados`**,
+**`envios_fallados`** y **`estados`** (cuántos envíos en cada estado). Una sola
+corrida alcanza para saber cuál es:
+
+| Qué se ve | Qué significa |
+|---|---|
+| `con_envio: 0` | causa 2 — la búsqueda no trae el id del envío |
+| `envios_fallados` alto | causa 3 — la consulta del envío está fallando |
+| `estados` sin `delivered` | causa 1 — hay que mirar más atrás |
+
+Y el tope subió de 60 a 120 (cubre ~3 h en FULL y sigue entrando en los 60 s
+de la función). Si hace falta más, se cambia `ML_POSTVENTA_BARRIDO_MAX` en
+Vercel sin tocar código.
 
 ### Lo que queda sin resolver
 
