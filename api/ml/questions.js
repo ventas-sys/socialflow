@@ -66,7 +66,10 @@ const POSTVENTA_VENCE_MS = 24 * 60 * 60 * 1000;
 // entregadas y las encola. `encolar` es idempotente, así que pasar mil veces
 // por la misma orden no genera mil mensajes.
 const BARRIDO_HORAS = Number(process.env.ML_POSTVENTA_BARRIDO_HORAS || 24);
-const BARRIDO_MAX = Number(process.env.ML_POSTVENTA_BARRIDO_MAX || 60);
+// 60 resultó muy poco: en FULL, con 800-900 ventas por día, las 60 órdenes
+// movidas más recientemente cubren hora y media y son todas ventas nuevas.
+// 120 cubre ~3 h y sigue entrando cómodo en los 60 s de la función.
+const BARRIDO_MAX = Number(process.env.ML_POSTVENTA_BARRIDO_MAX || 120);
 const ENVIOS_EN_PARALELO = 8;
 
 async function barrerEntregas({ accounts, ahora = Date.now() }) {
@@ -75,7 +78,14 @@ async function barrerEntregas({ accounts, ahora = Date.now() }) {
   const resumen = [];
 
   for (const acc of accounts) {
-    const fila = { cuenta: acc.label, ordenes: 0, entregadas: 0, agendadas: 0, error: null };
+    // Los contadores de más son para diagnóstico: `entregadas: 0` puede
+    // significar tres cosas muy distintas (las órdenes que volvieron son
+    // ventas nuevas / la búsqueda no trae el id del envío / la consulta del
+    // envío falla) y sin esto no se distinguen.
+    const fila = {
+      cuenta: acc.label, ordenes: 0, con_envio: 0, envios_mirados: 0,
+      envios_fallados: 0, estados: {}, entregadas: 0, agendadas: 0, error: null,
+    };
     try {
       const token = await tokenOf(acc);
       const ordenes = await getOrdersActualizadas(token, acc.user_id, desde, hasta, BARRIDO_MAX);
@@ -86,12 +96,17 @@ async function barrerEntregas({ accounts, ahora = Date.now() }) {
       fila.movidas_entre = fechas.length ? [fechas[0], fechas[fechas.length - 1]] : null;
 
       const conEnvio = ordenes.filter(o => o?.shipping?.id);
+      fila.con_envio = conEnvio.length;
       for (let i = 0; i < conEnvio.length; i += ENVIOS_EN_PARALELO) {
         const tanda = conEnvio.slice(i, i + ENVIOS_EN_PARALELO);
         const envios = await Promise.all(tanda.map(o =>
           getShipment(token, o.shipping.id).catch(() => null)));
         for (let j = 0; j < tanda.length; j++) {
-          if (envios[j]?.status !== 'delivered') continue;
+          fila.envios_mirados++;
+          if (!envios[j]) { fila.envios_fallados++; continue; }
+          const estado = envios[j].status || 'sin_estado';
+          fila.estados[estado] = (fila.estados[estado] || 0) + 1;
+          if (estado !== 'delivered') continue;
           fila.entregadas++;
           const orden = tanda[j];
           const r = await encolar({
