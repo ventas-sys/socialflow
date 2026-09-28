@@ -1090,6 +1090,67 @@ fondo — se venía leyendo ese campo como si fuera una confirmación.
 4. `?action=postventa` trae `kv_prueba`, `kv_ultimo_error` y una `alerta`
    explícita cuando se agendan entregas y la cola queda vacía.
 
+### 28-sep-2026: se agotó la cuota del KV (y dos bugs que tapaba)
+
+Con los errores del KV ya visibles, la respuesta fue directa:
+
+```
+kv_prueba: { funciona: false, motivo: "No pudo escribir",
+  detalle: "HTTP 400: ERR max requests limit exceeded. Limit: 500000, Usage: 500000" }
+```
+
+**No era tamaño ni credencial: se acabó la cuota mensual de Upstash**, 500.000
+comandos en el plan gratuito.
+
+**Por qué se quemó.** `encolar()` hacía 2 lecturas y 1 escritura **por entrega**.
+Con 221 entregas por pasada son 663 comandos, y con el cron cada 5 minutos,
+**190.000 por día**: la cuota de un mes en menos de tres días. Y como la cola no
+llegaba a guardarse, cada pasada volvía a encontrar las mismas 221 y a gastar
+los mismos 663. Círculo cerrado.
+
+**Regla que queda:** nunca un `readJson`/`writeJson` adentro de un `for` sobre
+órdenes. Todo de a lotes: `encolarLote()` y `marcarEnviadoLote()` hacen una
+lectura y una escritura entren 1 o 300 entregas. Medido: **4 comandos** para
+221 entregas, contra 663. Unos 104.000 al mes, que entran en el plan gratuito.
+
+#### Dos bugs que la cuota venía tapando
+
+**1. El tope de 500 avisados causaba mensajes repetidos.** La lista de
+`enviados` es lo único que impide escribirle dos veces al mismo comprador, y
+tenía `slice(-500)`. Con ~1.000 entregas por día se desbordaba en medio día y
+los compradores más viejos volvían a entrar: recibían el mensaje **de nuevo**.
+Ahora es `{ orderId: 'YYYY-MM-DD' }` purgado por antigüedad (20 días, más que
+la ventana de 12 que recorre el barrido). El formato viejo se convierte solo.
+
+**2. El arranque en frío habría mandado miles de mensajes de golpe.** Con la
+lista de avisados vacía —primera vez, o el KV caído como ahora— el barrido
+recorre 12 días de ventas, encuentra miles de entregas y les escribe a todas:
+gente que recibió el pedido hace una semana recibiría un "¿llegó todo bien?"
+fuera de lugar, en masa. Por eso `ml:postventa:desde` guarda desde cuándo está
+activo el sistema: **a una orden vendida antes de esa marca no se le escribe
+nunca**. La primera pasada deja la marca y no manda nada retroactivo.
+
+Además, `ML_POSTVENTA_POR_PASADA` (40) limita los mensajes por pasada: 200 no
+entran en los 60 s de la función, y un chorro de mensajes juntos es justo lo
+que no queremos.
+
+| Variable | Default | Para qué |
+|---|---|---|
+| `ML_POSTVENTA_RECORDAR_DIAS` | `20` | Cuántos días se recuerda a quién ya se le escribió |
+| `ML_POSTVENTA_POR_PASADA` | `40` | Tope de mensajes por pasada |
+
+⚠️ **Mientras la cuota esté agotada no se guarda NADA** — tampoco los tokens de
+ML. Si ML rota un refresh token y no se puede guardar, la renovación siguiente
+falla con `invalid_grant` y el agente de preguntas deja de responder. Hay que
+mirar en el panel de Upstash cuándo reinicia el contador, o pasar a un plan
+pago.
+
+⚠️ **Esto pone en duda el diagnóstico del webhook.** `ultimo_webhook_de_ml: null`
+se leyó como "ML no notifica", pero la marca del webhook también se guarda en el
+KV: si el KV ya venía fallando, ese `null` puede ser un falso negativo. El
+barrido funciona igual y no depende del webhook, así que no cambia lo que hay
+que hacer — pero la conclusión "ML no manda webhooks" no está probada.
+
 ### Lo que queda sin resolver
 
 **Por qué ML no manda ningún webhook.** No se investigó: el barrido lo vuelve

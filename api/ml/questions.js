@@ -31,7 +31,7 @@ import { searchMyItems, getItemsFichaBulk, mlAdsGet, getUserItemsVisits, getOrde
 import { resumenKeys } from '../../lib/gemini-keys.js';
 import { modeloTexto } from '../../lib/gemini-texto.js';
 import { getShipment, getOrder, sendPostSaleMessage, getUnreadMessages } from '../../lib/ml/ml-api.js';
-import { armarMensaje, encolar, vencidos, marcarEnviado, verCola, verEnviados, necesitaKv, DEMORA_MS } from '../../lib/ml/postventa.js';
+import { armarMensaje, encolarLote, vencidos, marcarEnviadoLote, verCola, verEnviados, necesitaKv, DEMORA_MS } from '../../lib/ml/postventa.js';
 import { generateAnswer, probarIA } from '../../lib/ml/qa-brain.js';
 import { storeKind, kvDetalle, markWebhook, lastWebhook, markWebhookResultado, lastWebhookResultado, readJson, writeJson, kvPrueba, kvUltimoError } from '../../lib/ml/token-store.js';
 
@@ -75,7 +75,7 @@ const POSTVENTA_VENCE_MS = 24 * 60 * 60 * 1000;
 // Por eso ahora se recorren las órdenes por FECHA DE VENTA: las de los últimos
 // días son las que se están entregando ahora. Como son miles, se avanza con un
 // cursor guardado en el KV, unas pocas por pasada, dando vueltas en círculo.
-// `encolar()` es idempotente, así que repasar la misma orden no duplica nada.
+// `encolarLote()` es idempotente, así que repasar la misma orden no duplica.
 const VENTANA_DIAS = Number(process.env.ML_POSTVENTA_VENTANA_DIAS || 12);
 const BARRIDO_MAX = Number(process.env.ML_POSTVENTA_BARRIDO_MAX || 120);
 const ENVIOS_EN_PARALELO = 8;
@@ -85,7 +85,7 @@ async function barrerEntregas({ accounts, ahora = Date.now() }) {
   const desde = new Date(ahora - VENTANA_DIAS * 86_400_000).toISOString();
   const hasta = new Date(ahora).toISOString();
   const cursores = (await readJson(KEY_CURSOR)) || {};
-  const yaEnviados = new Set((await verEnviados()).map(e => String(e.orderId)));
+  const yaEnviados = new Set(Object.keys(await verEnviados()));
   const resumen = [];
 
   for (const acc of accounts) {
@@ -98,6 +98,7 @@ async function barrerEntregas({ accounts, ahora = Date.now() }) {
       ya_avisadas: 0, con_envio: 0, envios_mirados: 0, envios_fallados: 0,
       estados: {}, entregadas: 0, agendadas: 0, total_en_ventana: 0, error: null,
     };
+    const aEncolar = [];
     try {
       const token = await tokenOf(acc);
       let offset = cursores[acc.label] || 0;
@@ -141,20 +142,34 @@ async function barrerEntregas({ accounts, ahora = Date.now() }) {
           if (estado !== 'delivered') continue;
           fila.entregadas++;
           const orden = tanda[j];
-          const r = await encolar({
+          // Se juntan y se encolan TODAS juntas al final: una escritura por
+          // pasada en vez de una por entrega (ver el comentario del costo en
+          // comandos en lib/ml/postventa.js).
+          aEncolar.push({
             orderId: orden.id,
             packId: orden.pack_id || orden.id,
             buyerId: orden.buyer?.id,
             cuenta: acc.label,
             titulo: orden.order_items?.[0]?.item?.title || '',
-            ahora,
+            vendida: orden.date_created,
           });
-          if (r.ok) fila.agendadas++;
         }
       }
     } catch (e) {
       fila.error = e.message;
       console.error('[ml-postventa] barrido falló', { cuenta: acc.label, error: e.message });
+    }
+    // Fuera del try: si el barrido se cortó a mitad de camino, las entregas que
+    // ya se encontraron se agendan igual.
+    if (aEncolar.length) {
+      const r = await encolarLote(aEncolar, { ahora });
+      fila.agendadas = r.agendadas;
+      fila.descartadas = {
+        ya_en_cola: r.ya_en_cola, ya_avisadas: r.ya_avisadas, sin_datos: r.sin_datos,
+        previas_al_arranque: r.previas_al_arranque,
+      };
+      fila.activo_desde = r.activo_desde;
+      if (r.desbordo) fila.desbordo_de_cola = r.desbordo;
     }
     resumen.push(fila);
   }
@@ -163,13 +178,21 @@ async function barrerEntregas({ accounts, ahora = Date.now() }) {
 }
 
 // Manda los mensajes post-entrega que ya cumplieron la demora.
+// Tope de mensajes por pasada. Mandar 200 no entra en los 60 s de la función,
+// y además un chorro de mensajes juntos es lo último que queremos que vea un
+// comprador. Con el cron cada 5 minutos, 40 por pasada son 11.500 por día.
+const ENVIOS_POR_PASADA = Number(process.env.ML_POSTVENTA_POR_PASADA || 40);
+
 async function procesarPostventa({ accounts, ahora = Date.now() }) {
-  const pendientes = await vencidos(ahora);
+  const pendientes = (await vencidos(ahora)).slice(0, ENVIOS_POR_PASADA);
   const salida = [];
+  // Igual que el barrido: se juntan los ids y se marcan todos juntos al final,
+  // para no gastar un puñado de comandos del KV por cada mensaje.
+  const marcar = [];
   for (const p of pendientes) {
     const vencido = ahora - new Date(p.enviar_a_partir_de).getTime() > POSTVENTA_VENCE_MS;
     if (vencido) {
-      await marcarEnviado(p.orderId, { ok: false, caducado: true });
+      marcar.push(p.orderId);
       salida.push({ ...p, resultado: 'caducado (más de 24 h en la cola, no se manda)' });
       continue;
     }
@@ -196,7 +219,7 @@ async function procesarPostventa({ accounts, ahora = Date.now() }) {
       const r = await sendPostSaleMessage(token, {
         packId: p.packId, sellerId: acc.user_id, buyerId: p.buyerId, text: texto,
       });
-      await marcarEnviado(p.orderId, { ok: r.ok, status: r.status, error: r.error });
+      marcar.push(p.orderId);
       if (!r.ok) console.error('[ml-postventa] ML rechazó el mensaje', { orden: p.orderId, error: r.error });
       salida.push({ ...p, resultado: r.ok ? 'enviado' : 'ERROR: ' + r.error, texto });
     } catch (e) {
@@ -204,6 +227,7 @@ async function procesarPostventa({ accounts, ahora = Date.now() }) {
       salida.push({ ...p, resultado: 'ERROR: ' + e.message });
     }
   }
+  await marcarEnviadoLote(marcar, { ahora });
   return salida;
 }
 
@@ -790,7 +814,7 @@ export default async function handler(req, res) {
         demora_minutos: DEMORA_MS / 60000,
         falta_kv: necesitaKv(),
         en_cola: cola.length,
-        ya_enviados: enviados.length,
+        ya_enviados: Object.keys(enviados).length,
         cola,
       };
       if (soloVer) return res.status(200).json({ ok: true, ...base });
@@ -887,15 +911,15 @@ export default async function handler(req, res) {
             return res.status(200).json({ ok: true, skipped: 'envío en estado ' + (envio?.status || 's/d') });
           }
           const orden = await getOrder(token, envio.order_id);
-          const r = await encolar({
+          const r = await encolarLote([{
             orderId: envio.order_id,
             packId: orden?.pack_id || envio.order_id,
             buyerId: orden?.buyer?.id,
             cuenta: acc.label,
             titulo: orden?.order_items?.[0]?.item?.title || '',
-          });
-          return res.status(200).json({ ok: true, entregado: true, agendado: r.ok, motivo: r.motivo || null,
-            enviar_a_partir_de: r.item?.enviar_a_partir_de || null });
+          }]);
+          return res.status(200).json({ ok: true, entregado: true, agendado: r.agendadas === 1,
+            descartada: r.agendadas ? null : r });
         }
         if (topic && topic !== 'questions') return res.status(200).json({ ok: true, skipped: topic });
         const qId = String(resource || '').split('/').pop();
