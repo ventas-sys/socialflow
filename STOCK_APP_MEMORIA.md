@@ -15,7 +15,8 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
 **Pendientes del usuario (no son de código):**
 - ~~Importar `productos-para-importar.xlsx` (23 productos) y `combos-para-importar.xlsx` (109 combos)~~ **VERIFICADO EL 28/9 contra los export de la app: los 23 productos están todos (1506 productos, 1506 SKU distintos, sin duplicados) y de los 109 combos entraron 108.** El que faltaba, `MLA1496962159` "Funda Tabla Planchar", apuntaba al producto `0519` que no existe; es la misma publicación que `MLA621175861`, que ya estaba armada con `0306`. El usuario lo armó a mano el 28/9.
   Lección: el contador de la solapa no alcanza para saber si un import entró — hay que comparar los SKU del archivo contra el export. Le dije dos veces que estaba pendiente cuando los productos ya estaban cargados.
-- **Pendiente real:** código base del combo **MLA1678711679** "Repuesto Monocomando" (vino como `0`, necesita que el usuario diga cuál es el producto) · cargar las 38 publicaciones que faltan · correr 🏆 Top 200 y completar medida/foto/ubicación · seguir cargando stock real con Compra/Ajuste.
+- ~~código base del combo MLA1678711679 "Repuesto Monocomando"~~ **armado a mano por el usuario el 28/9.**
+- **Pendiente real:** cargar las 38 publicaciones que faltan (punto 12) · correr 🏆 Top 200 y completar medida/foto/ubicación · seguir cargando stock real con Compra/Ajuste.
 
 **Resultado del borrado masivo de fotos de combos (verificado 28/9): quedaron 0 con foto propia y 2861 de 3437 SIN NINGUNA foto.** Sólo 576 heredan la del producto base. Fue lo que el usuario pidió explícitamente, pero el efecto práctico es que la mayoría de los combos ya no muestra foto al armar. La salida es cargar la foto en el PRODUCTO BASE: una sola foto arregla todos los combos que lo usan. Pendiente de ofrecerle un listado de qué productos base faltan con foto, ordenado por cuántos combos afecta cada uno.
 
