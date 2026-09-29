@@ -1151,6 +1151,66 @@ KV: si el KV ya venía fallando, ese `null` puede ser un falso negativo. El
 barrido funciona igual y no depende del webhook, así que no cambia lo que hay
 que hacer — pero la conclusión "ML no manda webhooks" no está probada.
 
+### 29-sep-2026: el KV anda, las protecciones funcionaron… y ML bloquea el mensaje
+
+Con el plan Pay as You Go (Upstash marcaba 805.000 comandos contra un tope de
+500.000; el plan por uso cuesta $0,20 cada 100.000, unos centavos al mes con el
+consumo ya arreglado), la corrida dio:
+
+```
+kv_prueba: { funciona: true, prueba_chica: "ok", prueba_grande: "ok", bytes_probados: 30293 }
+full:  desde_orden 240 · ordenes 120 · entregadas 110 · agendadas 0
+       descartadas { previas_al_arranque: 110 } · activo_desde 2026-09-29T15:25:03Z
+local: entregadas 107 · agendadas 0 · descartadas { previas_al_arranque: 107 }
+en_cola: 3
+```
+
+Tres cosas confirmadas de una:
+
+1. **El KV guarda**, chico y grande (30 KB).
+2. **El cursor persiste**: `desde_orden: 240`, o sea que avanzó entre pasadas.
+3. **La protección del arranque en frío hizo exactamente su trabajo**: 217
+   entregas viejas descartadas como `previas_al_arranque`, ni un mensaje
+   retroactivo. Sin eso habrían salido 217 mensajes de golpe a gente que
+   recibió el pedido hace días.
+
+⚠️ `kv_ultimo_error` sigue mostrando el `max requests limit exceeded`: es el
+**último error histórico**, de antes del cambio de plan, no uno nuevo.
+
+#### El muro nuevo: `blocked_by_conversation_initiated_by_seller_limited`
+
+Los 3 mensajes de la cola se intentaron y ML los rechazó, los tres con el mismo
+error. **Mercado Libre limita que el vendedor inicie la conversación
+post-venta.** No es un problema de nuestro código: el mensaje sale, ML lo
+rechaza.
+
+`sendPostSaleMessage` postea directo a `/messages/packs/{pack}/sellers/{seller}`
+sin preguntar antes qué permite ML para esa orden. La sospecha es que ML exige
+elegir una **opción** de su "guía de acciones" (con su `option_id`), y que las
+opciones disponibles dependan del caso — y que "pedir una reseña" puede no estar
+entre ellas.
+
+Sin salida a la documentación de ML desde este entorno, se hace lo mismo que
+funcionó las tres veces anteriores: **preguntarle a ML y guardar lo que
+conteste**. `diagnosticarConversacion()` consulta, ante el primer bloqueo de
+cada pasada y una sola vez:
+
+| Consulta | Para qué |
+|---|---|
+| `/messages/action_guide/packs/{pack}/option` | qué opciones de conversación habilita |
+| `…/option?tag=post_sale` | ídem, acotado a post-venta |
+| `/messages/packs/{pack}/sellers/{seller}` | el estado de la conversación y el motivo |
+
+Sale en la respuesta como `por_que_bloquea_ml`.
+
+⚠️ **Puede que esto no tenga solución.** Si ML solo habilita al vendedor a
+iniciar conversación por motivos operativos (un problema con el envío), pedir
+una reseña no va a entrar por este canal y hay que buscar otro camino —o
+aceptar que no se puede. La próxima corrida lo dice.
+
+Nota: una orden cuyo envío ML rechaza queda marcada como avisada igual, para no
+reintentar en cada pasada contra un bloqueo que no se va a destrabar solo.
+
 ### Lo que queda sin resolver
 
 **Por qué ML no manda ningún webhook.** No se investigó: el barrido lo vuelve

@@ -30,7 +30,7 @@ import { compararCatalogos, faltantesCsv } from '../../lib/ml/catalogo.js';
 import { searchMyItems, getItemsFichaBulk, mlAdsGet, getUserItemsVisits, getOrdersPagina } from '../../lib/ml/ml-api.js';
 import { resumenKeys } from '../../lib/gemini-keys.js';
 import { modeloTexto } from '../../lib/gemini-texto.js';
-import { getShipment, getOrder, sendPostSaleMessage, getUnreadMessages } from '../../lib/ml/ml-api.js';
+import { getShipment, getOrder, sendPostSaleMessage, getUnreadMessages, diagnosticarConversacion } from '../../lib/ml/ml-api.js';
 import { armarMensaje, encolarLote, vencidos, marcarEnviadoLote, verCola, verEnviados, necesitaKv, DEMORA_MS } from '../../lib/ml/postventa.js';
 import { generateAnswer, probarIA } from '../../lib/ml/qa-brain.js';
 import { storeKind, kvDetalle, markWebhook, lastWebhook, markWebhookResultado, lastWebhookResultado, readJson, writeJson, kvPrueba, kvUltimoError } from '../../lib/ml/token-store.js';
@@ -189,6 +189,10 @@ async function procesarPostventa({ accounts, ahora = Date.now() }) {
   // Igual que el barrido: se juntan los ids y se marcan todos juntos al final,
   // para no gastar un puñado de comandos del KV por cada mensaje.
   const marcar = [];
+  // Si ML bloquea el primer mensaje por no dejar que el vendedor inicie la
+  // conversación, le preguntamos UNA vez qué permite para ese pack. Una sola
+  // consulta por pasada: alcanza para entender y no cuesta tiempo.
+  let porQueBloquea = null;
   for (const p of pendientes) {
     const vencido = ahora - new Date(p.enviar_a_partir_de).getTime() > POSTVENTA_VENCE_MS;
     if (vencido) {
@@ -220,7 +224,15 @@ async function procesarPostventa({ accounts, ahora = Date.now() }) {
         packId: p.packId, sellerId: acc.user_id, buyerId: p.buyerId, text: texto,
       });
       marcar.push(p.orderId);
-      if (!r.ok) console.error('[ml-postventa] ML rechazó el mensaje', { orden: p.orderId, error: r.error });
+      if (!r.ok) {
+        console.error('[ml-postventa] ML rechazó el mensaje', { orden: p.orderId, error: r.error });
+        if (!porQueBloquea && /conversation_initiated_by_seller|blocked/i.test(String(r.error))) {
+          porQueBloquea = {
+            orden: p.orderId, pack: p.packId, error: r.error,
+            le_preguntamos_a_ml: await diagnosticarConversacion(token, p.packId, acc.user_id),
+          };
+        }
+      }
       salida.push({ ...p, resultado: r.ok ? 'enviado' : 'ERROR: ' + r.error, texto });
     } catch (e) {
       console.error('[ml-postventa] falló el envío', { orden: p.orderId, error: e.message });
@@ -228,7 +240,7 @@ async function procesarPostventa({ accounts, ahora = Date.now() }) {
     }
   }
   await marcarEnviadoLote(marcar, { ahora });
-  return salida;
+  return { salida, porQueBloquea };
 }
 
 // ¿La pregunta pide retiro/ubicación y estamos en la cuenta Full? -> cross-account.
@@ -828,7 +840,7 @@ export default async function handler(req, res) {
       // pierde en el mismo request, y el barrido parece andar cuando no anda.
       const kv_prueba = await kvPrueba();
       const barrido = await barrerEntregas({ accounts });
-      const procesados = await procesarPostventa({ accounts });
+      const { salida: procesados, porQueBloquea } = await procesarPostventa({ accounts });
       const enCola = (await verCola()).length;
       const agendadas = barrido.reduce((s, f) => s + (f.agendadas || 0), 0);
       return res.status(200).json({
@@ -844,6 +856,7 @@ export default async function handler(req, res) {
           : null,
         procesados: procesados.length,
         enviados_ahora: procesados.filter(p => p.resultado === 'enviado').length,
+        por_que_bloquea_ml: porQueBloquea,
         detalle: procesados,
       });
     }
