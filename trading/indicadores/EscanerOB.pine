@@ -1,0 +1,255 @@
+//@version=5
+// Escáner OB: estructura de mercado (pivotes, BOS, CHoCH, LH/LL o HH/HL en curso),
+// tabla de estado y tabla de estadísticas (tasa de continuación, racha, retests, calificación).
+// Réplica funcional del panel visto en el gráfico EURUSD 15m. No compilado aquí: pegar en el editor
+// Pine de TradingView y pulsar "Añadir al gráfico"; si da error, copiar el mensaje y corregir.
+indicator("Escáner OB", "Escáner OB", overlay=true, max_lines_count=500, max_labels_count=500, max_boxes_count=100)
+
+// ─────────────────────────── Entradas
+len        = input.int(5,  "Longitud de pivotes (barras a cada lado)", minval=1, group="Estructura")
+retestBars = input.int(60, "Barras máximas para contar un retest",     minval=5, group="Estadísticas")
+lblOffset  = input.int(3,  "Desplazamiento de etiquetas LH/LL",        minval=0, group="Visual")
+showTables = input.bool(true,  "Mostrar tablas",                                  group="Visual")
+colBull    = input.color(#26a69a, "Color alcista",                                group="Visual")
+colBear    = input.color(#ef5350, "Color bajista",                                group="Visual")
+colLblBg   = input.color(#e0e0e0, "Fondo etiquetas BOS/CHoCH",                   group="Visual")
+showOB     = input.bool(false, "Dibujar order blocks (última vela contraria antes de la ruptura)", group="Order blocks")
+obBars     = input.int(20, "Barras hacia atrás para buscar el OB",     minval=1, group="Order blocks")
+
+// ─────────────────────────── Series auxiliares (siempre calculadas, fuera de condicionales)
+ph     = ta.pivothigh(high, len, len)
+pl     = ta.pivotlow(low,  len, len)
+lowN   = ta.lowest(low, len)
+lowNb  = ta.lowestbars(low, len)
+highN  = ta.highest(high, len)
+highNb = ta.highestbars(high, len)
+
+// ─────────────────────────── Estado
+var float  lastHigh    = na      // último máximo confirmado
+var int    lastHighBar = na
+var float  lastLow     = na      // último mínimo confirmado
+var int    lastLowBar  = na
+var bool   highBroken  = true
+var bool   lowBroken   = true
+var string lastPivot   = ""      // "H" o "L": último pivote confirmado
+var float  runLow      = na      // mínimo candidato desde el último máximo confirmado
+var int    runLowBar   = na
+var float  runHigh     = na      // máximo candidato desde el último mínimo confirmado
+var int    runHighBar  = na
+var int    trend       = 0       // 1 alcista, -1 bajista, 0 sin definir
+var int    nHighs      = 0
+var int    nLows       = 0
+var int    nBOS        = 0
+var int    nCHoCH      = 0
+var int    streak      = 0       // BOS consecutivos desde el último CHoCH
+var int    upTot       = 0
+var int    upRet       = 0
+var int    bosUpTot    = 0
+var int    bosUpRet    = 0
+var int    dnTot       = 0
+var int    dnRet       = 0
+var int    bosDnTot    = 0
+var int    bosDnRet    = 0
+var float[] pLevel = array.new_float()   // rupturas pendientes de retest
+var int[]   pDir   = array.new_int()
+var int[]   pBar   = array.new_int()
+var bool[]  pBos   = array.new_bool()
+
+// ─────────────────────────── Funciones de dibujo (no modifican variables globales)
+f_evento(bool up, float lvl, int fromBar, bool choch) =>
+    c = up ? colBull : colBear
+    line.new(fromBar, lvl, bar_index, lvl, color=c, width=1)
+    label.new(math.floor((fromBar + bar_index) / 2.0), lvl, choch ? "CHoCH" : "BOS",
+              style=up ? label.style_label_down : label.style_label_up, color=colLblBg, textcolor=c, size=size.small)
+
+f_ob(bool up) =>
+    for i = 1 to obBars
+        contraria = up ? close[i] < open[i] : close[i] > open[i]
+        if contraria
+            c = up ? colBull : colBear
+            box.new(bar_index - i, math.max(open[i], close[i]), bar_index, math.min(open[i], close[i]),
+                    border_color=color.new(c, 50), bgcolor=color.new(c, 85), extend=extend.right)
+            break
+
+// ─────────────────────────── 1) Pivotes confirmados
+if not na(ph)
+    lastHigh    := ph
+    lastHighBar := bar_index - len
+    highBroken  := false
+    nHighs      += 1
+    lastPivot   := "H"
+    runLow      := lowN
+    runLowBar   := bar_index + lowNb
+if not na(pl)
+    lastLow     := pl
+    lastLowBar  := bar_index - len
+    lowBroken   := false
+    nLows       += 1
+    lastPivot   := "L"
+    runHigh     := highN
+    runHighBar  := bar_index + highNb
+
+// ─────────────────────────── 2) Extremos candidatos (aún sin confirmar)
+if not na(runLow) and low < runLow
+    runLow    := low
+    runLowBar := bar_index
+if not na(runHigh) and high > runHigh
+    runHigh    := high
+    runHighBar := bar_index
+
+// ─────────────────────────── 3) Retests pendientes (antes de registrar rupturas nuevas)
+if array.size(pLevel) > 0
+    for i = array.size(pLevel) - 1 to 0
+        lvl = array.get(pLevel, i)
+        d   = array.get(pDir, i)
+        b   = array.get(pBar, i)
+        isB = array.get(pBos, i)
+        hit = bar_index > b and (d == 1 ? low <= lvl : high >= lvl)
+        exp = bar_index - b > retestBars
+        if hit or exp
+            if d == 1
+                upTot += 1
+                upRet += hit ? 1 : 0
+                if isB
+                    bosUpTot += 1
+                    bosUpRet += hit ? 1 : 0
+            else
+                dnTot += 1
+                dnRet += hit ? 1 : 0
+                if isB
+                    bosDnTot += 1
+                    bosDnRet += hit ? 1 : 0
+            array.remove(pLevel, i)
+            array.remove(pDir, i)
+            array.remove(pBar, i)
+            array.remove(pBos, i)
+
+// ─────────────────────────── 4) Rupturas: BOS (a favor de la tendencia) o CHoCH (cambio de carácter)
+brkUp = not na(lastHigh) and not highBroken and close > lastHigh
+brkDn = not na(lastLow)  and not lowBroken  and close < lastLow
+
+if brkUp
+    choch = trend == -1
+    trend      := 1
+    highBroken := true
+    if choch
+        nCHoCH += 1
+        streak := 0
+    else
+        nBOS   += 1
+        streak += 1
+    f_evento(true, lastHigh, lastHighBar, choch)
+    array.push(pLevel, lastHigh)
+    array.push(pDir, 1)
+    array.push(pBar, bar_index)
+    array.push(pBos, not choch)
+    if showOB
+        f_ob(true)
+
+if brkDn
+    choch = trend == 1
+    trend     := -1
+    lowBroken := true
+    if choch
+        nCHoCH += 1
+        streak := 0
+    else
+        nBOS   += 1
+        streak += 1
+    f_evento(false, lastLow, lastLowBar, choch)
+    array.push(pLevel, lastLow)
+    array.push(pDir, -1)
+    array.push(pBar, bar_index)
+    array.push(pBos, not choch)
+    if showOB
+        f_ob(false)
+
+// ─────────────────────────── 5) Niveles actuales (LH/LL en bajista, HH/HL en alcista) con línea punteada
+hiLvl = lastPivot == "L" ? runHigh    : lastHigh
+hiBar = lastPivot == "L" ? runHighBar : lastHighBar
+loLvl = lastPivot == "H" ? runLow     : lastLow
+loBar = lastPivot == "H" ? runLowBar  : lastLowBar
+txtHi = trend == 1 ? "HH" : trend == -1 ? "LH" : "H"
+txtLo = trend == 1 ? "HL" : trend == -1 ? "LL" : "L"
+cLvl  = trend == 1 ? colBull : colBear
+
+var line  lnHi = na
+var line  lnLo = na
+var label lbHi = na
+var label lbLo = na
+if not na(hiLvl) and not na(hiBar)
+    if na(lnHi)
+        lnHi := line.new(hiBar, hiLvl, bar_index + lblOffset, hiLvl, style=line.style_dotted, color=cLvl)
+        lbHi := label.new(bar_index + lblOffset, hiLvl, txtHi, style=label.style_label_left, color=cLvl, textcolor=color.white, size=size.small)
+    else
+        line.set_xy1(lnHi, hiBar, hiLvl)
+        line.set_xy2(lnHi, bar_index + lblOffset, hiLvl)
+        line.set_color(lnHi, cLvl)
+        label.set_xy(lbHi, bar_index + lblOffset, hiLvl)
+        label.set_text(lbHi, txtHi)
+        label.set_color(lbHi, cLvl)
+if not na(loLvl) and not na(loBar)
+    if na(lnLo)
+        lnLo := line.new(loBar, loLvl, bar_index + lblOffset, loLvl, style=line.style_dotted, color=cLvl)
+        lbLo := label.new(bar_index + lblOffset, loLvl, txtLo, style=label.style_label_left, color=cLvl, textcolor=color.white, size=size.small)
+    else
+        line.set_xy1(lnLo, loBar, loLvl)
+        line.set_xy2(lnLo, bar_index + lblOffset, loLvl)
+        line.set_color(lnLo, cLvl)
+        label.set_xy(lbLo, bar_index + lblOffset, loLvl)
+        label.set_text(lbLo, txtLo)
+        label.set_color(lbLo, cLvl)
+
+// ─────────────────────────── 6) Estadísticas
+f_pct(int r, int t) => t > 0 ? 100.0 * r / t : na
+f_nivel(float p) => na(p) ? "—" : p < 30 ? "BAJO" : p < 60 ? "MEDIO" : "ALTO"
+f_bg(float p) => na(p) ? color.new(color.gray, 92) : p < 30 ? color.new(colBear, 80) : p < 60 ? color.new(color.gray, 92) : color.new(colBull, 80)
+f_txt(float p) => na(p) ? "—" : str.tostring(math.round(p)) + "% | " + f_nivel(p)
+
+contPct  = f_pct(nBOS, nBOS + nCHoCH)          // % de rupturas que fueron continuación (BOS) y no cambio (CHoCH)
+retUp    = f_pct(upRet, upTot)                  // % de rupturas alcistas (BOS+CHoCH) que volvieron a tocar el nivel
+retBosUp = f_pct(bosUpRet, bosUpTot)            // idem solo BOS alcistas
+retDn    = f_pct(dnRet, dnTot)
+retBosDn = f_pct(bosDnRet, bosDnTot)
+retTrend = trend == 1 ? retUp : trend == -1 ? retDn : na
+score    = (not na(contPct) and contPct >= 60 ? 1 : 0) + (not na(retTrend) and retTrend >= 60 ? 1 : 0) + (streak >= 1 ? 1 : 0)
+fires    = score >= 3 ? "🔥🔥🔥" : score == 2 ? "🔥🔥" : score == 1 ? "🔥" : "—"
+estado   = lastPivot == "" ? "Esperando estructura" : lastPivot == "H" ? "Validando mínimo..." : "Validando máximo..."
+tendTxt  = trend == 1 ? "📈 Tendencia alcista" : trend == -1 ? "📉 Tendencia bajista" : "Sin definir"
+tendBg   = trend == 1 ? color.new(colBull, 80) : trend == -1 ? color.new(colBear, 80) : color.new(color.gray, 92)
+
+// ─────────────────────────── 7) Tablas
+var table t1 = table.new(position.top_right, 2, 7, bgcolor=color.white, border_width=1, border_color=color.new(color.gray, 85), frame_width=1, frame_color=color.new(color.gray, 70))
+var table t2 = table.new(position.bottom_right, 2, 9, bgcolor=color.white, border_width=1, border_color=color.new(color.gray, 85), frame_width=1, frame_color=color.new(color.gray, 70))
+var bool  merged = false
+
+f_row(table t, int r, string k, string v, color bg) =>
+    table.cell(t, 0, r, k, text_color=color.new(color.black, 35), text_size=size.small, text_halign=text.align_left)
+    table.cell(t, 1, r, v, text_color=color.black, text_size=size.small, bgcolor=bg)
+
+f_head(table t, int r, string k, color bg) =>
+    table.cell(t, 0, r, k, text_color=color.black, text_size=size.small, bgcolor=bg)
+
+if showTables and barstate.islast
+    if not merged
+        table.merge_cells(t1, 0, 0, 1, 0)
+        table.merge_cells(t2, 0, 2, 1, 2)
+        table.merge_cells(t2, 0, 5, 1, 5)
+        merged := true
+    f_head(t1, 0, "Escáner OB", #c5cae9)
+    f_row(t1, 1, "TENDENCIA", tendTxt, tendBg)
+    f_row(t1, 2, "MÁXIMOS VÁLIDOS", str.tostring(nHighs), color.white)
+    f_row(t1, 3, "MÍNIMOS VÁLIDOS", str.tostring(nLows), color.white)
+    f_row(t1, 4, "🎯 " + txtLo + " ACTUAL", na(loLvl) ? "—" : str.tostring(loLvl, format.mintick), color.white)
+    f_row(t1, 5, "🎯 " + txtHi + " ACTUAL", na(hiLvl) ? "—" : str.tostring(hiLvl, format.mintick), color.white)
+    f_row(t1, 6, "ESTADO", "⏳ " + estado, color.white)
+
+    f_row(t2, 0, "⚡ TASA CONT.", f_txt(contPct), f_bg(contPct))
+    f_row(t2, 1, "🔥 RACHA TENDENCIA", str.tostring(streak), tendBg)
+    f_head(t2, 2, "ARRIBA ⬆", color.new(#c5cae9, 40))
+    f_row(t2, 3, "RETEST BOS ARRIBA", f_txt(retBosUp), f_bg(retBosUp))
+    f_row(t2, 4, "🔁 RETEST ARRIBA", f_txt(retUp), f_bg(retUp))
+    f_head(t2, 5, "ABAJO ⬇", color.new(#c5cae9, 40))
+    f_row(t2, 6, "RETEST BOS ABAJO", f_txt(retBosDn), f_bg(retBosDn))
+    f_row(t2, 7, "🔁 RETEST ABAJO", f_txt(retDn), f_bg(retDn))
+    f_row(t2, 8, "🏆 CALIFICACIÓN", fires, color.new(color.yellow, 80))
