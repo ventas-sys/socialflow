@@ -139,25 +139,52 @@ export default async function handler(req, res) {
     ]);
     const products = prodSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     const combos = comboSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const productsById = new Map(products.map(p => [p.id, p]));
+    // Índice de códigos, armado UNA vez por corrida.
+    //
+    // Antes cada SKU de cada venta recorría las dos listas enteras y, de paso,
+    // volvía a armar el array de referencias de CADA producto y CADA combo. Con
+    // el catálogo de hoy (1500 productos + 3400 combos) eso son millones de
+    // strings por corrida: tiempo de CPU que Vercel factura y que nos estaba
+    // comiendo el plan gratis. El resultado es exactamente el mismo, sólo que
+    // se consulta por clave en vez de recorrer.
+    const sinCeros = (v) => String(v).replace(/^0+/, '');
+    const indexar = (lista) => {
+      const exacto = new Map();    // código en minúscula -> primero de la lista que lo tiene
+      const porNumero = new Map(); // código numérico sin ceros -> los que caen ahí
+      for (const x of lista) {
+        for (const raw of [x.code, ...barcodesOf(x)]) {
+          if (!raw) continue;
+          const v = String(raw);
+          const k = v.toLowerCase();
+          if (!exacto.has(k)) exacto.set(k, x);
+          if (/^\d+$/.test(v)) {
+            const n = sinCeros(v);
+            if (!porNumero.has(n)) porNumero.set(n, new Set());
+            porNumero.get(n).add(x);
+          }
+        }
+      }
+      return { exacto, porNumero };
+    };
+    const idxProducts = indexar(products);
+    const idxCombos = indexar(combos);
     // Si no hay coincidencia exacta se compara sin los ceros de adelante
     // ("0558" vs "558", que es como quedan los códigos cargados desde Excel),
     // pero solo si queda un único candidato: con dos, mejor no descontar nada.
-    const refsOf = (x) => [x.code, ...barcodesOf(x)].filter(Boolean).map(v => String(v));
-    const sinCeros = (v) => String(v).replace(/^0+/, '');
-    const buscar = (lista, q) => {
-      const exacto = lista.find(x => refsOf(x).some(v => v.toLowerCase() === q));
+    const buscar = (idx, q) => {
+      const exacto = idx.exacto.get(q);
       if (exacto) return exacto;
       if (!/^\d+$/.test(q)) return null;
-      const n = sinCeros(q);
-      const cands = lista.filter(x => refsOf(x).some(v => /^\d+$/.test(v) && sinCeros(v) === n));
-      return cands.length === 1 ? cands[0] : null;
+      const cands = idx.porNumero.get(sinCeros(q));
+      return cands && cands.size === 1 ? [...cands][0] : null;
     };
     const findByRef = (ref) => {
       const q = String(ref || '').trim().toLowerCase();
       if (!q) return null;
-      const p = buscar(products, q);
+      const p = buscar(idxProducts, q);
       if (p) return { type: 'product', p };
-      const c = buscar(combos, q);
+      const c = buscar(idxCombos, q);
       if (c) return { type: 'combo', c };
       return null;
     };
@@ -205,7 +232,7 @@ export default async function handler(req, res) {
           const add = (p, d) => { deltas.set(p.id, (deltas.get(p.id) || 0) + d); names.set(p.id, p.name); };
           if (m.type === 'product') add(m.p, -it.quantity);
           else m.c.items?.forEach(ci => {
-            const bp = products.find(pp => pp.id === ci.productId);
+            const bp = productsById.get(ci.productId);
             if (bp) add(bp, -(ci.quantity * it.quantity));
           });
         }
@@ -216,7 +243,7 @@ export default async function handler(req, res) {
       for (let i = 0; i < ids.length; i += 200) {
         const batch = writeBatch(db);
         ids.slice(i, i + 200).forEach(pid => {
-          const prod = products.find(pp => pp.id === pid);
+          const prod = productsById.get(pid);
           const newQ = (prod?.quantity || 0) + deltas.get(pid);
           batch.update(doc(db, 'products', pid), { quantity: newQ, updatedAt: Timestamp.now() });
           batch.set(doc(collection(db, 'movements')), {
