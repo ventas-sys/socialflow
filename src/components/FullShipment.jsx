@@ -73,6 +73,10 @@ export default function FullShipment({
   // Códigos del pedido de ML que apuntan a algo que SÍ está en el sistema pero
   // que todavía no están cargados como código de barras de ese combo
   const [porAsociar, setPorAsociar] = useState(null)
+  // Buscador de la pantalla "no está en el sistema": ML saca códigos de
+  // etiqueta nuevos para publicaciones que ya tenemos, y aparecen DESPUÉS de
+  // haber importado el pedido. Sin esto había que ir a Combos a pegarlo a mano.
+  const [buscoParaAsociar, setBuscoParaAsociar] = useState('')
   const fileRef = useRef(null)
   const bufferRef = useRef({ txt: '', t: 0 })
 
@@ -287,6 +291,7 @@ export default function FullShipment({
 
   const cancelarPendiente = () => {
     setPendiente(null)
+    setBuscoParaAsociar('')
     if (volverACamara) setShowScanner(true)
   }
 
@@ -460,6 +465,51 @@ export default function FullShipment({
     })
     cambios.sort((x, y) => Math.abs(y.ahora - y.antes) - Math.abs(x.ahora - x.antes))
     return cambios
+  }
+
+  // Lo que matchea con lo que se escribió en el buscador de "no está en el
+  // sistema". Se busca por nombre, por SKU y por código de barras: normalmente
+  // se pega el MLA de la publicación.
+  const candidatosAsociar = useMemo(() => {
+    const t = normalize(buscoParaAsociar).trim()
+    if (t.length < 3) return []
+    const pega = (x) =>
+      normalize(x.name).includes(t) ||
+      normalize(x.code).includes(t) ||
+      barcodesOf(x).some(b => normalize(b).includes(t))
+    return [
+      ...combos.filter(pega).slice(0, 8).map(c => ({ tipo: 'combo', x: c })),
+      ...products.filter(pega).slice(0, 6).map(p => ({ tipo: 'producto', x: p })),
+    ]
+  }, [buscoParaAsociar, combos, products])
+
+  // Pegarle el código escaneado al combo/producto elegido. Aditivo: se agrega a
+  // los códigos que ya tenía.
+  const asociarEscaneado = async (cand) => {
+    const code = pendiente?.code
+    if (!code || !onAsociarCodigos) return
+    const previos = barcodesOf(cand.x)
+    if (previos.some(b => normalize(b) === normalize(code))) {
+      setMsg('Ese código ya estaba asociado a ese artículo')
+      return
+    }
+    if (!window.confirm(
+      `Asociar el código ${code} a:\n\n${cand.x.name}\n${cand.x.code || ''}\n\n` +
+      `Se AGREGA a los códigos que ya tiene. ¿Confirmás?`
+    )) return
+    setBusy(true); setMsg('')
+    try {
+      const nuevos = [...previos, code]
+      const patch = { id: cand.x.id, patch: { barcodes: nuevos, barcode: nuevos[0] || '' } }
+      await onAsociarCodigos(cand.tipo === 'combo' ? { combos: [patch] } : { products: [patch] })
+      setPendiente(null)
+      setBuscoParaAsociar('')
+      setMsg(`🔗 ${code} asociado a ${cand.x.name}. Escanealo de nuevo y ya entra.`)
+    } catch (err) {
+      setMsg('❌ No se pudo asociar: ' + err.message)
+    } finally {
+      setBusy(false)
+    }
   }
 
   // Guardar los códigos sueltos como código de barras del combo/producto que ya
@@ -934,9 +984,35 @@ export default function FullShipment({
                   <h2>No está en el sistema</h2>
                   <p className="full-modal-code">{pendiente.code}</p>
                   <p className="full-modal-sub">
-                    Ese código no figura como publicación ni como producto. Cargalo en Combos o en
-                    Inventario y volvé a escanearlo.
+                    {canEdit
+                      ? 'Si es un código nuevo de una publicación que ya tenés, buscala acá y asociálo. Si el artículo no existe, cargalo en Combos o en Inventario.'
+                      : 'Ese código no figura como publicación ni como producto. Cargalo en Combos o en Inventario y volvé a escanearlo.'}
                   </p>
+
+                  {canEdit && (
+                    <div className="full-nf-buscar">
+                      <input
+                        autoFocus
+                        value={buscoParaAsociar}
+                        onChange={e => setBuscoParaAsociar(e.target.value)}
+                        placeholder="Pegá el MLA, o buscá por nombre o SKU"
+                      />
+                      <div className="full-nf-res">
+                        {buscoParaAsociar.trim().length < 3 ? (
+                          <p className="full-nf-vacio">Escribí al menos 3 letras</p>
+                        ) : candidatosAsociar.length === 0 ? (
+                          <p className="full-nf-vacio">No hay nada que coincida</p>
+                        ) : candidatosAsociar.map(c => (
+                          <button key={c.tipo + c.x.id} onClick={() => asociarEscaneado(c)} disabled={busy}>
+                            <span className={`full-nf-tag ${c.tipo}`}>{c.tipo}</span>
+                            <span className="full-nf-nombre">{c.x.name}</span>
+                            {c.x.code && <span className="full-nf-code">{c.x.code}</span>}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <button className="full-modal-btn sec" onClick={cancelarPendiente}>✕ Volver</button>
                 </div>
               ) : (
