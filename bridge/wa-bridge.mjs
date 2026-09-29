@@ -745,6 +745,24 @@ async function desmarcarChatAtendido(client, chatId) {
 // 2) Aviso directo al supervisor por WhatsApp con link al chat del cliente.
 //    Se activa poniendo WA_SUPERVISOR_NUMBER en el .env (solo dígitos, con
 //    código de país, ej: 5491122334455). Máximo 1 aviso por chat cada 6 horas.
+// ─── Aviso de preguntas de ML sin responder ──────────────────────────────────
+// Tatiana contesta casi todas, pero algunas no las puede contestar sola (el
+// caso que lo disparó: "Si no me dicen qué colores, no me sirve", que necesita
+// saber que el pack va surtido sin elección). Esa quedó 2 horas colgada.
+//
+// Vercel no puede escribirle a este proceso, así que es el bridge el que va a
+// buscar: cada 5 minutos consulta qué preguntas siguen sin responder y, si hay,
+// le manda un WhatsApp al supervisor. No hace falta tocar nada en el VPS más
+// que las variables.
+const ML_PREGUNTAS_URL = (process.env.WA_ML_PREGUNTAS_URL
+  || WEBHOOK_URL.replace(/\/api\/wa\/webhook.*$/, '/api/ml/questions')).trim();
+const ML_PREGUNTAS_KEY = (process.env.ML_SWEEP_KEY || '').trim();
+const ML_ATRASADAS_MIN = Number(process.env.WA_ML_ATRASADAS_MIN || 5);
+// Si sigue sin responder, se vuelve a avisar recién después de estas horas,
+// para que no llegue el mismo aviso cada 5 minutos.
+const ML_REAVISAR_MS = Number(process.env.WA_ML_REAVISAR_HORAS || 3) * 3_600_000;
+const preguntasAvisadas = new Map();
+
 const SUPERVISOR_NUMBER = (process.env.WA_SUPERVISOR_NUMBER || '').replace(/[^0-9]/g, '');
 const supervisorNotified = new Map();
 
@@ -1006,6 +1024,48 @@ async function vaciarAvisosPendientes(client) {
     avisosPendientes.unshift(...pendientes);
     console.error('resumen al supervisor fail:', e.message);
   }
+}
+
+async function avisarPreguntasMlAtrasadas(client) {
+  if (!SUPERVISOR_NUMBER || !ML_PREGUNTAS_URL) return;
+  // Fuera de horario no se avisa y tampoco se marca nada: la pregunta sigue sin
+  // responder, así que el primer tick después de abrir la vuelve a encontrar.
+  if (fueraDeHorario() && !AVISOS_FUERA_HORARIO) return;
+
+  let url = `${ML_PREGUNTAS_URL}?action=atrasadas&minutos=${ML_ATRASADAS_MIN}`;
+  if (ML_PREGUNTAS_KEY) url += `&key=${encodeURIComponent(ML_PREGUNTAS_KEY)}`;
+
+  const r = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const data = await r.json();
+  const ahora = Date.now();
+  const nuevas = (data?.atrasadas || [])
+    .filter(q => q.question_id)
+    .filter(q => ahora - (preguntasAvisadas.get(String(q.question_id)) || 0) > ML_REAVISAR_MS);
+  if (!nuevas.length) return;
+
+  const supervisorChat = await resolveSupervisorChat(client);
+  if (!supervisorChat) return;
+
+  const lineas = nuevas.map((q, i) => {
+    const partes = [`${i + 1}. *${q.cuenta}* · hace ${q.hace_minutos} min`];
+    if (q.titulo) partes.push(`   ${String(q.titulo).slice(0, 70)}`);
+    partes.push(`   "${String(q.texto || '').slice(0, 160)}"`);
+    if (q.link) partes.push(`   👉 ${q.link}`);
+    return partes.join('\n');
+  });
+  const body = `🚨 *URGENTE — PREGUNTA EN ML*\n` +
+    `${nuevas.length} pregunta(s) sin responder hace más de ${ML_ATRASADAS_MIN} min.\n\n` +
+    `${lineas.join('\n\n')}\n\n` +
+    `Contestalas desde Mercado Libre → Preguntas.`;
+
+  await botSend(client, supervisorChat, body);
+  for (const q of nuevas) preguntasAvisadas.set(String(q.question_id), ahora);
+  // La memoria no crece para siempre: se olvidan las de hace más de un día.
+  for (const [id, at] of preguntasAvisadas) {
+    if (ahora - at > 86_400_000) preguntasAvisadas.delete(id);
+  }
+  console.log(`🚨 aviso al supervisor: ${nuevas.length} pregunta(s) de ML sin responder`);
 }
 
 async function notifySupervisor(client, chatId, reason, lastText) {
@@ -1470,10 +1530,14 @@ client.on('ready', async () => {
   setInterval(() => recuperarMensajesPerdidos(client).catch(e => console.error('recuperador tick fail:', e.message)), RECUPERADOR_SEG * 1000);
   vaciarAvisosPendientes(client).catch(e => console.error('resumen apertura fail:', e.message));
   setInterval(() => vaciarAvisosPendientes(client).catch(e => console.error('resumen apertura fail:', e.message)), 5 * 60_000);
+  setInterval(() => avisarPreguntasMlAtrasadas(client).catch(e => console.error('aviso preguntas ML fail:', e.message)), 5 * 60_000);
   console.log(`🩹 Recuperador de mensajes perdidos cada ${RECUPERADOR_SEG}s (bug de eventos de whatsapp-web.js): procesa lo de los últimos ${RECUPERADOR_VENTANA_MIN}min; lo más viejo va al supervisor`);
   console.log(`📋 Follow-up "¿algo más?" cada 5min para chats con ${FOLLOWUP_MINUTES}min sin actividad (máx 1/día por chat)`);
   console.log(`🎁 Recordatorio a los ${REMINDER_DAYS} días del primer contacto (chequeo cada 1h)`);
   console.log(`💓 Heartbeat al panel cada 60s`);
+  console.log(SUPERVISOR_NUMBER && ML_PREGUNTAS_URL
+    ? `🚨 Aviso de preguntas de ML sin responder hace +${ML_ATRASADAS_MIN}min, cada 5min (reaviso a las ${ML_REAVISAR_MS / 3_600_000}h)`
+    : '🚨 Aviso de preguntas de ML: APAGADO (falta WA_SUPERVISOR_NUMBER o la URL del panel)');
   // Que se vea en el arranque si el aviso al supervisor va a salir o no: sin
   // WA_SUPERVISOR_NUMBER, notifySupervisor sale sin hacer nada y el cliente que
   // escribe durante el silencio del asesor queda sin atender y sin aviso.
