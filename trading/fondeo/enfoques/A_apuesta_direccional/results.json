@@ -1,0 +1,3548 @@
+{
+ "enfoque": "A_apuesta_direccional",
+ "quick": false,
+ "firms": {
+  "ftmo_1step": {
+   "config": {
+    "symbol": "BTCUSD",
+    "rule": "long",
+    "lookback_h": 24,
+    "entry_hours": [
+     8
+    ],
+    "sl_atr": 1.0,
+    "rr": 3.0,
+    "exit_hour": 23,
+    "trail": 0.0,
+    "risk": 1.5,
+    "max_trades_day": 1,
+    "day_stop": null,
+    "risk_on_balance": true
+   },
+   "fee_usd": 540,
+   "split": 0.9,
+   "by_days": {
+    "7": {
+     "IS": {
+      "n": 391,
+      "pass_pct": 18.2,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 14.8,
+      "fail_pct": 14.8,
+      "timeout_pct": 67.0,
+      "days_to_pass_median": 4.5,
+      "trades_mean": 6.5,
+      "worst_day_mean": -1.6,
+      "max_dd_mean": 7.06,
+      "end_balance_mean": 100936.0
+     },
+     "OOS": {
+      "n": 395,
+      "pass_pct": 14.2,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 16.5,
+      "fail_pct": 16.5,
+      "timeout_pct": 69.4,
+      "days_to_pass_median": 3.8,
+      "trades_mean": 6.5,
+      "worst_day_mean": -1.56,
+      "max_dd_mean": 7.34,
+      "end_balance_mean": 99661.0
+     }
+    },
+    "14": {
+     "IS": {
+      "n": 391,
+      "pass_pct": 26.6,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 47.1,
+      "fail_pct": 47.1,
+      "timeout_pct": 26.3,
+      "days_to_pass_median": 5.4,
+      "trades_mean": 9.8,
+      "worst_day_mean": -1.61,
+      "max_dd_mean": 8.38,
+      "end_balance_mean": 100634.0
+     },
+     "OOS": {
+      "n": 395,
+      "pass_pct": 22.5,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 50.1,
+      "fail_pct": 50.1,
+      "timeout_pct": 27.3,
+      "days_to_pass_median": 4.7,
+      "trades_mean": 9.7,
+      "worst_day_mean": -1.57,
+      "max_dd_mean": 8.59,
+      "end_balance_mean": 99332.0
+     }
+    },
+    "30": {
+     "IS": {
+      "n": 391,
+      "pass_pct": 30.9,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 68.0,
+      "fail_pct": 68.0,
+      "timeout_pct": 1.0,
+      "days_to_pass_median": 5.9,
+      "trades_mean": 11.4,
+      "worst_day_mean": -1.62,
+      "max_dd_mean": 8.84,
+      "end_balance_mean": 100161.0
+     },
+     "OOS": {
+      "n": 395,
+      "pass_pct": 24.8,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 70.9,
+      "fail_pct": 70.9,
+      "timeout_pct": 4.3,
+      "days_to_pass_median": 5.3,
+      "trades_mean": 11.3,
+      "worst_day_mean": -1.58,
+      "max_dd_mean": 8.98,
+      "end_balance_mean": 98781.0
+     }
+    }
+   },
+   "coin_by_days": {
+    "7": {
+     "IS": {
+      "n": 391.0,
+      "pass_pct": 9.38,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 19.4,
+      "fail_pct": 19.4,
+      "timeout_pct": 71.24,
+      "days_to_pass_median": 4.48,
+      "trades_mean": 6.66,
+      "worst_day_mean": -1.6,
+      "max_dd_mean": 7.62,
+      "end_balance_mean": 99342.4
+     },
+     "OOS": {
+      "n": 395.0,
+      "pass_pct": 9.72,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 22.84,
+      "fail_pct": 22.84,
+      "timeout_pct": 67.44,
+      "days_to_pass_median": 4.48,
+      "trades_mean": 6.58,
+      "worst_day_mean": -1.57,
+      "max_dd_mean": 7.73,
+      "end_balance_mean": 99138.6
+     }
+    },
+    "30": {
+     "IS": {
+      "n": 391.0,
+      "pass_pct": 23.62,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 75.54,
+      "fail_pct": 75.54,
+      "timeout_pct": 0.84,
+      "days_to_pass_median": 8.36,
+      "trades_mean": 11.2,
+      "worst_day_mean": -1.62,
+      "max_dd_mean": 9.33,
+      "end_balance_mean": 98576.8
+     },
+     "OOS": {
+      "n": 395.0,
+      "pass_pct": 21.08,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 76.24,
+      "fail_pct": 76.24,
+      "timeout_pct": 2.68,
+      "days_to_pass_median": 7.28,
+      "trades_mean": 10.88,
+      "worst_day_mean": -1.59,
+      "max_dd_mean": 9.35,
+      "end_balance_mean": 98291.6
+     }
+    }
+   },
+   "funded_5pct_30d": {
+    "IS": {
+     "n": 391,
+     "pass_pct": 50.6,
+     "pass_inconsistent_pct": 0.0,
+     "fail_daily_pct": 0.0,
+     "fail_max_pct": 49.1,
+     "fail_pct": 49.1,
+     "timeout_pct": 0.3,
+     "days_to_pass_median": 3.6,
+     "trades_mean": 8.4,
+     "worst_day_mean": -1.54,
+     "max_dd_mean": 7.72,
+     "end_balance_mean": 100227.0
+    },
+    "OOS": {
+     "n": 395,
+     "pass_pct": 43.3,
+     "pass_inconsistent_pct": 0.0,
+     "fail_daily_pct": 0.0,
+     "fail_max_pct": 54.2,
+     "fail_pct": 54.2,
+     "timeout_pct": 2.5,
+     "days_to_pass_median": 3.9,
+     "trades_mean": 9.0,
+     "worst_day_mean": -1.51,
+     "max_dd_mean": 8.1,
+     "end_balance_mean": 99015.0
+    }
+   },
+   "coin_funded_5pct_30d": {
+    "IS": {
+     "n": 391.0,
+     "pass_pct": 42.86,
+     "pass_inconsistent_pct": 0.0,
+     "fail_daily_pct": 0.0,
+     "fail_max_pct": 56.78,
+     "fail_pct": 56.78,
+     "timeout_pct": 0.38,
+     "days_to_pass_median": 4.3,
+     "trades_mean": 8.68,
+     "worst_day_mean": -1.56,
+     "max_dd_mean": 8.23,
+     "end_balance_mean": 98951.0
+    },
+    "OOS": {
+     "n": 395.0,
+     "pass_pct": 41.88,
+     "pass_inconsistent_pct": 0.0,
+     "fail_daily_pct": 0.0,
+     "fail_max_pct": 56.34,
+     "fail_pct": 56.34,
+     "timeout_pct": 1.78,
+     "days_to_pass_median": 4.42,
+     "trades_mean": 8.58,
+     "worst_day_mean": -1.52,
+     "max_dd_mean": 8.27,
+     "end_balance_mean": 98895.8
+    }
+   },
+   "ev_usd": {
+    "p_pass_7d": 0.142,
+    "p_first_payout": 0.433,
+    "ev_7d": -263.0,
+    "ev_30d": -57.0
+   },
+   "score_0_10": 2,
+   "math": {
+    "n": 553,
+    "win_rate": 0.284,
+    "avg_win_r": 2.475,
+    "avg_loss_r": -1.016,
+    "expectancy_r": -0.0252,
+    "long_share": 1.0,
+    "wins_needed": 3,
+    "p_streak": 0.0229,
+    "mc_pass_7d": 3.6,
+    "mc_burn_7d": 0.0
+   }
+  },
+  "fundingpips_1step": {
+   "config": {
+    "symbol": "BTCUSD",
+    "rule": "long",
+    "lookback_h": 24,
+    "entry_hours": [
+     8
+    ],
+    "sl_atr": 1.0,
+    "rr": 3.0,
+    "exit_hour": 23,
+    "trail": 0.0,
+    "risk": 1.5,
+    "max_trades_day": 1,
+    "day_stop": null,
+    "risk_on_balance": true
+   },
+   "fee_usd": 500,
+   "split": 0.8,
+   "by_days": {
+    "7": {
+     "IS": {
+      "n": 391,
+      "pass_pct": 18.9,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 26.1,
+      "fail_pct": 26.1,
+      "timeout_pct": 55.0,
+      "days_to_pass_median": 4.4,
+      "trades_mean": 6.0,
+      "worst_day_mean": -1.6,
+      "max_dd_mean": 6.59,
+      "end_balance_mean": 100929.0
+     },
+     "OOS": {
+      "n": 395,
+      "pass_pct": 14.2,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 35.7,
+      "fail_pct": 35.7,
+      "timeout_pct": 50.1,
+      "days_to_pass_median": 3.8,
+      "trades_mean": 5.9,
+      "worst_day_mean": -1.56,
+      "max_dd_mean": 6.72,
+      "end_balance_mean": 99728.0
+     }
+    },
+    "14": {
+     "IS": {
+      "n": 391,
+      "pass_pct": 26.6,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 46.8,
+      "fail_pct": 46.8,
+      "timeout_pct": 26.6,
+      "days_to_pass_median": 4.8,
+      "trades_mean": 8.8,
+      "worst_day_mean": -1.61,
+      "max_dd_mean": 8.03,
+      "end_balance_mean": 100398.0
+     },
+     "OOS": {
+      "n": 395,
+      "pass_pct": 21.5,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 54.9,
+      "fail_pct": 54.9,
+      "timeout_pct": 23.5,
+      "days_to_pass_median": 4.7,
+      "trades_mean": 8.3,
+      "worst_day_mean": -1.57,
+      "max_dd_mean": 7.96,
+      "end_balance_mean": 99293.0
+     }
+    },
+    "30": {
+     "IS": {
+      "n": 391,
+      "pass_pct": 35.5,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 60.4,
+      "fail_pct": 60.4,
+      "timeout_pct": 4.1,
+      "days_to_pass_median": 6.7,
+      "trades_mean": 10.9,
+      "worst_day_mean": -1.61,
+      "max_dd_mean": 8.89,
+      "end_balance_mean": 100413.0
+     },
+     "OOS": {
+      "n": 395,
+      "pass_pct": 26.8,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 65.3,
+      "fail_pct": 65.3,
+      "timeout_pct": 7.8,
+      "days_to_pass_median": 6.5,
+      "trades_mean": 10.1,
+      "worst_day_mean": -1.57,
+      "max_dd_mean": 8.58,
+      "end_balance_mean": 99138.0
+     }
+    }
+   },
+   "coin_by_days": {
+    "7": {
+     "IS": {
+      "n": 391.0,
+      "pass_pct": 9.44,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 32.58,
+      "fail_pct": 32.58,
+      "timeout_pct": 58.0,
+      "days_to_pass_median": 4.52,
+      "trades_mean": 6.14,
+      "worst_day_mean": -1.6,
+      "max_dd_mean": 7.1,
+      "end_balance_mean": 99418.6
+     },
+     "OOS": {
+      "n": 395.0,
+      "pass_pct": 9.76,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 34.58,
+      "fail_pct": 34.58,
+      "timeout_pct": 55.64,
+      "days_to_pass_median": 4.5,
+      "trades_mean": 6.0,
+      "worst_day_mean": -1.57,
+      "max_dd_mean": 7.15,
+      "end_balance_mean": 99201.8
+     }
+    },
+    "30": {
+     "IS": {
+      "n": 391.0,
+      "pass_pct": 25.94,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 69.2,
+      "fail_pct": 69.2,
+      "timeout_pct": 4.86,
+      "days_to_pass_median": 9.0,
+      "trades_mean": 11.14,
+      "worst_day_mean": -1.62,
+      "max_dd_mean": 9.34,
+      "end_balance_mean": 98777.0
+     },
+     "OOS": {
+      "n": 395.0,
+      "pass_pct": 24.18,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 70.24,
+      "fail_pct": 70.24,
+      "timeout_pct": 5.58,
+      "days_to_pass_median": 8.26,
+      "trades_mean": 10.54,
+      "worst_day_mean": -1.58,
+      "max_dd_mean": 9.35,
+      "end_balance_mean": 98458.6
+     }
+    }
+   },
+   "funded_5pct_30d": {
+    "IS": {
+     "n": 391,
+     "pass_pct": 48.8,
+     "pass_inconsistent_pct": 0.0,
+     "fail_daily_pct": 0.0,
+     "fail_max_pct": 51.2,
+     "fail_pct": 51.2,
+     "timeout_pct": 0.0,
+     "days_to_pass_median": 3.5,
+     "trades_mean": 7.0,
+     "worst_day_mean": -1.53,
+     "max_dd_mean": 7.18,
+     "end_balance_mean": 100170.0
+    },
+    "OOS": {
+     "n": 395,
+     "pass_pct": 39.5,
+     "pass_inconsistent_pct": 0.0,
+     "fail_daily_pct": 0.0,
+     "fail_max_pct": 58.2,
+     "fail_pct": 58.2,
+     "timeout_pct": 2.3,
+     "days_to_pass_median": 3.7,
+     "trades_mean": 7.0,
+     "worst_day_mean": -1.51,
+     "max_dd_mean": 7.24,
+     "end_balance_mean": 99187.0
+    }
+   },
+   "coin_funded_5pct_30d": {
+    "IS": {
+     "n": 391.0,
+     "pass_pct": 40.66,
+     "pass_inconsistent_pct": 0.0,
+     "fail_daily_pct": 0.0,
+     "fail_max_pct": 59.06,
+     "fail_pct": 59.06,
+     "timeout_pct": 0.32,
+     "days_to_pass_median": 4.04,
+     "trades_mean": 7.36,
+     "worst_day_mean": -1.56,
+     "max_dd_mean": 7.58,
+     "end_balance_mean": 99091.8
+    },
+    "OOS": {
+     "n": 395.0,
+     "pass_pct": 40.44,
+     "pass_inconsistent_pct": 0.0,
+     "fail_daily_pct": 0.0,
+     "fail_max_pct": 58.14,
+     "fail_pct": 58.14,
+     "timeout_pct": 1.42,
+     "days_to_pass_median": 4.22,
+     "trades_mean": 7.2,
+     "worst_day_mean": -1.52,
+     "max_dd_mean": 7.58,
+     "end_balance_mean": 99143.4
+    }
+   },
+   "ev_usd": {
+    "p_pass_7d": 0.142,
+    "p_first_payout": 0.395,
+    "ev_7d": -276.0,
+    "ev_30d": -77.0
+   },
+   "score_0_10": 2,
+   "math": {
+    "n": 553,
+    "win_rate": 0.284,
+    "avg_win_r": 2.475,
+    "avg_loss_r": -1.016,
+    "expectancy_r": -0.0252,
+    "long_share": 1.0,
+    "wins_needed": 3,
+    "p_streak": 0.0229,
+    "mc_pass_7d": 3.6,
+    "mc_burn_7d": 26.0
+   }
+  },
+  "e8_one_8": {
+   "config": {
+    "symbol": "BTCUSD",
+    "rule": "long",
+    "lookback_h": 24,
+    "entry_hours": [
+     8
+    ],
+    "sl_atr": 1.0,
+    "rr": 3.0,
+    "exit_hour": 23,
+    "trail": 0.0,
+    "risk": 1.5,
+    "max_trades_day": 1,
+    "day_stop": null,
+    "risk_on_balance": true
+   },
+   "fee_usd": 260,
+   "split": 0.8,
+   "by_days": {
+    "7": {
+     "IS": {
+      "n": 391,
+      "pass_pct": 12.5,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 35.5,
+      "fail_pct": 35.5,
+      "timeout_pct": 51.9,
+      "days_to_pass_median": 4.7,
+      "trades_mean": 6.3,
+      "worst_day_mean": -1.6,
+      "max_dd_mean": 6.72,
+      "end_balance_mean": 100953.0
+     },
+     "OOS": {
+      "n": 395,
+      "pass_pct": 10.6,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 42.3,
+      "fail_pct": 42.3,
+      "timeout_pct": 47.1,
+      "days_to_pass_median": 3.9,
+      "trades_mean": 6.2,
+      "worst_day_mean": -1.57,
+      "max_dd_mean": 6.9,
+      "end_balance_mean": 99651.0
+     }
+    },
+    "14": {
+     "IS": {
+      "n": 391,
+      "pass_pct": 20.2,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 67.3,
+      "fail_pct": 67.3,
+      "timeout_pct": 12.5,
+      "days_to_pass_median": 6.5,
+      "trades_mean": 8.4,
+      "worst_day_mean": -1.62,
+      "max_dd_mean": 7.49,
+      "end_balance_mean": 100746.0
+     },
+     "OOS": {
+      "n": 395,
+      "pass_pct": 15.9,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 74.2,
+      "fail_pct": 74.2,
+      "timeout_pct": 9.9,
+      "days_to_pass_median": 5.6,
+      "trades_mean": 8.1,
+      "worst_day_mean": -1.58,
+      "max_dd_mean": 7.61,
+      "end_balance_mean": 99349.0
+     }
+    },
+    "30": {
+     "IS": {
+      "n": 391,
+      "pass_pct": 21.2,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 78.8,
+      "fail_pct": 78.8,
+      "timeout_pct": 0.0,
+      "days_to_pass_median": 6.5,
+      "trades_mean": 8.9,
+      "worst_day_mean": -1.62,
+      "max_dd_mean": 7.64,
+      "end_balance_mean": 100502.0
+     },
+     "OOS": {
+      "n": 395,
+      "pass_pct": 16.2,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 81.3,
+      "fail_pct": 81.3,
+      "timeout_pct": 2.5,
+      "days_to_pass_median": 5.6,
+      "trades_mean": 8.3,
+      "worst_day_mean": -1.58,
+      "max_dd_mean": 7.72,
+      "end_balance_mean": 99132.0
+     }
+    }
+   },
+   "coin_by_days": {
+    "7": {
+     "IS": {
+      "n": 391.0,
+      "pass_pct": 5.52,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 45.28,
+      "fail_pct": 45.28,
+      "timeout_pct": 49.22,
+      "days_to_pass_median": 4.32,
+      "trades_mean": 6.24,
+      "worst_day_mean": -1.61,
+      "max_dd_mean": 7.12,
+      "end_balance_mean": 99313.2
+     },
+     "OOS": {
+      "n": 395.0,
+      "pass_pct": 6.18,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 47.92,
+      "fail_pct": 47.92,
+      "timeout_pct": 45.94,
+      "days_to_pass_median": 4.26,
+      "trades_mean": 6.12,
+      "worst_day_mean": -1.58,
+      "max_dd_mean": 7.14,
+      "end_balance_mean": 99098.8
+     }
+    },
+    "30": {
+     "IS": {
+      "n": 391.0,
+      "pass_pct": 15.66,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 84.04,
+      "fail_pct": 84.04,
+      "timeout_pct": 0.32,
+      "days_to_pass_median": 8.86,
+      "trades_mean": 8.66,
+      "worst_day_mean": -1.63,
+      "max_dd_mean": 7.96,
+      "end_balance_mean": 99203.2
+     },
+     "OOS": {
+      "n": 395.0,
+      "pass_pct": 12.56,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 85.36,
+      "fail_pct": 85.36,
+      "timeout_pct": 2.08,
+      "days_to_pass_median": 6.92,
+      "trades_mean": 8.18,
+      "worst_day_mean": -1.59,
+      "max_dd_mean": 7.97,
+      "end_balance_mean": 98714.2
+     }
+    }
+   },
+   "funded_5pct_30d": {
+    "IS": {
+     "n": 391,
+     "pass_pct": 44.0,
+     "pass_inconsistent_pct": 0.0,
+     "fail_daily_pct": 0.0,
+     "fail_max_pct": 56.0,
+     "fail_pct": 56.0,
+     "timeout_pct": 0.0,
+     "days_to_pass_median": 3.5,
+     "trades_mean": 6.5,
+     "worst_day_mean": -1.54,
+     "max_dd_mean": 6.73,
+     "end_balance_mean": 100296.0
+    },
+    "OOS": {
+     "n": 395,
+     "pass_pct": 37.5,
+     "pass_inconsistent_pct": 0.0,
+     "fail_daily_pct": 0.0,
+     "fail_max_pct": 60.5,
+     "fail_pct": 60.5,
+     "timeout_pct": 2.0,
+     "days_to_pass_median": 3.5,
+     "trades_mean": 6.5,
+     "worst_day_mean": -1.51,
+     "max_dd_mean": 7.0,
+     "end_balance_mean": 99265.0
+    }
+   },
+   "coin_funded_5pct_30d": {
+    "IS": {
+     "n": 391.0,
+     "pass_pct": 37.58,
+     "pass_inconsistent_pct": 0.0,
+     "fail_daily_pct": 0.0,
+     "fail_max_pct": 62.36,
+     "fail_pct": 62.36,
+     "timeout_pct": 0.06,
+     "days_to_pass_median": 3.76,
+     "trades_mean": 6.48,
+     "worst_day_mean": -1.56,
+     "max_dd_mean": 7.08,
+     "end_balance_mean": 99336.8
+    },
+    "OOS": {
+     "n": 395.0,
+     "pass_pct": 34.64,
+     "pass_inconsistent_pct": 0.0,
+     "fail_daily_pct": 0.0,
+     "fail_max_pct": 63.98,
+     "fail_pct": 63.98,
+     "timeout_pct": 1.36,
+     "days_to_pass_median": 3.58,
+     "trades_mean": 6.42,
+     "worst_day_mean": -1.52,
+     "max_dd_mean": 7.11,
+     "end_balance_mean": 99069.2
+    }
+   },
+   "ev_usd": {
+    "p_pass_7d": 0.106,
+    "p_first_payout": 0.375,
+    "ev_7d": -101.0,
+    "ev_30d": -17.0
+   },
+   "score_0_10": 2,
+   "math": {
+    "n": 553,
+    "win_rate": 0.284,
+    "avg_win_r": 2.475,
+    "avg_loss_r": -1.016,
+    "expectancy_r": -0.0252,
+    "long_share": 1.0,
+    "wins_needed": 4,
+    "p_streak": 0.0065,
+    "mc_pass_7d": 2.5,
+    "mc_burn_7d": 0.0
+   }
+  },
+  "e8_one_14": {
+   "config": {
+    "symbol": "BTCUSD",
+    "rule": "long",
+    "lookback_h": 24,
+    "entry_hours": [
+     8
+    ],
+    "sl_atr": 1.0,
+    "rr": 3.0,
+    "exit_hour": 23,
+    "trail": 0.0,
+    "risk": 1.5,
+    "max_trades_day": 1,
+    "day_stop": null,
+    "risk_on_balance": true
+   },
+   "fee_usd": 260,
+   "split": 0.8,
+   "by_days": {
+    "7": {
+     "IS": {
+      "n": 391,
+      "pass_pct": 0.5,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 0.0,
+      "fail_pct": 0.0,
+      "timeout_pct": 99.5,
+      "days_to_pass_median": 6.0,
+      "trades_mean": 7.0,
+      "worst_day_mean": -1.64,
+      "max_dd_mean": 7.37,
+      "end_balance_mean": 101181.0
+     },
+     "OOS": {
+      "n": 395,
+      "pass_pct": 0.8,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 0.0,
+      "fail_pct": 0.0,
+      "timeout_pct": 99.2,
+      "days_to_pass_median": 5.5,
+      "trades_mean": 6.9,
+      "worst_day_mean": -1.6,
+      "max_dd_mean": 7.61,
+      "end_balance_mean": 99777.0
+     }
+    },
+    "14": {
+     "IS": {
+      "n": 391,
+      "pass_pct": 7.7,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 16.4,
+      "fail_pct": 16.4,
+      "timeout_pct": 76.0,
+      "days_to_pass_median": 10.8,
+      "trades_mean": 13.4,
+      "worst_day_mean": -1.68,
+      "max_dd_mean": 10.3,
+      "end_balance_mean": 101789.0
+     },
+     "OOS": {
+      "n": 395,
+      "pass_pct": 4.8,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 20.8,
+      "fail_pct": 20.8,
+      "timeout_pct": 74.4,
+      "days_to_pass_median": 9.7,
+      "trades_mean": 13.2,
+      "worst_day_mean": -1.63,
+      "max_dd_mean": 10.82,
+      "end_balance_mean": 99439.0
+     }
+    },
+    "30": {
+     "IS": {
+      "n": 391,
+      "pass_pct": 16.4,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 54.2,
+      "fail_pct": 54.2,
+      "timeout_pct": 29.4,
+      "days_to_pass_median": 15.0,
+      "trades_mean": 21.5,
+      "worst_day_mean": -1.71,
+      "max_dd_mean": 12.6,
+      "end_balance_mean": 101644.0
+     },
+     "OOS": {
+      "n": 395,
+      "pass_pct": 10.4,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 64.1,
+      "fail_pct": 64.1,
+      "timeout_pct": 25.6,
+      "days_to_pass_median": 16.4,
+      "trades_mean": 20.7,
+      "worst_day_mean": -1.65,
+      "max_dd_mean": 12.98,
+      "end_balance_mean": 98301.0
+     }
+    }
+   },
+   "coin_by_days": {
+    "7": {
+     "IS": {
+      "n": 391.0,
+      "pass_pct": 0.12,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 0.3,
+      "fail_pct": 0.3,
+      "timeout_pct": 99.58,
+      "days_to_pass_median": 5.7,
+      "trades_mean": 7.0,
+      "worst_day_mean": -1.62,
+      "max_dd_mean": 7.9,
+      "end_balance_mean": 99280.6
+     },
+     "OOS": {
+      "n": 395.0,
+      "pass_pct": 0.38,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 0.62,
+      "fail_pct": 0.62,
+      "timeout_pct": 99.02,
+      "days_to_pass_median": 5.2,
+      "trades_mean": 6.9,
+      "worst_day_mean": -1.59,
+      "max_dd_mean": 8.04,
+      "end_balance_mean": 99189.2
+     }
+    },
+    "30": {
+     "IS": {
+      "n": 391.0,
+      "pass_pct": 6.5,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 70.14,
+      "fail_pct": 70.14,
+      "timeout_pct": 23.36,
+      "days_to_pass_median": 19.1,
+      "trades_mean": 20.78,
+      "worst_day_mean": -1.68,
+      "max_dd_mean": 13.36,
+      "end_balance_mean": 97164.6
+     },
+     "OOS": {
+      "n": 395.0,
+      "pass_pct": 4.5,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 72.34,
+      "fail_pct": 72.34,
+      "timeout_pct": 23.14,
+      "days_to_pass_median": 15.88,
+      "trades_mean": 19.62,
+      "worst_day_mean": -1.64,
+      "max_dd_mean": 13.42,
+      "end_balance_mean": 96518.8
+     }
+    }
+   },
+   "funded_5pct_30d": {
+    "IS": {
+     "n": 391,
+     "pass_pct": 63.4,
+     "pass_inconsistent_pct": 0.0,
+     "fail_daily_pct": 0.0,
+     "fail_max_pct": 29.4,
+     "fail_pct": 29.4,
+     "timeout_pct": 7.2,
+     "days_to_pass_median": 4.8,
+     "trades_mean": 11.9,
+     "worst_day_mean": -1.54,
+     "max_dd_mean": 9.2,
+     "end_balance_mean": 100915.0
+    },
+    "OOS": {
+     "n": 395,
+     "pass_pct": 54.2,
+     "pass_inconsistent_pct": 0.0,
+     "fail_daily_pct": 0.0,
+     "fail_max_pct": 34.9,
+     "fail_pct": 34.9,
+     "timeout_pct": 10.9,
+     "days_to_pass_median": 6.3,
+     "trades_mean": 13.5,
+     "worst_day_mean": -1.52,
+     "max_dd_mean": 9.88,
+     "end_balance_mean": 99373.0
+    }
+   },
+   "coin_funded_5pct_30d": {
+    "IS": {
+     "n": 391.0,
+     "pass_pct": 50.2,
+     "pass_inconsistent_pct": 0.0,
+     "fail_daily_pct": 0.0,
+     "fail_max_pct": 41.32,
+     "fail_pct": 41.32,
+     "timeout_pct": 8.42,
+     "days_to_pass_median": 5.4,
+     "trades_mean": 13.16,
+     "worst_day_mean": -1.57,
+     "max_dd_mean": 10.17,
+     "end_balance_mean": 98587.0
+    },
+    "OOS": {
+     "n": 395.0,
+     "pass_pct": 50.66,
+     "pass_inconsistent_pct": 0.0,
+     "fail_daily_pct": 0.0,
+     "fail_max_pct": 41.2,
+     "fail_pct": 41.2,
+     "timeout_pct": 8.1,
+     "days_to_pass_median": 5.9,
+     "trades_mean": 12.7,
+     "worst_day_mean": -1.53,
+     "max_dd_mean": 10.18,
+     "end_balance_mean": 98606.0
+    }
+   },
+   "ev_usd": {
+    "p_pass_7d": 0.008,
+    "p_first_payout": 0.542,
+    "ev_7d": -243.0,
+    "ev_30d": -35.0
+   },
+   "score_0_10": 4,
+   "math": {
+    "n": 553,
+    "win_rate": 0.284,
+    "avg_win_r": 2.475,
+    "avg_loss_r": -1.016,
+    "expectancy_r": -0.0252,
+    "long_share": 1.0,
+    "wins_needed": 6,
+    "p_streak": 0.0005,
+    "mc_pass_7d": 0.0,
+    "mc_burn_7d": 0.0
+   }
+  },
+  "the5ers_hyper": {
+   "config": {
+    "symbol": "BTCUSD",
+    "rule": "long",
+    "lookback_h": 24,
+    "entry_hours": [
+     8
+    ],
+    "sl_atr": 1.0,
+    "rr": 3.0,
+    "exit_hour": 23,
+    "trail": 0.0,
+    "risk": 1.5,
+    "max_trades_day": 1,
+    "day_stop": null,
+    "risk_on_balance": true
+   },
+   "fee_usd": 260,
+   "split": 0.8,
+   "by_days": {
+    "7": {
+     "IS": {
+      "n": 391,
+      "pass_pct": 18.9,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 26.1,
+      "fail_pct": 26.1,
+      "timeout_pct": 55.0,
+      "days_to_pass_median": 4.4,
+      "trades_mean": 6.0,
+      "worst_day_mean": -1.6,
+      "max_dd_mean": 6.59,
+      "end_balance_mean": 100929.0
+     },
+     "OOS": {
+      "n": 395,
+      "pass_pct": 14.2,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 35.7,
+      "fail_pct": 35.7,
+      "timeout_pct": 50.1,
+      "days_to_pass_median": 4.2,
+      "trades_mean": 5.9,
+      "worst_day_mean": -1.56,
+      "max_dd_mean": 6.72,
+      "end_balance_mean": 99728.0
+     }
+    },
+    "14": {
+     "IS": {
+      "n": 391,
+      "pass_pct": 26.6,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 46.8,
+      "fail_pct": 46.8,
+      "timeout_pct": 26.6,
+      "days_to_pass_median": 4.8,
+      "trades_mean": 8.8,
+      "worst_day_mean": -1.61,
+      "max_dd_mean": 8.03,
+      "end_balance_mean": 100398.0
+     },
+     "OOS": {
+      "n": 395,
+      "pass_pct": 21.5,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 54.9,
+      "fail_pct": 54.9,
+      "timeout_pct": 23.5,
+      "days_to_pass_median": 4.7,
+      "trades_mean": 8.3,
+      "worst_day_mean": -1.57,
+      "max_dd_mean": 7.96,
+      "end_balance_mean": 99293.0
+     }
+    },
+    "30": {
+     "IS": {
+      "n": 391,
+      "pass_pct": 35.5,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 60.4,
+      "fail_pct": 60.4,
+      "timeout_pct": 4.1,
+      "days_to_pass_median": 6.7,
+      "trades_mean": 10.9,
+      "worst_day_mean": -1.61,
+      "max_dd_mean": 8.89,
+      "end_balance_mean": 100413.0
+     },
+     "OOS": {
+      "n": 395,
+      "pass_pct": 26.8,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 65.3,
+      "fail_pct": 65.3,
+      "timeout_pct": 7.8,
+      "days_to_pass_median": 6.5,
+      "trades_mean": 10.1,
+      "worst_day_mean": -1.57,
+      "max_dd_mean": 8.58,
+      "end_balance_mean": 99138.0
+     }
+    }
+   },
+   "coin_by_days": {
+    "7": {
+     "IS": {
+      "n": 391.0,
+      "pass_pct": 9.44,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 32.58,
+      "fail_pct": 32.58,
+      "timeout_pct": 58.0,
+      "days_to_pass_median": 4.52,
+      "trades_mean": 6.14,
+      "worst_day_mean": -1.6,
+      "max_dd_mean": 7.1,
+      "end_balance_mean": 99418.6
+     },
+     "OOS": {
+      "n": 395.0,
+      "pass_pct": 9.76,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 34.58,
+      "fail_pct": 34.58,
+      "timeout_pct": 55.64,
+      "days_to_pass_median": 4.5,
+      "trades_mean": 6.0,
+      "worst_day_mean": -1.57,
+      "max_dd_mean": 7.15,
+      "end_balance_mean": 99201.8
+     }
+    },
+    "30": {
+     "IS": {
+      "n": 391.0,
+      "pass_pct": 25.94,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 69.2,
+      "fail_pct": 69.2,
+      "timeout_pct": 4.86,
+      "days_to_pass_median": 9.0,
+      "trades_mean": 11.14,
+      "worst_day_mean": -1.62,
+      "max_dd_mean": 9.34,
+      "end_balance_mean": 98777.0
+     },
+     "OOS": {
+      "n": 395.0,
+      "pass_pct": 24.18,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 70.24,
+      "fail_pct": 70.24,
+      "timeout_pct": 5.58,
+      "days_to_pass_median": 8.26,
+      "trades_mean": 10.54,
+      "worst_day_mean": -1.58,
+      "max_dd_mean": 9.35,
+      "end_balance_mean": 98458.6
+     }
+    }
+   },
+   "funded_5pct_30d": {
+    "IS": {
+     "n": 391,
+     "pass_pct": 48.8,
+     "pass_inconsistent_pct": 0.0,
+     "fail_daily_pct": 0.0,
+     "fail_max_pct": 51.2,
+     "fail_pct": 51.2,
+     "timeout_pct": 0.0,
+     "days_to_pass_median": 3.5,
+     "trades_mean": 7.0,
+     "worst_day_mean": -1.53,
+     "max_dd_mean": 7.18,
+     "end_balance_mean": 100170.0
+    },
+    "OOS": {
+     "n": 395,
+     "pass_pct": 39.5,
+     "pass_inconsistent_pct": 0.0,
+     "fail_daily_pct": 0.0,
+     "fail_max_pct": 58.2,
+     "fail_pct": 58.2,
+     "timeout_pct": 2.3,
+     "days_to_pass_median": 3.7,
+     "trades_mean": 7.0,
+     "worst_day_mean": -1.51,
+     "max_dd_mean": 7.24,
+     "end_balance_mean": 99187.0
+    }
+   },
+   "coin_funded_5pct_30d": {
+    "IS": {
+     "n": 391.0,
+     "pass_pct": 40.66,
+     "pass_inconsistent_pct": 0.0,
+     "fail_daily_pct": 0.0,
+     "fail_max_pct": 59.06,
+     "fail_pct": 59.06,
+     "timeout_pct": 0.32,
+     "days_to_pass_median": 4.04,
+     "trades_mean": 7.36,
+     "worst_day_mean": -1.56,
+     "max_dd_mean": 7.58,
+     "end_balance_mean": 99091.8
+    },
+    "OOS": {
+     "n": 395.0,
+     "pass_pct": 40.44,
+     "pass_inconsistent_pct": 0.0,
+     "fail_daily_pct": 0.0,
+     "fail_max_pct": 58.14,
+     "fail_pct": 58.14,
+     "timeout_pct": 1.42,
+     "days_to_pass_median": 4.22,
+     "trades_mean": 7.2,
+     "worst_day_mean": -1.52,
+     "max_dd_mean": 7.58,
+     "end_balance_mean": 99143.4
+    }
+   },
+   "ev_usd": {
+    "p_pass_7d": 0.142,
+    "p_first_payout": 0.395,
+    "ev_7d": -36.0,
+    "ev_30d": 163.0
+   },
+   "score_0_10": 2,
+   "math": {
+    "n": 553,
+    "win_rate": 0.284,
+    "avg_win_r": 2.475,
+    "avg_loss_r": -1.016,
+    "expectancy_r": -0.0252,
+    "long_share": 1.0,
+    "wins_needed": 3,
+    "p_streak": 0.0229,
+    "mc_pass_7d": 3.6,
+    "mc_burn_7d": 26.0
+   }
+  },
+  "ftmo_p1": {
+   "config": {
+    "symbol": "BTCUSD",
+    "rule": "long",
+    "lookback_h": 24,
+    "entry_hours": [
+     8
+    ],
+    "sl_atr": 1.0,
+    "rr": 3.0,
+    "exit_hour": 23,
+    "trail": 0.0,
+    "risk": 1.5,
+    "max_trades_day": 1,
+    "day_stop": null,
+    "risk_on_balance": true
+   },
+   "fee_usd": 0.0,
+   "split": 0.8,
+   "by_days": {
+    "7": {
+     "IS": {
+      "n": 391,
+      "pass_pct": 10.2,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 0.3,
+      "fail_pct": 0.3,
+      "timeout_pct": 89.5,
+      "days_to_pass_median": 5.6,
+      "trades_mean": 6.8,
+      "worst_day_mean": -1.43,
+      "max_dd_mean": 5.52,
+      "end_balance_mean": 101100.0
+     },
+     "OOS": {
+      "n": 395,
+      "pass_pct": 3.0,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 0.0,
+      "fail_pct": 0.0,
+      "timeout_pct": 97.0,
+      "days_to_pass_median": 5.6,
+      "trades_mean": 6.9,
+      "worst_day_mean": -1.31,
+      "max_dd_mean": 5.21,
+      "end_balance_mean": 99602.0
+     }
+    },
+    "14": {
+     "IS": {
+      "n": 391,
+      "pass_pct": 22.0,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 5.6,
+      "fail_pct": 5.6,
+      "timeout_pct": 72.4,
+      "days_to_pass_median": 7.5,
+      "trades_mean": 12.5,
+      "worst_day_mean": -1.5,
+      "max_dd_mean": 7.52,
+      "end_balance_mean": 101684.0
+     },
+     "OOS": {
+      "n": 395,
+      "pass_pct": 8.9,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 8.9,
+      "fail_pct": 8.9,
+      "timeout_pct": 82.3,
+      "days_to_pass_median": 8.7,
+      "trades_mean": 13.2,
+      "worst_day_mean": -1.38,
+      "max_dd_mean": 7.48,
+      "end_balance_mean": 99104.0
+     }
+    },
+    "30": {
+     "IS": {
+      "n": 391,
+      "pass_pct": 39.4,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 18.9,
+      "fail_pct": 18.9,
+      "timeout_pct": 41.7,
+      "days_to_pass_median": 12.2,
+      "trades_mean": 21.6,
+      "worst_day_mean": -1.53,
+      "max_dd_mean": 9.5,
+      "end_balance_mean": 102639.0
+     },
+     "OOS": {
+      "n": 395,
+      "pass_pct": 17.5,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 30.1,
+      "fail_pct": 30.1,
+      "timeout_pct": 52.4,
+      "days_to_pass_median": 12.8,
+      "trades_mean": 23.5,
+      "worst_day_mean": -1.41,
+      "max_dd_mean": 9.81,
+      "end_balance_mean": 98179.0
+     }
+    }
+   },
+   "coin_by_days": {
+    "7": {
+     "IS": {
+      "n": 391.0,
+      "pass_pct": 4.96,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 0.32,
+      "fail_pct": 0.32,
+      "timeout_pct": 94.74,
+      "days_to_pass_median": 5.6,
+      "trades_mean": 6.9,
+      "worst_day_mean": -1.44,
+      "max_dd_mean": 5.94,
+      "end_balance_mean": 99694.4
+     },
+     "OOS": {
+      "n": 395.0,
+      "pass_pct": 4.02,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 0.0,
+      "fail_pct": 0.0,
+      "timeout_pct": 95.98,
+      "days_to_pass_median": 5.74,
+      "trades_mean": 6.9,
+      "worst_day_mean": -1.32,
+      "max_dd_mean": 5.45,
+      "end_balance_mean": 99589.2
+     }
+    },
+    "30": {
+     "IS": {
+      "n": 391.0,
+      "pass_pct": 24.22,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 30.04,
+      "fail_pct": 30.04,
+      "timeout_pct": 45.78,
+      "days_to_pass_median": 13.62,
+      "trades_mean": 22.86,
+      "worst_day_mean": -1.54,
+      "max_dd_mean": 10.66,
+      "end_balance_mean": 98844.6
+     },
+     "OOS": {
+      "n": 395.0,
+      "pass_pct": 19.14,
+      "pass_inconsistent_pct": 0.0,
+      "fail_daily_pct": 0.0,
+      "fail_max_pct": 26.12,
+      "fail_pct": 26.12,
+      "timeout_pct": 54.74,
+      "days_to_pass_median": 13.74,
+      "trades_mean": 23.36,
+      "worst_day_mean": -1.46,
+      "max_dd_mean": 10.09,
+      "end_balance_mean": 98746.2
+     }
+    }
+   },
+   "funded_5pct_30d": {
+    "IS": {
+     "n": 391,
+     "pass_pct": 61.4,
+     "pass_inconsistent_pct": 0.0,
+     "fail_daily_pct": 0.0,
+     "fail_max_pct": 17.6,
+     "fail_pct": 17.6,
+     "timeout_pct": 21.0,
+     "days_to_pass_median": 6.9,
+     "trades_mean": 15.7,
+     "worst_day_mean": -1.41,
+     "max_dd_mean": 8.06,
+     "end_balance_mean": 101485.0
+    },
+    "OOS": {
+     "n": 395,
+     "pass_pct": 43.0,
+     "pass_inconsistent_pct": 0.0,
+     "fail_daily_pct": 0.0,
+     "fail_max_pct": 28.9,
+     "fail_pct": 28.9,
+     "timeout_pct": 28.1,
+     "days_to_pass_median": 8.5,
+     "trades_mean": 18.1,
+     "worst_day_mean": -1.31,
+     "max_dd_mean": 8.04,
+     "end_balance_mean": 98854.0
+    }
+   },
+   "coin_funded_5pct_30d": {
+    "IS": {
+     "n": 391.0,
+     "pass_pct": 47.88,
+     "pass_inconsistent_pct": 0.0,
+     "fail_daily_pct": 0.0,
+     "fail_max_pct": 28.62,
+     "fail_pct": 28.62,
+     "timeout_pct": 23.48,
+     "days_to_pass_median": 7.38,
+     "trades_mean": 16.96,
+     "worst_day_mean": -1.45,
+     "max_dd_mean": 8.76,
+     "end_balance_mean": 99290.8
+    },
+    "OOS": {
+     "n": 395.0,
+     "pass_pct": 44.58,
+     "pass_inconsistent_pct": 0.0,
+     "fail_daily_pct": 0.0,
+     "fail_max_pct": 24.9,
+     "fail_pct": 24.9,
+     "timeout_pct": 30.48,
+     "days_to_pass_median": 8.7,
+     "trades_mean": 18.06,
+     "worst_day_mean": -1.36,
+     "max_dd_mean": 8.42,
+     "end_balance_mean": 99331.0
+    }
+   },
+   "p2_pass_30d_OOS": 43.0,
+   "ev_usd": {
+    "p_pass_7d": 0.0129,
+    "p_first_payout": 0.43,
+    "ev_7d": 22.0,
+    "ev_30d": 129.0
+   },
+   "score_0_10": 6,
+   "math": {
+    "n": 553,
+    "win_rate": 0.284,
+    "avg_win_r": 2.475,
+    "avg_loss_r": -1.016,
+    "expectancy_r": -0.0252,
+    "long_share": 1.0,
+    "wins_needed": 3,
+    "p_streak": 0.0229,
+    "mc_pass_7d": 3.6,
+    "mc_burn_7d": 0.0
+   }
+  }
+ },
+ "candidatos": [
+  {
+   "symbol": "BTCUSD",
+   "rule": "long",
+   "lookback_h": 24,
+   "entry_hours": [
+    8
+   ],
+   "sl_atr": 1.0,
+   "rr": 3.0,
+   "exit_hour": 23,
+   "trail": 0.0,
+   "risk": 1.5,
+   "max_trades_day": 1,
+   "day_stop": null,
+   "risk_on_balance": true
+  },
+  {
+   "symbol": "BTCUSD",
+   "rule": "long",
+   "lookback_h": 24,
+   "entry_hours": [
+    8
+   ],
+   "sl_atr": 1.0,
+   "rr": 3.0,
+   "exit_hour": 23,
+   "trail": 0.0,
+   "risk": 1.5,
+   "max_trades_day": 1,
+   "day_stop": 2.5,
+   "risk_on_balance": true
+  },
+  {
+   "symbol": "BTCUSD",
+   "rule": "long",
+   "lookback_h": 24,
+   "entry_hours": [
+    8
+   ],
+   "sl_atr": 1.0,
+   "rr": 3.0,
+   "exit_hour": 23,
+   "trail": 0.0,
+   "risk": 1.5,
+   "max_trades_day": 1,
+   "day_stop": null,
+   "risk_on_balance": false
+  },
+  {
+   "symbol": "XAUUSD",
+   "rule": "momentum",
+   "lookback_h": 4,
+   "entry_hours": [
+    1
+   ],
+   "sl_atr": 2.0,
+   "rr": 2.0,
+   "exit_hour": 22,
+   "trail": 0.0,
+   "risk": 2.0,
+   "max_trades_day": 1,
+   "day_stop": null,
+   "risk_on_balance": true
+  },
+  {
+   "symbol": "XAUUSD",
+   "rule": "momentum",
+   "lookback_h": 4,
+   "entry_hours": [
+    1
+   ],
+   "sl_atr": 2.0,
+   "rr": 2.0,
+   "exit_hour": 22,
+   "trail": 0.0,
+   "risk": 2.0,
+   "max_trades_day": 1,
+   "day_stop": null,
+   "risk_on_balance": false
+  },
+  {
+   "symbol": "XAUUSD",
+   "rule": "momentum",
+   "lookback_h": 4,
+   "entry_hours": [
+    1
+   ],
+   "sl_atr": 2.0,
+   "rr": 2.0,
+   "exit_hour": 22,
+   "trail": 0.0,
+   "risk": 2.0,
+   "max_trades_day": 1,
+   "day_stop": 2.5,
+   "risk_on_balance": true
+  },
+  {
+   "symbol": "USDJPY",
+   "rule": "momentum",
+   "lookback_h": 72,
+   "entry_hours": [
+    16
+   ],
+   "sl_atr": 1.0,
+   "rr": 3.0,
+   "exit_hour": 22,
+   "trail": 0.0,
+   "risk": 1.5,
+   "max_trades_day": 1,
+   "day_stop": 2.5,
+   "risk_on_balance": true
+  },
+  {
+   "symbol": "USDJPY",
+   "rule": "momentum",
+   "lookback_h": 72,
+   "entry_hours": [
+    16
+   ],
+   "sl_atr": 1.0,
+   "rr": 3.0,
+   "exit_hour": 22,
+   "trail": 0.0,
+   "risk": 1.5,
+   "max_trades_day": 1,
+   "day_stop": null,
+   "risk_on_balance": true
+  },
+  {
+   "symbol": "USDJPY",
+   "rule": "momentum",
+   "lookback_h": 24,
+   "entry_hours": [
+    10
+   ],
+   "sl_atr": 2.0,
+   "rr": 2.0,
+   "exit_hour": 22,
+   "trail": 0.0,
+   "risk": 2.0,
+   "max_trades_day": 1,
+   "day_stop": 2.5,
+   "risk_on_balance": true
+  }
+ ],
+ "trade_stats": [
+  {
+   "stage": "trade_stats",
+   "symbol": "BTCUSD",
+   "rule": "coin",
+   "lookback_h": 24,
+   "entry_hours": "[8]",
+   "sl_atr": 1.0,
+   "rr": 3.0,
+   "exit_hour": 23,
+   "trail": 0.0,
+   "seed": 1,
+   "IS": {
+    "n": 546,
+    "win_rate": 0.264,
+    "avg_win_r": 2.342,
+    "avg_loss_r": -1.017,
+    "expectancy_r": -0.1308,
+    "long_share": 0.5
+   },
+   "OOS": {
+    "n": 553,
+    "win_rate": 0.259,
+    "avg_win_r": 2.339,
+    "avg_loss_r": -1.012,
+    "expectancy_r": -0.1458,
+    "long_share": 0.524
+   }
+  },
+  {
+   "stage": "trade_stats",
+   "symbol": "BTCUSD",
+   "rule": "coin",
+   "lookback_h": 24,
+   "entry_hours": "[8]",
+   "sl_atr": 1.0,
+   "rr": 3.0,
+   "exit_hour": 23,
+   "trail": 0.0,
+   "seed": 2,
+   "IS": {
+    "n": 546,
+    "win_rate": 0.28,
+    "avg_win_r": 2.454,
+    "avg_loss_r": -1.022,
+    "expectancy_r": -0.048,
+    "long_share": 0.482
+   },
+   "OOS": {
+    "n": 553,
+    "win_rate": 0.286,
+    "avg_win_r": 2.485,
+    "avg_loss_r": -1.005,
+    "expectancy_r": -0.0079,
+    "long_share": 0.472
+   }
+  },
+  {
+   "stage": "trade_stats",
+   "symbol": "BTCUSD",
+   "rule": "coin",
+   "lookback_h": 24,
+   "entry_hours": "[8]",
+   "sl_atr": 1.0,
+   "rr": 3.0,
+   "exit_hour": 23,
+   "trail": 0.0,
+   "seed": 3,
+   "IS": {
+    "n": 546,
+    "win_rate": 0.291,
+    "avg_win_r": 2.317,
+    "avg_loss_r": -1.023,
+    "expectancy_r": -0.0502,
+    "long_share": 0.498
+   },
+   "OOS": {
+    "n": 553,
+    "win_rate": 0.255,
+    "avg_win_r": 2.536,
+    "avg_loss_r": -1.008,
+    "expectancy_r": -0.1048,
+    "long_share": 0.528
+   }
+  },
+  {
+   "stage": "trade_stats",
+   "symbol": "BTCUSD",
+   "rule": "long",
+   "lookback_h": 24,
+   "entry_hours": "[8]",
+   "sl_atr": 1.0,
+   "rr": 3.0,
+   "exit_hour": 23,
+   "trail": 0.0,
+   "seed": 0,
+   "IS": {
+    "n": 546,
+    "win_rate": 0.33,
+    "avg_win_r": 2.387,
+    "avg_loss_r": -1.016,
+    "expectancy_r": 0.1061,
+    "long_share": 1.0
+   },
+   "OOS": {
+    "n": 553,
+    "win_rate": 0.284,
+    "avg_win_r": 2.475,
+    "avg_loss_r": -1.016,
+    "expectancy_r": -0.0252,
+    "long_share": 1.0
+   }
+  },
+  {
+   "stage": "trade_stats",
+   "symbol": "BTCUSD",
+   "rule": "coin",
+   "lookback_h": 24,
+   "entry_hours": "[8]",
+   "sl_atr": 1.0,
+   "rr": 3.0,
+   "exit_hour": 23,
+   "trail": 0.0,
+   "seed": 4,
+   "IS": {
+    "n": 546,
+    "win_rate": 0.282,
+    "avg_win_r": 2.292,
+    "avg_loss_r": -1.019,
+    "expectancy_r": -0.0854,
+    "long_share": 0.48
+   },
+   "OOS": {
+    "n": 553,
+    "win_rate": 0.25,
+    "avg_win_r": 2.429,
+    "avg_loss_r": -1.01,
+    "expectancy_r": -0.1519,
+    "long_share": 0.488
+   }
+  },
+  {
+   "stage": "trade_stats",
+   "symbol": "BTCUSD",
+   "rule": "coin",
+   "lookback_h": 24,
+   "entry_hours": "[8]",
+   "sl_atr": 1.0,
+   "rr": 3.0,
+   "exit_hour": 23,
+   "trail": 0.0,
+   "seed": 5,
+   "IS": {
+    "n": 546,
+    "win_rate": 0.304,
+    "avg_win_r": 2.277,
+    "avg_loss_r": -1.024,
+    "expectancy_r": -0.0201,
+    "long_share": 0.509
+   },
+   "OOS": {
+    "n": 553,
+    "win_rate": 0.293,
+    "avg_win_r": 2.426,
+    "avg_loss_r": -1.005,
+    "expectancy_r": 0.0,
+    "long_share": 0.505
+   }
+  }
+ ],
+ "sesgo_largo_oro_ftmo_1step": {
+  "mean": {
+   "IS": 1.4,
+   "OOS": 2.3
+  },
+  "max": {
+   "IS": 5.0,
+   "OOS": 7.4
+  }
+ },
+ "sesgo_largo_btc_ftmo_1step": {
+  "mean": {
+   "IS": 5.9,
+   "OOS": 4.7
+  },
+  "max": {
+   "IS": 19.9,
+   "OOS": 15.9
+  }
+ },
+ "runtime_s": 1696,
+ "extra_mejor_oro_y_control": {
+  "XAUUSD": {
+   "config": {
+    "symbol": "XAUUSD",
+    "rule": "momentum",
+    "lookback_h": 4,
+    "entry_hours": [
+     1
+    ],
+    "sl_atr": 2.0,
+    "rr": 2.0,
+    "exit_hour": 22,
+    "trail": 0.0,
+    "risk": 2.0,
+    "max_trades_day": 1,
+    "day_stop": null,
+    "risk_on_balance": true
+   },
+   "by_firm": {
+    "ftmo_1step": {
+     "7": {
+      "IS": {
+       "n": 1689,
+       "pass_pct": 4.9,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.4,
+       "fail_max_pct": 2.9,
+       "fail_pct": 3.3,
+       "timeout_pct": 91.8,
+       "days_to_pass_median": 4.7,
+       "trades_mean": 4.8,
+       "worst_day_mean": -2.06,
+       "max_dd_mean": 6.13,
+       "end_balance_mean": 99935.0
+      },
+      "OOS": {
+       "n": 816,
+       "pass_pct": 3.4,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 4.9,
+       "fail_pct": 4.9,
+       "timeout_pct": 91.7,
+       "days_to_pass_median": 6.0,
+       "trades_mean": 4.8,
+       "worst_day_mean": -2.06,
+       "max_dd_mean": 6.07,
+       "end_balance_mean": 99947.0
+      }
+     },
+     "14": {
+      "IS": {
+       "n": 1689,
+       "pass_pct": 14.1,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 1.0,
+       "fail_max_pct": 29.9,
+       "fail_pct": 30.9,
+       "timeout_pct": 55.0,
+       "days_to_pass_median": 8.5,
+       "trades_mean": 8.5,
+       "worst_day_mean": -2.11,
+       "max_dd_mean": 8.0,
+       "end_balance_mean": 99746.0
+      },
+      "OOS": {
+       "n": 816,
+       "pass_pct": 16.3,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 30.3,
+       "fail_pct": 30.3,
+       "timeout_pct": 53.4,
+       "days_to_pass_median": 8.9,
+       "trades_mean": 8.5,
+       "worst_day_mean": -2.1,
+       "max_dd_mean": 7.74,
+       "end_balance_mean": 100126.0
+      }
+     },
+     "30": {
+      "IS": {
+       "n": 1689,
+       "pass_pct": 28.1,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 2.0,
+       "fail_max_pct": 61.2,
+       "fail_pct": 63.2,
+       "timeout_pct": 8.8,
+       "days_to_pass_median": 13.9,
+       "trades_mean": 11.8,
+       "worst_day_mean": -2.14,
+       "max_dd_mean": 8.97,
+       "end_balance_mean": 99808.0
+      },
+      "OOS": {
+       "n": 816,
+       "pass_pct": 29.3,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 59.9,
+       "fail_pct": 59.9,
+       "timeout_pct": 10.8,
+       "days_to_pass_median": 13.6,
+       "trades_mean": 11.7,
+       "worst_day_mean": -2.12,
+       "max_dd_mean": 8.61,
+       "end_balance_mean": 100255.0
+      }
+     },
+     "coin_7d": {
+      "IS": {
+       "n": 1689.0,
+       "pass_pct": 3.28,
+       "pass_inconsistent_pct": 0.1,
+       "fail_daily_pct": 0.74,
+       "fail_max_pct": 3.74,
+       "fail_pct": 4.48,
+       "timeout_pct": 92.12,
+       "days_to_pass_median": 5.46,
+       "trades_mean": 4.8,
+       "worst_day_mean": -2.08,
+       "max_dd_mean": 6.19,
+       "end_balance_mean": 99699.6
+      },
+      "OOS": {
+       "n": 816.0,
+       "pass_pct": 3.18,
+       "pass_inconsistent_pct": 0.04,
+       "fail_daily_pct": 0.36,
+       "fail_max_pct": 3.76,
+       "fail_pct": 4.12,
+       "timeout_pct": 92.66,
+       "days_to_pass_median": 5.78,
+       "trades_mean": 4.88,
+       "worst_day_mean": -2.06,
+       "max_dd_mean": 6.06,
+       "end_balance_mean": 99786.6
+      }
+     },
+     "funded_5pct_30d": {
+      "IS": {
+       "n": 1689,
+       "pass_pct": 47.7,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.8,
+       "fail_max_pct": 47.4,
+       "fail_pct": 48.2,
+       "timeout_pct": 4.1,
+       "days_to_pass_median": 6.9,
+       "trades_mean": 9.0,
+       "worst_day_mean": -1.99,
+       "max_dd_mean": 7.82,
+       "end_balance_mean": 99588.0
+      },
+      "OOS": {
+       "n": 816,
+       "pass_pct": 51.3,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 45.0,
+       "fail_pct": 45.0,
+       "timeout_pct": 3.7,
+       "days_to_pass_median": 7.6,
+       "trades_mean": 8.8,
+       "worst_day_mean": -1.98,
+       "max_dd_mean": 7.46,
+       "end_balance_mean": 100021.0
+      }
+     }
+    },
+    "fundingpips_1step": {
+     "7": {
+      "IS": {
+       "n": 1689,
+       "pass_pct": 5.0,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.4,
+       "fail_max_pct": 21.8,
+       "fail_pct": 22.2,
+       "timeout_pct": 72.8,
+       "days_to_pass_median": 4.7,
+       "trades_mean": 4.6,
+       "worst_day_mean": -2.07,
+       "max_dd_mean": 5.88,
+       "end_balance_mean": 99883.0
+      },
+      "OOS": {
+       "n": 816,
+       "pass_pct": 3.6,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 21.4,
+       "fail_pct": 21.4,
+       "timeout_pct": 75.0,
+       "days_to_pass_median": 5.8,
+       "trades_mean": 4.7,
+       "worst_day_mean": -2.06,
+       "max_dd_mean": 5.82,
+       "end_balance_mean": 99954.0
+      }
+     },
+     "14": {
+      "IS": {
+       "n": 1689,
+       "pass_pct": 14.2,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 1.0,
+       "fail_max_pct": 40.4,
+       "fail_pct": 41.4,
+       "timeout_pct": 44.4,
+       "days_to_pass_median": 8.5,
+       "trades_mean": 7.6,
+       "worst_day_mean": -2.11,
+       "max_dd_mean": 7.36,
+       "end_balance_mean": 99852.0
+      },
+      "OOS": {
+       "n": 816,
+       "pass_pct": 16.7,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 38.7,
+       "fail_pct": 38.7,
+       "timeout_pct": 44.6,
+       "days_to_pass_median": 8.9,
+       "trades_mean": 7.7,
+       "worst_day_mean": -2.1,
+       "max_dd_mean": 7.18,
+       "end_balance_mean": 100281.0
+      }
+     },
+     "30": {
+      "IS": {
+       "n": 1689,
+       "pass_pct": 27.6,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 1.7,
+       "fail_max_pct": 58.5,
+       "fail_pct": 60.2,
+       "timeout_pct": 12.1,
+       "days_to_pass_median": 13.8,
+       "trades_mean": 10.6,
+       "worst_day_mean": -2.13,
+       "max_dd_mean": 8.59,
+       "end_balance_mean": 99833.0
+      },
+      "OOS": {
+       "n": 816,
+       "pass_pct": 28.9,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 54.8,
+       "fail_pct": 54.8,
+       "timeout_pct": 16.3,
+       "days_to_pass_median": 13.2,
+       "trades_mean": 10.8,
+       "worst_day_mean": -2.12,
+       "max_dd_mean": 8.27,
+       "end_balance_mean": 100394.0
+      }
+     },
+     "coin_7d": {
+      "IS": {
+       "n": 1689.0,
+       "pass_pct": 3.44,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.7,
+       "fail_max_pct": 21.14,
+       "fail_pct": 21.84,
+       "timeout_pct": 74.72,
+       "days_to_pass_median": 5.44,
+       "trades_mean": 4.66,
+       "worst_day_mean": -2.08,
+       "max_dd_mean": 5.92,
+       "end_balance_mean": 99672.6
+      },
+      "OOS": {
+       "n": 816.0,
+       "pass_pct": 3.44,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.3,
+       "fail_max_pct": 20.94,
+       "fail_pct": 21.24,
+       "timeout_pct": 75.34,
+       "days_to_pass_median": 5.74,
+       "trades_mean": 4.7,
+       "worst_day_mean": -2.06,
+       "max_dd_mean": 5.79,
+       "end_balance_mean": 99784.6
+      }
+     },
+     "funded_5pct_30d": {
+      "IS": {
+       "n": 1689,
+       "pass_pct": 45.1,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.6,
+       "fail_max_pct": 52.5,
+       "fail_pct": 53.1,
+       "timeout_pct": 1.9,
+       "days_to_pass_median": 6.7,
+       "trades_mean": 7.2,
+       "worst_day_mean": -1.98,
+       "max_dd_mean": 7.01,
+       "end_balance_mean": 99688.0
+      },
+      "OOS": {
+       "n": 816,
+       "pass_pct": 47.8,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 49.8,
+       "fail_pct": 49.8,
+       "timeout_pct": 2.5,
+       "days_to_pass_median": 6.7,
+       "trades_mean": 7.3,
+       "worst_day_mean": -1.97,
+       "max_dd_mean": 6.74,
+       "end_balance_mean": 100028.0
+      }
+     }
+    },
+    "e8_one_8": {
+     "7": {
+      "IS": {
+       "n": 1689,
+       "pass_pct": 2.4,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 16.6,
+       "fail_pct": 16.6,
+       "timeout_pct": 81.1,
+       "days_to_pass_median": 5.6,
+       "trades_mean": 4.7,
+       "worst_day_mean": -2.08,
+       "max_dd_mean": 6.0,
+       "end_balance_mean": 99874.0
+      },
+      "OOS": {
+       "n": 816,
+       "pass_pct": 1.0,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 18.5,
+       "fail_pct": 18.5,
+       "timeout_pct": 80.5,
+       "days_to_pass_median": 6.0,
+       "trades_mean": 4.7,
+       "worst_day_mean": -2.06,
+       "max_dd_mean": 5.89,
+       "end_balance_mean": 99963.0
+      }
+     },
+     "14": {
+      "IS": {
+       "n": 1689,
+       "pass_pct": 8.7,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 53.5,
+       "fail_pct": 53.5,
+       "timeout_pct": 37.8,
+       "days_to_pass_median": 8.1,
+       "trades_mean": 7.7,
+       "worst_day_mean": -2.13,
+       "max_dd_mean": 7.29,
+       "end_balance_mean": 99810.0
+      },
+      "OOS": {
+       "n": 816,
+       "pass_pct": 8.8,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 51.5,
+       "fail_pct": 51.5,
+       "timeout_pct": 39.7,
+       "days_to_pass_median": 11.0,
+       "trades_mean": 7.8,
+       "worst_day_mean": -2.11,
+       "max_dd_mean": 7.12,
+       "end_balance_mean": 100177.0
+      }
+     },
+     "30": {
+      "IS": {
+       "n": 1689,
+       "pass_pct": 19.6,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 78.0,
+       "fail_pct": 78.0,
+       "timeout_pct": 2.4,
+       "days_to_pass_median": 14.9,
+       "trades_mean": 9.5,
+       "worst_day_mean": -2.17,
+       "max_dd_mean": 7.77,
+       "end_balance_mean": 100019.0
+      },
+      "OOS": {
+       "n": 816,
+       "pass_pct": 18.9,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 75.6,
+       "fail_pct": 75.6,
+       "timeout_pct": 5.5,
+       "days_to_pass_median": 14.7,
+       "trades_mean": 9.6,
+       "worst_day_mean": -2.12,
+       "max_dd_mean": 7.58,
+       "end_balance_mean": 100303.0
+      }
+     },
+     "coin_7d": {
+      "IS": {
+       "n": 1689.0,
+       "pass_pct": 1.14,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 18.36,
+       "fail_pct": 18.36,
+       "timeout_pct": 80.48,
+       "days_to_pass_median": 6.14,
+       "trades_mean": 4.8,
+       "worst_day_mean": -2.09,
+       "max_dd_mean": 6.06,
+       "end_balance_mean": 99645.4
+      },
+      "OOS": {
+       "n": 816.0,
+       "pass_pct": 1.36,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 17.74,
+       "fail_pct": 17.74,
+       "timeout_pct": 80.9,
+       "days_to_pass_median": 6.08,
+       "trades_mean": 4.8,
+       "worst_day_mean": -2.06,
+       "max_dd_mean": 5.91,
+       "end_balance_mean": 99766.0
+      }
+     }
+    },
+    "e8_one_14": {
+     "7": {
+      "IS": {
+       "n": 1689,
+       "pass_pct": 0.0,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 0.3,
+       "fail_pct": 0.3,
+       "timeout_pct": 99.7,
+       "days_to_pass_median": NaN,
+       "trades_mean": 4.9,
+       "worst_day_mean": -2.09,
+       "max_dd_mean": 6.17,
+       "end_balance_mean": 99956.0
+      },
+      "OOS": {
+       "n": 816,
+       "pass_pct": 0.0,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 0.0,
+       "fail_pct": 0.0,
+       "timeout_pct": 100.0,
+       "days_to_pass_median": NaN,
+       "trades_mean": 4.9,
+       "worst_day_mean": -2.07,
+       "max_dd_mean": 6.12,
+       "end_balance_mean": 99955.0
+      }
+     },
+     "14": {
+      "IS": {
+       "n": 1689,
+       "pass_pct": 1.2,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 5.7,
+       "fail_pct": 5.7,
+       "timeout_pct": 93.1,
+       "days_to_pass_median": 12.6,
+       "trades_mean": 9.6,
+       "worst_day_mean": -2.17,
+       "max_dd_mean": 8.8,
+       "end_balance_mean": 99924.0
+      },
+      "OOS": {
+       "n": 816,
+       "pass_pct": 0.2,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 7.4,
+       "fail_pct": 7.4,
+       "timeout_pct": 92.4,
+       "days_to_pass_median": 11.5,
+       "trades_mean": 9.6,
+       "worst_day_mean": -2.14,
+       "max_dd_mean": 8.65,
+       "end_balance_mean": 99997.0
+      }
+     },
+     "30": {
+      "IS": {
+       "n": 1689,
+       "pass_pct": 7.9,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 39.1,
+       "fail_pct": 39.1,
+       "timeout_pct": 53.0,
+       "days_to_pass_median": 20.6,
+       "trades_mean": 18.0,
+       "worst_day_mean": -2.26,
+       "max_dd_mean": 11.76,
+       "end_balance_mean": 99952.0
+      },
+      "OOS": {
+       "n": 816,
+       "pass_pct": 7.0,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 37.9,
+       "fail_pct": 37.9,
+       "timeout_pct": 55.1,
+       "days_to_pass_median": 22.7,
+       "trades_mean": 18.0,
+       "worst_day_mean": -2.23,
+       "max_dd_mean": 11.52,
+       "end_balance_mean": 100456.0
+      }
+     },
+     "coin_7d": {
+      "IS": {
+       "n": 1689.0,
+       "pass_pct": 0.0,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 0.26,
+       "fail_pct": 0.26,
+       "timeout_pct": 99.74,
+       "days_to_pass_median": NaN,
+       "trades_mean": 4.9,
+       "worst_day_mean": -2.09,
+       "max_dd_mean": 6.23,
+       "end_balance_mean": 99711.8
+      },
+      "OOS": {
+       "n": 816.0,
+       "pass_pct": 0.0,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 0.0,
+       "fail_pct": 0.0,
+       "timeout_pct": 100.0,
+       "days_to_pass_median": NaN,
+       "trades_mean": 4.9,
+       "worst_day_mean": -2.07,
+       "max_dd_mean": 6.1,
+       "end_balance_mean": 99808.0
+      }
+     }
+    },
+    "the5ers_hyper": {
+     "7": {
+      "IS": {
+       "n": 1689,
+       "pass_pct": 5.0,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.4,
+       "fail_max_pct": 21.8,
+       "fail_pct": 22.2,
+       "timeout_pct": 72.8,
+       "days_to_pass_median": 4.7,
+       "trades_mean": 4.6,
+       "worst_day_mean": -2.07,
+       "max_dd_mean": 5.88,
+       "end_balance_mean": 99883.0
+      },
+      "OOS": {
+       "n": 816,
+       "pass_pct": 3.6,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 21.4,
+       "fail_pct": 21.4,
+       "timeout_pct": 75.0,
+       "days_to_pass_median": 5.8,
+       "trades_mean": 4.7,
+       "worst_day_mean": -2.06,
+       "max_dd_mean": 5.82,
+       "end_balance_mean": 99954.0
+      }
+     },
+     "14": {
+      "IS": {
+       "n": 1689,
+       "pass_pct": 14.2,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 1.0,
+       "fail_max_pct": 40.4,
+       "fail_pct": 41.4,
+       "timeout_pct": 44.4,
+       "days_to_pass_median": 8.5,
+       "trades_mean": 7.6,
+       "worst_day_mean": -2.11,
+       "max_dd_mean": 7.36,
+       "end_balance_mean": 99852.0
+      },
+      "OOS": {
+       "n": 816,
+       "pass_pct": 16.7,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 38.7,
+       "fail_pct": 38.7,
+       "timeout_pct": 44.6,
+       "days_to_pass_median": 8.9,
+       "trades_mean": 7.7,
+       "worst_day_mean": -2.1,
+       "max_dd_mean": 7.18,
+       "end_balance_mean": 100281.0
+      }
+     },
+     "30": {
+      "IS": {
+       "n": 1689,
+       "pass_pct": 27.6,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 1.7,
+       "fail_max_pct": 58.5,
+       "fail_pct": 60.2,
+       "timeout_pct": 12.1,
+       "days_to_pass_median": 13.8,
+       "trades_mean": 10.6,
+       "worst_day_mean": -2.13,
+       "max_dd_mean": 8.59,
+       "end_balance_mean": 99833.0
+      },
+      "OOS": {
+       "n": 816,
+       "pass_pct": 28.9,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 54.8,
+       "fail_pct": 54.8,
+       "timeout_pct": 16.3,
+       "days_to_pass_median": 13.2,
+       "trades_mean": 10.8,
+       "worst_day_mean": -2.12,
+       "max_dd_mean": 8.27,
+       "end_balance_mean": 100394.0
+      }
+     },
+     "coin_7d": {
+      "IS": {
+       "n": 1689.0,
+       "pass_pct": 3.44,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.7,
+       "fail_max_pct": 21.14,
+       "fail_pct": 21.84,
+       "timeout_pct": 74.72,
+       "days_to_pass_median": 5.44,
+       "trades_mean": 4.66,
+       "worst_day_mean": -2.08,
+       "max_dd_mean": 5.92,
+       "end_balance_mean": 99672.6
+      },
+      "OOS": {
+       "n": 816.0,
+       "pass_pct": 3.44,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.3,
+       "fail_max_pct": 20.94,
+       "fail_pct": 21.24,
+       "timeout_pct": 75.34,
+       "days_to_pass_median": 5.74,
+       "trades_mean": 4.7,
+       "worst_day_mean": -2.06,
+       "max_dd_mean": 5.79,
+       "end_balance_mean": 99784.6
+      }
+     }
+    },
+    "ftmo_p1": {
+     "7": {
+      "IS": {
+       "n": 1689,
+       "pass_pct": 5.0,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 0.0,
+       "fail_pct": 0.0,
+       "timeout_pct": 95.0,
+       "days_to_pass_median": 5.6,
+       "trades_mean": 4.8,
+       "worst_day_mean": -2.07,
+       "max_dd_mean": 6.15,
+       "end_balance_mean": 99964.0
+      },
+      "OOS": {
+       "n": 816,
+       "pass_pct": 3.6,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 0.0,
+       "fail_pct": 0.0,
+       "timeout_pct": 96.4,
+       "days_to_pass_median": 5.8,
+       "trades_mean": 4.9,
+       "worst_day_mean": -2.06,
+       "max_dd_mean": 6.1,
+       "end_balance_mean": 99964.0
+      }
+     },
+     "14": {
+      "IS": {
+       "n": 1689,
+       "pass_pct": 14.3,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.1,
+       "fail_max_pct": 13.0,
+       "fail_pct": 13.1,
+       "timeout_pct": 72.6,
+       "days_to_pass_median": 8.5,
+       "trades_mean": 9.0,
+       "worst_day_mean": -2.13,
+       "max_dd_mean": 8.37,
+       "end_balance_mean": 99859.0
+      },
+      "OOS": {
+       "n": 816,
+       "pass_pct": 16.7,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 14.1,
+       "fail_pct": 14.1,
+       "timeout_pct": 69.2,
+       "days_to_pass_median": 8.9,
+       "trades_mean": 9.0,
+       "worst_day_mean": -2.11,
+       "max_dd_mean": 8.15,
+       "end_balance_mean": 100125.0
+      }
+     },
+     "30": {
+      "IS": {
+       "n": 1689,
+       "pass_pct": 30.7,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.2,
+       "fail_max_pct": 36.8,
+       "fail_pct": 37.0,
+       "timeout_pct": 32.3,
+       "days_to_pass_median": 14.7,
+       "trades_mean": 14.8,
+       "worst_day_mean": -2.18,
+       "max_dd_mean": 10.62,
+       "end_balance_mean": 99569.0
+      },
+      "OOS": {
+       "n": 816,
+       "pass_pct": 31.0,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 33.7,
+       "fail_pct": 33.7,
+       "timeout_pct": 35.3,
+       "days_to_pass_median": 13.7,
+       "trades_mean": 14.7,
+       "worst_day_mean": -2.14,
+       "max_dd_mean": 10.1,
+       "end_balance_mean": 100354.0
+      }
+     },
+     "coin_7d": {
+      "IS": {
+       "n": 1689.0,
+       "pass_pct": 3.36,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 0.0,
+       "fail_pct": 0.0,
+       "timeout_pct": 96.64,
+       "days_to_pass_median": 5.6,
+       "trades_mean": 4.82,
+       "worst_day_mean": -2.08,
+       "max_dd_mean": 6.22,
+       "end_balance_mean": 99725.6
+      },
+      "OOS": {
+       "n": 816.0,
+       "pass_pct": 3.36,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 0.0,
+       "fail_pct": 0.0,
+       "timeout_pct": 96.64,
+       "days_to_pass_median": 5.7,
+       "trades_mean": 4.9,
+       "worst_day_mean": -2.06,
+       "max_dd_mean": 6.09,
+       "end_balance_mean": 99806.0
+      }
+     }
+    }
+   },
+   "trade_stats": [
+    {
+     "stage": "trade_stats",
+     "symbol": "XAUUSD",
+     "rule": "momentum",
+     "lookback_h": 4,
+     "entry_hours": "[1]",
+     "sl_atr": 2.0,
+     "rr": 2.0,
+     "exit_hour": 22,
+     "trail": 0.0,
+     "seed": 0,
+     "IS": {
+      "n": 1653,
+      "win_rate": 0.416,
+      "avg_win_r": 1.207,
+      "avg_loss_r": -0.867,
+      "expectancy_r": -0.0034,
+      "long_share": 0.488
+     },
+     "OOS": {
+      "n": 799,
+      "win_rate": 0.424,
+      "avg_win_r": 1.187,
+      "avg_loss_r": -0.882,
+      "expectancy_r": -0.0041,
+      "long_share": 0.527
+     }
+    }
+   ]
+  },
+  "USDJPY": {
+   "config": {
+    "symbol": "USDJPY",
+    "rule": "momentum",
+    "lookback_h": 24,
+    "entry_hours": [
+     10
+    ],
+    "sl_atr": 2.0,
+    "rr": 2.0,
+    "exit_hour": 22,
+    "trail": 0.0,
+    "risk": 2.0,
+    "max_trades_day": 1,
+    "day_stop": 2.5,
+    "risk_on_balance": true
+   },
+   "by_firm": {
+    "ftmo_1step": {
+     "7": {
+      "IS": {
+       "n": 1580,
+       "pass_pct": 5.3,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.9,
+       "fail_max_pct": 4.9,
+       "fail_pct": 5.8,
+       "timeout_pct": 88.9,
+       "days_to_pass_median": 5.6,
+       "trades_mean": 4.9,
+       "worst_day_mean": -2.08,
+       "max_dd_mean": 6.18,
+       "end_balance_mean": 100315.0
+      },
+      "OOS": {
+       "n": 820,
+       "pass_pct": 4.1,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.4,
+       "fail_max_pct": 6.5,
+       "fail_pct": 6.9,
+       "timeout_pct": 89.0,
+       "days_to_pass_median": 5.8,
+       "trades_mean": 4.9,
+       "worst_day_mean": -2.12,
+       "max_dd_mean": 6.35,
+       "end_balance_mean": 99634.0
+      }
+     },
+     "14": {
+      "IS": {
+       "n": 1580,
+       "pass_pct": 15.9,
+       "pass_inconsistent_pct": 0.1,
+       "fail_daily_pct": 1.7,
+       "fail_max_pct": 31.6,
+       "fail_pct": 33.3,
+       "timeout_pct": 50.7,
+       "days_to_pass_median": 8.7,
+       "trades_mean": 8.6,
+       "worst_day_mean": -2.12,
+       "max_dd_mean": 8.03,
+       "end_balance_mean": 100378.0
+      },
+      "OOS": {
+       "n": 820,
+       "pass_pct": 13.3,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.4,
+       "fail_max_pct": 38.5,
+       "fail_pct": 38.9,
+       "timeout_pct": 47.8,
+       "days_to_pass_median": 8.6,
+       "trades_mean": 8.4,
+       "worst_day_mean": -2.15,
+       "max_dd_mean": 8.25,
+       "end_balance_mean": 99323.0
+      }
+     },
+     "30": {
+      "IS": {
+       "n": 1580,
+       "pass_pct": 30.3,
+       "pass_inconsistent_pct": 0.1,
+       "fail_daily_pct": 2.4,
+       "fail_max_pct": 58.9,
+       "fail_pct": 61.3,
+       "timeout_pct": 8.4,
+       "days_to_pass_median": 13.7,
+       "trades_mean": 11.7,
+       "worst_day_mean": -2.15,
+       "max_dd_mean": 8.91,
+       "end_balance_mean": 100599.0
+      },
+      "OOS": {
+       "n": 820,
+       "pass_pct": 24.0,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.4,
+       "fail_max_pct": 68.8,
+       "fail_pct": 69.2,
+       "timeout_pct": 6.8,
+       "days_to_pass_median": 12.7,
+       "trades_mean": 11.1,
+       "worst_day_mean": -2.17,
+       "max_dd_mean": 9.14,
+       "end_balance_mean": 98887.0
+      }
+     },
+     "coin_7d": {
+      "IS": {
+       "n": 1580.0,
+       "pass_pct": 4.1,
+       "pass_inconsistent_pct": 0.02,
+       "fail_daily_pct": 0.46,
+       "fail_max_pct": 4.76,
+       "fail_pct": 5.22,
+       "timeout_pct": 90.62,
+       "days_to_pass_median": 5.34,
+       "trades_mean": 4.9,
+       "worst_day_mean": -2.07,
+       "max_dd_mean": 6.13,
+       "end_balance_mean": 99844.8
+      },
+      "OOS": {
+       "n": 820.0,
+       "pass_pct": 3.48,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.36,
+       "fail_max_pct": 6.86,
+       "fail_pct": 7.22,
+       "timeout_pct": 89.28,
+       "days_to_pass_median": 5.6,
+       "trades_mean": 4.9,
+       "worst_day_mean": -2.12,
+       "max_dd_mean": 6.46,
+       "end_balance_mean": 99301.0
+      }
+     },
+     "funded_5pct_30d": {
+      "IS": {
+       "n": 1580,
+       "pass_pct": 52.0,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 1.6,
+       "fail_max_pct": 42.4,
+       "fail_pct": 44.0,
+       "timeout_pct": 4.1,
+       "days_to_pass_median": 6.9,
+       "trades_mean": 8.7,
+       "worst_day_mean": -1.98,
+       "max_dd_mean": 7.57,
+       "end_balance_mean": 100320.0
+      },
+      "OOS": {
+       "n": 820,
+       "pass_pct": 47.7,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.4,
+       "fail_max_pct": 50.4,
+       "fail_pct": 50.8,
+       "timeout_pct": 1.6,
+       "days_to_pass_median": 6.6,
+       "trades_mean": 8.4,
+       "worst_day_mean": -2.03,
+       "max_dd_mean": 7.8,
+       "end_balance_mean": 99294.0
+      }
+     }
+    },
+    "fundingpips_1step": {
+     "7": {
+      "IS": {
+       "n": 1580,
+       "pass_pct": 5.4,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.8,
+       "fail_max_pct": 17.5,
+       "fail_pct": 18.3,
+       "timeout_pct": 76.2,
+       "days_to_pass_median": 5.6,
+       "trades_mean": 4.7,
+       "worst_day_mean": -2.08,
+       "max_dd_mean": 5.97,
+       "end_balance_mean": 100266.0
+      },
+      "OOS": {
+       "n": 820,
+       "pass_pct": 4.1,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.2,
+       "fail_max_pct": 24.4,
+       "fail_pct": 24.6,
+       "timeout_pct": 71.2,
+       "days_to_pass_median": 5.8,
+       "trades_mean": 4.6,
+       "worst_day_mean": -2.12,
+       "max_dd_mean": 5.95,
+       "end_balance_mean": 99659.0
+      }
+     },
+     "14": {
+      "IS": {
+       "n": 1580,
+       "pass_pct": 16.8,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 1.6,
+       "fail_max_pct": 35.7,
+       "fail_pct": 37.3,
+       "timeout_pct": 45.9,
+       "days_to_pass_median": 8.8,
+       "trades_mean": 7.9,
+       "worst_day_mean": -2.13,
+       "max_dd_mean": 7.63,
+       "end_balance_mean": 100393.0
+      },
+      "OOS": {
+       "n": 820,
+       "pass_pct": 12.9,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.2,
+       "fail_max_pct": 44.3,
+       "fail_pct": 44.5,
+       "timeout_pct": 42.6,
+       "days_to_pass_median": 8.2,
+       "trades_mean": 7.5,
+       "worst_day_mean": -2.15,
+       "max_dd_mean": 7.63,
+       "end_balance_mean": 99341.0
+      }
+     },
+     "30": {
+      "IS": {
+       "n": 1580,
+       "pass_pct": 32.3,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 2.7,
+       "fail_max_pct": 51.5,
+       "fail_pct": 54.2,
+       "timeout_pct": 13.5,
+       "days_to_pass_median": 13.9,
+       "trades_mean": 11.2,
+       "worst_day_mean": -2.15,
+       "max_dd_mean": 8.78,
+       "end_balance_mean": 100679.0
+      },
+      "OOS": {
+       "n": 820,
+       "pass_pct": 24.8,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.2,
+       "fail_max_pct": 64.1,
+       "fail_pct": 64.3,
+       "timeout_pct": 10.9,
+       "days_to_pass_median": 13.6,
+       "trades_mean": 10.2,
+       "worst_day_mean": -2.16,
+       "max_dd_mean": 8.82,
+       "end_balance_mean": 99030.0
+      }
+     },
+     "coin_7d": {
+      "IS": {
+       "n": 1580.0,
+       "pass_pct": 4.32,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.44,
+       "fail_max_pct": 19.28,
+       "fail_pct": 19.72,
+       "timeout_pct": 75.94,
+       "days_to_pass_median": 5.46,
+       "trades_mean": 4.74,
+       "worst_day_mean": -2.08,
+       "max_dd_mean": 5.89,
+       "end_balance_mean": 99861.4
+      },
+      "OOS": {
+       "n": 820.0,
+       "pass_pct": 3.52,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.36,
+       "fail_max_pct": 23.56,
+       "fail_pct": 23.92,
+       "timeout_pct": 72.54,
+       "days_to_pass_median": 5.6,
+       "trades_mean": 4.64,
+       "worst_day_mean": -2.12,
+       "max_dd_mean": 6.12,
+       "end_balance_mean": 99317.8
+      }
+     },
+     "funded_5pct_30d": {
+      "IS": {
+       "n": 1580,
+       "pass_pct": 49.7,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 1.5,
+       "fail_max_pct": 46.3,
+       "fail_pct": 47.8,
+       "timeout_pct": 2.4,
+       "days_to_pass_median": 6.7,
+       "trades_mean": 7.4,
+       "worst_day_mean": -1.98,
+       "max_dd_mean": 7.04,
+       "end_balance_mean": 100254.0
+      },
+      "OOS": {
+       "n": 820,
+       "pass_pct": 44.8,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.2,
+       "fail_max_pct": 53.4,
+       "fail_pct": 53.6,
+       "timeout_pct": 1.6,
+       "days_to_pass_median": 5.9,
+       "trades_mean": 6.6,
+       "worst_day_mean": -2.02,
+       "max_dd_mean": 6.92,
+       "end_balance_mean": 99522.0
+      }
+     }
+    },
+    "e8_one_8": {
+     "7": {
+      "IS": {
+       "n": 1580,
+       "pass_pct": 2.0,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 19.7,
+       "fail_pct": 19.7,
+       "timeout_pct": 78.2,
+       "days_to_pass_median": 5.7,
+       "trades_mean": 4.8,
+       "worst_day_mean": -2.08,
+       "max_dd_mean": 6.05,
+       "end_balance_mean": 100202.0
+      },
+      "OOS": {
+       "n": 820,
+       "pass_pct": 1.3,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 24.4,
+       "fail_pct": 24.4,
+       "timeout_pct": 74.3,
+       "days_to_pass_median": 4.7,
+       "trades_mean": 4.8,
+       "worst_day_mean": -2.13,
+       "max_dd_mean": 6.13,
+       "end_balance_mean": 99598.0
+      }
+     },
+     "14": {
+      "IS": {
+       "n": 1580,
+       "pass_pct": 9.7,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 57.9,
+       "fail_pct": 57.9,
+       "timeout_pct": 32.4,
+       "days_to_pass_median": 9.9,
+       "trades_mean": 7.7,
+       "worst_day_mean": -2.14,
+       "max_dd_mean": 7.44,
+       "end_balance_mean": 100169.0
+      },
+      "OOS": {
+       "n": 820,
+       "pass_pct": 7.4,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 61.7,
+       "fail_pct": 61.7,
+       "timeout_pct": 30.9,
+       "days_to_pass_median": 8.9,
+       "trades_mean": 7.5,
+       "worst_day_mean": -2.17,
+       "max_dd_mean": 7.43,
+       "end_balance_mean": 99291.0
+      }
+     },
+     "30": {
+      "IS": {
+       "n": 1580,
+       "pass_pct": 18.2,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 79.5,
+       "fail_pct": 79.5,
+       "timeout_pct": 2.3,
+       "days_to_pass_median": 13.7,
+       "trades_mean": 9.2,
+       "worst_day_mean": -2.15,
+       "max_dd_mean": 7.87,
+       "end_balance_mean": 100273.0
+      },
+      "OOS": {
+       "n": 820,
+       "pass_pct": 13.8,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 83.9,
+       "fail_pct": 83.9,
+       "timeout_pct": 2.3,
+       "days_to_pass_median": 13.4,
+       "trades_mean": 8.7,
+       "worst_day_mean": -2.18,
+       "max_dd_mean": 7.85,
+       "end_balance_mean": 99039.0
+      }
+     },
+     "coin_7d": {
+      "IS": {
+       "n": 1580.0,
+       "pass_pct": 1.74,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 18.94,
+       "fail_pct": 18.94,
+       "timeout_pct": 79.32,
+       "days_to_pass_median": 5.88,
+       "trades_mean": 4.8,
+       "worst_day_mean": -2.08,
+       "max_dd_mean": 5.99,
+       "end_balance_mean": 99806.0
+      },
+      "OOS": {
+       "n": 820.0,
+       "pass_pct": 1.38,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 23.7,
+       "fail_pct": 23.7,
+       "timeout_pct": 74.9,
+       "days_to_pass_median": 5.26,
+       "trades_mean": 4.8,
+       "worst_day_mean": -2.13,
+       "max_dd_mean": 6.25,
+       "end_balance_mean": 99241.4
+      }
+     }
+    },
+    "e8_one_14": {
+     "7": {
+      "IS": {
+       "n": 1580,
+       "pass_pct": 0.0,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 0.0,
+       "fail_pct": 0.0,
+       "timeout_pct": 100.0,
+       "days_to_pass_median": NaN,
+       "trades_mean": 5.0,
+       "worst_day_mean": -2.1,
+       "max_dd_mean": 6.25,
+       "end_balance_mean": 100339.0
+      },
+      "OOS": {
+       "n": 820,
+       "pass_pct": 0.0,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 0.0,
+       "fail_pct": 0.0,
+       "timeout_pct": 100.0,
+       "days_to_pass_median": NaN,
+       "trades_mean": 5.0,
+       "worst_day_mean": -2.13,
+       "max_dd_mean": 6.4,
+       "end_balance_mean": 99655.0
+      }
+     },
+     "14": {
+      "IS": {
+       "n": 1580,
+       "pass_pct": 0.4,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 4.3,
+       "fail_pct": 4.3,
+       "timeout_pct": 95.3,
+       "days_to_pass_median": 12.4,
+       "trades_mean": 9.9,
+       "worst_day_mean": -2.19,
+       "max_dd_mean": 8.85,
+       "end_balance_mean": 100660.0
+      },
+      "OOS": {
+       "n": 820,
+       "pass_pct": 0.4,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 8.0,
+       "fail_pct": 8.0,
+       "timeout_pct": 91.6,
+       "days_to_pass_median": 11.9,
+       "trades_mean": 9.8,
+       "worst_day_mean": -2.2,
+       "max_dd_mean": 9.3,
+       "end_balance_mean": 99266.0
+      }
+     },
+     "30": {
+      "IS": {
+       "n": 1580,
+       "pass_pct": 5.9,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 33.4,
+       "fail_pct": 33.4,
+       "timeout_pct": 60.7,
+       "days_to_pass_median": 21.7,
+       "trades_mean": 19.2,
+       "worst_day_mean": -2.29,
+       "max_dd_mean": 11.8,
+       "end_balance_mean": 101143.0
+      },
+      "OOS": {
+       "n": 820,
+       "pass_pct": 4.0,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 50.1,
+       "fail_pct": 50.1,
+       "timeout_pct": 45.9,
+       "days_to_pass_median": 17.6,
+       "trades_mean": 17.6,
+       "worst_day_mean": -2.24,
+       "max_dd_mean": 12.26,
+       "end_balance_mean": 98099.0
+      }
+     },
+     "coin_7d": {
+      "IS": {
+       "n": 1580.0,
+       "pass_pct": 0.0,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 0.04,
+       "fail_pct": 0.04,
+       "timeout_pct": 99.96,
+       "days_to_pass_median": NaN,
+       "trades_mean": 5.0,
+       "worst_day_mean": -2.09,
+       "max_dd_mean": 6.18,
+       "end_balance_mean": 99902.2
+      },
+      "OOS": {
+       "n": 820.0,
+       "pass_pct": 0.0,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 0.0,
+       "fail_pct": 0.0,
+       "timeout_pct": 100.0,
+       "days_to_pass_median": NaN,
+       "trades_mean": 5.0,
+       "worst_day_mean": -2.14,
+       "max_dd_mean": 6.52,
+       "end_balance_mean": 99321.6
+      }
+     }
+    },
+    "the5ers_hyper": {
+     "7": {
+      "IS": {
+       "n": 1580,
+       "pass_pct": 5.4,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.8,
+       "fail_max_pct": 17.5,
+       "fail_pct": 18.3,
+       "timeout_pct": 76.2,
+       "days_to_pass_median": 5.6,
+       "trades_mean": 4.7,
+       "worst_day_mean": -2.08,
+       "max_dd_mean": 5.97,
+       "end_balance_mean": 100266.0
+      },
+      "OOS": {
+       "n": 820,
+       "pass_pct": 4.1,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.2,
+       "fail_max_pct": 24.4,
+       "fail_pct": 24.6,
+       "timeout_pct": 71.2,
+       "days_to_pass_median": 5.8,
+       "trades_mean": 4.6,
+       "worst_day_mean": -2.12,
+       "max_dd_mean": 5.95,
+       "end_balance_mean": 99659.0
+      }
+     },
+     "14": {
+      "IS": {
+       "n": 1580,
+       "pass_pct": 16.8,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 1.6,
+       "fail_max_pct": 35.7,
+       "fail_pct": 37.3,
+       "timeout_pct": 45.9,
+       "days_to_pass_median": 8.8,
+       "trades_mean": 7.9,
+       "worst_day_mean": -2.13,
+       "max_dd_mean": 7.63,
+       "end_balance_mean": 100393.0
+      },
+      "OOS": {
+       "n": 820,
+       "pass_pct": 12.9,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.2,
+       "fail_max_pct": 44.3,
+       "fail_pct": 44.5,
+       "timeout_pct": 42.6,
+       "days_to_pass_median": 8.2,
+       "trades_mean": 7.5,
+       "worst_day_mean": -2.15,
+       "max_dd_mean": 7.63,
+       "end_balance_mean": 99341.0
+      }
+     },
+     "30": {
+      "IS": {
+       "n": 1580,
+       "pass_pct": 32.3,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 2.7,
+       "fail_max_pct": 51.5,
+       "fail_pct": 54.2,
+       "timeout_pct": 13.5,
+       "days_to_pass_median": 13.9,
+       "trades_mean": 11.2,
+       "worst_day_mean": -2.15,
+       "max_dd_mean": 8.78,
+       "end_balance_mean": 100679.0
+      },
+      "OOS": {
+       "n": 820,
+       "pass_pct": 24.8,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.2,
+       "fail_max_pct": 64.1,
+       "fail_pct": 64.3,
+       "timeout_pct": 10.9,
+       "days_to_pass_median": 13.6,
+       "trades_mean": 10.2,
+       "worst_day_mean": -2.16,
+       "max_dd_mean": 8.82,
+       "end_balance_mean": 99030.0
+      }
+     },
+     "coin_7d": {
+      "IS": {
+       "n": 1580.0,
+       "pass_pct": 4.32,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.44,
+       "fail_max_pct": 19.28,
+       "fail_pct": 19.72,
+       "timeout_pct": 75.94,
+       "days_to_pass_median": 5.46,
+       "trades_mean": 4.74,
+       "worst_day_mean": -2.08,
+       "max_dd_mean": 5.89,
+       "end_balance_mean": 99861.4
+      },
+      "OOS": {
+       "n": 820.0,
+       "pass_pct": 3.52,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.36,
+       "fail_max_pct": 23.56,
+       "fail_pct": 23.92,
+       "timeout_pct": 72.54,
+       "days_to_pass_median": 5.6,
+       "trades_mean": 4.64,
+       "worst_day_mean": -2.12,
+       "max_dd_mean": 6.12,
+       "end_balance_mean": 99317.8
+      }
+     }
+    },
+    "ftmo_p1": {
+     "7": {
+      "IS": {
+       "n": 1580,
+       "pass_pct": 5.4,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 0.0,
+       "fail_pct": 0.0,
+       "timeout_pct": 94.6,
+       "days_to_pass_median": 5.6,
+       "trades_mean": 4.9,
+       "worst_day_mean": -2.08,
+       "max_dd_mean": 6.22,
+       "end_balance_mean": 100361.0
+      },
+      "OOS": {
+       "n": 820,
+       "pass_pct": 4.1,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 2.0,
+       "fail_pct": 2.0,
+       "timeout_pct": 93.9,
+       "days_to_pass_median": 5.8,
+       "trades_mean": 4.9,
+       "worst_day_mean": -2.12,
+       "max_dd_mean": 6.39,
+       "end_balance_mean": 99655.0
+      }
+     },
+     "14": {
+      "IS": {
+       "n": 1580,
+       "pass_pct": 16.8,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 10.0,
+       "fail_pct": 10.0,
+       "timeout_pct": 73.2,
+       "days_to_pass_median": 8.8,
+       "trades_mean": 9.2,
+       "worst_day_mean": -2.14,
+       "max_dd_mean": 8.46,
+       "end_balance_mean": 100602.0
+      },
+      "OOS": {
+       "n": 820,
+       "pass_pct": 13.3,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 17.8,
+       "fail_pct": 17.8,
+       "timeout_pct": 68.9,
+       "days_to_pass_median": 8.6,
+       "trades_mean": 9.1,
+       "worst_day_mean": -2.16,
+       "max_dd_mean": 8.83,
+       "end_balance_mean": 99295.0
+      }
+     },
+     "30": {
+      "IS": {
+       "n": 1580,
+       "pass_pct": 35.8,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 29.5,
+       "fail_pct": 29.5,
+       "timeout_pct": 34.7,
+       "days_to_pass_median": 14.7,
+       "trades_mean": 15.4,
+       "worst_day_mean": -2.18,
+       "max_dd_mean": 10.57,
+       "end_balance_mean": 100995.0
+      },
+      "OOS": {
+       "n": 820,
+       "pass_pct": 27.2,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 40.7,
+       "fail_pct": 40.7,
+       "timeout_pct": 32.1,
+       "days_to_pass_median": 14.6,
+       "trades_mean": 14.7,
+       "worst_day_mean": -2.17,
+       "max_dd_mean": 11.11,
+       "end_balance_mean": 98761.0
+      }
+     },
+     "coin_7d": {
+      "IS": {
+       "n": 1580.0,
+       "pass_pct": 4.32,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 0.14,
+       "fail_pct": 0.14,
+       "timeout_pct": 95.56,
+       "days_to_pass_median": 5.62,
+       "trades_mean": 4.9,
+       "worst_day_mean": -2.08,
+       "max_dd_mean": 6.16,
+       "end_balance_mean": 99901.4
+      },
+      "OOS": {
+       "n": 820.0,
+       "pass_pct": 3.52,
+       "pass_inconsistent_pct": 0.0,
+       "fail_daily_pct": 0.0,
+       "fail_max_pct": 1.52,
+       "fail_pct": 1.52,
+       "timeout_pct": 94.94,
+       "days_to_pass_median": 5.68,
+       "trades_mean": 4.94,
+       "worst_day_mean": -2.12,
+       "max_dd_mean": 6.51,
+       "end_balance_mean": 99327.2
+      }
+     }
+    }
+   },
+   "trade_stats": [
+    {
+     "stage": "trade_stats",
+     "symbol": "USDJPY",
+     "rule": "momentum",
+     "lookback_h": 24,
+     "entry_hours": "[10]",
+     "sl_atr": 2.0,
+     "rr": 2.0,
+     "exit_hour": 22,
+     "trail": 0.0,
+     "seed": 0,
+     "IS": {
+      "n": 1583,
+      "win_rate": 0.452,
+      "avg_win_r": 1.143,
+      "avg_loss_r": -0.883,
+      "expectancy_r": 0.0335,
+      "long_share": 0.525
+     },
+     "OOS": {
+      "n": 821,
+      "win_rate": 0.407,
+      "avg_win_r": 1.286,
+      "avg_loss_r": -0.939,
+      "expectancy_r": -0.0339,
+      "long_share": 0.525
+     }
+    }
+   ]
+  }
+ }
+}

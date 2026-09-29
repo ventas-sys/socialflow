@@ -1,0 +1,27 @@
+; Preset MT5 para ChallengeEA.mq5 — GBPUSD, FTMO 2-Step fase 1 (100k), enfoque B (ruptura de rango pre-Londres)
+; Cargar en el diálogo de inputs del EA con "Load". Ajustar InpInitialBalance al balance real de la cuenta.
+InpInitialBalance=100000
+InpTargetPct=10.0
+InpDailyLossPct=5.0
+InpMaxLossPct=10.0
+InpTrailingMaxLoss=false
+InpSafetyBufferPct=0.3
+InpMode=0
+InpRiskPct=1.5
+InpRiskOnBalance=false
+InpMaxTradesPerDay=1
+InpDayStopPct=3.0
+InpRR=3.0
+InpExitHour=23
+InpRangeStartHour=7
+InpRangeEndHour=10
+InpExpireHour=17
+InpSLFrac=1.0
+InpMinRangeATR=0.3
+InpMaxRangeATR=5.0
+InpSkipMonday=true
+InpSkipFriday=true
+InpEntryHour=10
+InpLookbackHours=24
+InpSLATR=1.5
+InpMagic=260907
