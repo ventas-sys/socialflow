@@ -79,6 +79,9 @@ const POSTVENTA_VENCE_MS = 24 * 60 * 60 * 1000;
 const VENTANA_DIAS = Number(process.env.ML_POSTVENTA_VENTANA_DIAS || 12);
 const BARRIDO_MAX = Number(process.env.ML_POSTVENTA_BARRIDO_MAX || 120);
 const ENVIOS_EN_PARALELO = 8;
+
+// Cuántos minutos puede quedar una pregunta sin responder antes de avisar.
+const ATRASADAS_MINUTOS = Number(process.env.ML_ATRASADAS_MINUTOS || 5);
 const KEY_CURSOR = 'ml:postventa:cursor';
 
 async function barrerEntregas({ accounts, ahora = Date.now() }) {
@@ -859,6 +862,60 @@ export default async function handler(req, res) {
         por_que_bloquea_ml: porQueBloquea,
         detalle: procesados,
       });
+    }
+
+    // PREGUNTAS ATRASADAS: las que siguen sin responder después de X minutos.
+    // Tatiana responde casi todas, pero algunas no las puede contestar (como
+    // "si no me dicen qué colores, no me sirve", que necesita saber que el pack
+    // es surtido sin elección). Esas quedan colgadas y hay que avisarle a una
+    // persona: el bridge de WhatsApp consulta esto cada 5 minutos.
+    if (action === 'atrasadas') {
+      const expected = (process.env.ML_SWEEP_KEY || '').trim();
+      if (req.method === 'GET' && expected && (req.query?.key || '').toString() !== expected) {
+        return res.status(401).json({ error: 'key inválida' });
+      }
+      if (!accounts.length) return res.status(400).json({ error: 'No hay cuentas configuradas (ML_ACCOUNTS).' });
+      const minutos = Math.max(1, Number(req.query?.minutos || req.body?.minutos) || ATRASADAS_MINUTOS);
+      const corte = Date.now() - minutos * 60_000;
+      const atrasadas = [];
+
+      for (const acc of accounts) {
+        try {
+          const token = await tokenOf(acc);
+          const r = await getUnanswered(token, acc.user_id, 50);
+          const viejas = (r?.questions || []).filter(q => new Date(q.date_created).getTime() <= corte);
+          if (!viejas.length) continue;
+
+          // Un solo multiget para todos los títulos y links de esta cuenta.
+          const ids = [...new Set(viejas.map(q => q.item_id).filter(Boolean))];
+          const items = {};
+          if (ids.length) {
+            try {
+              for (const it of await getItemsBulk(token, ids)) {
+                if (it?.id) items[it.id] = { titulo: it.title, link: it.permalink };
+              }
+            } catch { /* sin títulos igual sirve: el id alcanza para encontrarla */ }
+          }
+
+          for (const q of viejas) {
+            atrasadas.push({
+              cuenta: acc.label,
+              question_id: q.id,
+              texto: q.text,
+              item_id: q.item_id,
+              titulo: items[q.item_id]?.titulo || null,
+              link: items[q.item_id]?.link || null,
+              desde: q.date_created,
+              hace_minutos: Math.round((Date.now() - new Date(q.date_created).getTime()) / 60_000),
+            });
+          }
+        } catch (e) {
+          console.error('[ml-atrasadas] falló', { cuenta: acc.label, error: e.message });
+          atrasadas.push({ cuenta: acc.label, error: e.message });
+        }
+      }
+      atrasadas.sort((a, b) => (b.hace_minutos || 0) - (a.hace_minutos || 0));
+      return res.status(200).json({ ok: true, minutos, cuantas: atrasadas.filter(a => !a.error).length, atrasadas });
     }
 
     // BARRIDO: responde las preguntas que quedaron pendientes (una cuenta o todas).

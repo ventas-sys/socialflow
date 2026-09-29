@@ -1211,6 +1211,56 @@ aceptar que no se puede. La próxima corrida lo dice.
 Nota: una orden cuyo envío ML rechaza queda marcada como avisada igual, para no
 reintentar en cada pasada contra un bloqueo que no se va a destrabar solo.
 
+### Aviso por WhatsApp: preguntas de ML sin responder
+
+**Por qué.** Tatiana contesta casi todas, pero algunas no las puede contestar
+sola. El caso que lo disparó (29-sep-2026): *"Si no me dicen que colores, no me
+sirve. Saludos"* — hay que saber que ese pack va **surtido sin elección**, y la
+pregunta quedó **2 horas** sin responder sin que nadie se enterara.
+
+**Cómo llega el aviso.** Vercel **no puede escribirle** al bridge de WhatsApp:
+el bridge corre en el VPS y es siempre él quien llama a Vercel, nunca al revés.
+Así que el bridge va a buscar: un `setInterval` cada 5 minutos consulta el panel
+y, si hay preguntas colgadas, le manda un WhatsApp al supervisor. **No hay que
+instalar nada nuevo en el VPS**, solo las variables.
+
+`GET /api/ml/questions?action=atrasadas&minutos=5` devuelve las preguntas que
+siguen sin responder pasados esos minutos, con el texto, hace cuánto entraron y
+el título y el link de la publicación (un solo multiget por cuenta). Protegido
+con `ML_SWEEP_KEY`, igual que el barrido.
+
+El mensaje que sale:
+
+```
+🚨 *URGENTE — PREGUNTA EN ML*
+2 pregunta(s) sin responder hace más de 5 min.
+
+1. *full* · hace 122 min
+   Set 10 Destornilladores Surtidos
+   "Si no me dicen que colores, no me sirve. Saludos"
+   👉 https://articulo.mercadolibre.com.ar/MLA-...
+```
+
+| Variable | Default | Dónde | Para qué |
+|---|---|---|---|
+| `ML_ATRASADAS_MINUTOS` | `5` | Vercel | Corte por defecto del endpoint |
+| `WA_ML_ATRASADAS_MIN` | `5` | VPS | Minutos que pide el bridge |
+| `WA_ML_REAVISAR_HORAS` | `3` | VPS | Cada cuánto repetir el aviso si sigue colgada |
+| `WA_ML_PREGUNTAS_URL` | se deduce de `WA_WEBHOOK_URL` | VPS | Solo si el panel está en otro lado |
+
+Hace falta `WA_SUPERVISOR_NUMBER` (el mismo que ya usa el resto de los avisos);
+sin eso queda apagado y lo dice en el log de arranque.
+
+⚠️ **Fuera de horario no avisa** (respeta `fueraDeHorario()` y
+`WA_AVISOS_FUERA_HORARIO`, la misma regla que el resto de los avisos al
+supervisor). No hace falta cola: como la pregunta **sigue** sin responder, el
+primer tick después de abrir la encuentra igual. Por eso, fuera de horario
+tampoco se marca como avisada. Si se quiere que suene de madrugada, se pone
+`WA_AVISOS_FUERA_HORARIO=si`.
+
+Una pregunta ya avisada no vuelve a avisar hasta pasadas `WA_ML_REAVISAR_HORAS`,
+para que no llegue el mismo mensaje cada 5 minutos.
+
 ### Lo que queda sin resolver
 
 **Por qué ML no manda ningún webhook.** No se investigó: el barrido lo vuelve
