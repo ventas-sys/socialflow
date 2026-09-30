@@ -1295,6 +1295,83 @@ Lo que hay que mirar en la respuesta, dentro de `le_preguntamos_a_ml`:
 | una opción que sirva para post-venta | implementar el envío con ese id |
 | ninguna opción para este caso | por API no se puede y hay que replantear |
 
+### 30-sep-2026: ML no deja al vendedor iniciar la conversación. Cerrado.
+
+La prueba sobre dos ventas reales lo dejó sin ambigüedad. Una **entregada**
+(pack 2000015260093541, "Llegó el 29 de septiembre") y una **recién pagada**
+(pack 2000018717067762, `status: paid`, vendida ese mismo día):
+
+```
+guia_de_acciones  → 404 resource not found      (en las dos ventas, las dos cuentas)
+guia_post_sale    → 404 resource not found
+conversacion      → 200 {
+  "conversation_status": {
+    "status": "blocked",
+    "substatus": "blocked_by_conversation_initiated_by_seller_limited",
+    "status_update_allowed": false,
+    "claim_ids": [], "shipping_id": null, "data": null },
+  "messages": [],
+  "seller_max_message_length": 350, "buyer_max_message_length": 3500 }
+```
+
+Tres conclusiones:
+
+1. **La guía de acciones no existe** (404 siempre). La hipótesis del `option_id`
+   queda descartada: no hay ninguna opción que elegir.
+2. **`status_update_allowed: false`** — ML dice explícitamente que ese estado
+   **no se puede cambiar** desde la API.
+3. El `status_date` del bloqueo coincide con el momento de la venta: la
+   conversación **nace bloqueada**, no se bloqueó por nuestros intentos.
+
+Sin reclamo abierto (`claim_ids: []`) y sin problema de envío, ML no habilita al
+vendedor a escribir primero. **Por API, el mensaje post-entrega no se puede
+mandar.** Que el botón "Iniciar conversación" aparezca activo en el panel
+significa que el frontend de ML usa una vía interna que la API pública no
+expone.
+
+Qué queda: un botón en el panel que lleve a la conversación en ML para
+iniciarla a mano, o pedir la reseña por fuera (folleto o QR dentro del paquete).
+
+⚠️ **De paso apareció un límite que no conocíamos:** `seller_max_message_length`
+es **350** (al comprador le permiten 3500). El texto base mide 295, así que con
+un título largo se pasaba — el del Cubo Mágico daba 354 y el del Piloto 370.
+`armarMensaje()` ahora recorta el título lo justo, cortando en palabra entera.
+
+### 30-sep-2026: la MISMA causa quemó las dos cuotas
+
+Vercel avisó al 75% de Fluid Active CPU: **637.953 invocaciones en 30 días** del
+proyecto socialflow (99,6% del total de la cuenta), unas **21.300 por día**, 15
+por minuto, parejas las 24 hs incluidos fines de semana. No es gente usando la
+app.
+
+Son los **webhooks de Mercado Libre**: la app está suscripta a topics que no
+procesa, y ML notifica por cada cambio de cada publicación y cada orden.
+
+**Y esto también explica lo de Upstash.** `markWebhook()` hace **dos escrituras
+al KV**, y corría **antes** de descartar el topic:
+
+```
+21.300 webhooks/día × 2 escrituras = 42.600 comandos/día = 1.278.000 al mes
+                                                   (el límite eran 500.000)
+```
+
+O sea que la causa principal del agotamiento del KV no era el barrido de
+entregas —que corrió unas horas el 28-sep— sino esto, que venía corriendo 24/7.
+La corrección al diagnóstico anterior es esa.
+
+**Lo que se hizo en el código:** el webhook descarta en la primera línea
+cualquier topic que no esté en `ML_TOPICS` (por defecto `questions,shipments`),
+sin tocar el KV y sin trabajo. Queda un contador **en memoria**
+(`webhooks_descartados` en el diagnóstico) para seguir viendo que ML llama, sin
+gastar un comando. Un webhook sin `topic` NO se descarta: ML mandaba algunos así
+y son preguntas.
+
+⚠️ **Esto baja el CPU y el KV, pero NO la cantidad de invocaciones de Vercel.**
+Para eso hay que **desuscribir los topics en DevCenter** (la app → Notificaciones):
+dejar `questions` y sacar `items`, `orders_v2`, `payments`, `messages` y todo lo
+que no se procese. Con eso las 21.300 llamadas diarias deberían caer a unos
+pocos cientos.
+
 ### Lo que queda sin resolver
 
 **Por qué ML no manda ningún webhook.** No se investigó: el barrido lo vuelve

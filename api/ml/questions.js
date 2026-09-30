@@ -82,6 +82,17 @@ const ENVIOS_EN_PARALELO = 8;
 
 // Cuántos minutos puede quedar una pregunta sin responder antes de avisar.
 const ATRASADAS_MINUTOS = Number(process.env.ML_ATRASADAS_MINUTOS || 5);
+
+// Los únicos topics de ML que este endpoint procesa. Cualquier otro se
+// descarta sin tocar el KV (ver el comentario del webhook, más abajo).
+// Lo ideal es además desuscribirlos en DevCenter: así ML ni siquiera llama.
+const TOPICS_QUE_PROCESAMOS = new Set(
+  (process.env.ML_TOPICS || 'questions,shipments').split(',').map(x => x.trim().toLowerCase()).filter(Boolean));
+
+// Cuántas notificaciones descartamos de cada topic. Vive en memoria a
+// propósito: es para ver actividad reciente sin gastar un solo comando del KV,
+// y se reinicia cuando la función se enfría.
+const webhooksDescartados = new Map();
 const KEY_CURSOR = 'ml:postventa:cursor';
 
 async function barrerEntregas({ accounts, ahora = Date.now() }) {
@@ -581,6 +592,10 @@ export default async function handler(req, res) {
         // de verdad que el KV guarda y devuelve lo mismo que se guardó.
         kv_prueba: await kvPrueba(),
         kv_ultimo_error: kvUltimoError(),
+        topics_que_procesamos: [...TOPICS_QUE_PROCESAMOS],
+        // Si acá hay números altos, ML está notificando topics que no usamos:
+        // hay que desuscribirlos en DevCenter para dejar de gastar invocaciones.
+        webhooks_descartados: Object.fromEntries(webhooksDescartados),
         ultimo_webhook_de_ml: webhook || null,
         ultimo_webhook_de_preguntas: webhookPreguntas || null,
         que_paso_con_esa_pregunta: resultadoPreguntas || null,
@@ -1018,6 +1033,27 @@ export default async function handler(req, res) {
     // baja la callback URL de la app (y ahí deja de avisarnos por completo).
     if (req.method === 'POST' && (action === 'webhook' || req.body?.resource)) {
       const { resource, user_id, topic } = req.body || {};
+
+      // ⚠️ DESCARTAR ANTES DE TOCAR EL KV (30-sep-2026)
+      // ML notifica por CADA cambio de CADA publicación y de CADA orden, y la
+      // app estaba suscripta a topics que no procesa: 637.953 invocaciones en
+      // Vercel en 30 días (~21.300 por día, 15 por minuto, parejas las 24 hs).
+      //
+      // Lo caro no era sólo la invocación: `markWebhook` hace DOS escrituras al
+      // KV, y corría ANTES de descartar el topic. 21.300 × 2 = 42.600 comandos
+      // por día, 1,3 millones al mes contra un límite de 500.000. Por eso se
+      // agotó Upstash — más que por el barrido de entregas.
+      //
+      // Ahora lo que no se procesa se descarta en la primera línea, sin KV y
+      // sin trabajo. Queda un contador en memoria para que el diagnóstico
+      // muestre igual que ML nos está llamando.
+      const t = String(topic || '').toLowerCase().trim();
+      if (t && !TOPICS_QUE_PROCESAMOS.has(t)) {
+        const prev = webhooksDescartados.get(t) || { veces: 0 };
+        webhooksDescartados.set(t, { veces: prev.veces + 1, ultimo: new Date().toISOString() });
+        return res.status(200).json({ ok: true, skipped: t, nota: 'topic no procesado (descartado sin trabajo)' });
+      }
+
       // Queda registrado para el diagnóstico: así se ve si ML nos está llamando.
       await markWebhook({ topic: topic || null, user_id: user_id ?? null, resource: resource || null });
       try {
