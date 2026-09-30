@@ -198,6 +198,130 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
     }
   }
 
+  // Al revés que "Publicaciones faltantes": acá se busca lo que HAY EN EL DEPÓSITO
+  // y NO se puede vender en ML, porque ninguna publicación activa termina en ese
+  // producto. Es plata quieta: mercadería que está pero que nadie puede comprar.
+  //
+  // Un producto está "cubierto" si alguna publicación activa cae sobre él, ya sea
+  // directamente o a través del armado de un combo. Se miran TODAS las cuentas
+  // conectadas juntas, porque alcanza con estar publicado en una.
+  const [sinPubBusy, setSinPubBusy] = useState(false)
+  const [sinPubMsg, setSinPubMsg] = useState('')
+  const [sinPub, setSinPub] = useState(null)
+
+  const exportSinPublicar = async () => {
+    setSinPubBusy(true); setSinPubMsg(''); setSinPub(null)
+    try {
+      const conectadas = ACCOUNTS.filter(a => mlAccounts?.[a.key]?.accessToken)
+      if (!conectadas.length) throw new Error('No hay ninguna cuenta de ML conectada.')
+
+      // 1) Publicaciones de todas las cuentas conectadas
+      const activas = []
+      for (const { key, label } of conectadas) {
+        setSinPubMsg(`⏳ Leyendo las publicaciones de ${label}...`)
+        const token = await ensureToken(key)
+        const r = await fetch(`${API}?action=items`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        }).then(x => x.json())
+        if (!r.ok) throw new Error(`${label}: ${r.error || 'no se pudieron leer las publicaciones'}`)
+        r.items.forEach(it => {
+          if (!it.status || it.status === 'active') activas.push({ ...it, cuenta: label })
+        })
+      }
+      setSinPubMsg('⏳ Cruzando con el stock...')
+
+      // 2) Qué productos cubre cada publicación
+      const cubierto = new Map()  // productId -> Set de cuentas que lo publican
+      const noAsociadas = []      // publicaciones que no caen en ningún combo/producto
+      const sinArmado = []        // publicaciones asociadas a un combo vacío
+      for (const it of activas) {
+        const m = findByRef(it.sku) || findByRef(it.mla)
+        if (!m) { noAsociadas.push(it); continue }
+        const marcar = (pid) => {
+          if (!cubierto.has(pid)) cubierto.set(pid, new Set())
+          cubierto.get(pid).add(it.cuenta)
+        }
+        if (m.type === 'product') { marcar(m.p.id); continue }
+        const partes = (m.c.items || []).filter(ci => ci.productId)
+        if (!partes.length) { sinArmado.push({ ...it, combo: m.c.name }); continue }
+        partes.forEach(ci => marcar(ci.productId))
+      }
+
+      // 3) Lo que hay físico y nadie publica
+      const combosDe = new Map()  // productId -> cantidad de combos que lo usan
+      combos.forEach(c => (c.items || []).forEach(ci => {
+        if (ci.productId) combosDe.set(ci.productId, (combosDe.get(ci.productId) || 0) + 1)
+      }))
+
+      const huerfanos = products
+        .filter(p => (Number(p.quantity) || 0) > 0 && !cubierto.has(p.id))
+        .map(p => {
+          const n = combosDe.get(p.id) || 0
+          return {
+            ...p,
+            stock: Number(p.quantity) || 0,
+            nCombos: n,
+            motivo: n === 0
+              ? 'No está en ningún combo — hay que crear la publicación'
+              : `Está en ${n} combo${n > 1 ? 's' : ''}, pero ninguno tiene publicación activa asociada`,
+          }
+        })
+        .sort((a, b) => b.stock - a.stock)
+
+      const unidades = huerfanos.reduce((s, p) => s + p.stock, 0)
+      const plata = huerfanos.reduce((s, p) => s + p.stock * (Number(p.price) || 0), 0)
+
+      setSinPub({
+        huerfanos, unidades, plata,
+        publicaciones: activas.length,
+        cuentas: conectadas.map(c => c.label).join(' + '),
+        noAsociadas: noAsociadas.length,
+        sinArmado,
+        conStock: products.filter(p => (Number(p.quantity) || 0) > 0).length,
+      })
+
+      // 4) Excel
+      const rows = [['Código', 'Nombre', 'Stock', 'Precio', 'Valor', 'Ubicación', 'Categoría', 'Por qué no se vende']]
+      huerfanos.forEach(p => rows.push([
+        p.code || '', p.name || '', p.stock, Number(p.price) || 0,
+        p.stock * (Number(p.price) || 0), p.location || '', p.category || '', p.motivo,
+      ]))
+      const ws = XLSX.utils.aoa_to_sheet(rows)
+      ws['!cols'] = [{ wch: 14 }, { wch: 45 }, { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 18 }, { wch: 55 }]
+      const info = XLSX.utils.aoa_to_sheet([
+        ['STOCK FÍSICO QUE NO SE PUEDE VENDER EN MERCADO LIBRE'],
+        [''],
+        [`Cuentas miradas: ${conectadas.map(c => c.label).join(' + ')}`],
+        [`Publicaciones activas leídas: ${activas.length}`],
+        [`Productos con stock: ${products.filter(p => (Number(p.quantity) || 0) > 0).length}`],
+        [`Productos con stock y SIN publicación: ${huerfanos.length}  (${unidades} unidades)`],
+        [''],
+        ['OJO, leer esto antes de sacar conclusiones:'],
+        [`${noAsociadas.length} publicaciones activas no se pudieron asociar a ningún combo ni producto`],
+        ['del sistema. Mientras esas queden sin asociar, algún producto de esta lista puede estar'],
+        ['publicado igual y aparecer acá por error. Primero conviene correr "🔍 Publicaciones'],
+        ['faltantes" y asociarlas; después este listado queda fino.'],
+        [''],
+        ['La columna "Por qué no se vende" distingue dos casos:'],
+        ['  • No está en ningún combo -> falta crear la publicación en ML y cargarla acá.'],
+        ['  • Está en N combos -> el combo existe pero su MLA no está asociado o la publicación'],
+        ['    no está activa. Se arregla asociando el código, no creando nada nuevo.'],
+      ])
+      info['!cols'] = [{ wch: 95 }]
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, info, 'Leer primero')
+      XLSX.utils.book_append_sheet(wb, ws, 'Sin publicar')
+      XLSX.writeFile(wb, `stock-sin-publicar-${new Date().toISOString().slice(0, 10)}.xlsx`)
+
+      setSinPubMsg(`✅ ${huerfanos.length} productos con stock sin publicación (${unidades} unidades). Bajé el Excel.`)
+    } catch (e) {
+      setSinPubMsg('❌ ' + e.message)
+    } finally {
+      setSinPubBusy(false)
+    }
+  }
+
   // Ranking de lo más vendido (las 2 cuentas, todos los tipos de envío) para
   // priorizar qué cargar primero: medidas, foto y ubicación
   const [topMsg, setTopMsg] = useState('')
@@ -580,6 +704,13 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
           </button>
           {cronMsg && <span className={`ml-cron-msg ${cronMsg.startsWith('✅') ? 'ok' : 'warn'}`}>{cronMsg}</span>}
           <div className="ml-top-row">
+            <button className="ml-btn-missing" onClick={exportSinPublicar} disabled={sinPubBusy}>
+              {sinPubBusy ? '⏳ Cruzando...' : '📦 Stock físico que NO está publicado en ML'}
+            </button>
+            {sinPubMsg && <span className={`ml-cron-msg ${sinPubMsg.startsWith('✅') ? 'ok' : sinPubMsg.startsWith('⏳') ? '' : 'warn'}`}>{sinPubMsg}</span>}
+          </div>
+
+          <div className="ml-top-row">
             <button className="ml-btn-missing" onClick={exportTopSold} disabled={topBusy}>
               {topBusy ? '⏳ Leyendo las ventas del mes...' : '🏆 Top 200 más vendidos (30 días)'}
             </button>
@@ -669,6 +800,68 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
           </div>
         </div>
       </div>
+
+      {sinPub && (
+        <div className="ml-sinpub">
+          <h3>📦 Está en el depósito y no se puede vender</h3>
+          <p className="ml-sinpub-sub">
+            {sinPub.cuentas} · {sinPub.publicaciones} publicaciones activas · {sinPub.conStock} productos con stock
+          </p>
+
+          <div className="ml-sinpub-nums">
+            <div><strong>{sinPub.huerfanos.length}</strong><span>productos</span></div>
+            <div><strong>{sinPub.unidades.toLocaleString('es-AR')}</strong><span>unidades</span></div>
+            {sinPub.plata > 0 && (
+              <div><strong>${Math.round(sinPub.plata).toLocaleString('es-AR')}</strong><span>a precio de lista</span></div>
+            )}
+          </div>
+
+          {sinPub.noAsociadas > 0 && (
+            <p className="ml-sinpub-ojo">
+              ⚠️ Ojo: {sinPub.noAsociadas} publicaciones activas no se pudieron asociar a ningún combo ni
+              producto del sistema. Hasta que esas se asocien, algo de esta lista puede estar publicado
+              igual y figurar acá por error. Corré primero <strong>🔍 Publicaciones faltantes</strong>.
+            </p>
+          )}
+          {sinPub.sinArmado.length > 0 && (
+            <p className="ml-sinpub-ojo">
+              ⚠️ {sinPub.sinArmado.length} publicaciones caen en un combo <strong>sin armado cargado</strong>,
+              así que no descuentan nada: {sinPub.sinArmado.slice(0, 3).map(x => x.combo || x.mla).join(', ')}
+              {sinPub.sinArmado.length > 3 ? '…' : ''}
+            </p>
+          )}
+
+          {sinPub.huerfanos.length === 0 ? (
+            <p className="ml-sinpub-ok">✅ Todo lo que tenés con stock está publicado en al menos una cuenta.</p>
+          ) : (
+            <>
+              <div className="ml-preview-table-wrap">
+                <table className="ml-preview-table">
+                  <thead>
+                    <tr><th>Código</th><th>Producto</th><th>Stock</th><th>Ubicación</th><th>Por qué</th></tr>
+                  </thead>
+                  <tbody>
+                    {sinPub.huerfanos.slice(0, 40).map(p => (
+                      <tr key={p.id}>
+                        <td className="ml-code">{p.code || '—'}</td>
+                        <td>{p.name}</td>
+                        <td className="ml-new">{p.stock}</td>
+                        <td>{p.location || '—'}</td>
+                        <td className="ml-sinpub-motivo">{p.motivo}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {sinPub.huerfanos.length > 40 && (
+                <p className="ml-sinpub-sub">
+                  Se muestran los 40 de más stock. Los {sinPub.huerfanos.length} están en el Excel que se bajó.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       <div className="ml-accounts">
         {ACCOUNTS.map(({ key, label }) => {

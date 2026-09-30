@@ -174,3 +174,26 @@
   border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 0.5rem 0.7rem; margin: 0.4rem 0 0;
 }
 .mp-diag-sub { display: block; margin: 0.6rem 0 0.2rem; font-size: 0.82rem; color: #334155; }
+
+/* Stock físico que no está publicado en ML */
+.ml-sinpub {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: #fff;
+  border: 2px solid #f59e0b;
+  border-radius: 12px;
+}
+.ml-sinpub h3 { margin: 0 0 .2rem; font-size: 1.05rem; }
+.ml-sinpub-sub { margin: .2rem 0 .8rem; font-size: .8rem; color: #64748b; }
+
+.ml-sinpub-nums { display: flex; gap: 1.2rem; flex-wrap: wrap; margin-bottom: .8rem; }
+.ml-sinpub-nums > div { display: flex; flex-direction: column; }
+.ml-sinpub-nums strong { font-size: 1.5rem; line-height: 1.1; color: #b45309; }
+.ml-sinpub-nums span { font-size: .72rem; color: #64748b; text-transform: uppercase; }
+
+.ml-sinpub-ojo {
+  margin: .5rem 0; padding: .5rem .6rem; border-radius: 8px;
+  background: #fef3c7; color: #92400e; font-size: .8rem;
+}
+.ml-sinpub-ok { margin: .5rem 0; color: #059669; font-weight: 600; }
+.ml-sinpub-motivo { font-size: .78rem; color: #475569; }
