@@ -239,3 +239,30 @@ Se comparan **solo los dígitos**, así que da igual el formato:
 ⚠️ El id de WhatsApp puede traer sufijo de dispositivo (`12138058674:12@c.us`).
 Hay que cortar por `@` **y por `:`** antes de quedarse con los dígitos; si no,
 el sufijo se pega al número y no matchea nunca.
+
+## Anti-loop: cuando del otro lado hay otro bot
+
+**30-sep-2026.** Un bot ajeno ("Escaleras Mil") mandaba una y otra vez el mismo
+texto —*"Hola! Queres volver a hablar con un asesor de Escaleras Mil?"*— y
+Tatiana le contestaba **distinto cada vez**: "jajaja siguen en bucle", "jajaja
+siguen a full los bots", "jajaja no hay caso, es un bot". Dos bots charlando.
+
+Ya existía un anti-loop (`botReplyStreak`), pero mira **lo que manda el bot**:
+como la IA varía el texto, su huella nunca se repite y el corte no se activaba.
+
+Ahora hay un segundo guardia que mira **lo que entra** (`incomingStreak`): si
+llega el mismo texto una y otra vez, se responde hasta
+`WA_MAX_MSJ_REPETIDO` veces (3 por defecto) y a la siguiente se corta —
+se marca el chat para un humano, se silencia el bot con `markAsesorActive()` y
+se avisa al supervisor con el motivo `loop_entrante`.
+
+El chequeo va **antes** de llamar al panel, así el mensaje repetido no gasta ni
+IA ni invocación de Vercel.
+
+La comparación ignora mayúsculas, tildes y signos (`textFingerprint`), así que
+"Hola!" y "HOLA" cuentan como el mismo. Un mensaje distinto —o un audio—
+reinicia la cuenta, para no cortarle la charla a un cliente de verdad.
+
+| Variable | Default | Para qué |
+|---|---|---|
+| `WA_MAX_MSJ_REPETIDO` | `3` | Cuántas veces responder el mismo mensaje antes de cortar |

@@ -107,6 +107,19 @@ const followupSent = new Map();
 const botReplyStreak = new Map();  // chatId -> { fp, count }
 const MAX_IDENTICAL_REPLIES = 3;   // a la 3ra respuesta idéntica: parar + esperar humano
 
+// Anti-loop del OTRO lado (30-sep-2026). El de arriba mira lo que MANDA el bot,
+// y no alcanza: cuando del otro lado hay una IA que repite siempre el mismo
+// texto ("Hola! Queres volver a hablar con un asesor de Escaleras Mil?"),
+// Tatiana contesta distinto cada vez —"jajaja siguen en bucle", "jajaja siguen
+// a full los bots"— así que su huella nunca se repite y el corte no se activa.
+// Quedaron charlando dos bots.
+//
+// Esto mira lo que ENTRA: si llega el mismo texto una y otra vez, se responde
+// hasta MAX_RESPUESTAS_AL_MISMO veces y después se corta. Va antes de llamar al
+// panel, así el mensaje repetido no gasta ni IA ni invocación.
+const incomingStreak = new Map();   // chatId -> { fp, count }
+const MAX_RESPUESTAS_AL_MISMO = Number(process.env.WA_MAX_MSJ_REPETIDO || 3);
+
 // Candado anti-carrera: mientras el bot está enviando a un chat, cualquier
 // evento fromMe de ese chat es del bot. El evento message_create se dispara
 // ANTES de que client.sendMessage() resuelva, así que registrar "después de
@@ -771,6 +784,7 @@ function motivoHumano(reason) {
   if (reason === 'ia_mayorista') return 'Consulta mayorista 🧾';
   if (reason === 'ia_escalate_human') return 'Pidió hablar con una persona 🧑';
   if (reason === 'loop_repetido') return 'Posible loop: el bot repitió la misma respuesta 🔁 (¿otro bot del otro lado?)';
+  if (reason === 'loop_entrante') return 'Del otro lado hay un bot: mandó el mismo mensaje una y otra vez 🤖🔁';
   if (reason === 'cliente_sin_atender') return 'El cliente escribió y NO le contestó nadie ⏳ (el bot está en silencio porque un asesor tomó el chat)';
   if (reason === 'mensaje_perdido_viejo') return 'Mensaje que el bot NUNCA vio (bug de WhatsApp Web) y ya es viejo para auto-responder 🩹 — contestarle una persona';
   return 'Necesita atención';
@@ -1349,6 +1363,24 @@ async function handleIncoming(client, msg) {
     if (text) {
       console.log(`[${from}] -> ${text.slice(0, 80)}`);
       recordHistory(from, 'user', text);
+    }
+
+    // ¿Nos están repitiendo el mismo mensaje? (ver incomingStreak, arriba)
+    const entranteFp = textFingerprint(text);
+    if (entranteFp) {
+      const prev = incomingStreak.get(from);
+      const veces = (prev && prev.fp === entranteFp) ? prev.count + 1 : 1;
+      incomingStreak.set(from, { fp: entranteFp, count: veces });
+      if (veces > MAX_RESPUESTAS_AL_MISMO) {
+        console.log(`[${from}] 🔁 el mismo mensaje x${veces} — del otro lado hay un bot. Corto, derivo a humano y aviso (sin responder).`);
+        incomingStreak.delete(from);
+        await markChatForHuman(client, from);
+        markAsesorActive(from);   // silencia el bot hasta que intervenga una persona
+        await notifySupervisor(client, from, 'loop_entrante', text);
+        return;
+      }
+    } else {
+      incomingStreak.delete(from);   // un audio o un mensaje vacío corta la racha
     }
 
     const result = await postWebhook(from, text, audio);
