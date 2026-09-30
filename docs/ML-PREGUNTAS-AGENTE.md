@@ -1261,6 +1261,40 @@ tampoco se marca como avisada. Si se quiere que suene de madrugada, se pone
 Una pregunta ya avisada no vuelve a avisar hasta pasadas `WA_ML_REAVISAR_HORAS`,
 para que no llegue el mismo mensaje cada 5 minutos.
 
+### 30-sep-2026: el botón del panel SÍ deja iniciar la conversación
+
+Rodo mandó dos capturas del panel de ventas (`vendedores.mercadolibre.com.ar/ventas/omni/listado`):
+el botón **"Iniciar conversación"** aparece en celeste y activo, tanto en una
+venta recién despachada (#2000018717067762, FLEX, etiqueta lista) como en una
+**ya entregada** (#2000015260093541, FLEX, "Llegó el 29 de septiembre").
+
+**Eso cambia el diagnóstico.** No es que ML prohíba al vendedor escribir
+primero: la capacidad existe y está a un clic. Lo que hace ese botón no es lo
+que hacemos nosotros. Casi seguro elige una **opción** de la guía de acciones de
+ML y manda con su `option_id`; nuestro POST va directo a
+`/messages/packs/{pack}/sellers/{seller}` sin ninguna opción, y por eso vuelve
+`blocked_by_conversation_initiated_by_seller_limited`.
+
+Para no depender de que caiga algo en la cola, se agregó una prueba a demanda
+sobre **una venta concreta**:
+
+```
+GET /api/ml/questions?action=probar-chat&id=2000015260093541
+```
+
+Toma el número tal como se copia del panel (con `#`, con puntos, da igual),
+busca la orden en las cuentas configuradas, saca su `pack_id` y le pregunta a ML
+qué opciones de conversación habilita, devolviendo la respuesta cruda. Protegido
+con `ML_SWEEP_KEY`.
+
+Lo que hay que mirar en la respuesta, dentro de `le_preguntamos_a_ml`:
+
+| Si aparece | Qué significa |
+|---|---|
+| una lista de opciones con sus id | ese es el camino: mandar con `option_id` |
+| una opción que sirva para post-venta | implementar el envío con ese id |
+| ninguna opción para este caso | por API no se puede y hay que replantear |
+
 ### Lo que queda sin resolver
 
 **Por qué ML no manda ningún webhook.** No se investigó: el barrido lo vuelve
