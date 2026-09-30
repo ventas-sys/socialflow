@@ -864,6 +864,58 @@ export default async function handler(req, res) {
       });
     }
 
+    // PROBAR EL CHAT DE UNA VENTA CONCRETA.
+    //
+    // En el panel de ML el botón "Iniciar conversación" aparece en celeste y
+    // activo, tanto en una venta despachada como en una ya entregada: o sea que
+    // la capacidad EXISTE y el vendedor puede escribir primero. Pero la API nos
+    // rechaza con `blocked_by_conversation_initiated_by_seller_limited`, así que
+    // lo que hace ese botón no es lo que hacemos nosotros — lo más probable es
+    // que elija una OPCIÓN de la guía de acciones de ML y mande con su id.
+    //
+    // Esto le pregunta a ML por UNA venta concreta (el número que se ve en el
+    // panel, con o sin #), sin esperar a que caiga algo en la cola.
+    //   GET ?action=probar-chat&id=2000015260093541
+    if (action === 'probar-chat') {
+      const expected = (process.env.ML_SWEEP_KEY || '').trim();
+      if (req.method === 'GET' && expected && (req.query?.key || '').toString() !== expected) {
+        return res.status(401).json({ error: 'key inválida' });
+      }
+      const id = String(req.query?.id || req.body?.id || '').replace(/[^0-9]/g, '');
+      if (!id) return res.status(400).json({ error: 'Falta el número de venta: &id=2000015260093541' });
+      if (!accounts.length) return res.status(400).json({ error: 'No hay cuentas configuradas (ML_ACCOUNTS).' });
+
+      const label = (req.query?.account || req.body?.account || '').toString();
+      const target = label ? [findAccountByLabel(accounts, label)].filter(Boolean) : accounts;
+      const intentos = [];
+
+      for (const acc of target) {
+        const fila = { cuenta: acc.label };
+        try {
+          const token = await tokenOf(acc);
+          // El número del panel puede ser la orden o el pack. Probamos como
+          // orden: si existe, de ahí sacamos el pack y los datos del comprador.
+          let orden = null;
+          try { orden = await getOrder(token, id); } catch (e) { fila.no_es_orden = e.message; }
+          const packId = orden?.pack_id || id;
+          fila.orden_encontrada = !!orden;
+          fila.pack = String(packId);
+          if (orden) {
+            fila.comprador = orden?.buyer?.id || null;
+            fila.producto = orden?.order_items?.[0]?.item?.title || null;
+            fila.vendida = orden?.date_created || null;
+            fila.estado = orden?.status || null;
+          }
+          fila.le_preguntamos_a_ml = await diagnosticarConversacion(token, packId, acc.user_id);
+        } catch (e) {
+          fila.error = e.message;
+        }
+        intentos.push(fila);
+        if (fila.orden_encontrada) break;   // ya la ubicamos, no hace falta seguir
+      }
+      return res.status(200).json({ ok: true, id, intentos });
+    }
+
     // PREGUNTAS ATRASADAS: las que siguen sin responder después de X minutos.
     // Tatiana responde casi todas, pero algunas no las puede contestar (como
     // "si no me dicen qué colores, no me sirve", que necesita saber que el pack
