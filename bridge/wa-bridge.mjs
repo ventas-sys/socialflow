@@ -1065,12 +1065,17 @@ async function avisarPreguntasMlAtrasadas(client) {
     const partes = [`${i + 1}. *${q.cuenta}* · hace ${q.hace_minutos} min`];
     if (q.titulo) partes.push(`   ${String(q.titulo).slice(0, 70)}`);
     partes.push(`   "${String(q.texto || '').slice(0, 160)}"`);
+    // El motivo es la mitad del aviso: sin esto hay que ir a adivinar por qué
+    // Tatiana no contestó (publicación pausada, 4ta pregunta del mismo, ML que
+    // rechazó la respuesta, el bot apagado...).
+    if (q.motivo) partes.push(`   ⚠️ ${String(q.motivo).slice(0, 180)}`);
     if (q.link) partes.push(`   👉 ${q.link}`);
     return partes.join('\n');
   });
   const body = `🚨 *URGENTE — PREGUNTA EN ML*\n` +
-    `${nuevas.length} pregunta(s) sin responder hace más de ${ML_ATRASADAS_MIN} min.\n\n` +
-    `${lineas.join('\n\n')}\n\n` +
+    `${nuevas.length} pregunta(s) sin responder hace más de ${ML_ATRASADAS_MIN} min.\n` +
+    (data?.bot_apagado ? `\n🔴 *Tatiana está apagada* (ML_AUTOANSWER=off): no va a contestar ninguna.\n` : '') +
+    `\n${lineas.join('\n\n')}\n\n` +
     `Contestalas desde Mercado Libre → Preguntas.`;
 
   await botSend(client, supervisorChat, body);

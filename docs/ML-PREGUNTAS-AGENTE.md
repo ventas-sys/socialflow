@@ -1372,6 +1372,53 @@ dejar `questions` y sacar `items`, `orders_v2`, `payments`, `messages` y todo lo
 que no se procese. Con eso las 21.300 llamadas diarias deberían caer a unos
 pocos cientos.
 
+### 5-oct-2026: el aviso de WhatsApp avisaba, pero no decía por qué
+
+Rodo: *"que paso q tatiana no respondio una pregunta y me aviso x whatapp"*.
+Primera buena noticia: el aviso de preguntas atrasadas **funciona en producción**.
+El problema es que el mensaje decía QUE no se contestó y no **POR QUÉ**, así que
+había que ir a adivinar.
+
+**Bug encontrado de paso.** `getItemsBulk()` devuelve un **Map**, y `atrasadas`
+lo recorría así:
+
+```js
+for (const it of await getItemsBulk(token, ids)) {
+  if (it?.id) items[it.id] = { titulo: it.title, link: it.permalink };   // ❌
+}
+```
+
+Recorrer un Map con `for...of` entrega pares `[id, datos]`, no los datos: `it.id`
+era siempre `undefined`, el objeto `items` quedaba vacío y **el aviso salía
+siempre sin título y sin link** — justo los dos datos que sirven para encontrar
+la pregunta en el panel de ML. Ahora va `for (const [id, it] of ...)`.
+
+**Los motivos por los que Tatiana no contesta una pregunta** (son todos los
+caminos que cortan antes de postear, en orden de aparición en `answerFlow`):
+
+| Motivo | Cuándo |
+|---|---|
+| El bot está apagado | `ML_AUTOANSWER=off` en Vercel |
+| Por diseño la contesta una persona | 4ta pregunta del mismo comprador, o repitió la misma |
+| La publicación no está activa | pausada o finalizada: ML devuelve `not_active_item` |
+| ML rechazó la respuesta | `postAnswer` falló (item inexistente, pregunta ya cerrada...) |
+| Se cayó el intento | error de la API de ML o de Gemini (clave agotada, timeout) |
+| Todavía no la intentó | ML no avisó por webhook y falta el próximo barrido |
+
+Los tres últimos solo se sabían leyendo los logs de Vercel, y
+`markWebhookResultado` guardaba **una sola** pregunta: si entraban tres y fallaba
+la primera, a los dos minutos no quedaba rastro. Ahora hay un registro por
+pregunta (`ml:preguntas:sin-responder`, las últimas 40) que se escribe **solo
+cuando una pregunta no se pudo contestar** — 1 lectura + 1 escritura, nunca en el
+camino feliz (ver el aviso de costo en `token-store.js`).
+
+`?action=atrasadas` cruza las tres fuentes: lo que se ve ahora (bot apagado,
+publicación no activa), lo que quedó anotado cuando el bot lo intentó, y si no
+hay nada de eso, que todavía no la intentó. El bridge mete ese motivo en el
+mensaje con un ⚠️ y, si el bot está apagado, lo pone como encabezado en rojo.
+El detalle completo también sale en `?action=diag`, en
+`preguntas_que_no_pudo_contestar`.
+
 ### Lo que queda sin resolver
 
 **Por qué ML no manda ningún webhook.** No se investigó: el barrido lo vuelve
