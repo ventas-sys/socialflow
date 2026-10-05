@@ -33,7 +33,7 @@ import { modeloTexto } from '../../lib/gemini-texto.js';
 import { getShipment, getOrder, sendPostSaleMessage, getUnreadMessages, diagnosticarConversacion } from '../../lib/ml/ml-api.js';
 import { armarMensaje, encolarLote, vencidos, marcarEnviadoLote, verCola, verEnviados, necesitaKv, DEMORA_MS } from '../../lib/ml/postventa.js';
 import { generateAnswer, probarIA } from '../../lib/ml/qa-brain.js';
-import { storeKind, kvDetalle, markWebhook, lastWebhook, markWebhookResultado, lastWebhookResultado, readJson, writeJson, kvPrueba, kvUltimoError } from '../../lib/ml/token-store.js';
+import { storeKind, kvDetalle, markWebhook, lastWebhook, markWebhookResultado, lastWebhookResultado, anotarPreguntaSinResponder, verPreguntasSinResponder, readJson, writeJson, kvPrueba, kvUltimoError } from '../../lib/ml/token-store.js';
 
 // Access token de la cuenta (con cache + guardado del refresh rotado).
 async function tokenOf(acc) {
@@ -422,6 +422,38 @@ async function answerFlow({ acc, accounts, q, autopost }) {
 
 // Responde en tanda las preguntas pendientes de una cuenta (red de seguridad si
 // el webhook de ML no entra: se procesan igual las que quedaron sin responder).
+// POR QUÉ ESTA PREGUNTA QUEDÓ SIN RESPUESTA.
+//
+// answerFlow ya devuelve todo lo necesario (escalated / omitida / postError),
+// pero eso vive un request y se pierde. Esto lo traduce a una frase para Rodo y
+// devuelve null cuando la pregunta SÍ se contestó (el caso normal, que no se
+// anota: ver el aviso de costo en token-store.js).
+function motivoSinResponder(out, { autopost }) {
+  if (!out) return null;
+  if (out.error) return 'Se cayó el intento de responder: ' + out.error;
+  if (out.escalated) return out.note || 'Por diseño la contesta una persona.';
+  if (out.omitida) return out.note || 'La publicación no está activa: ML no deja responder ahí.';
+  if (out.postError) return 'ML rechazó la respuesta: ' + out.postError;
+  if (!autopost) return 'El bot está en modo prueba (ML_AUTOANSWER=off): redactó la respuesta pero no la publicó.';
+  if (!out.posted?.ok) return 'La respuesta se generó pero no se llegó a publicar.';
+  return null;
+}
+
+// Anota el motivo sin romper nada si el KV está caído: es un dato de ayuda, no
+// puede hacer fallar el barrido ni el webhook.
+async function anotarMotivo(q, out, { autopost, cuenta }) {
+  const motivo = motivoSinResponder(out, { autopost });
+  if (!motivo) return null;
+  try {
+    await anotarPreguntaSinResponder(q.id, motivo, {
+      cuenta, item_id: q.item_id || null, pregunta: String(q.text || '').slice(0, 120),
+    });
+  } catch (e) {
+    console.error('[ml-questions] no se pudo anotar el motivo de la pregunta ' + q.id, e.message);
+  }
+  return motivo;
+}
+
 async function sweepAccount({ acc, accounts, limit, autopost }) {
   const token = await tokenOf(acc);
   const data = await getUnanswered(token, acc.user_id, limit);
@@ -430,9 +462,11 @@ async function sweepAccount({ acc, accounts, limit, autopost }) {
   for (const q of pendientes) {
     try {
       const out = await answerFlow({ acc, accounts, q, autopost });
-      resultados.push({ question_id: q.id, item_id: q.item_id, ...out });
+      const motivo = await anotarMotivo(q, out, { autopost, cuenta: acc.label });
+      resultados.push({ question_id: q.id, item_id: q.item_id, ...out, motivo });
     } catch (e) {
       console.error('[ml-questions] sweep falló en la pregunta ' + q.id, e.message);
+      await anotarMotivo(q, { error: e.message }, { autopost, cuenta: acc.label });
       resultados.push({ question_id: q.id, item_id: q.item_id, question: q.text, error: e.message });
     }
   }
@@ -561,11 +595,12 @@ export default async function handler(req, res) {
     if (action === 'diag') {
       // En paralelo: en el plan Hobby la función corta a los 10s y una cuenta
       // sola ya se lleva varias llamadas a la API de ML.
-      const [cuentas, webhook, webhookPreguntas, resultadoPreguntas, ia] = await Promise.all([
+      const [cuentas, webhook, webhookPreguntas, resultadoPreguntas, sinResponder, ia] = await Promise.all([
         Promise.all(accounts.map(diagAccount)),
         lastWebhook(),
         lastWebhook('questions'),
         lastWebhookResultado('questions'),
+        verPreguntasSinResponder().catch(() => ({})),
         probarIA(),
       ]);
       const info = {
@@ -599,6 +634,9 @@ export default async function handler(req, res) {
         ultimo_webhook_de_ml: webhook || null,
         ultimo_webhook_de_preguntas: webhookPreguntas || null,
         que_paso_con_esa_pregunta: resultadoPreguntas || null,
+        // Las últimas preguntas que quedaron sin contestar, con el motivo de cada
+        // una. Es lo que se mira cuando llega el aviso de WhatsApp.
+        preguntas_que_no_pudo_contestar: sinResponder,
         cuentas,
         diagnostico: diagConclusiones({ accounts, cuentas, ...info }),
       });
@@ -945,6 +983,11 @@ export default async function handler(req, res) {
       const minutos = Math.max(1, Number(req.query?.minutos || req.body?.minutos) || ATRASADAS_MINUTOS);
       const corte = Date.now() - minutos * 60_000;
       const atrasadas = [];
+      // Una sola lectura para todas las cuentas: el motivo por el que el bot no
+      // contestó, anotado cuando pasó (ver anotarMotivo).
+      let motivos = {};
+      try { motivos = await verPreguntasSinResponder(); } catch { /* sin motivos el aviso igual sale */ }
+      const botApagado = !autoanswerOn();
 
       for (const acc of accounts) {
         try {
@@ -958,22 +1001,36 @@ export default async function handler(req, res) {
           const items = {};
           if (ids.length) {
             try {
-              for (const it of await getItemsBulk(token, ids)) {
-                if (it?.id) items[it.id] = { titulo: it.title, link: it.permalink };
+              // getItemsBulk devuelve un Map (item_id -> datos). Recorrerlo con
+              // `for (const it of ...)` entrega pares [id, datos], así que `it.id`
+              // era undefined y el aviso de WhatsApp salía SIEMPRE sin título ni
+              // link -- justo los dos datos que sirven para encontrar la pregunta.
+              for (const [id, it] of await getItemsBulk(token, ids)) {
+                items[id] = { titulo: it?.title || null, link: it?.permalink || null, estado: it?.status || null };
               }
             } catch { /* sin títulos igual sirve: el id alcanza para encontrarla */ }
           }
 
           for (const q of viejas) {
+            const info = items[String(q.item_id)] || {};
             atrasadas.push({
               cuenta: acc.label,
               question_id: q.id,
               texto: q.text,
               item_id: q.item_id,
-              titulo: items[q.item_id]?.titulo || null,
-              link: items[q.item_id]?.link || null,
+              titulo: info.titulo || null,
+              link: info.link || null,
               desde: q.date_created,
               hace_minutos: Math.round((Date.now() - new Date(q.date_created).getTime()) / 60_000),
+              // Por qué sigue sin contestar. El orden importa: primero lo que
+              // vemos AHORA (el bot apagado, la publicación no activa) y después
+              // lo que quedó anotado cuando el bot lo intentó.
+              motivo: botApagado
+                ? 'El bot está apagado (ML_AUTOANSWER=off en Vercel).'
+                : (info.estado && info.estado !== 'active'
+                    ? `La publicación está ${info.estado === 'paused' ? 'PAUSADA' : 'FINALIZADA'}: ML no deja responder preguntas ahí.`
+                    : (motivos[String(q.id)]?.motivo
+                        || 'El bot todavía no la intentó: puede ser que ML no haya avisado (webhook) y falte el próximo barrido.')),
             });
           }
         } catch (e) {
@@ -982,7 +1039,8 @@ export default async function handler(req, res) {
         }
       }
       atrasadas.sort((a, b) => (b.hace_minutos || 0) - (a.hace_minutos || 0));
-      return res.status(200).json({ ok: true, minutos, cuantas: atrasadas.filter(a => !a.error).length, atrasadas });
+      return res.status(200).json({ ok: true, minutos, bot_apagado: botApagado,
+        cuantas: atrasadas.filter(a => !a.error).length, atrasadas });
     }
 
     // BARRIDO: responde las preguntas que quedaron pendientes (una cuenta o todas).
@@ -1096,6 +1154,9 @@ export default async function handler(req, res) {
         // Interruptor de seguridad: poné ML_AUTOANSWER=off en Vercel para pausar el auto-respondido.
         const autopost = autoanswerOn();
         const out = await answerFlow({ acc, accounts, q, autopost });
+        // Si quedó sin contestar, el motivo se guarda por pregunta: el aviso de
+        // WhatsApp lo lee de ahí y Rodo ve POR QUÉ, no solo QUE no se contestó.
+        await anotarMotivo(q, out, { autopost, cuenta: acc.label });
         await markWebhookResultado('questions', {
           question_id: qId, cuenta: acc.label, pregunta: (q.text || '').slice(0, 80),
           ok: !out.postError && !out.escalated,
@@ -1107,10 +1168,11 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: !out.postError, autopost, ...out });
       } catch (e) {
         console.error('[ml-questions] webhook falló', { user_id, resource, error: e.message });
+        const qIdFallado = String(resource || '').split('/').pop();
         await markWebhookResultado('questions', {
-          question_id: String(resource || '').split('/').pop(),
-          ok: false, resultado: 'ERROR: ' + e.message,
+          question_id: qIdFallado, ok: false, resultado: 'ERROR: ' + e.message,
         });
+        await anotarMotivo({ id: qIdFallado }, { error: e.message }, { autopost: true, cuenta: null });
         return res.status(200).json({ ok: false, error: e.message, hint: 'Abrí /api/ml/questions?action=diag para ver el detalle.' });
       }
     }
