@@ -266,3 +266,17 @@ reinicia la cuenta, para no cortarle la charla a un cliente de verdad.
 | Variable | Default | Para qué |
 |---|---|---|
 | `WA_MAX_MSJ_REPETIDO` | `3` | Cuántas veces responder el mismo mensaje antes de cortar |
+
+## 5-oct-2026: el mínimo mayorista pasó a $100.000
+
+Rodo pidió subirlo. El número estaba escrito **dos veces y con dos formatos
+distintos**: en `MAYORISTA.descuentos` (el mensaje que ve el cliente) y en
+`ia-guide.js` (lo que la IA sabe cuando improvisa una respuesta sobre la lista).
+Cambiar uno solo dejaba al bot diciendo una cosa en el mensaje armado y otra
+cuando el cliente repreguntaba.
+
+Ahora sale de `MAYORISTA.minimo` y `MAYORISTA.minimoTexto`, y `ia-guide.js` lo
+interpola de ahí. **Para cambiarlo se toca ese número y nada más.**
+
+Hay una prueba que recorre `lib/`, `api/` y `bridge/` y falla si aparece un
+mínimo escrito a mano en algún otro lado.
