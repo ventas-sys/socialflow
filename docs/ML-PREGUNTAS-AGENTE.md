@@ -1419,6 +1419,32 @@ mensaje con un ⚠️ y, si el bot está apagado, lo pone como encabezado en roj
 El detalle completo también sale en `?action=diag`, en
 `preguntas_que_no_pudo_contestar`.
 
+### 5-oct-2026: huella de las keys de Gemini
+
+Rodo pidió separarle la key a Tatiana. El código ya estaba listo desde el
+24-ago (`keyTexto()` / `keyMedia()`, y se verificó que **ningún** archivo lee
+`GEMINI_API_KEY` por fuera del separador), pero el diagnóstico no alcanzaba para
+decidir qué hacer: mostraba qué **variable** usa cada cosa, no qué **key** hay
+adentro.
+
+Estado real en producción: `GEMINI_API_KEY_TEXTO` cargada, `GEMINI_API_KEY_MEDIA`
+vacía → imagen/video cae en `GEMINI_API_KEY`. Desde afuera era imposible saber si
+eso ya protegía a los bots (dos keys distintas) o si las dos puntas pegaban
+contra la misma key con dos nombres.
+
+`resumenKeys()` ahora devuelve `huella_texto`, `huella_media` y `misma_key`. La
+huella son 8 caracteres de un **sha256**, no un pedazo de la key: de ahí no se
+vuelve al valor. Importa porque `?action=diag` se abre sin contraseña.
+
+El aviso del diagnóstico pasó a dispararse por `misma_key` en vez de por
+`!separadas`: antes gritaba "separalas" aunque ya estuvieran separadas de hecho.
+Si son distintas pero falta `GEMINI_API_KEY_MEDIA`, ahora sale un ℹ️ en vez de
+un ⚠️.
+
+⚠️ **El cupo de Gemini es por PROYECTO de Google, no por key.** Dos keys del
+mismo proyecto comparten el mismo presupuesto y no separan nada: la key de media
+tiene que salir de un proyecto distinto en AI Studio.
+
 ### Lo que queda sin resolver
 
 **Por qué ML no manda ningún webhook.** No se investigó: el barrido lo vuelve

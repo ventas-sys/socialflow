@@ -544,8 +544,14 @@ function diagConclusiones({ accounts, cuentas, gemini, iaError, keys, autoanswer
       ? `❌ LA IA NO RESPONDE — se acabó el crédito/cupo de Gemini: "${iaError}". Sin esto Tatiana no puede redactar NINGUNA respuesta, aunque todo lo demás esté bien. Entrá a https://ai.studio/spend y subí o sacá el tope de gasto mensual del proyecto.`
       : `❌ LA IA NO RESPONDE: ${iaError}. Sin esto el agente no puede redactar ninguna respuesta.`);
   }
-  if (gemini && keys && !keys.separadas) {
-    out.push('⚠️ Los bots (ML y WhatsApp) comparten la key de Gemini con la generación de imágenes y video, que es MUCHO más cara. Si se agota el crédito haciendo contenido, los dos bots dejan de atender. Separalas: GEMINI_API_KEY_TEXTO para los bots y GEMINI_API_KEY_MEDIA para imagen/video.');
+  // El aviso se da por la HUELLA, no por el nombre de la variable: con
+  // GEMINI_API_KEY_TEXTO cargada pero GEMINI_API_KEY_MEDIA vacía, media cae en
+  // la key de siempre y puede ser la misma que la de los bots. Antes esto se
+  // leía como "falta separarlas" aun cuando ya estaban separadas de hecho.
+  if (gemini && keys?.misma_key) {
+    out.push('⚠️ Los bots (ML y WhatsApp) comparten la key de Gemini con la generación de imágenes y video, que es MUCHO más cara. Si se agota el crédito haciendo contenido, los dos bots dejan de atender. Separalas: GEMINI_API_KEY_TEXTO para los bots y GEMINI_API_KEY_MEDIA para imagen/video, cada una de un PROYECTO distinto de Google (el cupo es por proyecto, no por key).');
+  } else if (gemini && keys && !keys.separadas && !keys.misma_key) {
+    out.push('ℹ️ Los bots y la generación de imágenes usan keys distintas, pero falta cargar GEMINI_API_KEY_MEDIA para dejarlo explícito: hoy imagen/video cae en GEMINI_API_KEY de respaldo.');
   }
   if (!autoanswer) out.push('⚠️ ML_AUTOANSWER=off: el auto-respondido está PAUSADO a propósito. Sacá esa variable (o ponela en "on") para que vuelva a responder.');
   if (store === 'memoria') {
