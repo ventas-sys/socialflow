@@ -81,7 +81,10 @@ const BARRIDO_MAX = Number(process.env.ML_POSTVENTA_BARRIDO_MAX || 120);
 const ENVIOS_EN_PARALELO = 8;
 
 // Cuántos minutos puede quedar una pregunta sin responder antes de avisar.
-const ATRASADAS_MINUTOS = Number(process.env.ML_ATRASADAS_MINUTOS || 5);
+// Igual que el del bridge (12). El bridge siempre manda &minutos=, así que este
+// número solo se usa si alguien abre ?action=atrasadas a mano; aun así conviene
+// que los dos digan lo mismo, para que una prueba manual no muestre otra cosa.
+const ATRASADAS_MINUTOS = Number(process.env.ML_ATRASADAS_MINUTOS || 12);
 
 // Los únicos topics de ML que este endpoint procesa. Cualquier otro se
 // descarta sin tocar el KV (ver el comentario del webhook, más abajo).

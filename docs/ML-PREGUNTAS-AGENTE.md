@@ -1496,6 +1496,24 @@ Límite conocido: ML no deja pasar de offset 1000 en el listado sin usar `scan`,
 así que si alguna cuenta tiene más de 1000 pausadas el informe lo dice en `nota`
 en vez de mentir.
 
+### 5-oct-2026: los 12 minutos van en el código, no en el VPS
+
+El aviso de preguntas atrasadas se había dejado en 5 minutos con la idea de que
+Rodo pusiera `WA_ML_ATRASADAS_MIN=12` en `/opt/socialflow/bridge/.env` y
+reiniciara pm2 a mano. Eso quedó pendiente media semana, y era pendiente de él
+por una decisión mía: **el valor que pidió tendría que haber ido de fábrica en el
+código desde el principio.**
+
+Ahora el valor por defecto es **12** en `bridge/wa-bridge.mjs` y también en
+`ATRASADAS_MINUTOS` de `api/ml/questions.js`, para que una prueba manual del
+endpoint muestre lo mismo que el aviso. La variable de entorno sigue existiendo
+por si hay que pisarlo sin tocar código.
+
+La regla general, para la próxima: **un número que el cliente eligió va en el
+código, que viaja con el deploy automático. Una variable de entorno en el VPS es
+para lo que no puede estar en el repo (claves, tokens) o para pisar algo en una
+emergencia, no para configuración normal.**
+
 ### Lo que queda sin resolver
 
 **Por qué ML no manda ningún webhook.** No se investigó: el barrido lo vuelve

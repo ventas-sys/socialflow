@@ -770,7 +770,11 @@ async function desmarcarChatAtendido(client, chatId) {
 const ML_PREGUNTAS_URL = (process.env.WA_ML_PREGUNTAS_URL
   || WEBHOOK_URL.replace(/\/api\/wa\/webhook.*$/, '/api/ml/questions')).trim();
 const ML_PREGUNTAS_KEY = (process.env.ML_SWEEP_KEY || '').trim();
-const ML_ATRASADAS_MIN = Number(process.env.WA_ML_ATRASADAS_MIN || 5);
+// 12 minutos, que es lo que pidió Rodo. Va como valor de fábrica y no como
+// variable en el .env del VPS a propósito: puesto acá viaja con el deploy
+// automático y no hay que entrar al servidor a mano cada vez que se cambia.
+// WA_ML_ATRASADAS_MIN sigue existiendo por si hay que pisarlo sin tocar código.
+const ML_ATRASADAS_MIN = Number(process.env.WA_ML_ATRASADAS_MIN || 12);
 // Si sigue sin responder, se vuelve a avisar recién después de estas horas,
 // para que no llegue el mismo aviso cada 5 minutos.
 const ML_REAVISAR_MS = Number(process.env.WA_ML_REAVISAR_HORAS || 3) * 3_600_000;
