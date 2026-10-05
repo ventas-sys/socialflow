@@ -28,7 +28,7 @@ import { construirReporte } from '../../lib/ml/conversion.js';
 import { filaMedidas, ordenarFilas, medidasCsv } from '../../lib/ml/medidas.js';
 import { compararCatalogos, faltantesCsv } from '../../lib/ml/catalogo.js';
 import { searchMyItems, getItemsFichaBulk, mlAdsGet, getUserItemsVisits, getOrdersPagina } from '../../lib/ml/ml-api.js';
-import { resumenKeys } from '../../lib/gemini-keys.js';
+import { resumenKeys, probarKeyMedia } from '../../lib/gemini-keys.js';
 import { modeloTexto } from '../../lib/gemini-texto.js';
 import { getShipment, getOrder, sendPostSaleMessage, getUnreadMessages, diagnosticarConversacion } from '../../lib/ml/ml-api.js';
 import { armarMensaje, encolarLote, vencidos, marcarEnviadoLote, verCola, verEnviados, necesitaKv, DEMORA_MS } from '../../lib/ml/postventa.js';
@@ -536,7 +536,7 @@ async function diagAccount(acc) {
 }
 
 // Traduce la radiografía a conclusiones en castellano (qué está roto y qué hacer).
-function diagConclusiones({ accounts, cuentas, gemini, iaError, keys, autoanswer, store, webhook, webhookPreguntas, resultadoPreguntas }) {
+function diagConclusiones({ accounts, cuentas, gemini, iaError, keys, autoanswer, store, webhook, webhookPreguntas, resultadoPreguntas, iaMedia }) {
   const out = [];
   if (!accounts.length) out.push('❌ No hay cuentas cargadas: falta la variable ML_ACCOUNTS en Vercel (o quedó mal el JSON).');
   if (!gemini) {
@@ -552,6 +552,11 @@ function diagConclusiones({ accounts, cuentas, gemini, iaError, keys, autoanswer
     out.push('⚠️ Los bots (ML y WhatsApp) comparten la key de Gemini con la generación de imágenes y video, que es MUCHO más cara. Si se agota el crédito haciendo contenido, los dos bots dejan de atender. Separalas: GEMINI_API_KEY_TEXTO para los bots y GEMINI_API_KEY_MEDIA para imagen/video, cada una de un PROYECTO distinto de Google (el cupo es por proyecto, no por key).');
   } else if (gemini && keys && !keys.separadas && !keys.misma_key) {
     out.push('ℹ️ Los bots y la generación de imágenes usan keys distintas, pero falta cargar GEMINI_API_KEY_MEDIA para dejarlo explícito: hoy imagen/video cae en GEMINI_API_KEY de respaldo.');
+  }
+  // La key de imagen/video no calla a Tatiana, pero si está rota la generación
+  // de contenido no anda y no hay ningún otro lado donde se vea.
+  if (iaMedia && !iaMedia.ok) {
+    out.push(`⚠️ La key de IMAGEN Y VIDEO no funciona: ${iaMedia.error}. Tatiana y el bot de WhatsApp siguen andando (usan otra key), pero generar imágenes o videos va a fallar. Revisá GEMINI_API_KEY_MEDIA (o GEMINI_API_KEY) en Vercel: puede ser una key borrada o dada de baja en AI Studio.`);
   }
   if (!autoanswer) out.push('⚠️ ML_AUTOANSWER=off: el auto-respondido está PAUSADO a propósito. Sacá esa variable (o ponela en "on") para que vuelva a responder.');
   if (store === 'memoria') {
@@ -601,13 +606,14 @@ export default async function handler(req, res) {
     if (action === 'diag') {
       // En paralelo: en el plan Hobby la función corta a los 10s y una cuenta
       // sola ya se lleva varias llamadas a la API de ML.
-      const [cuentas, webhook, webhookPreguntas, resultadoPreguntas, sinResponder, ia] = await Promise.all([
+      const [cuentas, webhook, webhookPreguntas, resultadoPreguntas, sinResponder, ia, iaMedia] = await Promise.all([
         Promise.all(accounts.map(diagAccount)),
         lastWebhook(),
         lastWebhook('questions'),
         lastWebhookResultado('questions'),
         verPreguntasSinResponder().catch(() => ({})),
         probarIA(),
+        probarKeyMedia(),
       ]);
       const info = {
         gemini: ia.ok,
@@ -618,6 +624,7 @@ export default async function handler(req, res) {
         webhook,
         webhookPreguntas,
         resultadoPreguntas,
+        iaMedia,
       };
       return res.status(200).json({
         ok: true,
@@ -626,6 +633,8 @@ export default async function handler(req, res) {
         auto_respondido: info.autoanswer ? 'on' : 'off (PAUSADO)',
         gemini: ia.ok ? `OK (probada de verdad, modelo ${ia.modelo})` : 'FALLA: ' + ia.error,
         modelo_de_ia: ia.modelo || modeloTexto(),
+        // La key de imagen/video es OTRA: que Tatiana ande no dice nada de ella.
+        imagen_y_video: iaMedia.ok ? 'OK (key probada de verdad)' : 'FALLA: ' + iaMedia.error,
         keys_de_gemini: resumenKeys(),
         guardado_de_tokens: info.store,
         kv: kvDetalle(),
