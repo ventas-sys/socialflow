@@ -73,8 +73,11 @@ export default function Metrics({ mlAccounts, ensureToken }) {
         try {
           const directo = await pedir('mpsaldo', { mpToken: acc.mpToken || '' })
           if (directo?.saldo) return { key, ...directo }
-          const reporte = await pedir('mpsaldoreal', {
-            mpToken: acc.mpToken || '', token: acc.accessToken || '', dias: 3,
+          // Se lee el archivo más nuevo que MP YA tenga generado. No se espera
+          // a que arme uno: eso tarda más que lo que dura la función y antes
+          // siempre terminaba en "MP no lo generó en 2 minutos".
+          const reporte = await pedir('mpreporte', {
+            paso: 'traer', mpToken: acc.mpToken || '', token: acc.accessToken || '',
           })
           return { key, ...reporte }
         } catch (err) {
@@ -86,6 +89,37 @@ export default function Metrics({ mlAccounts, ensureToken }) {
       setSaldos([{ key: 'error', error: err.message }])
     } finally {
       setSaldosBusy(false)
+    }
+  }
+
+  // El saldo sólo aparece en el archivo si la cuenta tiene prendido
+  // check_available_balance. Las dos lo tenían apagado, y por eso el CSV traía
+  // los movimientos pero no el saldo. Esto lo prende sin tocar el resto de la
+  // configuración (columnas, separador y frecuencia quedan como estaban).
+  const [arregloMsg, setArregloMsg] = useState('')
+  const [arregloBusy, setArregloBusy] = useState(false)
+
+  const accionReporte = async (paso, aviso) => {
+    if (aviso && !window.confirm(aviso)) return
+    setArregloBusy(true); setArregloMsg('')
+    try {
+      const partes = []
+      for (const key of cuentas) {
+        const acc = mlAccounts[key] || {}
+        const r = await fetch(`${API}?action=mpreporte`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paso, mpToken: acc.mpToken || '', token: acc.accessToken || '', dias: 3 }),
+        }).then(x => x.json())
+        const detalle = r.ok
+          ? (paso === 'activar' ? 'saldo prendido' : 'pedido')
+          : (r.error || (r.pasos || []).map(p => `${p.paso}: ${p.estado}`).join(' · ') || 'falló')
+        partes.push(`${key.toUpperCase()}: ${r.ok ? '✅' : '❌'} ${detalle}`)
+      }
+      setArregloMsg(partes.join('  ·  '))
+    } catch (e) {
+      setArregloMsg('❌ ' + e.message)
+    } finally {
+      setArregloBusy(false)
     }
   }
 
@@ -381,8 +415,34 @@ export default function Metrics({ mlAccounts, ensureToken }) {
               MP puede tardar varios minutos en armarlo, sobre todo en FULL.
             </p>
             <button className="mt-btn" onClick={cargarSaldos} disabled={saldosBusy}>
-              {saldosBusy ? '⏳ Armando el reporte (puede tardar varios minutos)...' : '💳 Ver saldos'}
+              {saldosBusy ? '⏳ Leyendo el último reporte...' : '💳 Ver saldos'}
             </button>
+
+            <div className="mt-reporte-fix">
+              <p className="mt-hint">
+                Si abajo dice que el archivo no trae el saldo, es porque la cuenta tiene apagado el
+                campo <code>check_available_balance</code> en Mercado Pago. Se prende una sola vez:
+              </p>
+              <div className="mt-reporte-btns">
+                <button
+                  className="mt-btn mt-btn-sec"
+                  disabled={arregloBusy}
+                  onClick={() => accionReporte('activar',
+                    'Prende el saldo disponible en el reporte de liberaciones de Mercado Pago, en las dos cuentas. ' +
+                    'No cambia columnas, separador ni frecuencia. ¿Seguir?')}
+                >
+                  {arregloBusy ? '⏳...' : '🔧 Prender el saldo en el reporte'}
+                </button>
+                <button
+                  className="mt-btn mt-btn-sec"
+                  disabled={arregloBusy}
+                  onClick={() => accionReporte('pedir')}
+                >
+                  {arregloBusy ? '⏳...' : '📄 Pedir un reporte nuevo'}
+                </button>
+              </div>
+              {arregloMsg && <p className="mt-hint">{arregloMsg}</p>}
+            </div>
 
             {saldos && (
               <div className="mt-saldos">
@@ -413,6 +473,14 @@ export default function Metrics({ mlAccounts, ensureToken }) {
                         <p className="mt-saldo-falta">
                           {s.error || 'Mercado Pago no devolvió el saldo.'}
                         </p>
+                        {s.saldoEnElArchivo === false && (
+                          <p className="mt-saldo-falta">
+                            El reporte de esta cuenta NO incluye el saldo disponible
+                            (check_available_balance apagado). Tocá "🔧 Prender el saldo en el reporte",
+                            después "📄 Pedir un reporte nuevo", y en un rato volvé a "Ver saldos".
+                          </p>
+                        )}
+                        {s.archivo && <p className="mt-hint">Archivo leído: {s.archivo}{s.fechaArchivo ? ` (${s.fechaArchivo})` : ''}</p>}
                         {(s.pasos || []).map((i, n) => (
                           <p className="mt-hint" key={n}>{i.paso}: {i.estado}{i.detalle ? ` — ${String(i.detalle).slice(0, 140)}` : ''}</p>
                         ))}

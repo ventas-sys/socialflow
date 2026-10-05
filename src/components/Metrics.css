@@ -245,3 +245,14 @@
   margin: .15rem 0; padding: .3rem .4rem; background: #f1f5f9; border-radius: 4px;
   font-size: .68rem; white-space: pre-wrap; word-break: break-all;
 }
+
+/* Arreglo del reporte de liberaciones de MP */
+.mt-reporte-fix {
+  margin-top: .8rem; padding: .7rem .8rem;
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;
+}
+.mt-reporte-fix code {
+  background: #e2e8f0; padding: 0 .25rem; border-radius: 4px; font-size: .78rem;
+}
+.mt-reporte-btns { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .5rem; }
+.mt-btn-sec { background: #64748b; }

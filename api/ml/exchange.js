@@ -26,6 +26,7 @@ export default async function handler(req, res) {
     if (action === 'mpsaldo') return await mpSaldo(req, res);
     if (action === 'mpsaldotest') return await mpSaldoTest(req, res);
     if (action === 'mpsaldoreal') return await mpSaldoReal(req, res);
+    if (action === 'mpreporte') return await mpReporte(req, res);
     return await exchange(req, res);
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message });
@@ -1133,6 +1134,181 @@ function ultimoNumeroDeLinea(linea) {
     if (n != null) return n;
   }
   return null;
+}
+
+// Lee el saldo y el neto de un CSV de liberaciones ya bajado.
+// Vive aparte porque lo usan los dos caminos: el viejo (todo de una) y el
+// nuevo por pasos.
+function leerSaldoDelCsv(texto) {
+  const crudas = String(texto || '').split(/\r?\n/).filter((l) => l.trim());
+
+  // El saldo bueno está en el BLOQUE DE RESUMEN de arriba del archivo, que MP
+  // escribe sólo si la cuenta tiene check_available_balance prendido.
+  let disponible = null, deDonde = null, fechaSaldo = null;
+  for (const l of crudas.slice(0, 40)) {
+    if (/(available|final|closing|ending).*balance|balance.*(available|final|closing)|saldo.*(disponible|final)/i.test(l)) {
+      const n = ultimoNumeroDeLinea(l);
+      if (n != null) { disponible = n; deDonde = `resumen: ${l.slice(0, 120)}`; break; }
+    }
+  }
+
+  const { columnas, filas, encabezado, sep } = partirCsv(texto);
+  const buscarCol = (...patrones) => {
+    for (const p of patrones) {
+      const i = columnas.findIndex((c) => p.test(c));
+      if (i > -1) return i;
+    }
+    return -1;
+  };
+  // Ojo: BALANCE_AMOUNT NO es el saldo acumulado, es el importe del movimiento
+  // que impacta en el saldo. En FERRE la última fila daba 0 con la cuenta
+  // teniendo $940.517. Sólo se usa si no hay nada mejor, y se avisa.
+  const iSaldo = buscarCol(/available.*balance|balance.*available/i, /final.*balance|balance.*final/i);
+  const iFecha = buscarCol(/^date$/i, /release.*date|money.*date/i, /date/i);
+
+  let ultimas5 = [];
+  if (disponible == null && iSaldo > -1 && iFecha > -1) {
+    const conFecha = filas
+      .map((f) => ({ fecha: (f[iFecha] || '').trim(), saldo: aNumero(f[iSaldo]) }))
+      .filter((r) => r.fecha && /\d{4}-\d{2}-\d{2}|\d{2}\/\d{2}\/\d{4}/.test(r.fecha) && r.saldo != null)
+      .sort((a, b) => (a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0));
+    ultimas5 = conFecha.slice(-5);
+    const ultima = conFecha[conFecha.length - 1];
+    if (ultima) {
+      disponible = ultima.saldo;
+      fechaSaldo = ultima.fecha;
+      deDonde = `columna ${columnas[iSaldo]}, movimiento del ${ultima.fecha}`;
+    }
+  }
+
+  // Neto del período: sirve de control aunque el saldo salga bien.
+  const iCred = buscarCol(/net_credit/i, /^credit/i);
+  const iDeb = buscarCol(/net_debit/i, /^debit/i);
+  let netoPeriodo = null;
+  if (iCred > -1 || iDeb > -1) {
+    netoPeriodo = filas.reduce((a, f) => a + (aNumero(f[iCred]) || 0) - (aNumero(f[iDeb]) || 0), 0);
+  }
+
+  return {
+    saldo: disponible != null ? { disponible, fecha: fechaSaldo, fuente: deDonde } : null,
+    netoPeriodo,
+    movimientos: filas.length,
+    crudo: {
+      separador: sep,
+      filaEncabezado: encabezado,
+      columnas,
+      ultimasPorFecha: ultimas5,
+      primeras: crudas.slice(0, 12).map((l) => l.slice(0, 300)),
+      ultimas: crudas.slice(-3).map((l) => l.slice(0, 300)),
+    },
+  };
+}
+
+// Reporte de liberaciones de MP, EN PASOS SEPARADOS.
+//
+// El camino anterior (mpSaldoReal) hacía todo en una sola llamada: pedía el
+// reporte y se quedaba esperando a que MP lo generara. Nunca iba a andar: MP
+// acepta el pedido (202) pero tarda bastante más que los 5 minutos que dura
+// una función de Vercel, así que siempre terminaba en "no lo generó".
+//
+// Y había un problema anterior a ese: las dos cuentas tienen
+// check_available_balance en false, que es el flag que hace que MP escriba el
+// SALDO DISPONIBLE en el archivo. Apagado, el CSV trae los movimientos pero no
+// el saldo — por eso antes había que adivinar columnas, y salía mal.
+//
+// Pasos (cada uno corto, ninguno espera nada):
+//   config   -> cómo está configurado el reporte de esta cuenta
+//   activar  -> prender check_available_balance sin tocar nada más
+//   pedir    -> POST y chau, MP lo genera cuando puede
+//   traer    -> bajar el archivo más nuevo que YA exista y leerle el saldo
+async function mpReporte(req, res) {
+  const { token, mpToken, paso = 'config', dias = 3 } = req.body || {};
+  const tokens = [['ML', (token || '').trim()], ['MP', (mpToken || '').trim()]].filter(([, t]) => t);
+  if (!tokens.length) return res.status(400).json({ ok: false, error: 'Falta algún token' });
+
+  const pasos = [];
+  let auth = null, origen = null, config = null;
+  for (const [o, tk] of tokens) {
+    const a = { 'Authorization': 'Bearer ' + tk };
+    const r = await httpRequest('GET', REPORTE_BASE + '/config', a);
+    pasos.push({ paso: `leer la configuración (token de ${o})`, estado: r.status });
+    if (r.status === 200 && r.body && !r.body.raw) { auth = a; origen = o; config = r.body; break; }
+  }
+  if (!auth) {
+    return res.status(200).json({ ok: false, pasos, error: 'Ninguno de los dos tokens puede leer la configuración del reporte.' });
+  }
+  const conSaldo = (c) => c?.check_available_balance === true;
+
+  if (paso === 'config') {
+    return res.status(200).json({ ok: true, origenToken: origen, config, saldoEnElArchivo: conSaldo(config), pasos });
+  }
+
+  if (paso === 'activar') {
+    // Se reenvía la MISMA configuración con el saldo prendido. Tocar sólo ese
+    // campo evita pisarle las columnas, el separador y la frecuencia que la
+    // cuenta ya tenía puestos (FULL y FERRE las tienen distintas).
+    const put = await httpRequest('PUT', REPORTE_BASE + '/config',
+      { ...auth, 'Content-Type': 'application/json' },
+      { ...config, check_available_balance: true });
+    pasos.push({
+      paso: 'prender el saldo en el reporte',
+      estado: put.status,
+      detalle: put.status >= 300 ? String(JSON.stringify(put.body || '')).slice(0, 300) : 'check_available_balance = true',
+    });
+    const ahora = await httpRequest('GET', REPORTE_BASE + '/config', auth);
+    return res.status(200).json({
+      ok: put.status < 300 && conSaldo(ahora.body),
+      origenToken: origen, config: ahora.body, saldoEnElArchivo: conSaldo(ahora.body), pasos,
+    });
+  }
+
+  if (paso === 'pedir') {
+    const finMs = Date.now();
+    const iniMs = finMs - Number(dias) * 24 * 3600 * 1000;
+    const iso = (ms) => new Date(ms).toISOString().slice(0, 19) + 'Z';
+    const alta = await httpRequest('POST', REPORTE_BASE,
+      { ...auth, 'Content-Type': 'application/json' },
+      { begin_date: iso(iniMs), end_date: iso(finMs) });
+    pasos.push({
+      paso: 'pedir el reporte',
+      estado: alta.status,
+      detalle: alta.status >= 300
+        ? String(JSON.stringify(alta.body || '')).slice(0, 300)
+        : `${iso(iniMs)} → ${iso(finMs)}`,
+    });
+    return res.status(200).json({
+      ok: alta.status < 300, origenToken: origen, saldoEnElArchivo: conSaldo(config), pasos,
+      nota: 'MP lo genera cuando puede, puede tardar un rato largo. Después tocá "Traer el último".',
+    });
+  }
+
+  // paso === 'traer'
+  const lista = await httpRequest('GET', REPORTE_BASE + '/list', auth);
+  pasos.push({ paso: 'listar los archivos', estado: lista.status });
+  const arr = Array.isArray(lista.body) ? lista.body : [];
+  const fechaDe = (f) => f.date_created || f.created_from || f.begin_date || '';
+  const archivos = [...arr]
+    .sort((a, b) => String(fechaDe(a)).localeCompare(String(fechaDe(b))))
+    .map((f) => ({ nombre: f.file_name, fecha: fechaDe(f) }));
+  if (!archivos.length) {
+    return res.status(200).json({
+      ok: false, origenToken: origen, saldoEnElArchivo: conSaldo(config), pasos, archivos,
+      error: 'MP todavía no tiene ningún archivo generado. Pedí uno y volvé en un rato.',
+    });
+  }
+  const elegido = archivos[archivos.length - 1];
+  const bajada = await httpText('GET', `${REPORTE_BASE}/${elegido.nombre}`, auth);
+  pasos.push({ paso: `bajar ${elegido.nombre}`, estado: bajada.status, detalle: `${(bajada.text || '').length} caracteres` });
+  if (bajada.status !== 200 || !bajada.text) {
+    return res.status(200).json({ ok: false, origenToken: origen, pasos, archivos, error: 'No se pudo bajar el archivo.' });
+  }
+
+  const leido = leerSaldoDelCsv(bajada.text);
+  return res.status(200).json({
+    ok: true, origenToken: origen, archivo: elegido.nombre, fechaArchivo: elegido.fecha,
+    saldoEnElArchivo: conSaldo(config),
+    archivos: archivos.slice(-5), config, pasos, ...leido,
+  });
 }
 
 async function mpSaldoReal(req, res) {
