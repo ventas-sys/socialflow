@@ -1445,6 +1445,32 @@ un ⚠️.
 mismo proyecto comparten el mismo presupuesto y no separan nada: la key de media
 tiene que salir de un proyecto distinto en AI Studio.
 
+### 5-oct-2026: el diagnóstico ahora prueba TAMBIÉN la key de imagen/video
+
+Google avisó en AI Studio que una de las keys de Rodo había quedado **expuesta
+públicamente** (`...Te-E`, proyecto `Gemini openclaw`) y él la borró. Quedó la
+pregunta obvia: ¿esa key era la que usa algo nuestro?
+
+El diagnóstico no podía contestarla. `probarIA()` prueba de verdad la key de
+TEXTO, pero de la de media solo decía qué variable la provee. Para enterarse
+había que ir a generar una imagen a mano.
+
+`probarKeyMedia()` pide la **lista de modelos** con `keyMedia()`: no genera nada
+y no gasta —generar una imagen de prueba costaría plata justo en la key cara—,
+pero alcanza para saber si la key existe y está habilitada. Sale en el
+diagnóstico como `imagen_y_video`, y si falla aparece un ⚠️ que aclara que
+Tatiana y el bot de WhatsApp **siguen andando** porque usan otra key.
+
+⚠️ **La key nunca sale en la respuesta.** Google, cuando una key no es válida,
+devuelve un mensaje que **incluye la key adentro**; `?action=diag` se abre sin
+contraseña, así que el valor se reemplaza por `***` antes de devolver nada. Hay
+una prueba que lo verifica, también para el error de red.
+
+De paso quedó confirmado por qué la separación de keys ya estaba a medio hacer:
+el proyecto `uniproveedores-bots` se creó el **26-ago-2026**, dos días después de
+que el tope de gasto dejara mudos a los dos bots. Es el mismo proyecto nuevo que
+obligó a migrar a `gemini-3.6-flash` (ver el encabezado de `lib/gemini-texto.js`).
+
 ### Lo que queda sin resolver
 
 **Por qué ML no manda ningún webhook.** No se investigó: el barrido lo vuelve
