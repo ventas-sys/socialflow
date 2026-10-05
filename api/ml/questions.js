@@ -984,6 +984,93 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, id, intentos });
     }
 
+    // PUBLICACIONES PAUSADAS QUE VENDÍAN.
+    //
+    // Una publicación pausada no vende, no responde preguntas y, si tiene
+    // publicidad asignada, el anuncio deja de mostrarse igual: el presupuesto
+    // queda reservado en algo que nadie puede comprar. El análisis de octubre
+    // encontró tres así en FERRE con publicidad activa, pero buscarlas a ojo en
+    // un catálogo de 2000+ publicaciones no es trabajo de una persona.
+    //
+    // Ordena por ventas HISTÓRICAS de la publicación (sold_quantity): lo que
+    // separa una pausada que nunca anduvo de una que vendía y se frenó.
+    //   GET ?action=pausadas&min=1
+    if (action === 'pausadas') {
+      const expected = (process.env.ML_SWEEP_KEY || '').trim();
+      if (req.method === 'GET' && expected && (req.query?.key || '').toString() !== expected) {
+        return res.status(401).json({ error: 'key inválida' });
+      }
+      if (!accounts.length) return res.status(400).json({ error: 'No hay cuentas configuradas (ML_ACCOUNTS).' });
+      // Por debajo de este número de ventas no aparece: una pausada que nunca
+      // vendió no es plata parada, es una prueba que quedó por ahí.
+      // Ojo con `|| 1`: Number('0') es 0, que es falsy, así que &min=0 (ver
+      // TODAS las pausadas) se convertía en 1 y la opción no servía para nada.
+      const minCrudo = req.query?.min ?? req.body?.min;
+      const minVentas = (minCrudo === undefined || minCrudo === '' || !Number.isFinite(Number(minCrudo)))
+        ? 1 : Math.max(0, Number(minCrudo));
+      const label = (req.query?.account || req.body?.account || '').toString();
+      const target = label ? [findAccountByLabel(accounts, label)].filter(Boolean) : accounts;
+      if (!target.length) return res.status(400).json({ error: 'Cuenta desconocida: ' + label });
+
+      const cuentas = [];
+      for (const acc of target) {
+        const fila = { cuenta: acc.label };
+        try {
+          const token = await tokenOf(acc);
+          // ML devuelve los ids de a 100 y no deja pasar de offset 1000 sin scan.
+          const ids = [];
+          let offset = 0;
+          let total = 0;
+          while (offset <= 900) {
+            const r = await searchMyItems(token, acc.user_id, { status: 'paused', limit: 100, offset });
+            const pagina = r?.results || [];
+            total = r?.paging?.total ?? pagina.length;
+            ids.push(...pagina);
+            if (pagina.length < 100 || ids.length >= total) break;
+            offset += 100;
+          }
+          fila.pausadas_en_total = total;
+          fila.revisadas = ids.length;
+          if (total > ids.length) {
+            fila.nota = `ML no deja listar más de ${ids.length} de una vez: quedaron ${total - ids.length} sin revisar.`;
+          }
+
+          const datos = ids.length ? await getItemsBulk(token, ids) : new Map();
+          const filas = [];
+          for (const [id, it] of datos) {
+            const vendidas = Number(it?.vendidas || 0);
+            if (vendidas < minVentas) continue;
+            filas.push({
+              item_id: id,
+              titulo: it.title || null,
+              sku: it.sku || null,
+              vendidas,
+              precio: it.price ?? null,
+              stock: it.stock ?? null,
+              // Casi siempre el motivo es éste, y se ve de una.
+              sin_stock: (it.stock ?? null) === 0,
+              pausada_desde: it.tocada || null,
+              link: it.permalink || null,
+            });
+          }
+          filas.sort((a, b) => b.vendidas - a.vendidas);
+          fila.con_ventas = filas.length;
+          fila.ventas_frenadas = filas.reduce((s, f) => s + f.vendidas, 0);
+          fila.publicaciones = filas;
+        } catch (e) {
+          console.error('[ml-pausadas] falló', { cuenta: acc.label, error: e.message });
+          fila.error = e.message;
+        }
+        cuentas.push(fila);
+      }
+      return res.status(200).json({
+        ok: true,
+        minimo_de_ventas: minVentas,
+        nota: 'Ordenadas por unidades vendidas en toda la vida de la publicación. "sin_stock": true es el motivo más común.',
+        cuentas,
+      });
+    }
+
     // PREGUNTAS ATRASADAS: las que siguen sin responder después de X minutos.
     // Tatiana responde casi todas, pero algunas no las puede contestar (como
     // "si no me dicen qué colores, no me sirve", que necesita saber que el pack

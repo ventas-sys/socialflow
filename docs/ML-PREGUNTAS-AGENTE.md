@@ -1471,6 +1471,31 @@ el proyecto `uniproveedores-bots` se creó el **26-ago-2026**, dos días despué
 que el tope de gasto dejara mudos a los dos bots. Es el mismo proyecto nuevo que
 obligó a migrar a `gemini-3.6-flash` (ver el encabezado de `lib/gemini-texto.js`).
 
+### 5-oct-2026: encontrar las publicaciones frenadas que vendían
+
+El análisis de publicidad de FERRE encontró **tres anuncios que no se muestran
+porque la publicación está pausada** (Mosquetón, Piloto 30, Cargador USB): el
+presupuesto sigue asignado a algo que nadie puede comprar. Pero buscarlas a ojo
+en un catálogo de 2000+ publicaciones no es trabajo de una persona, y la lista
+salía de un Excel que hay que volver a bajar cada vez.
+
+`?action=pausadas` las busca solo: pide a ML las publicaciones con
+`status=paused` de cada cuenta y las ordena por **ventas históricas**
+(`sold_quantity`), que es lo que separa una pausada que nunca anduvo de una que
+vendía y se frenó. Marca `sin_stock: true` cuando el stock está en cero, que es
+el motivo en casi todos los casos, y trae SKU, precio, link y desde cuándo está
+frenada. `&min=0` muestra todas, `&account=ferre` una sola cuenta.
+
+Dos cosas que se aprendieron armándolo:
+
+- `getItemsBulk` ahora pide también `sold_quantity` y `last_updated`.
+- ⚠️ **`Number('0') || 1` da 1.** `&min=0` (ver TODAS las pausadas) se convertía
+  en 1 y la opción no servía para nada. Lo encontró la prueba, no producción.
+
+Límite conocido: ML no deja pasar de offset 1000 en el listado sin usar `scan`,
+así que si alguna cuenta tiene más de 1000 pausadas el informe lo dice en `nota`
+en vez de mentir.
+
 ### Lo que queda sin resolver
 
 **Por qué ML no manda ningún webhook.** No se investigó: el barrido lo vuelve
