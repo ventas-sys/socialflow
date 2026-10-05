@@ -59,16 +59,14 @@ var bool[]  pBos   = array.new_bool()
 f_evento(bool up, float lvl, int fromBar, bool choch) =>
     c = up ? colBull : colBear
     line.new(fromBar, lvl, bar_index, lvl, color=c, width=1)
-    label.new(math.floor((fromBar + bar_index) / 2.0), lvl, choch ? "CHoCH" : "BOS",
-              style=up ? label.style_label_down : label.style_label_up, color=colLblBg, textcolor=c, size=size.small)
+    label.new(math.floor((fromBar + bar_index) / 2.0), lvl, choch ? "CHoCH" : "BOS", style=up ? label.style_label_down : label.style_label_up, color=colLblBg, textcolor=c, size=size.small)
 
 f_ob(bool up) =>
     for i = 1 to obBars
         contraria = up ? close[i] < open[i] : close[i] > open[i]
         if contraria
             c = up ? colBull : colBear
-            box.new(bar_index - i, math.max(open[i], close[i]), bar_index, math.min(open[i], close[i]),
-                    border_color=color.new(c, 50), bgcolor=color.new(c, 85), extend=extend.right)
+            box.new(bar_index - i, math.max(open[i], close[i]), bar_index, math.min(open[i], close[i]), border_color=color.new(c, 50), bgcolor=color.new(c, 85), extend=extend.right)
             break
 
 // ─────────────────────────── 1) Pivotes confirmados
