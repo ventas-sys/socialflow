@@ -3,26 +3,29 @@
 **ÚNICA fuente de verdad del proyecto. Leer entera antes de tocar nada.**
 Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/socialflow
 
-## 📍 ESTADO AL 26/9/2026 — arrancar por acá
+## 📍 ESTADO AL 6/10/2026 — arrancar por acá
 
-Último commit: `387b19a`. Todo desplegado y verde en los dos proyectos de Vercel.
+Último commit: `48d4d22`. Todo desplegado y verde en los dos proyectos de Vercel.
 
-**Esperando que el usuario pruebe (lo primero a preguntar el lunes):**
-1. **Asociar códigos de Full.** Subir de nuevo el Excel del pedido de ML en 🏬 Envío a Full → tiene que salir el cartel naranja con los códigos de etiqueta para asociar (punto 21).
-2. **Doble descuento del envío 77068364.** El aviso rojo de ese envío dice cuántas unidades quedaron descontadas de más por el bug viejo (punto 19/22). Hay que ver con él cómo cargar la entrada de corrección — la app NO lo puede resolver sola porque no sabe qué salió físicamente del depósito.
-3. **Combos sin foto.** Chip 🚫 Sin ninguna foto en 🧩 Combos, y qué motivo da `BNCB71739` (punto 20).
+**🔴 LO MÁS IMPORTANTE ABIERTO — la cuota de Vercel (ver punto 23).** No es de esta app, pero la puede dejar sin servicio. Quedó en manos de OTRO chat, el que maneja el proyecto viejo `socialflow`. **No retomarlo acá salvo que el usuario lo traiga.**
+
+**Esperando que el usuario pruebe (nada de esto está confirmado):**
+1. **📦 Stock físico que NO está publicado en ML** — botón nuevo del 30/9 en la solapa 🛒 ML (punto 24). Todavía no lo corrió. Es el primero a preguntar.
+2. **Asociar códigos de Full al escanear** — commit `e7347eb` del 29/9: buscador dentro del cartel rojo "No está en el sistema" (punto 21). Nunca confirmó si funciona.
+3. **Doble descuento del envío 77068364** (punto 19/22). Hay que ver con él cómo cargar la entrada de corrección — la app NO lo puede resolver sola porque no sabe qué salió físicamente del depósito.
 
 **Pendientes del usuario (no son de código):**
-- ~~Importar `productos-para-importar.xlsx` (23 productos) y `combos-para-importar.xlsx` (109 combos)~~ **VERIFICADO EL 28/9 contra los export de la app: los 23 productos están todos (1506 productos, 1506 SKU distintos, sin duplicados) y de los 109 combos entraron 108.** El que faltaba, `MLA1496962159` "Funda Tabla Planchar", apuntaba al producto `0519` que no existe; es la misma publicación que `MLA621175861`, que ya estaba armada con `0306`. El usuario lo armó a mano el 28/9.
-  Lección: el contador de la solapa no alcanza para saber si un import entró — hay que comparar los SKU del archivo contra el export. Le dije dos veces que estaba pendiente cuando los productos ya estaban cargados.
-- ~~código base del combo MLA1678711679 "Repuesto Monocomando"~~ **armado a mano por el usuario el 28/9.**
-- **Pendiente real:** cargar las 38 publicaciones que faltan (punto 12) · correr 🏆 Top 200 y completar medida/foto/ubicación · seguir cargando stock real con Compra/Ajuste.
+- Cargar las **38 publicaciones que faltan** (punto 12): correr 🔍 Publicaciones faltantes y pasar el Excel para prepararlo.
+- Correr 🏆 **Top 200** y completar medida / foto / ubicación.
+- Seguir cargando stock real con Compra/Ajuste.
 
-**Resultado del borrado masivo de fotos de combos (verificado 28/9): quedaron 0 con foto propia y 2861 de 3437 SIN NINGUNA foto.** Sólo 576 heredan la del producto base. Fue lo que el usuario pidió explícitamente, pero el efecto práctico es que la mayoría de los combos ya no muestra foto al armar. La salida es cargar la foto en el PRODUCTO BASE: una sola foto arregla todos los combos que lo usan. Pendiente de ofrecerle un listado de qué productos base faltan con foto, ordenado por cuántos combos afecta cada uno.
+**Resultado del borrado masivo de fotos de combos (verificado 28/9): quedaron 0 con foto propia y 2861 de 3437 SIN NINGUNA foto.** Sólo 576 heredan la del producto base. Fue lo que el usuario pidió explícitamente, pero el efecto práctico es que la mayoría de los combos ya no muestra foto al armar. La salida es cargar la foto en el PRODUCTO BASE: una sola foto arregla todos los combos que lo usan. **Se le ofreció dos veces** un listado de qué productos base faltan con foto ordenado por cuántos combos arregla cada uno, y las dos veces no contestó — no insistir, esperar a que lo pida.
+
+**Congelado por pedido del usuario:** el saldo de Mercado Pago, hasta noviembre de 2026 (punto 17). "olvidemos por un mes ese tema.. no es tan importante ahora". **No ofrecerlo ni retomarlo.**
 
 **De código no queda nada abierto.**
 
-**NO recrear los check-ins automáticos del PR.** Se le mandaban cada 8-10 horas diciendo "Sin cambios. Re-armado." y el 25/9 los marcó como ruido ("Q es esto q estas repitiendo"). Se borraron. Avisar de los deploys sólo cuando hay algo que probar.
+**NO recrear los check-ins automáticos del PR.** Se le mandaban cada 8-10 horas diciendo "Sin cambios. Re-armado." y el 25/9 los marcó como ruido ("Q es esto q estas repitiendo"). Se borraron. Avisar de los deploys sólo cuando hay algo que probar, y en una línea.
 
 ## ⚠️ Entorno (leer PRIMERO en cada sesión nueva)
 - **Zona horaria: Argentina (UTC-3)**. Todo lo que se le muestre al usuario va en hora argentina, no UTC: los servidores (Vercel, los cron) corren en UTC y hay que restar 3 horas. El sello de versión de la app ya sale en hora AR (`vite.config.js`); los cron `0 16` y `0 21` UTC son las 13 y 18hs AR.
@@ -164,6 +167,24 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
 22. **LO QUE SE HIZO EL 26/9**
     - **Regla de asociación afinada** (ver punto 21): sólo códigos de **4 letras + 4 o 5 números**. La primera versión proponía todos los códigos del renglón y el usuario lo marcó como error; lo peligroso eran los **EAN todo números** (7793300417083), que se repiten entre artículos distintos y habrían hecho que dos combos respondan al mismo código.
     - **Botón 🔄 Actualizar** al lado de la versión, en el encabezado (`forzarActualizacion` en App.jsx): desregistra el service worker, borra todos los cachés y recarga con `?v=<timestamp>`. El chequeo automático de `version.json` no siempre alcanza en el celular — al usuario le quedó la versión vieja el 26/9. Ojo con el huevo y la gallina: la primera actualización a un celular trabado hay que hacerla a mano (cerrar la app desde recientes / borrar caché desde Información de la app).
+
+23. **🔴 LA CUOTA DE VERCEL (5/10) — el proyecto viejo se está comiendo todo y puede pausar esta app**
+    Llegó el aviso de Vercel del **75% de Fluid Active CPU** del plan gratis. Medido en Usage, últimos 30 días (30/8 – 29/9):
+    - Invocations **640.240 / 1.000.000** (64%) · Fluid Active CPU **3h de 4h** (75%) · CDN Requests **639K / 1M** (64%)
+    - Desglose por proyecto: **`socialflow` 637.953 (99,6%)** · `stock-inventario` **2.287 (0,4%)**
+    **La app de stock no tiene nada que ver**: 76 llamadas por día. Todo lo genera el proyecto viejo: ~21.300 por día, ~15 por minuto, parejas las 24hs incluidos fines de semana. 3h de CPU ÷ 640.240 llamadas = **~17 ms cada una**: no hay ninguna función lenta, el problema es la CANTIDAD.
+    **El peligro concreto: cuando la cuota se pasa, Vercel pausa la CUENTA, no el proyecto culpable.** O sea que `socialflow` tira abajo también la app de stock.
+    Sospechosos (los dos son webhooks abiertos al mundo, en `main`): `POST /api/ml/questions` (notificaciones de ML) y `POST /api/wa/webhook` (WhatsApp). Hipótesis no confirmada: la app está suscripta a más topics de los que procesa (`items` manda una notificación por cada cambio de cada publicación, y como la app también modifica publicaciones se retroalimenta).
+    **El usuario usa los dos servicios y los maneja desde OTRO chat.** Se le pasó el diagnóstico armado para pegar allá. **No tocar `main` desde acá.**
+    Dos cosas que quedaron sin hacer y hay que ofrecer sólo si él las trae: ver los **Top paths** en Observability de `socialflow`, y apagar el build del proyecto viejo en los push de nuestra rama (hoy cada push genera un preview de `socialflow` que nadie usa — es cuota de build al pepe, se arregla con el Ignored Build Step de ESE proyecto).
+    **Lección propia:** arranqué optimizando el cron de esta app por corazonada, antes de medir. Era el lugar equivocado y se lo dije. **Primero el dato, después el código.**
+
+24. **LO QUE SE HIZO EL 29/9 Y EL 30/9**
+    - **Asociar el código al escanearlo** (`e7347eb`): antes la asociación sólo existía al importar el pedido, así que un código que ML daba después caía en "No está en el sistema" sin salida. Ahora el cartel rojo trae un buscador (`candidatosAsociar` + `asociarEscaneado` en FullShipment.jsx) que **agrega** el código a los `barcodes` del combo elegido, nunca borra los que ya estaban. La regla `/^[A-Z]{4}\d{4,5}$/i` ya aceptaba 4 letras + 5 números: cuando el usuario pidió "agregar" ese caso, se verificó y se le dijo que ya estaba, en vez de tocar código de más.
+    - **Índice de códigos en el cron** (`c668e65`): cada SKU de cada venta recorría las dos listas enteras (1500 productos + 3437 combos) rearmando las referencias de cada uno. Ahora el índice se arma una vez. Probado contra la implementación anterior con **49.119 consultas** sobre un catálogo sintético: mismo resultado en todas, y 1228 búsquedas bajan de **892ms a 4ms**. Ojo: esto ahorra segundos por corrida, **no era la causa del problema de cuota** (punto 23).
+    - **📦 Stock físico que NO está publicado en ML** (`0524f12`, botón nuevo en 🛒 ML, `exportSinPublicar` en MercadoLibre.jsx): es el cruce **al revés** de "Publicaciones faltantes". Lee las publicaciones activas de **las dos cuentas juntas** (alcanza con estar publicado en una), ve a qué producto llega cada una —directo si es producto, abriendo el armado si es combo— y lista **los productos con stock a los que no llega ninguna**. Da pantalla (productos / unidades / plata a precio de lista + los 40 de más stock) y Excel.
+      Cada producto trae el **motivo**, que se arregla distinto: *"No está en ningún combo"* → falta crear la publicación; *"Está en N combos, pero ninguno tiene publicación activa asociada"* → el combo existe, sólo falta asociarle el MLA.
+      **Advertencia que el reporte muestra en amarillo y hay que repetirle:** cuenta cuántas publicaciones activas no pudo asociar a nada del sistema. Mientras esas queden sueltas **el listado sobra productos** (pueden estar publicados y figurar igual). Primero correr 🔍 Publicaciones faltantes.
 
 ## Reglas de negocio clave (definidas por el usuario)
 - Stock: descuenta TODO lo despachado desde el depósito propio (FLEX+correo/colecta+ventas sin envío de ML), NUNCA `fulfillment` (Full ya salió al enviarse a bodega). Igual para ambas cuentas. 2 veces/día (13 y 18hs AR). Stock puede quedar negativo. **Clasificación explícita desde el 28/8** (`clasificar`/`descuenta` en api/ml/cron.js): la regla vieja era "todo lo que no sea fulfillment descuenta", así que si fallaba el pedido del envío a ML el tipo quedaba nulo y la venta se descontaba igual — incluidas las de Full — y además no se miraba el estado de la orden (canceladas y sin cobrar también descontaban; caso real: 771 Full + 60 canceladas en 48hs de la cuenta FULL). Ahora: descuentan flex (`self_service`) + correo (`drop_off`/`xd_drop_off`/`cross_docking`) + sin envío, con estado `paid`/`partially_paid`; NO descuentan Full, canceladas/inválidas, sin cobrar (quedan para la corrida siguiente) ni las de tipo desconocido (se reintenta el pedido a ML y si igual no se sabe NO se descuenta: preferimos que falte un descuento antes que descontar una de Full). El resumen del botón "Probar automático ahora" muestra el desglose. Verificado 28/8 en producción: FULL 168 flex + 2 correo (771 Full salteadas — es correcto, ~98% de esa cuenta va por bodega), FERRE 103 flex + 83 correo + 6 sin envío.
