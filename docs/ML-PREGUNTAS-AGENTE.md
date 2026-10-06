@@ -1514,9 +1514,65 @@ código, que viaja con el deploy automático. Una variable de entorno en el VPS 
 para lo que no puede estar en el repo (claves, tokens) o para pisar algo en una
 emergencia, no para configuración normal.**
 
-### Lo que queda sin resolver
+### CORRECCIÓN: ML sí manda webhooks
 
-**Por qué ML no manda ningún webhook.** No se investigó: el barrido lo vuelve
-irrelevante para que las cosas funcionen. Si algún día se quiere el aviso en
-tiempo real, hay que revisar en DevCenter que la callback URL de la app sea
-exactamente `https://socialflow-flax.vercel.app/api/ml/questions`.
+Durante semanas esta bitácora decía "ML no manda ningún webhook" y que el
+barrido lo volvía irrelevante. **Era falso.** El 5-oct el diagnóstico mostró
+webhooks de `questions` entrando con fecha y hora, y a los pocos segundos de que
+ML los manda. Lo que pasaba antes es que `ultimo_webhook_de_ml` quedaba en `null`
+porque el KV estaba agotado y no guardaba nada: el webhook llegaba, el registro
+no se escribía, y desde afuera parecía que ML no llamaba.
+
+Es el mismo error de siempre: confundir "no veo el dato" con "no pasa el hecho".
+
+---
+
+## Estado al cierre del 5-oct-2026
+
+### Lo que quedó andando
+
+| | |
+|---|---|
+| Preguntas | Tatiana contesta por webhook en segundos. FULL 19/20 y FERRE 20/20 de las últimas respuestas son de ella; 0 preguntas sin responder en las dos cuentas |
+| Aviso de atrasadas | Anda en producción, corte en **12 minutos**, con título, link y **motivo** de por qué no se contestó |
+| Webhooks de ML | Solo `questions` suscripto en DevCenter. De ~21.300 llamadas diarias a Vercel se pasó a **cero descartadas** en 40+ minutos de observación |
+| Upstash | Pay as You Go, KV probado hasta 30 KB, sin errores |
+| Keys de Gemini | **Separadas de verdad** (huellas distintas), cada una en su proyecto de Google. El diagnóstico ahora prueba las dos |
+| Mínimo mayorista | $100.000, en un solo lugar del código |
+
+### Lo que quedó abierto
+
+1. **Copiar publicaciones entre cuentas.** `lib/ml/copiar.js` tiene la lógica
+   completa pero **NO está conectado a ningún endpoint**: no se puede ejecutar.
+   Falta enchufarlo a `api/ml/publish.js` (~40 líneas), las pruebas y la
+   documentación. Frenado a propósito: crea publicaciones reales en ML y el
+   entorno pidió permiso explícito de Rodo, que todavía no lo dio.
+   **Antes de seguir hay que saber la dirección de los ~196 faltantes:** copiar
+   de FULL a la cuenta local es seguro; al revés necesita stock ya enviado al
+   depósito de ML o la publicación nace sin poder vender.
+
+2. **Las publicaciones pausadas de FERRE.** `?action=pausadas` ya las lista
+   (Mosquetón, Piloto 30, Cargador USB: ~$174.000/día de facturación frenada).
+   Falta que Rodo las reactive o confirme que es falta de stock.
+
+3. **Publicidad: cambió el ROAS objetivo el 5-oct**, siguiendo el aviso de ML
+   ("perdés ventas porque tu ROAS es muy alto"). Revisión a los 7 días, el
+   **lunes 12-oct**. Se juzga por facturación y unidades, NUNCA por el número de
+   ROAS, que por diseño va a bajar. Estado previo: ESTRELLAS KILLER objetivo
+   6,67x / real 11,49x / 571 ventas; IMPO MIA objetivo 4x / real 4,7x / 198
+   ventas (▼49%, que puede ser una publicación pausada adentro de la campaña).
+   No tocar nada hasta entonces: cada cambio reinicia el aprendizaje de ML.
+
+4. **Vercel.** Verificar en Usage que las invocaciones hayan caído de verdad.
+
+5. **Seguridad.** Google marcó una key de Gemini como expuesta públicamente
+   (`...Te-E`, proyecto `Gemini openclaw`) y Rodo la borró. **Falta averiguar de
+   dónde se filtró**: borrarla de AI Studio no saca el texto de donde haya
+   quedado publicado.
+
+### Lo que sigue sin resolverse
+
+**El mensaje post-entrega.** ML no lo permite por API: la conversación nace
+bloqueada (`status_update_allowed: false`) y la guía de acciones devuelve 404.
+Las alternativas quedaron en un botón del panel que abra la conversación en ML,
+o un QR/folleto adentro del paquete.
