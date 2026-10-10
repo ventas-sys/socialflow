@@ -13,6 +13,7 @@ import 'dotenv/config';
 import pkg from 'whatsapp-web.js';
 import qrcode from 'qrcode-terminal';
 import { RECORDATORIO } from '../lib/wa/business-config.js';
+import { crearVigilante } from '../lib/wa/vigilante-navegador.mjs';
 import { agendarContacto } from '../lib/google/contacts.js';
 
 const { Client, LocalAuth } = pkg;
@@ -1237,11 +1238,21 @@ async function chatsSinLeer(client) {
   });
 }
 
+// Navegador colgado: ver lib/wa/vigilante-navegador.mjs. El recuperador le
+// pide la lista de chats cada 60s, así que es la sonda natural para saber si
+// el Chromium interno sigue vivo.
+const vigilante = crearVigilante({
+  maxFallos: Number(process.env.WA_NAVEGADOR_FALLOS_MAX || 5),
+  alMorir: () => process.exit(1),
+});
+
 async function recuperarMensajesPerdidos(client) {
   let pendientes = [];
   try {
     pendientes = (await chatsSinLeer(client)) || [];
+    vigilante.anduvo();
   } catch (e) {
+    vigilante.fallo(e);
     if (Date.now() - recupUltimoErrorLog > 3_600_000) {
       recupUltimoErrorLog = Date.now();
       console.error(`🩹 recuperador: no se pudieron listar los chats sin leer (${e.message}). Reintento silencioso cada ${RECUPERADOR_SEG}s.`);
