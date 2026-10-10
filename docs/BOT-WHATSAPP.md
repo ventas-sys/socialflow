@@ -280,3 +280,51 @@ interpola de ahí. **Para cambiarlo se toca ese número y nada más.**
 
 Hay una prueba que recorre `lib/`, `api/` y `bridge/` y falla si aparece un
 mínimo escrito a mano en algún otro lado.
+
+## 9-oct-2026: el bot zombi — vivo, vinculado y mudo 12 horas
+
+A las **22:29** el bot dejó de contestar. Nadie se enteró hasta las **10:32 del
+día siguiente**, cuando Rodo vio dos chats sin respuesta: un reclamo por discos
+mal entregados (23:51) y un "Hola...." (00:19).
+
+Lo difícil del caso fue que **todos los semáforos estaban en verde**:
+
+| Dónde se miró | Qué decía |
+|---|---|
+| `pm2 list` | `online`, 4 días de uptime, **0% de CPU** |
+| WhatsApp → Dispositivos vinculados | "IA bot — última vez activo ayer a las 22:29" |
+| El proceso | vivo, sin reiniciarse |
+
+La respuesta estaba en los logs: **toda** llamada al navegador se vencía.
+
+```
+Runtime.callFunctionOn timed out. Increase the 'protocolTimeout' setting...
+```
+
+El Chromium interno queda colgado. Node sigue vivo, los relojes siguen
+andando, y el recuperador, los follow-ups y el resumen al supervisor fallan uno
+tras otro en silencio. El 0% de CPU no era salud: era que no hacía nada.
+
+**Por qué no se recuperó solo:** `client.on('disconnected')` ya hacía
+`process.exit(1)` para que pm2 reviva el proceso, pero en un cuelgue de Chromium
+**ese evento nunca se dispara**. Nadie declaraba la muerte.
+
+⚠️ **Subir `protocolTimeout`, que es lo que sugiere el propio error de
+Puppeteer, no arregla nada**: el navegador no está lento, está colgado. Esperar
+más solo hace que falle más tarde.
+
+**El arreglo** (`lib/wa/vigilante-navegador.mjs`): el recuperador ya le pide la
+lista de chats cada 60s, así que es la sonda natural. Si falla 5 veces
+**seguidas** (`WA_NAVEGADOR_FALLOS_MAX`), el proceso se mata solo; pm2 lo levanta
+y, como la sesión está en disco, vuelve sin pedir QR. **De 12 horas de silencio
+a unos 5 minutos.** Solo cuenta rachas: un fallo suelto es normal, la librería
+viene frágil.
+
+### Lo que sigue faltando
+
+El bot ahora se cura solo, pero **si no puede, nadie se entera igual**. El latido
+al panel existe (cada 60s) pero se guarda **en memoria** en Vercel, así que se
+borra en cada arranque en frío y no sirve como alarma. Falta un vigilante
+externo que avise **por mail** —no por WhatsApp, que es justo lo que se muere—
+cuando el latido no llega hace más de 10 minutos. Las credenciales de Gmail ya
+están cargadas en Vercel.
