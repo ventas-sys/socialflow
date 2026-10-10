@@ -328,3 +328,30 @@ borra en cada arranque en frío y no sirve como alarma. Falta un vigilante
 externo que avise **por mail** —no por WhatsApp, que es justo lo que se muere—
 cuando el latido no llega hace más de 10 minutos. Las credenciales de Gmail ya
 están cargadas en Vercel.
+
+### DECISIÓN DE RODO (10-oct-2026): el silencio del asesor queda en 180 minutos
+
+Mirando los logs del día de la caída apareció un cliente que escribió cinco
+veces —fotos, número de compra, todo— sin que nadie le contestara: un asesor
+había tomado el chat, lo que silencia al bot 180 minutos, y después no siguió.
+
+Se propuso que **el bot retome la conversación si el asesor no contesta en X
+minutos**. Rodo dijo que no: **queda en 180**.
+
+No volver a proponerlo. La razón de la regla es que el bot nunca pise a una
+persona que está atendiendo, y eso pesa más que el caso del asesor que se va.
+Para ese caso ya existe el aviso al supervisor ("cliente escribió y el asesor no
+contesta hace N min"), que es la vía correcta: **el problema a resolver es que
+ese aviso llegue, no que el bot vuelva a hablar.**
+
+### DECISIÓN DE RODO (10-oct-2026): nada de avisos por mail
+
+Tras la caída se propuso un vigilante externo que mandara un **mail** si el bot
+dejaba de latir. Rodo dijo que no quiere avisos por mail. **No insistir con el
+mail ni con el panel**: el canal donde mira es WhatsApp.
+
+Lo que queda en pie para el mismo problema, sin mail: que **el propio bot avise
+por WhatsApp cuando vuelve de un cuelgue**. Después de reiniciarse puede mandar
+mensajes, así que puede contar lo que le pasó. No cubre el caso de "se murió y
+no volvió nunca", pero sí avisa que pasó, y si los avisos se empiezan a repetir
+queda claro que hay algo de fondo.
