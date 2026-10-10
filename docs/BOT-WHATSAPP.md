@@ -328,3 +328,59 @@ borra en cada arranque en frío y no sirve como alarma. Falta un vigilante
 externo que avise **por mail** —no por WhatsApp, que es justo lo que se muere—
 cuando el latido no llega hace más de 10 minutos. Las credenciales de Gmail ya
 están cargadas en Vercel.
+
+### DECISIÓN DE RODO (10-oct-2026): el silencio del asesor queda en 180 minutos
+
+Mirando los logs del día de la caída apareció un cliente que escribió cinco
+veces —fotos, número de compra, todo— sin que nadie le contestara: un asesor
+había tomado el chat, lo que silencia al bot 180 minutos, y después no siguió.
+
+Se propuso que **el bot retome la conversación si el asesor no contesta en X
+minutos**. Rodo dijo que no: **queda en 180**.
+
+No volver a proponerlo. La razón de la regla es que el bot nunca pise a una
+persona que está atendiendo, y eso pesa más que el caso del asesor que se va.
+Para ese caso ya existe el aviso al supervisor ("cliente escribió y el asesor no
+contesta hace N min"), que es la vía correcta: **el problema a resolver es que
+ese aviso llegue, no que el bot vuelva a hablar.**
+
+### DECISIÓN DE RODO (10-oct-2026): nada de avisos por mail
+
+Tras la caída se propuso un vigilante externo que mandara un **mail** si el bot
+dejaba de latir. Rodo dijo que no quiere avisos por mail. **No insistir con el
+mail ni con el panel**: el canal donde mira es WhatsApp.
+
+Lo que queda en pie para el mismo problema, sin mail: que **el propio bot avise
+por WhatsApp cuando vuelve de un cuelgue**. Después de reiniciarse puede mandar
+mensajes, así que puede contar lo que le pasó. No cubre el caso de "se murió y
+no volvió nunca", pero sí avisa que pasó, y si los avisos se empiezan a repetir
+queda claro que hay algo de fondo.
+
+## 10-oct-2026: "que me avise si se pasa más de 3hs sin responder"
+
+Pedido de Rodo después de la caída. Es un aviso **distinto** al del navegador
+colgado: aquel detecta que el bot se murió y lo reinicia; éste cubre algo más
+amplio —el bot **vivo** que no le contesta a nadie— sin importar la causa (la IA
+caída, el webhook que no responde, o algo que todavía no vimos). **No lo
+arregla: avisa.**
+
+`lib/wa/vigilante-silencio.mjs`. Va por **WhatsApp al supervisor**, no por mail.
+
+⚠️ **El reloj solo corre con el local ABIERTO.** De noche el bot no contesta
+porque no escribe nadie, no porque esté roto. Si el reloj corriera siempre, el
+aviso saltaría todas las mañanas y en dos días Rodo lo ignoraría — que es la
+forma más común de que una alarma deje de servir. Mientras está cerrado la
+cuenta se reinicia sola, así que en la apertura arranca de cero y no arrastra
+la noche.
+
+Otras dos decisiones del diseño:
+
+- **Los avisos al supervisor no reinician el reloj.** Si contaran, el propio
+  aviso taparía el problema que está avisando.
+- **Avisa una vez y se calla 3 horas.** Un bot roto a las 13:00 no tiene que
+  mandar un mensaje cada diez minutos.
+
+El mensaje dice qué hacer, no solo que algo anda mal: probar escribiéndole desde
+otro número y, si no contesta, `pm2 restart wa-bridge`.
+
+Se configura con `WA_SILENCIO_HORAS` (por defecto 3).

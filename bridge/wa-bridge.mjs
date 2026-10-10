@@ -14,6 +14,7 @@ import pkg from 'whatsapp-web.js';
 import qrcode from 'qrcode-terminal';
 import { RECORDATORIO } from '../lib/wa/business-config.js';
 import { crearVigilante } from '../lib/wa/vigilante-navegador.mjs';
+import { crearVigilanteSilencio } from '../lib/wa/vigilante-silencio.mjs';
 import { agendarContacto } from '../lib/google/contacts.js';
 
 const { Client, LocalAuth } = pkg;
@@ -135,6 +136,9 @@ async function botSend(client, chatId, body) {
   botSentRecent.push({ chatId, body, at: Date.now() });      // pre-registro
   botSendingUntil.set(chatId, Date.now() + 20_000);          // candado
   const sent = await client.sendMessage(chatId, body);
+  // El bot le habló a alguien: el reloj del silencio vuelve a cero. Los avisos
+  // al supervisor NO cuentan (si no, el propio aviso taparía el problema).
+  if (chatId !== supervisorChatId && chatId !== SUPERVISOR_NUMBER + '@c.us') vigilanteSilencio.respondio();
   try {
     const id = sent?.id?._serialized;
     if (id) {
@@ -1246,6 +1250,34 @@ const vigilante = crearVigilante({
   alMorir: () => process.exit(1),
 });
 
+// "Que me avise si se pasa más de 3hs sin responder" (Rodo, 10-oct-2026). Es
+// más amplio que el vigilante del navegador: éste cubre al bot VIVO que no le
+// contesta a nadie, pase lo que pase. Ver lib/wa/vigilante-silencio.mjs — el
+// reloj solo corre con el local abierto, si no avisaría todas las mañanas.
+const SILENCIO_HORAS = Number(process.env.WA_SILENCIO_HORAS || 3);
+const vigilanteSilencio = crearVigilanteSilencio({
+  horasMax: SILENCIO_HORAS,
+  estaAbierto: () => !fueraDeHorario(),
+  avisar: (minutos) => {
+    const horas = (minutos / 60).toFixed(1).replace('.', ',');
+    console.error(`🔕 ${minutos} min sin contestarle a nadie con el local abierto — avisando al supervisor`);
+    avisarSupervisorSilencio(horas, minutos).catch(e => console.error('aviso de silencio fail:', e.message));
+  },
+});
+
+// El aviso va por WhatsApp y NO por mail: es donde Rodo mira (decisión del
+// 10-oct). Como el bot está vivo —solo que mudo con los clientes— puede mandarlo.
+async function avisarSupervisorSilencio(horas, minutos) {
+  if (!SUPERVISOR_NUMBER) return;
+  const chat = await resolveSupervisorChat(client);
+  if (!chat) return;
+  await botSend(client, chat,
+    `🔕 *Che, algo anda mal*\n` +
+    `Hace *${horas} horas* (${minutos} min) que no le contesto a NADIE, y el local está abierto.\n\n` +
+    `Puede ser que no esté entrando ningún mensaje, o que me esté fallando la IA.\n` +
+    `👉 Probá escribirme desde otro número. Si no te contesto, en el VPS: *pm2 restart wa-bridge*`);
+}
+
 async function recuperarMensajesPerdidos(client) {
   let pendientes = [];
   try {
@@ -1580,6 +1612,9 @@ client.on('ready', async () => {
   sendHeartbeat();
   setInterval(() => sendHeartbeat(), 60_000);
   setInterval(() => recuperarMensajesPerdidos(client).catch(e => console.error('recuperador tick fail:', e.message)), RECUPERADOR_SEG * 1000);
+  // El silencio se revisa seguido pero avisa una sola vez (ver el enfriamiento).
+  vigilanteSilencio.respondio();   // arranque limpio: no heredar el rato caído
+  setInterval(() => vigilanteSilencio.revisar(), 10 * 60_000);
   vaciarAvisosPendientes(client).catch(e => console.error('resumen apertura fail:', e.message));
   setInterval(() => vaciarAvisosPendientes(client).catch(e => console.error('resumen apertura fail:', e.message)), 5 * 60_000);
   setInterval(() => avisarPreguntasMlAtrasadas(client).catch(e => console.error('aviso preguntas ML fail:', e.message)), 5 * 60_000);
@@ -1587,6 +1622,9 @@ client.on('ready', async () => {
   console.log(`📋 Follow-up "¿algo más?" cada 5min para chats con ${FOLLOWUP_MINUTES}min sin actividad (máx 1/día por chat)`);
   console.log(`🎁 Recordatorio a los ${REMINDER_DAYS} días del primer contacto (chequeo cada 1h)`);
   console.log(`💓 Heartbeat al panel cada 60s`);
+  console.log(SUPERVISOR_NUMBER
+    ? `🔕 Aviso al supervisor si paso +${SILENCIO_HORAS}h sin contestarle a nadie (solo con el local abierto)`
+    : '🔕 Aviso por silencio: APAGADO (falta WA_SUPERVISOR_NUMBER)');
   console.log(SUPERVISOR_NUMBER && ML_PREGUNTAS_URL
     ? `🚨 Aviso de preguntas de ML sin responder hace +${ML_ATRASADAS_MIN}min, cada 5min (reaviso a las ${ML_REAVISAR_MS / 3_600_000}h)`
     : '🚨 Aviso de preguntas de ML: APAGADO (falta WA_SUPERVISOR_NUMBER o la URL del panel)');
