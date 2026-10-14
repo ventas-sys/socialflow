@@ -15,7 +15,7 @@ import qrcode from 'qrcode-terminal';
 import { RECORDATORIO } from '../lib/wa/business-config.js';
 import { crearVigilante } from '../lib/wa/vigilante-navegador.mjs';
 import { crearVigilanteSilencio } from '../lib/wa/vigilante-silencio.mjs';
-import { decidirAvisos, umbralMinutos } from '../lib/wa/avisos-ml.mjs';
+import { decidirAvisos, umbralMinutos, describirError } from '../lib/wa/avisos-ml.mjs';
 import { agendarContacto } from '../lib/google/contacts.js';
 
 const { Client, LocalAuth } = pkg;
@@ -1626,7 +1626,7 @@ client.on('ready', async () => {
   setInterval(() => vigilanteSilencio.revisar(), 10 * 60_000);
   vaciarAvisosPendientes(client).catch(e => console.error('resumen apertura fail:', e.message));
   setInterval(() => vaciarAvisosPendientes(client).catch(e => console.error('resumen apertura fail:', e.message)), 5 * 60_000);
-  setInterval(() => avisarPreguntasMlAtrasadas(client).catch(e => console.error('aviso preguntas ML fail:', e.message)), 5 * 60_000);
+  setInterval(() => avisarPreguntasMlAtrasadas(client).catch(e => console.error('aviso preguntas ML fail:', describirError(e))), 5 * 60_000);
   console.log(`🩹 Recuperador de mensajes perdidos cada ${RECUPERADOR_SEG}s (bug de eventos de whatsapp-web.js): procesa lo de los últimos ${RECUPERADOR_VENTANA_MIN}min; lo más viejo va al supervisor`);
   console.log(`📋 Follow-up "¿algo más?" cada 5min para chats con ${FOLLOWUP_MINUTES}min sin actividad (máx 1/día por chat)`);
   console.log(`🎁 Recordatorio a los ${REMINDER_DAYS} días del primer contacto (chequeo cada 1h)`);

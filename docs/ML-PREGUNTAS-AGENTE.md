@@ -1623,3 +1623,35 @@ Decisiones que se tomaron al armarlo, por si hay que revisarlas:
 Costo: el ciclo ahora corre las 24 hs, o sea ~290 llamadas diarias a Vercel (antes
 solo las de horario). Es chico al lado de las 21.300 diarias de los webhooks que
 se sacaron el 5-oct, pero queda anotado por lo que pasó con las cuotas.
+
+### 14-oct-2026: "fetch failed" no dice nada — ahora el log dice la causa
+
+Con el aviso de 24 hs recién desplegado, el log del bridge mostró una línea:
+`aviso preguntas ML fail: fetch failed`. Y no se podía saber más.
+
+En Node, **"fetch failed" es el mensaje genérico de cualquier error de red**. El
+motivo real (DNS que no resuelve, conexión rechazada, timeout, corte a mitad de
+camino) viene escondido en `e.cause`, y el bridge imprimía solo `e.message`.
+Era imposible distinguir un hipo de internet de una URL mal armada.
+
+`describirError()` (en `lib/wa/avisos-ml.mjs`) saca la causa: ahora el log dice
+por ejemplo `fetch failed [causa: ENOTFOUND en socialflow-flax.vercel.app]`.
+Maneja también el `AggregateError` que Node arma cuando prueba IPv4 e IPv6.
+
+**Cómo leer una falla de este aviso:**
+
+| El log dice | Qué es |
+|---|---|
+| `HTTP 401` | la clave del bridge (`ML_SWEEP_KEY`) no coincide con la de Vercel |
+| `fetch failed [causa: ENOTFOUND …]` / `EAI_AGAIN` | el VPS no pudo resolver el nombre: internet o DNS caído un rato |
+| `fetch failed [causa: ECONNREFUSED …]` | algo rechazó la conexión: la URL está mal armada |
+| `fetch failed [causa: ETIMEDOUT …]` | no hubo respuesta a tiempo |
+| `TimeoutError` | Vercel tardó más de 30 s en contestar |
+
+Una sola falla suelta de red en el día no es un problema: el ciclo reintenta a
+los 5 minutos. Lo que importa es si se **repite**.
+
+⚠️ **Todavía falta**: si la consulta falla varias veces seguidas, el aviso queda
+ciego **y nadie se entera** — el mismo patrón que la caída del bot. Está
+pendiente decidir si el bridge debe avisar por WhatsApp "no puedo consultar las
+preguntas de ML, revisalas a mano" cuando pasen N fallos seguidos.
