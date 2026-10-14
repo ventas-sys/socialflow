@@ -16,6 +16,9 @@
   que compila. Las pruebas reales son las que corre Claude en su sesión. Todo cambio delicado
   (campañas, publicaciones, mensajes a clientes) se marca en la descripción del PR.
 - Para frenarlo: desactivar *Allow auto-merge* en GitHub; los PR vuelven a mergearse a mano.
+- **Detalle de la regla:** el chequeo exigido se llama exactamente `Vercel – socialflow` (con guion largo).
+  Si se pone otro nombre (por ejemplo `vercel`), el PR queda esperando para siempre y no se puede mergear.
+  No exigir `Vercel – stock-inventario`: ese proyecto siempre sale "Canceled by Ignored Build Step".
 
 ## 🔑 Keys de Gemini separadas: que el contenido no calle a los bots
 
