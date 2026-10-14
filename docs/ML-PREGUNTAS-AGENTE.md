@@ -1576,3 +1576,50 @@ Es el mismo error de siempre: confundir "no veo el dato" con "no pasa el hecho".
 bloqueada (`status_update_allowed: false`) y la guía de acciones devuelve 404.
 Las alternativas quedaron en un botón del panel que abra la conversación en ML,
 o un QR/folleto adentro del paquete.
+
+### 13-oct-2026: el aviso de preguntas de ML ahora funciona las 24 horas
+
+Una pregunta de ML quedó sin responder y el WhatsApp no llegó. La causa era una
+decisión de diseño que estaba mal: `avisarPreguntasMlAtrasadas` **se callaba
+fuera de horario** (10:00–17:30 y domingos). Ese corte tiene sentido para el bot
+de WhatsApp —el cliente entiende que la ferretería esté cerrada— pero no para
+Mercado Libre: **el que pregunta a las 21 le compra al que le contesta primero.**
+Además, una vez avisada, la pregunta no se volvía a avisar hasta pasadas 3 horas.
+
+Lo que pidió Rodo, textual: *"me tiene que avisar todo el día. De 10 a 17:30 que
+avise cada 5 min, pero fuera de ese horario o fines de semana también, con un
+máximo de 15 min. Y si no respondí a los 30 min tiene que volver a escribirme,
+y así cada 15 min hasta que no queden preguntas demoradas."*
+
+Cómo quedó (`lib/wa/avisos-ml.mjs`, con pruebas que simulan el reloj):
+
+| | |
+|---|---|
+| Ciclo de chequeo | cada 5 min, **siempre** (antes se salteaba fuera de horario) |
+| 1º aviso, en horario | a los **12 min** sin responder |
+| 1º aviso, fuera de horario | a los **10 min**: con el ciclo de 5 min llega siempre dentro de los 15 pedidos |
+| 2º aviso | al cumplir **30 min** sin responder |
+| 3º en adelante | **cada 15 min**, hasta que alguien la conteste |
+
+"Hasta que no queden demoradas" sale solo: la API de ML devuelve únicamente las
+que siguen sin responder, así que al contestarla deja de aparecer y se borra de
+la memoria del bridge.
+
+Decisiones que se tomaron al armarlo, por si hay que revisarlas:
+
+- **"Máximo 15 min" se leyó como el peor caso hasta el primer aviso.** De ahí el
+  umbral de 10 fuera de horario (10 + hasta 5 de ciclo). Si Rodo lo quería de
+  otra forma, es `WA_ML_ATRASADAS_FUERA_MIN`.
+- **"Horario" es el mismo `fueraDeHorario()` de siempre**, con `WA_DIAS_CERRADOS`
+  (por defecto solo el domingo). Si el sábado también debe contar como "fuera",
+  se cambia ahí y no en este aviso.
+- **Se marca como avisada recién después de que el WhatsApp salió.** Si el envío
+  falla, el próximo ciclo reintenta en vez de darla por avisada.
+- **Si una cuenta de ML falla en la consulta, sus preguntas NO se dan por
+  contestadas.** Si no, al volver la cuenta se avisaría de golpe como si todas
+  fueran nuevas.
+- Se perdió a propósito el reaviso de 3 horas (`WA_ML_REAVISAR_HORAS`).
+
+Costo: el ciclo ahora corre las 24 hs, o sea ~290 llamadas diarias a Vercel (antes
+solo las de horario). Es chico al lado de las 21.300 diarias de los webhooks que
+se sacaron el 5-oct, pero queda anotado por lo que pasó con las cuotas.

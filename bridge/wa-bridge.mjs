@@ -15,6 +15,7 @@ import qrcode from 'qrcode-terminal';
 import { RECORDATORIO } from '../lib/wa/business-config.js';
 import { crearVigilante } from '../lib/wa/vigilante-navegador.mjs';
 import { crearVigilanteSilencio } from '../lib/wa/vigilante-silencio.mjs';
+import { decidirAvisos, umbralMinutos } from '../lib/wa/avisos-ml.mjs';
 import { agendarContacto } from '../lib/google/contacts.js';
 
 const { Client, LocalAuth } = pkg;
@@ -775,15 +776,18 @@ async function desmarcarChatAtendido(client, chatId) {
 const ML_PREGUNTAS_URL = (process.env.WA_ML_PREGUNTAS_URL
   || WEBHOOK_URL.replace(/\/api\/wa\/webhook.*$/, '/api/ml/questions')).trim();
 const ML_PREGUNTAS_KEY = (process.env.ML_SWEEP_KEY || '').trim();
-// 12 minutos, que es lo que pidió Rodo. Va como valor de fábrica y no como
-// variable en el .env del VPS a propósito: puesto acá viaja con el deploy
-// automático y no hay que entrar al servidor a mano cada vez que se cambia.
-// WA_ML_ATRASADAS_MIN sigue existiendo por si hay que pisarlo sin tocar código.
+// Cuándo avisar, y cada cuánto insistir: ver lib/wa/avisos-ml.mjs, que tiene la
+// regla completa (13-oct-2026, pedido de Rodo: avisar TODO el día, también de
+// noche y domingos; recordar a los 30 min y después cada 15).
+//   - En horario: a los 12 min sin responder. WA_ML_ATRASADAS_MIN lo pisa.
+//   - Fuera de horario: a los 10, para que con el ciclo de 5 min llegue siempre
+//     dentro de los 15 que pidió como máximo. WA_ML_ATRASADAS_FUERA_MIN lo pisa.
+// Van como valores de fábrica y no como variables del .env del VPS a propósito:
+// así viajan con el deploy automático y no hay que entrar al servidor a mano.
 const ML_ATRASADAS_MIN = Number(process.env.WA_ML_ATRASADAS_MIN || 12);
-// Si sigue sin responder, se vuelve a avisar recién después de estas horas,
-// para que no llegue el mismo aviso cada 5 minutos.
-const ML_REAVISAR_MS = Number(process.env.WA_ML_REAVISAR_HORAS || 3) * 3_600_000;
-const preguntasAvisadas = new Map();
+const ML_ATRASADAS_FUERA_MIN = Number(process.env.WA_ML_ATRASADAS_FUERA_MIN || 10);
+// question_id -> { at, edadMin } del último aviso de cada pregunta.
+let preguntasAvisadas = new Map();
 
 const SUPERVISOR_NUMBER = (process.env.WA_SUPERVISOR_NUMBER || '').replace(/[^0-9]/g, '');
 const supervisorNotified = new Map();
@@ -1051,27 +1055,33 @@ async function vaciarAvisosPendientes(client) {
 
 async function avisarPreguntasMlAtrasadas(client) {
   if (!SUPERVISOR_NUMBER || !ML_PREGUNTAS_URL) return;
-  // Fuera de horario no se avisa y tampoco se marca nada: la pregunta sigue sin
-  // responder, así que el primer tick después de abrir la vuelve a encontrar.
-  if (fueraDeHorario() && !AVISOS_FUERA_HORARIO) return;
+  // NO se corta por horario: una pregunta de ML no espera a que abra el local.
+  // El horario solo decide cuánto se espera antes del primer aviso.
+  const fuera = fueraDeHorario();
+  const minutos = umbralMinutos({ fueraDeHorario: fuera, enHorario: ML_ATRASADAS_MIN, fuera: ML_ATRASADAS_FUERA_MIN });
 
-  let url = `${ML_PREGUNTAS_URL}?action=atrasadas&minutos=${ML_ATRASADAS_MIN}`;
+  let url = `${ML_PREGUNTAS_URL}?action=atrasadas&minutos=${minutos}`;
   if (ML_PREGUNTAS_KEY) url += `&key=${encodeURIComponent(ML_PREGUNTAS_KEY)}`;
 
   const r = await fetch(url, { signal: AbortSignal.timeout(30_000) });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   const data = await r.json();
-  const ahora = Date.now();
-  const nuevas = (data?.atrasadas || [])
-    .filter(q => q.question_id)
-    .filter(q => ahora - (preguntasAvisadas.get(String(q.question_id)) || 0) > ML_REAVISAR_MS);
-  if (!nuevas.length) return;
+
+  // Qué avisar ahora: primera vez, a los 30 min, y después cada 15 (ver avisos-ml.mjs).
+  const decision = decidirAvisos({ atrasadas: data?.atrasadas, previos: preguntasAvisadas, ahora: Date.now() });
+  if (!decision.avisar.length) {
+    // Nada que avisar, pero sí hay que guardar lo que se olvidó (las ya contestadas).
+    preguntasAvisadas = decision.previos;
+    return;
+  }
 
   const supervisorChat = await resolveSupervisorChat(client);
   if (!supervisorChat) return;
 
-  const lineas = nuevas.map((q, i) => {
-    const partes = [`${i + 1}. *${q.cuenta}* · hace ${q.hace_minutos} min`];
+  const avisar = decision.avisar;
+  const hayRecordatorio = avisar.some(q => q.recordatorio);
+  const lineas = avisar.map((q, i) => {
+    const partes = [`${i + 1}. *${q.cuenta}* · hace ${q.hace_minutos} min${q.recordatorio ? ' 🔁' : ''}`];
     if (q.titulo) partes.push(`   ${String(q.titulo).slice(0, 70)}`);
     partes.push(`   "${String(q.texto || '').slice(0, 160)}"`);
     // El motivo es la mitad del aviso: sin esto hay que ir a adivinar por qué
@@ -1081,19 +1091,18 @@ async function avisarPreguntasMlAtrasadas(client) {
     if (q.link) partes.push(`   👉 ${q.link}`);
     return partes.join('\n');
   });
-  const body = `🚨 *URGENTE — PREGUNTA EN ML*\n` +
-    `${nuevas.length} pregunta(s) sin responder hace más de ${ML_ATRASADAS_MIN} min.\n` +
+  const body = `${hayRecordatorio ? '🔁 *SIGUE SIN RESPONDER — PREGUNTA EN ML*' : '🚨 *URGENTE — PREGUNTA EN ML*'}\n` +
+    `${avisar.length} pregunta(s) sin responder.` +
+    (hayRecordatorio ? ` Las marcadas con 🔁 ya te avisé antes: te sigo avisando cada 15 min hasta que se contesten.` : '') + `\n` +
     (data?.bot_apagado ? `\n🔴 *Tatiana está apagada* (ML_AUTOANSWER=off): no va a contestar ninguna.\n` : '') +
     `\n${lineas.join('\n\n')}\n\n` +
     `Contestalas desde Mercado Libre → Preguntas.`;
 
   await botSend(client, supervisorChat, body);
-  for (const q of nuevas) preguntasAvisadas.set(String(q.question_id), ahora);
-  // La memoria no crece para siempre: se olvidan las de hace más de un día.
-  for (const [id, at] of preguntasAvisadas) {
-    if (ahora - at > 86_400_000) preguntasAvisadas.delete(id);
-  }
-  console.log(`🚨 aviso al supervisor: ${nuevas.length} pregunta(s) de ML sin responder`);
+  // Recién ahora se da por avisado: si el envío falla, el próximo ciclo reintenta.
+  preguntasAvisadas = decision.previos;
+  console.log(`🚨 aviso al supervisor${fuera ? ' (fuera de horario)' : ''}: ${avisar.length} pregunta(s) de ML sin responder` +
+    `${hayRecordatorio ? ` (${avisar.filter(q => q.recordatorio).length} recordatorio/s)` : ''}`);
 }
 
 async function notifySupervisor(client, chatId, reason, lastText) {
@@ -1626,7 +1635,7 @@ client.on('ready', async () => {
     ? `🔕 Aviso al supervisor si paso +${SILENCIO_HORAS}h sin contestarle a nadie (solo con el local abierto)`
     : '🔕 Aviso por silencio: APAGADO (falta WA_SUPERVISOR_NUMBER)');
   console.log(SUPERVISOR_NUMBER && ML_PREGUNTAS_URL
-    ? `🚨 Aviso de preguntas de ML sin responder hace +${ML_ATRASADAS_MIN}min, cada 5min (reaviso a las ${ML_REAVISAR_MS / 3_600_000}h)`
+    ? `🚨 Aviso de preguntas de ML las 24 hs: a los ${ML_ATRASADAS_MIN}min en horario / ${ML_ATRASADAS_FUERA_MIN}min fuera de horario, recordatorio a los 30 y cada 15 hasta que se contesten`
     : '🚨 Aviso de preguntas de ML: APAGADO (falta WA_SUPERVISOR_NUMBER o la URL del panel)');
   // Que se vea en el arranque si el aviso al supervisor va a salir o no: sin
   // WA_SUPERVISOR_NUMBER, notifySupervisor sale sin hacer nada y el cliente que
