@@ -4,6 +4,28 @@
 > multi-cuenta, orientado a **cerrar la venta**. Hermano del bot de WhatsApp (mismo patrón).
 > Estado: **EN VIVO — "Tatiana" 100% automática** (webhook activo, probado con pregunta real).
 
+## 📌 Estado al 14-oct-2026 (retomar acá)
+
+**Funcionando y confirmado**
+- Aviso de preguntas de ML demoradas por WhatsApp las 24 hs (PR #171): llegó bien con una pregunta real.
+- Log del aviso con la causa real de un `fetch failed` (PR #172), ya desplegado en el VPS (commit `b9e895c`).
+- Merge automático de los PR (ver sección siguiente): probado de punta a punta con el #174.
+- Mínimo mayorista $100.000, silencio del asesor en 180 min, vigilantes del bot (#168–#170).
+
+**Pendiente — espera respuesta de Rodo**
+1. En el VPS: `pm2 logs wa-bridge --lines 2000 --nostream | grep -c "aviso preguntas ML fail"`.
+   0–1 = corte de red puntual; muchos = problema de red del VPS.
+2. ¿Aviso "ciego"? Si la consulta de ML falla N veces seguidas, el bot manda un WhatsApp avisando que
+   está sin vigilancia. Ofrecido, NO construido.
+3. Revisión de ads (venció el lunes 12-oct): faltan los dos Excel (FULL 5164, FERRE 5235), los ROAS
+   objetivo que puso, la salida de `?action=pausadas` y Vercel → Usage (eran ~21.300 invocaciones/día).
+   Solo recomendar, nunca tocar campañas por código; juzgar por ingresos/unidades, no por el número de ROAS.
+4. Tres publicaciones pausadas de FERRE (Mosquetón, Piloto 30, Cargador USB, ~$174.000/día): reactivar o confirmar stock.
+5. `lib/ml/copiar.js` (copiar publicaciones entre cuentas) está sin conectar a ningún endpoint; no
+   conectarlo sin permiso explícito de Rodo y sin saber en qué dirección van los ~196 productos faltantes.
+6. Opcional: reiniciar el servidor (dice "System restart required"), siempre fuera de horario y avisando antes
+   porque corta WhatsApp; `pm2 update`; revisar los 72 reinicios de pm2.
+
 ## 🚀 Merge automático de los PR (decisión de Rodo, 14-oct-2026)
 
 - Rodo pidió que los PR se mergeen solos: no quiere entrar a GitHub a apretar el botón.
