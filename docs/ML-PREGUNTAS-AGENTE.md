@@ -4,6 +4,19 @@
 > multi-cuenta, orientado a **cerrar la venta**. Hermano del bot de WhatsApp (mismo patrón).
 > Estado: **EN VIVO — "Tatiana" 100% automática** (webhook activo, probado con pregunta real).
 
+## 🚀 Merge automático de los PR (decisión de Rodo, 14-oct-2026)
+
+- Rodo pidió que los PR se mergeen solos: no quiere entrar a GitHub a apretar el botón.
+- **Cómo funciona:** en GitHub están activados *Allow auto-merge* (Settings → General) y una regla
+  sobre `main` que exige el chequeo de Vercel (`socialflow`). Claude abre el PR en borrador, lo
+  marca listo y activa el auto-merge; GitHub lo mergea cuando Vercel da verde.
+- **Qué pasa después de mergear:** Vercel despliega y el cron del VPS (cada 2 min) hace `git pull`;
+  reinicia el bot solo si cambió `bridge/`, `lib/wa/` o `lib/google/`.
+- **Riesgo asumido:** nadie mira el código antes de que entre a producción; Vercel solo confirma
+  que compila. Las pruebas reales son las que corre Claude en su sesión. Todo cambio delicado
+  (campañas, publicaciones, mensajes a clientes) se marca en la descripción del PR.
+- Para frenarlo: desactivar *Allow auto-merge* en GitHub; los PR vuelven a mergearse a mano.
+
 ## 🔑 Keys de Gemini separadas: que el contenido no calle a los bots
 
 Después del incidente del 24/8, el repo dejó de usar **una sola** `GEMINI_API_KEY`
