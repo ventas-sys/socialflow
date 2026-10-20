@@ -10,10 +10,9 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
 **🔴 LO MÁS IMPORTANTE ABIERTO — la cuota de Vercel (ver punto 23).** No es de esta app, pero la puede dejar sin servicio. Quedó en manos de OTRO chat, el que maneja el proyecto viejo `socialflow`. **No retomarlo acá salvo que el usuario lo traiga.**
 
 **Esperando que el usuario pruebe (nada de esto está confirmado):**
-1. **🏷️ Etiquetas de bulto** (punto 25): el diseño lo aprobó mirando imágenes, pero **todavía no imprimió ninguna**. Hay que preguntarle si el 10 × 15 salió bien en su impresora, y si importó `cargar-proveedores.xlsx` (sin eso las etiquetas salen sin proveedor).
-2. **📦 Stock físico que NO está publicado en ML** — botón del 30/9 en la solapa 🛒 ML (punto 24). Todavía no lo corrió.
-3. **Asociar códigos de Full al escanear** — commit `e7347eb` del 29/9: buscador dentro del cartel rojo "No está en el sistema" (punto 21). Nunca confirmó si funciona.
-4. **Doble descuento del envío 77068364** (punto 19/22). Hay que ver con él cómo cargar la entrada de corrección — la app NO lo puede resolver sola porque no sabe qué salió físicamente del depósito.
+1. **📦 Stock físico que NO está publicado en ML** — botón del 30/9 en la solapa 🛒 ML (punto 24). Todavía no lo corrió.
+2. **Asociar códigos de Full al escanear** — commit `e7347eb` del 29/9: buscador dentro del cartel rojo "No está en el sistema" (punto 21). Nunca confirmó si funciona.
+3. **Doble descuento del envío 77068364** (punto 19/22). Hay que ver con él cómo cargar la entrada de corrección — la app NO lo puede resolver sola porque no sabe qué salió físicamente del depósito.
 
 **Cruce con Contabilium (14/10).** Sobre los 1.505 productos base con código de 4 números: **los 1.505 están en la app** (faltaban 18 y los importó), **1.250 publicados en FULL** (255 no), **961 en FERRE** (544 no), 911 en las dos y **205 en ninguna**. El número de FERRE **se queda corto a propósito**: el export de FERRE de ML no trae columna SKU, así que ese cruce se hizo sólo por número de publicación y pegó el 82%, contra el 99,7% de FULL. **Si pide avanzar con FERRE, pedirle primero el export de FERRE con la columna SKU.**
 
@@ -189,7 +188,8 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
       Cada producto trae el **motivo**, que se arregla distinto: *"No está en ningún combo"* → falta crear la publicación; *"Está en N combos, pero ninguno tiene publicación activa asociada"* → el combo existe, sólo falta asociarle el MLA.
       **Advertencia que el reporte muestra en amarillo y hay que repetirle:** cuenta cuántas publicaciones activas no pudo asociar a nada del sistema. Mientras esas queden sueltas **el listado sobra productos** (pueden estar publicados y figurar igual). Primero correr 🔍 Publicaciones faltantes.
 
-25. **ETIQUETAS DE BULTO Y EL CAMPO PROVEEDOR (20/10)**
+25. **ETIQUETAS DE BULTO Y EL CAMPO PROVEEDOR (20/10) — ✅ TERMINADO Y PROBADO**
+    El usuario imprimió y confirmó el 20/10: "quedo bien. listo eso". **No volver a ofrecer cambios de diseño.**
     - **🏷️ Etiquetas** (botón en 🏭 Inventario, `src/components/Etiquetas.jsx` + `.css`): etiquetas de **10 × 15 cm**, una por hoja, para los bultos grandes del sector aparte. De arriba a abajo: **ubicación** en una franja fina (10mm, sin la palabra "Ubicación"), **código de 4 números** (20mm), **nombre** (11mm, se lleva el centro), **código de barras** y **proveedor** al pie. Los tamaños los definió el usuario mirando imágenes de prueba: la primera versión tenía la ubicación en 22mm y el nombre en 7mm, y pidió al revés.
     - **El código de barras lleva el CÓDIGO, no el nombre.** El usuario lo pidió como "un código de barras que diga el nombre"; se le explicó que con el nombre adentro escanearlo no serviría, porque la app busca por código. Es **Code 128** (acepta largo variable; EAN-13 exige 12 dígitos y no podría con "0438"). Librería `jsbarcode`.
     - Las etiquetas se montan con `createPortal` **fuera de `#root`** y al imprimir se esconde `#root` entero (`body.etiquetas-abiertas > #root { display: none }`). Es la única forma segura de que no salgan el encabezado y las solapas ni queden páginas en blanco; esconder "todo menos esto" desde adentro no funciona.
