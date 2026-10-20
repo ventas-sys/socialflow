@@ -3,16 +3,19 @@
 **ÚNICA fuente de verdad del proyecto. Leer entera antes de tocar nada.**
 Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/socialflow
 
-## 📍 ESTADO AL 6/10/2026 — arrancar por acá
+## 📍 ESTADO AL 20/10/2026 — arrancar por acá
 
-Último commit: `48d4d22`. Todo desplegado y verde en los dos proyectos de Vercel.
+Último commit: `2267e8d`. Todo desplegado y verde en los dos proyectos de Vercel.
 
 **🔴 LO MÁS IMPORTANTE ABIERTO — la cuota de Vercel (ver punto 23).** No es de esta app, pero la puede dejar sin servicio. Quedó en manos de OTRO chat, el que maneja el proyecto viejo `socialflow`. **No retomarlo acá salvo que el usuario lo traiga.**
 
 **Esperando que el usuario pruebe (nada de esto está confirmado):**
-1. **📦 Stock físico que NO está publicado en ML** — botón nuevo del 30/9 en la solapa 🛒 ML (punto 24). Todavía no lo corrió. Es el primero a preguntar.
-2. **Asociar códigos de Full al escanear** — commit `e7347eb` del 29/9: buscador dentro del cartel rojo "No está en el sistema" (punto 21). Nunca confirmó si funciona.
-3. **Doble descuento del envío 77068364** (punto 19/22). Hay que ver con él cómo cargar la entrada de corrección — la app NO lo puede resolver sola porque no sabe qué salió físicamente del depósito.
+1. **🏷️ Etiquetas de bulto** (punto 25): el diseño lo aprobó mirando imágenes, pero **todavía no imprimió ninguna**. Hay que preguntarle si el 10 × 15 salió bien en su impresora, y si importó `cargar-proveedores.xlsx` (sin eso las etiquetas salen sin proveedor).
+2. **📦 Stock físico que NO está publicado en ML** — botón del 30/9 en la solapa 🛒 ML (punto 24). Todavía no lo corrió.
+3. **Asociar códigos de Full al escanear** — commit `e7347eb` del 29/9: buscador dentro del cartel rojo "No está en el sistema" (punto 21). Nunca confirmó si funciona.
+4. **Doble descuento del envío 77068364** (punto 19/22). Hay que ver con él cómo cargar la entrada de corrección — la app NO lo puede resolver sola porque no sabe qué salió físicamente del depósito.
+
+**Cruce con Contabilium (14/10).** Sobre los 1.505 productos base con código de 4 números: **los 1.505 están en la app** (faltaban 18 y los importó), **1.250 publicados en FULL** (255 no), **961 en FERRE** (544 no), 911 en las dos y **205 en ninguna**. El número de FERRE **se queda corto a propósito**: el export de FERRE de ML no trae columna SKU, así que ese cruce se hizo sólo por número de publicación y pegó el 82%, contra el 99,7% de FULL. **Si pide avanzar con FERRE, pedirle primero el export de FERRE con la columna SKU.**
 
 **Pendientes del usuario (no son de código):**
 - Cargar las **38 publicaciones que faltan** (punto 12): correr 🔍 Publicaciones faltantes y pasar el Excel para prepararlo.
@@ -185,6 +188,21 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
     - **📦 Stock físico que NO está publicado en ML** (`0524f12`, botón nuevo en 🛒 ML, `exportSinPublicar` en MercadoLibre.jsx): es el cruce **al revés** de "Publicaciones faltantes". Lee las publicaciones activas de **las dos cuentas juntas** (alcanza con estar publicado en una), ve a qué producto llega cada una —directo si es producto, abriendo el armado si es combo— y lista **los productos con stock a los que no llega ninguna**. Da pantalla (productos / unidades / plata a precio de lista + los 40 de más stock) y Excel.
       Cada producto trae el **motivo**, que se arregla distinto: *"No está en ningún combo"* → falta crear la publicación; *"Está en N combos, pero ninguno tiene publicación activa asociada"* → el combo existe, sólo falta asociarle el MLA.
       **Advertencia que el reporte muestra en amarillo y hay que repetirle:** cuenta cuántas publicaciones activas no pudo asociar a nada del sistema. Mientras esas queden sueltas **el listado sobra productos** (pueden estar publicados y figurar igual). Primero correr 🔍 Publicaciones faltantes.
+
+25. **ETIQUETAS DE BULTO Y EL CAMPO PROVEEDOR (20/10)**
+    - **🏷️ Etiquetas** (botón en 🏭 Inventario, `src/components/Etiquetas.jsx` + `.css`): etiquetas de **10 × 15 cm**, una por hoja, para los bultos grandes del sector aparte. De arriba a abajo: **ubicación** en una franja fina (10mm, sin la palabra "Ubicación"), **código de 4 números** (20mm), **nombre** (11mm, se lleva el centro), **código de barras** y **proveedor** al pie. Los tamaños los definió el usuario mirando imágenes de prueba: la primera versión tenía la ubicación en 22mm y el nombre en 7mm, y pidió al revés.
+    - **El código de barras lleva el CÓDIGO, no el nombre.** El usuario lo pidió como "un código de barras que diga el nombre"; se le explicó que con el nombre adentro escanearlo no serviría, porque la app busca por código. Es **Code 128** (acepta largo variable; EAN-13 exige 12 dígitos y no podría con "0438"). Librería `jsbarcode`.
+    - Las etiquetas se montan con `createPortal` **fuera de `#root`** y al imprimir se esconde `#root` entero (`body.etiquetas-abiertas > #root { display: none }`). Es la única forma segura de que no salgan el encabezado y las solapas ni queden páginas en blanco; esconder "todo menos esto" desde adentro no funciona.
+    - **Campo `supplier` (Proveedor)** agregado al producto: formulario, `COLUMN_MAP` y export. Antes no existía — sólo 22 de 1506 productos lo tenían, metido dentro del texto de la descripción. Se le pasó `cargar-proveedores.xlsx` con 1498 productos sacados de Contabilium (que lo tiene en el 99%), usando **el nombre de la app, no el de Contabilium**, para que el import no renombre nada.
+    - **Ojo con la ubicación:** sólo 185 de 1506 productos (12%) la tienen cargada. En el resto la etiqueta imprime un guión en el lugar de arriba.
+    - **Para generar imágenes de prueba**: `playwright` + el Chromium de `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`. Se instala, se saca la captura y **se desinstala**: como devDependency Vercel lo instalaría en cada build, y la cuota está justa (punto 23).
+
+26. **🔴 BUG GRAVE QUE TENÍA LA IMPORTACIÓN DE EXCEL (encontrado y arreglado el 20/10)**
+    `importProducts` hacía `batch.update(doc, {...data})` con el objeto ENTERO, y el armado de cada fila ponía el valor por defecto en los campos sin columna (`quantity: 0`, `price: 0`, `location: ''`, `category: ''`, `description: ''`, `dims: ''`, `minStock: 5`, `primerEmpaque/fragile: false`).
+    **Resultado: importar un Excel de pocas columnas dejaba el stock en 0 y borraba ubicación, precio, categoría, medidas y descripción de todo producto que pegara por SKU o código de barras.** El flujo exportar → editar → reimportar nunca lo mostró porque el export trae todas las columnas.
+    Se descubrió justo antes de pasarle un archivo de 3 columnas para cargar proveedores: tal cual estaba, le borraba el inventario.
+    **Arreglo:** se calcula qué campos trae el archivo (`presentes`, a partir de los encabezados) y al ACTUALIZAR un producto existente sólo se escriben esos. Los códigos de barras tampoco se tocan si el archivo no trae columna de códigos. Para productos nuevos no cambia nada.
+    **Lección, que es la misma de siempre en este proyecto: un importador nunca debe inventar un valor por una columna que no está.** Ya había pasado con la cantidad del pedido de Full (punto 19), que leía 1 por fila cuando no encontraba la columna.
 
 ## Reglas de negocio clave (definidas por el usuario)
 - Stock: descuenta TODO lo despachado desde el depósito propio (FLEX+correo/colecta+ventas sin envío de ML), NUNCA `fulfillment` (Full ya salió al enviarse a bodega). Igual para ambas cuentas. 2 veces/día (13 y 18hs AR). Stock puede quedar negativo. **Clasificación explícita desde el 28/8** (`clasificar`/`descuenta` en api/ml/cron.js): la regla vieja era "todo lo que no sea fulfillment descuenta", así que si fallaba el pedido del envío a ML el tipo quedaba nulo y la venta se descontaba igual — incluidas las de Full — y además no se miraba el estado de la orden (canceladas y sin cobrar también descontaban; caso real: 771 Full + 60 canceladas en 48hs de la cuenta FULL). Ahora: descuentan flex (`self_service`) + correo (`drop_off`/`xd_drop_off`/`cross_docking`) + sin envío, con estado `paid`/`partially_paid`; NO descuentan Full, canceladas/inválidas, sin cobrar (quedan para la corrida siguiente) ni las de tipo desconocido (se reintenta el pedido a ML y si igual no se sabe NO se descuenta: preferimos que falte un descuento antes que descontar una de Full). El resumen del botón "Probar automático ahora" muestra el desglose. Verificado 28/8 en producción: FULL 168 flex + 2 correo (771 Full salteadas — es correcto, ~98% de esa cuenta va por bodega), FERRE 103 flex + 83 correo + 6 sin envío.
