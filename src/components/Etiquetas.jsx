@@ -144,20 +144,17 @@ export default function Etiquetas({ products, onCerrar }) {
         <div className="et-hojas">
         {paraImprimir.map(p => (
           <div className="et-hoja" key={p.id}>
-            <div className="et-ubicacion">
-              <span className="et-rotulo">Ubicación</span>
-              <strong>{p.location || '—'}</strong>
-            </div>
+            <div className="et-ubicacion"><strong>{p.location || '—'}</strong></div>
             <div className="et-codigo">{p.code || '—'}</div>
             <div className="et-nombre">{p.name}</div>
             <div className="et-pie">
+              {p.code ? <CodigoDeBarras valor={p.code} /> : <span className="et-rotulo">Sin código</span>}
               {p.supplier && (
                 <div className="et-proveedor">
                   <span className="et-rotulo">Proveedor</span>
                   <strong>{p.supplier}</strong>
                 </div>
               )}
-              {p.code ? <CodigoDeBarras valor={p.code} /> : <span className="et-rotulo">Sin código</span>}
             </div>
           </div>
         ))}
