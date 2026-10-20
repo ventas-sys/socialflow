@@ -9,6 +9,7 @@ import Scanner from './Scanner'
 import LazyThumb from './LazyThumb'
 import { fotoDeCombo } from '../utils/fotoCombo'
 import { stockStatus, daysLeftText } from '../utils/stock'
+import Etiquetas from './Etiquetas'
 import './Inventory.css'
 
 const EMPTY_FORM = {
@@ -20,6 +21,7 @@ const EMPTY_FORM = {
   minStock: '5',
   quantity: '0',
   location: '',
+  supplier: '',
   stockType: '',
   fragile: false,
   primerEmpaque: false,
@@ -39,6 +41,7 @@ const COLUMN_MAP = {
   'armado s': 'quantity', armado: 'quantity',
   'stock minimo': 'minStock', minimo: 'minStock', 'min stock': 'minStock',
   ubicacion: 'location', location: 'location', deposito: 'location', estante: 'location', posicion: 'location', pasillo: 'location',
+  proveedor: 'supplier', supplier: 'supplier', fabricante: 'supplier', 'razon social': 'supplier',
   tipo: 'stockType', 'tipo de stock': 'stockType', 'tipo stock': 'stockType', canal: 'stockType', 'full ferre base': 'stockType',
   'codigo (armado p)': 'code2', 'armado p': 'code2', 'codigo armado': 'code2', 'codigo interno': 'code2',
   descripcion: 'description', description: 'description', detalle: 'description',
@@ -91,6 +94,7 @@ export default function Inventory({
   onBulkPatch,
 }) {
   const [showForm, setShowForm] = useState(false)
+  const [verEtiquetas, setVerEtiquetas] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [duplicando, setDuplicando] = useState(false)
   const [formData, setFormData] = useState(EMPTY_FORM)
@@ -134,6 +138,7 @@ export default function Inventory({
       minStock: product.minStock || '5',
       quantity: duplicar ? '0' : (product.quantity ?? '0'),
       location: product.location || '',
+      supplier: product.supplier || '',
       stockType: product.stockType || '',
       fragile: !!product.fragile,
       primerEmpaque: !!product.primerEmpaque,
@@ -293,6 +298,7 @@ export default function Inventory({
             quantity: Math.round(parseNumber(p.quantity)),
             minStock: p.minStock !== undefined ? Math.round(parseNumber(p.minStock)) : 5,
             location: p.location !== undefined ? String(p.location).trim() : '',
+            supplier: p.supplier !== undefined ? String(p.supplier).trim() : '',
             stockType: p.stockType !== undefined ? String(p.stockType).trim().toUpperCase() : '',
             description: p.description !== undefined ? String(p.description).trim() : '',
             primerEmpaque: esSi(p.primerEmpaque),
@@ -315,6 +321,7 @@ export default function Inventory({
         addBc(p.code2)
         // completar datos que hayan quedado vacíos en la primera fila del grupo
         if (!g.location && p.location) g.location = String(p.location).trim()
+        if (!g.supplier && p.supplier) g.supplier = String(p.supplier).trim()
         if (!g.price && p.price) g.price = parseNumber(p.price)
         if (!g.quantity && p.quantity) g.quantity = Math.round(parseNumber(p.quantity))
         if (!g.stockType && p.stockType) g.stockType = String(p.stockType).trim().toUpperCase()
@@ -347,6 +354,26 @@ export default function Inventory({
         let ex = r.code && byCode.get(r.code.toLowerCase())
         if (!ex) ex = r.barcodes.map(b => byBarcode.get(b.toLowerCase())).find(Boolean)
         if (ex) r.existingId = ex.id
+      })
+
+      // Un Excel que NO trae una columna no puede borrar ese dato del producto
+      // que ya existe. Antes se mandaba el objeto entero con los valores por
+      // defecto, así que importar un archivo de dos columnas (SKU + Proveedor)
+      // dejaba el stock en 0 y borraba ubicación, precio, categoría, medidas y
+      // descripción de TODO lo que pegara. Para los productos nuevos no cambia
+      // nada: ahí los valores por defecto son los que corresponden.
+      const presentes = new Set()
+      rawRows.forEach(raw => Object.keys(raw).forEach(k => {
+        const f = COLUMN_MAP[normalize(k)]
+        if (f) presentes.add(f)
+      }))
+      const SOLO_SI_VIENE = ['category', 'price', 'quantity', 'minStock', 'location',
+        'supplier', 'stockType', 'description', 'primerEmpaque', 'fragile', 'dims']
+      const tocaBarcodes = presentes.has('barcode') || presentes.has('code2')
+      rows.forEach(r => {
+        if (!r.existingId) return
+        SOLO_SI_VIENE.forEach(f => { if (!presentes.has(f)) delete r[f] })
+        if (!tocaBarcodes) { delete r.barcodes; delete r.barcode }
       })
 
       const result = await onImport(rows)
@@ -383,6 +410,7 @@ export default function Inventory({
         { header: 'Cantidad', key: 'quantity', width: 10 },
         { header: 'Stock Mínimo', key: 'minStock', width: 12 },
         { header: 'Ubicación', key: 'location', width: 14 },
+        { header: 'Proveedor', key: 'supplier', width: 22 },
         // Estas dos se llenan mejor de la PC, con el listado entero a la vista,
         // y vuelven a entrar por el mismo importador
         { header: 'Primer empaque', key: 'primerEmpaque', width: 14 },
@@ -405,6 +433,7 @@ export default function Inventory({
           quantity: p.quantity || 0,
           minStock: p.minStock || 5,
           location: p.location || '',
+          supplier: p.supplier || '',
           primerEmpaque: p.primerEmpaque ? 'SÍ' : '',
           dims: p.dims || '',
           fragile: p.fragile ? 'SÍ' : '',
@@ -976,6 +1005,10 @@ export default function Inventory({
   useEffect(() => { setVisibles(TANDA) }, [busquedaDiferida, kindFilter])
   const filasVisibles = useMemo(() => allRows.slice(0, visibles), [allRows, visibles])
 
+  if (verEtiquetas) {
+    return <Etiquetas products={products} onCerrar={() => setVerEtiquetas(false)} />
+  }
+
   return (
     <div className="inventory-container">
       <div className="inventory-header">
@@ -1076,6 +1109,14 @@ export default function Inventory({
               {importing ? '⏳ Importando...' : '📥 Importar Excel'}
             </button>
           )}
+          <button
+            onClick={() => setVerEtiquetas(true)}
+            className="btn-outline"
+            disabled={products.length === 0}
+            title="Imprimir etiquetas de 10x15 cm para los bultos del depósito"
+          >
+            🏷️ Etiquetas
+          </button>
           {canEdit && (
             <button
               onClick={() => {
@@ -1224,6 +1265,17 @@ export default function Inventory({
                   value={formData.location}
                   onChange={e => setFormData({ ...formData, location: e.target.value })}
                   placeholder="Ej: Estante A3, Pasillo 2"
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>🏭 Proveedor</label>
+                <input
+                  type="text"
+                  value={formData.supplier}
+                  onChange={e => setFormData({ ...formData, supplier: e.target.value })}
+                  placeholder="Ej: JELUZ S.A."
                   disabled={loading}
                 />
               </div>
