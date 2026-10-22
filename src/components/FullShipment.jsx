@@ -5,6 +5,7 @@ import { findProductOrCombo, barcodesOf } from '../utils/refMatch'
 import Scanner from './Scanner'
 import LazyThumb from './LazyThumb'
 import './FullShipment.css'
+import { marcarTrabajo, liberarTrabajo } from '../utils/trabajoEnCurso'
 
 // Armado del envío a bodega FULL. El depósito escanea artículo por artículo
 // (código del combo o código de barras del producto): cada escaneo suma una
@@ -61,6 +62,15 @@ export default function FullShipment({
   const [showScanner, setShowScanner] = useState(false)
   const [msg, setMsg] = useState('')
   const [pendiente, setPendiente] = useState(null) // lo escaneado, esperando confirmación a pantalla completa
+
+  // Mientras el formulario está abierto la app no se recarga sola para
+  // actualizarse: la recarga se llevaría puesto lo que se está cargando.
+  useEffect(() => {
+    if (!pendiente) return
+    marcarTrabajo()
+    return liberarTrabajo
+  }, [pendiente])
+
   const [cantidad, setCantidad] = useState(1)
   const [volverACamara, setVolverACamara] = useState(false)
   const [soloFaltan, setSoloFaltan] = useState(false)

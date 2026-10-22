@@ -283,3 +283,15 @@ vercel-toolbar,
   color: #92400e;
   font-size: .8rem;
 }
+
+/* El botón avisa cuando quedó una versión nueva esperando a que termines */
+.btn-actualizar.hay-nueva {
+  background: #f59e0b;
+  color: #fff;
+  font-weight: 700;
+  animation: late-pulso 2s ease-in-out infinite;
+}
+@keyframes late-pulso {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .6; }
+}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { computeConsumption } from './utils/stock'
+import { hayTrabajoEnCurso } from './utils/trabajoEnCurso'
 import { auth, googleProvider, db } from './firebase'
 import {
   signInWithPopup,
@@ -177,8 +178,14 @@ export default function App() {
   // (fuera del caché) al volver la app al frente y cada 10 min; si hay versión
   // nueva se actualiza el service worker y se recarga sola (1 vez por minuto
   // como mucho, para no entrar en loop si algo falla).
+  // Nunca se recarga encima de algo a medio hacer: sacar una foto manda la PWA
+  // al fondo y al volver se dispara el chequeo, así que si hubo un deploy en el
+  // medio la recarga se llevaba puesto el formulario con la foto adentro. Si
+  // hay trabajo en curso se posterga y se avisa en el botón 🔄.
+  const [versionNueva, setVersionNueva] = useState(false)
   useEffect(() => {
     const reload = () => {
+      if (hayTrabajoEnCurso()) { setVersionNueva(true); return }
       const last = Number(sessionStorage.getItem('verReloadAt') || 0)
       if (Date.now() - last < 60_000) return
       sessionStorage.setItem('verReloadAt', String(Date.now()))
@@ -1088,9 +1095,15 @@ export default function App() {
           <h1 className="app-title">📦 Stock & ML Inventory</h1>
           <p className="app-subtitle">
             Gestión de inventario en tiempo real · v{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'}
-            <button className="btn-actualizar" onClick={forzarActualizacion} disabled={actualizando}
-              title="Borra la copia guardada y vuelve a bajar la app">
-              {actualizando ? '⏳' : '🔄 Actualizar'}
+            <button
+              className={`btn-actualizar ${versionNueva ? 'hay-nueva' : ''}`}
+              onClick={forzarActualizacion}
+              disabled={actualizando}
+              title={versionNueva
+                ? 'Hay una versión nueva. Se esperó a que termines para no perder lo que estabas cargando.'
+                : 'Borra la copia guardada y vuelve a bajar la app'}
+            >
+              {actualizando ? '⏳' : versionNueva ? '🔄 Hay versión nueva' : '🔄 Actualizar'}
             </button>
           </p>
         </div>

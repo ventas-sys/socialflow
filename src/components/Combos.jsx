@@ -6,6 +6,7 @@ import { extractImagesByRow } from '../utils/excelImages'
 import LazyThumb from './LazyThumb'
 import { fotoDeCombo, porQueSinFoto } from '../utils/fotoCombo'
 import './Combos.css'
+import { marcarTrabajo, liberarTrabajo } from '../utils/trabajoEnCurso'
 
 export const STOCK_TYPES = ['FULL', 'FERRE', 'BASE']
 
@@ -134,6 +135,15 @@ export default function Combos({
   // Ver el comentario de startEdit: hasta que las fotos del combo no estén
   // bajadas no se mandan al guardar.
   const [fotosListas, setFotosListas] = useState(true)
+
+  // Mientras el formulario está abierto la app no se recarga sola para
+  // actualizarse: la recarga se llevaría puesto lo que se está cargando.
+  useEffect(() => {
+    if (!showForm) return
+    marcarTrabajo()
+    return liberarTrabajo
+  }, [showForm])
+
   const [importing, setImporting] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [importResult, setImportResult] = useState('')

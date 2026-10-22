@@ -11,6 +11,7 @@ import { fotoDeCombo } from '../utils/fotoCombo'
 import { stockStatus, daysLeftText } from '../utils/stock'
 import Etiquetas from './Etiquetas'
 import './Inventory.css'
+import { marcarTrabajo, liberarTrabajo } from '../utils/trabajoEnCurso'
 
 const EMPTY_FORM = {
   name: '',
@@ -95,6 +96,15 @@ export default function Inventory({
 }) {
   const [showForm, setShowForm] = useState(false)
   const [verEtiquetas, setVerEtiquetas] = useState(false)
+
+  // Mientras el formulario está abierto la app no se recarga sola para
+  // actualizarse: la recarga se llevaría puesto lo que se está cargando.
+  useEffect(() => {
+    if (!showForm) return
+    marcarTrabajo()
+    return liberarTrabajo
+  }, [showForm])
+
   // Las fotos del producto que se está editando se bajan DESPUÉS de abrir el
   // formulario. Hasta que lleguen no se las puede mandar al guardar: irían
   // vacías y borrarían las que el producto ya tenía.
