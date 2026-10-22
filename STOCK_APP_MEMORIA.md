@@ -5,7 +5,7 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
 
 ## 📍 ESTADO AL 20/10/2026 — arrancar por acá
 
-Último commit: `2267e8d`. Todo desplegado y verde en los dos proyectos de Vercel.
+Último commit: `5da50a5`. Todo desplegado y verde en los dos proyectos de Vercel.
 
 **🔴 LO MÁS IMPORTANTE ABIERTO — la cuota de Vercel (ver punto 23).** No es de esta app, pero la puede dejar sin servicio. Quedó en manos de OTRO chat, el que maneja el proyecto viejo `socialflow`. **No retomarlo acá salvo que el usuario lo traiga.**
 
@@ -203,6 +203,14 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
     Se descubrió justo antes de pasarle un archivo de 3 columnas para cargar proveedores: tal cual estaba, le borraba el inventario.
     **Arreglo:** se calcula qué campos trae el archivo (`presentes`, a partir de los encabezados) y al ACTUALIZAR un producto existente sólo se escriben esos. Los códigos de barras tampoco se tocan si el archivo no trae columna de códigos. Para productos nuevos no cambia nada.
     **Lección, que es la misma de siempre en este proyecto: un importador nunca debe inventar un valor por una columna que no está.** Ya había pasado con la cantidad del pedido de Full (punto 19), que leía 1 por fila cuando no encontraba la columna.
+
+27. **🔴 EDITAR UN PRODUCTO O COMBO LE BORRABA LAS FOTOS (encontrado y arreglado el 22/10)**
+    El usuario preguntó por qué un combo con la foto cargada no la mostraba, "en unos sí y en otros no". No era la herencia de fotos ni el `LazyThumb`: **era pérdida de datos al guardar.**
+    `startEdit` abre el formulario con `photos: []` y recién DESPUÉS baja las fotos que el producto ya tenía (no vienen en el listado). Si se guardaba antes de que llegaran —o si la bajada fallaba— se mandaba el array vacío, y `updateProduct`/`updateCombo` lo toman como "no tiene fotos": `hasPhotos: false` + `savePhotos(id, [])`, que **pisa el documento de `photos/{id}`**. Sin aviso. En el celular pasaba más seguido: conexión más lenta y el botón de guardar a mano.
+    **Arreglo:** estado `fotosListas` en Inventory.jsx y Combos.jsx. Mientras las fotos no estén bajadas **no se manda la clave `photos`**, así `updateProduct`/`updateCombo` dejan las que había (ya tenían el `photos !== undefined ? ... : undefined`, sólo había que no mandarla). Se avisa en pantalla mientras tanto, lo que el usuario agregue en el medio se concatena, y si la bajada falla queda en false a propósito: mejor no poder cambiarlas que borrarlas.
+    **Las fotos que se perdieron antes del arreglo NO se recuperan**, hay que volver a sacarlas. Se le dijo.
+    **Lección: un formulario que carga datos de forma asíncrona no puede mandar el valor vacío de arranque como si fuera el valor real.** Es primo del bug del importador (punto 26) y del de la cantidad del pedido de Full (punto 19): el patrón repetido en este proyecto es **tomar un vacío por un dato**.
+    De paso, el modal de 🏬 Envío a Full ahora dice POR QUÉ un combo no muestra foto (`porQueSinFoto`), en vez de dejar el recuadro vacío.
 
 ## Reglas de negocio clave (definidas por el usuario)
 - Stock: descuenta TODO lo despachado desde el depósito propio (FLEX+correo/colecta+ventas sin envío de ML), NUNCA `fulfillment` (Full ya salió al enviarse a bodega). Igual para ambas cuentas. 2 veces/día (13 y 18hs AR). Stock puede quedar negativo. **Clasificación explícita desde el 28/8** (`clasificar`/`descuenta` en api/ml/cron.js): la regla vieja era "todo lo que no sea fulfillment descuenta", así que si fallaba el pedido del envío a ML el tipo quedaba nulo y la venta se descontaba igual — incluidas las de Full — y además no se miraba el estado de la orden (canceladas y sin cobrar también descontaban; caso real: 771 Full + 60 canceladas en 48hs de la cuenta FULL). Ahora: descuentan flex (`self_service`) + correo (`drop_off`/`xd_drop_off`/`cross_docking`) + sin envío, con estado `paid`/`partially_paid`; NO descuentan Full, canceladas/inválidas, sin cobrar (quedan para la corrida siguiente) ni las de tipo desconocido (se reintenta el pedido a ML y si igual no se sabe NO se descuenta: preferimos que falte un descuento antes que descontar una de Full). El resumen del botón "Probar automático ahora" muestra el desglose. Verificado 28/8 en producción: FULL 168 flex + 2 correo (771 Full salteadas — es correcto, ~98% de esa cuenta va por bodega), FERRE 103 flex + 83 correo + 6 sin envío.
