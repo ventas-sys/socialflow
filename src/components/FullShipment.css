@@ -338,3 +338,15 @@
 .full-nf-nombre { flex: 1; word-break: break-word; }
 .full-nf-code { flex: none; color: #94a3b8; font-size: .72rem; }
 .full-nf-vacio { margin: .5rem 0; font-size: .8rem; color: #94a3b8; }
+
+/* Por qué el combo no muestra foto, abajo del recuadro vacío */
+.full-modal-sinfoto {
+  margin: .4rem 0 0;
+  font-size: .78rem;
+  line-height: 1.25;
+  color: #92400e;
+  background: #fef3c7;
+  padding: .35rem .5rem;
+  border-radius: 8px;
+  text-align: center;
+}

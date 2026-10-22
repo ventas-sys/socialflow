@@ -131,6 +131,9 @@ export default function Combos({
   }
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  // Ver el comentario de startEdit: hasta que las fotos del combo no estén
+  // bajadas no se mandan al guardar.
+  const [fotosListas, setFotosListas] = useState(true)
   const [importing, setImporting] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [importResult, setImportResult] = useState('')
@@ -184,9 +187,16 @@ export default function Combos({
     setDuplicando(duplicar)
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
-    if (combo.hasPhotos && loadPhotos) {
-      const photos = await loadPhotos(combo.id)
-      setFormData(f => ({ ...f, photos }))
+    // Igual que en Inventario: hasta que las fotos no estén bajadas no se las
+    // puede mandar al guardar, porque irían vacías y borrarían las de verdad.
+    const hayQueBajarlas = !!(combo.hasPhotos && loadPhotos)
+    setFotosListas(!hayQueBajarlas)
+    if (hayQueBajarlas) {
+      try {
+        const photos = await loadPhotos(combo.id)
+        setFormData(f => ({ ...f, photos: [...(photos || []), ...f.photos] }))
+        setFotosListas(true)
+      } catch { /* no se pudieron bajar: al guardar no se tocan */ }
     }
   }
 
@@ -313,7 +323,7 @@ export default function Combos({
         stockType: formData.stockType,
         items,
         itemBarcodes,
-        photos: formData.photos,
+        ...(fotosListas ? { photos: formData.photos } : {}),
       }
       if (editingId) {
         await onUpdate(editingId, data)
@@ -806,6 +816,11 @@ export default function Combos({
 
             <div className="form-group">
               <label>Fotos ({formData.photos.length}/{MAX_PHOTOS})</label>
+              {!fotosListas && (
+                <p className="form-hint-cargando">
+                  ⏳ Bajando las fotos que ya tenía… si guardás ahora quedan como están.
+                </p>
+              )}
               {/* Dos entradas: la de la cámara lleva "capture", que en el
                   celular abre directamente la cámara de atrás; sin "capture"
                   el celular abre la galería */}

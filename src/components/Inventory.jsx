@@ -95,6 +95,10 @@ export default function Inventory({
 }) {
   const [showForm, setShowForm] = useState(false)
   const [verEtiquetas, setVerEtiquetas] = useState(false)
+  // Las fotos del producto que se está editando se bajan DESPUÉS de abrir el
+  // formulario. Hasta que lleguen no se las puede mandar al guardar: irían
+  // vacías y borrarían las que el producto ya tenía.
+  const [fotosListas, setFotosListas] = useState(true)
   const [editingId, setEditingId] = useState(null)
   const [duplicando, setDuplicando] = useState(false)
   const [formData, setFormData] = useState(EMPTY_FORM)
@@ -151,9 +155,18 @@ export default function Inventory({
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
     // Las fotos se cargan on-demand (no vienen en el listado)
-    if (product.hasPhotos && loadPhotos) {
-      const photos = await loadPhotos(product.id)
-      setFormData(f => ({ ...f, photos }))
+    const hayQueBajarlas = !!(product.hasPhotos && loadPhotos)
+    setFotosListas(!hayQueBajarlas)
+    if (hayQueBajarlas) {
+      try {
+        const photos = await loadPhotos(product.id)
+        // Se concatena por si el usuario alcanzó a agregar alguna mientras tanto.
+        setFormData(f => ({ ...f, photos: [...(photos || []), ...f.photos] }))
+        setFotosListas(true)
+      } catch {
+        // Si no se pudieron bajar, fotosListas queda en false y al guardar NO
+        // se tocan: mejor no poder cambiarlas que borrarlas sin querer.
+      }
     }
   }
 
@@ -209,7 +222,7 @@ export default function Inventory({
           .map(s => s.trim())
           .filter(Boolean)
       )]
-      const { barcodes: _bc, ...rest } = formData
+      const { barcodes: _bc, photos: _ph, ...rest } = formData
       const data = {
         ...rest,
         barcodes,
@@ -217,6 +230,9 @@ export default function Inventory({
         price: formData.price ? parseFloat(formData.price) : 0,
         minStock: parseInt(formData.minStock) || 5,
         quantity: parseInt(formData.quantity) || 0,
+        // Sólo se mandan si sabemos cuáles son. Si todavía se estaban bajando,
+        // la clave no va y updateProduct deja las que ya tenía.
+        ...(fotosListas ? { photos: formData.photos } : {}),
       }
       if (editingId) {
         await onUpdate(editingId, data)
@@ -1340,6 +1356,11 @@ export default function Inventory({
 
             <div className="form-group">
               <label>Fotos ({formData.photos.length}/{MAX_PHOTOS})</label>
+              {!fotosListas && (
+                <p className="form-hint-cargando">
+                  ⏳ Bajando las fotos que ya tenía… si guardás ahora quedan como están.
+                </p>
+              )}
               {/* Dos entradas: la de la cámara lleva "capture", que en el
                   celular abre directamente la cámara de atrás; sin "capture"
                   el celular abre la galería */}

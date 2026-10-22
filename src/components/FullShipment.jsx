@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react'
-import { fotoDeCombo } from '../utils/fotoCombo'
+import { fotoDeCombo, porQueSinFoto } from '../utils/fotoCombo'
 import * as XLSX from 'xlsx'
 import { findProductOrCombo, barcodesOf } from '../utils/refMatch'
 import Scanner from './Scanner'
@@ -132,6 +132,8 @@ export default function FullShipment({
       fotoId: foto.fotoId,
       fotoKind: foto.fotoKind,
       fotoHas: foto.hasPhotos,
+      // Por qué no hay foto, para no tener que adivinarlo parado en el depósito
+      fotoMotivo: porQueSinFoto(foto),
       bases: bases.map(({ bp, ...b }) => b),
     }
   }
@@ -1020,10 +1022,15 @@ export default function FullShipment({
                   <button className="full-modal-x" onClick={cancelarPendiente} title="Cancelar">✕</button>
 
                   <div className="full-modal-grid">
-                    <LazyThumb
-                      id={pendiente.fotoId} hasPhotos={pendiente.fotoHas} kind={pendiente.fotoKind}
-                      loadPhotos={loadPhotos} className="full-modal-foto"
-                    />
+                    <div>
+                      <LazyThumb
+                        id={pendiente.fotoId} hasPhotos={pendiente.fotoHas} kind={pendiente.fotoKind}
+                        loadPhotos={loadPhotos} className="full-modal-foto"
+                      />
+                      {!pendiente.fotoHas && pendiente.fotoMotivo && (
+                        <p className="full-modal-sinfoto">{pendiente.fotoMotivo}</p>
+                      )}
+                    </div>
                     <div className="full-modal-datos">
                       <h2>{pendiente.nombre}</h2>
                       <div className="full-modal-sku">
