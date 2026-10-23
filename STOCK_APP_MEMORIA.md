@@ -3,11 +3,13 @@
 **ÚNICA fuente de verdad del proyecto. Leer entera antes de tocar nada.**
 Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/socialflow
 
-## 📍 ESTADO AL 20/10/2026 — arrancar por acá
+## 📍 ESTADO AL 23/10/2026 — arrancar por acá
 
-Último commit: `5da50a5`. Todo desplegado y verde en los dos proyectos de Vercel.
+Último commit: `e3959c4`. Todo desplegado y verde en los dos proyectos de Vercel.
 
 **🔴 LO MÁS IMPORTANTE ABIERTO — la cuota de Vercel (ver punto 23).** No es de esta app, pero la puede dejar sin servicio. Quedó en manos de OTRO chat, el que maneja el proyecto viejo `socialflow`. **No retomarlo acá salvo que el usuario lo traiga.**
+
+**Las fotos: dos bugs encontrados el 22/10 (puntos 27 y 28), los dos arreglados.** Entre los dos explican por qué desaparecían fotos ya cargadas: guardar antes de que terminaran de bajarse, y la recarga automática cayendo encima del formulario. **Las que se perdieron antes no se recuperan**, hay que volver a sacarlas; ya se le dijo. Queda pendiente que confirme que no le pasa más.
 
 **Esperando que el usuario pruebe (nada de esto está confirmado):**
 1. **📦 Stock físico que NO está publicado en ML** — botón del 30/9 en la solapa 🛒 ML (punto 24). Todavía no lo corrió.
@@ -32,6 +34,7 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
 ## ⚠️ Entorno (leer PRIMERO en cada sesión nueva)
 - **Zona horaria: Argentina (UTC-3)**. Todo lo que se le muestre al usuario va en hora argentina, no UTC: los servidores (Vercel, los cron) corren en UTC y hay que restar 3 horas. El sello de versión de la app ya sale en hora AR (`vite.config.js`); los cron `0 16` y `0 21` UTC son las 13 y 18hs AR.
 - El repo `ventas-sys/socialflow` en `main` es OTRO proyecto (redes/WhatsApp, .html). La app de stock (React, `src/`) vive SOLO en la rama `claude/stock-inventory-app-06rlv5`. Si el contenedor clona otra rama: `git fetch origin claude/stock-inventory-app-06rlv5 && git checkout -B claude/stock-inventory-app-06rlv5 origin/claude/stock-inventory-app-06rlv5` y `npm install`.
+- **No hay PHP ni VPS en nada de esto.** El 23/10 llegó un aviso de seguridad de PHP (CVE-2026-115560, `session.upload_progress`) de un proveedor de VPS y el usuario preguntó si le pegaba. **No**: la app es React + Vite y las funciones son JavaScript sobre Node, en Vercel (hosting administrado, sin servidor propio ni `php.ini`). Verificado: cero archivos `.php` en las dos ramas. El VPS que tiene contratado es de otra cosa, fuera de este proyecto.
 - **2 proyectos Vercel del mismo repo**: `socialflow` (viejo, main, NO tocar) y **`stock-inventario`** (producción de esta app, Production Branch = la rama de stock, dominio **`stock-inventario-sable.vercel.app`**). El preview largo `socialflow-git-claude-stock-in-858296-...vercel.app` es el que usa el usuario a diario y es la Redirect URI de ML.
 - **Caché PWA**: la app muestra la versión de build en el subtítulo (`v2026-...`, vite.config `__APP_VERSION__`). Desde 19/8 hay **auto-actualización**: el build emite `version.json` (plugin en vite.config, fuera del precache del SW) y App.jsx lo chequea con no-store al volver la app al frente y cada 10 min → si cambió, `reg.update()` + reload automático (guard de 1 reload/min por sesión vía sessionStorage, y reload en `controllerchange`). Si igual reportan algo "que no anda", verificar versión → Ctrl+Shift+R / incógnito.
 - Deploys: cada push a la rama deploya preview + producción (~2 min). El usuario espera que le avise cuando queda verde. **Ignored Build Step (24/8)**: el proyecto stock-inventario tiene `[ "$VERCEL_GIT_COMMIT_REF" != "claude/stock-inventory-app-06rlv5" ]` (exit 0 = saltear) → solo compila NUESTRA rama; los pushes a main del proyecto viejo ya no generan builds fallidos ni mails de error. La barra flotante de Vercel (toolbar/feedback) está oculta por CSS en App.css.
@@ -211,6 +214,11 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
     **Las fotos que se perdieron antes del arreglo NO se recuperan**, hay que volver a sacarlas. Se le dijo.
     **Lección: un formulario que carga datos de forma asíncrona no puede mandar el valor vacío de arranque como si fuera el valor real.** Es primo del bug del importador (punto 26) y del de la cantidad del pedido de Full (punto 19): el patrón repetido en este proyecto es **tomar un vacío por un dato**.
     De paso, el modal de 🏬 Envío a Full ahora dice POR QUÉ un combo no muestra foto (`porQueSinFoto`), en vez de dejar el recuadro vacío.
+
+28. **🔴 LA APP SE RECARGABA ENCIMA DE LO QUE ESTABAS CARGANDO (22/10)**
+    El usuario: *"Está actualizando a cada rato q subo una foto. ¿Pq?"*. Es la cadena completa del bug anterior: **tocar 📷 manda la PWA al fondo**, y al volver con la foto se dispara el chequeo de `version.json` del `visibilitychange`. Si en el medio hubo un deploy, la app **se recargaba con el formulario abierto y se perdía la foto**. Ese día hubo seis deploys seguidos, así que pasaba casi en cada foto. **Es la otra mitad de por qué desaparecían fotos** (la primera mitad es el punto 27).
+    **Arreglo** (`src/utils/trabajoEnCurso.js`): un **contador** de trabajo en curso que marcan el formulario de Inventario, el de Combos y el modal del escaneo de 🏬 Envío a Full. Si hay algo abierto, la recarga automática se posterga y el botón de arriba pasa a **"🔄 Hay versión nueva"** en naranja; el chequeo de los 10 minutos la aplica sola cuando se cierra. Es contador y no booleano porque puede haber dos pantallas marcando a la vez y la que cierra primero no tiene que destrabar a la otra.
+    **Regla para cualquier cosa que se agregue después: si una pantalla tiene datos a medio cargar, tiene que llamar a `marcarTrabajo()` / `liberarTrabajo()`.** Si no, la recarga automática se la lleva puesta.
 
 ## Reglas de negocio clave (definidas por el usuario)
 - Stock: descuenta TODO lo despachado desde el depósito propio (FLEX+correo/colecta+ventas sin envío de ML), NUNCA `fulfillment` (Full ya salió al enviarse a bodega). Igual para ambas cuentas. 2 veces/día (13 y 18hs AR). Stock puede quedar negativo. **Clasificación explícita desde el 28/8** (`clasificar`/`descuenta` en api/ml/cron.js): la regla vieja era "todo lo que no sea fulfillment descuenta", así que si fallaba el pedido del envío a ML el tipo quedaba nulo y la venta se descontaba igual — incluidas las de Full — y además no se miraba el estado de la orden (canceladas y sin cobrar también descontaban; caso real: 771 Full + 60 canceladas en 48hs de la cuenta FULL). Ahora: descuentan flex (`self_service`) + correo (`drop_off`/`xd_drop_off`/`cross_docking`) + sin envío, con estado `paid`/`partially_paid`; NO descuentan Full, canceladas/inválidas, sin cobrar (quedan para la corrida siguiente) ni las de tipo desconocido (se reintenta el pedido a ML y si igual no se sabe NO se descuenta: preferimos que falte un descuento antes que descontar una de Full). El resumen del botón "Probar automático ahora" muestra el desglose. Verificado 28/8 en producción: FULL 168 flex + 2 correo (771 Full salteadas — es correcto, ~98% de esa cuenta va por bodega), FERRE 103 flex + 83 correo + 6 sin envío.
