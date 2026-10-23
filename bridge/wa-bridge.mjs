@@ -610,6 +610,39 @@ async function limpiarHumanoViejo(client) {
       : ` · ${limpiados} limpiado(s). Ya podés sacar WA_LIMPIAR_HUMANO del .env.`));
 }
 
+// Respaldo de SOLO LECTURA de las etiquetas/listas de WhatsApp. Cuando WhatsApp
+// Web no muestra las listas que sí están en el celular, esto deja a salvo
+// cuáles existen y qué chats tiene cada una. No cambia nada en WhatsApp.
+//   WA_EXPORTAR_ETIQUETAS=si -> al arrancar, escribe bridge/etiquetas-export.csv
+//   y muestra en el log cuántos chats tiene cada etiqueta. Sacarla del .env después.
+const EXPORTAR_ETIQUETAS = (process.env.WA_EXPORTAR_ETIQUETAS || '').trim().toLowerCase() === 'si';
+const ETIQUETAS_CSV = path.join(__dirname, 'etiquetas-export.csv');
+
+async function exportarEtiquetas(client) {
+  if (!EXPORTAR_ETIQUETAS) return;
+  const csv = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  let labels = [];
+  try { labels = (await client.getLabels()) || []; }
+  catch (e) { console.error('📤 etiquetas: no se pudieron leer:', e.message); return; }
+  console.log(`📤 etiquetas: ${labels.length} detectada(s). Exportando (solo lectura)...`);
+  const filas = ['etiqueta_id,etiqueta,color,chat_id,chat,es_grupo'];
+  for (const l of labels) {
+    let chats = [];
+    let ok = true;
+    if (typeof client.getChatsByLabelId === 'function') {
+      try { chats = (await client.getChatsByLabelId(l.id)) || []; }
+      catch (e) { ok = false; console.error(`📤 etiqueta "${l.name}" (id=${l.id}): no se pudieron leer sus chats: ${e.message}`); }
+    } else ok = false;
+    console.log(`📤   • "${l.name}" (id=${l.id}) → ${ok ? chats.length + ' chat(s)' : 'chats ilegibles'}`);
+    if (!chats.length) filas.push([l.id, l.name, l.hexColor || '', '', '', ''].map(csv).join(','));
+    for (const c of chats) {
+      filas.push([l.id, l.name, l.hexColor || '', c?.id?._serialized || '', c?.name || '', c?.isGroup ? 'si' : 'no'].map(csv).join(','));
+    }
+  }
+  fs.writeFileSync(ETIQUETAS_CSV, filas.join('\n') + '\n');
+  console.log(`📤 etiquetas: listo → ${ETIQUETAS_CSV} (${filas.length - 1} fila(s)). Sacá WA_EXPORTAR_ETIQUETAS del .env.`);
+}
+
 async function resolveHumanLabel(client) {
   if (HUMAN_LABEL_ID_OVERRIDE) {
     humanLabelId = HUMAN_LABEL_ID_OVERRIDE;
@@ -1616,6 +1649,8 @@ client.on('ready', async () => {
   console.log('✅ Bridge listo. Esperando mensajes...');
   await resolveHumanLabel(client);
   await limpiarHumanoViejo(client);
+  // Sin await: si WhatsApp tarda en contestar, no frena el resto del arranque.
+  exportarEtiquetas(client).catch(e => console.error('📤 etiquetas fail:', e.message));
   setInterval(() => sendFollowupIfDue(client).catch(e => console.error('followup tick fail:', e.message)), 5 * 60_000);
   setInterval(() => sendRemindersIfDue(client).catch(e => console.error('reminder tick fail:', e.message)), 60 * 60_000);
   sendHeartbeat();
