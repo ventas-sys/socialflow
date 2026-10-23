@@ -769,3 +769,17 @@
 }
 .btn-hist:hover { background: #1d4ed8; }
 .btn-hist:disabled { background: #93c5fd; cursor: default; }
+
+/* Ajuste de stock: ni entrada ni salida, es una corrección por conteo visual */
+.movement-card.ajuste { border-left-color: #8b5cf6; }
+.movement-qty.ajuste { background: #f5f3ff; color: #6d28d9; }
+.ajuste-detalle {
+  margin-top: .25rem;
+  font-size: .8rem;
+  color: #6d28d9;
+  background: #f5f3ff;
+  padding: .2rem .45rem;
+  border-radius: 6px;
+  display: inline-block;
+}
+.meta-info .user { word-break: break-all; }

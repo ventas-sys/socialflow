@@ -672,12 +672,43 @@ export default function App() {
     if (!user) return
     const { photos, ...data } = productData
     const hasPhotos = photos !== undefined ? photos.length > 0 : undefined
+
+    // Corregir el stock a mano desde Inventario queda asentado como AJUSTE, no
+    // como entrada ni salida: no es mercadería que entró o que se vendió, es un
+    // conteo visual. Por eso tampoco cuenta para el ritmo de consumo ni para
+    // los informes de compras y ventas (ver computeConsumption en utils/stock).
+    const antes = products.find(p => p.id === productId)
+    const qAntes = Number(antes?.quantity) || 0
+    const qDespues = Number(data.quantity)
+    const huboAjuste = antes && Number.isFinite(qDespues) && qDespues !== qAntes
+
     await updateDoc(doc(db, 'products', productId), {
       ...data,
       ...(hasPhotos !== undefined ? { hasPhotos } : {}),
       updatedAt: Timestamp.now(),
     })
     if (photos !== undefined) await savePhotos(productId, photos)
+
+    if (huboAjuste) {
+      const delta = qDespues - qAntes
+      const mDoc = {
+        productId,
+        productName: data.name || antes.name || '',
+        type: 'ajuste',
+        quantity: Math.abs(delta),
+        delta,                 // con signo, para no perder la dirección
+        antes: qAntes,
+        despues: qDespues,
+        reason: 'Ajuste por control visual (desde Inventario)',
+        reference: '',
+        userId: ORG_ID,
+        date: Timestamp.now(),
+        userName: user.displayName || user.email,
+        userEmail: user.email,
+      }
+      const mRef = await addDoc(collection(db, 'movements'), mDoc)
+      setMovements(ms => [{ id: mRef.id, ...mDoc, date: new Date() }, ...ms])
+    }
     setProducts(products.map(p =>
       p.id === productId
         ? { ...p, ...data, ...(hasPhotos !== undefined ? { hasPhotos } : {}), updatedAt: new Date() }

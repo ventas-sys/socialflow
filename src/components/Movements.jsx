@@ -178,8 +178,12 @@ export default function Movements({ products, combos, movements, onAdd, canEdit 
     }
   }, [products, combos])
 
-  const getMovementIcon = (type) => (type === 'entrada' ? '📥' : '📤')
-  const getMovementLabel = (type) => (type === 'entrada' ? 'Entrada' : 'Salida')
+  // El ajuste es un tercer tipo: no es mercadería que entró ni que salió, es
+  // una corrección de lo que había contra lo que hay de verdad en el depósito.
+  const getMovementIcon = (type) =>
+    (type === 'entrada' ? '📥' : type === 'ajuste' ? '⚖️' : '📤')
+  const getMovementLabel = (type) =>
+    (type === 'entrada' ? 'Entrada' : type === 'ajuste' ? 'Ajuste' : 'Salida')
 
   const formatDate = (timestamp) => {
     if (!timestamp) return '-'
@@ -215,6 +219,7 @@ export default function Movements({ products, combos, movements, onAdd, canEdit 
   const filtered = movements.filter(m => {
     if (filterType === 'entrada' && m.type !== 'entrada') return false
     if (filterType === 'salida' && m.type !== 'salida') return false
+    if (filterType === 'ajuste' && m.type !== 'ajuste') return false
     if (filterType === 'hoy' && !isToday(m)) return false
     if (filterType === 'ayer' && !isYesterday(m)) return false
     if (filterType === 'semana' && !isWeek(m)) return false
@@ -223,7 +228,8 @@ export default function Movements({ products, combos, movements, onAdd, canEdit 
         (m.productName || '').toLowerCase().includes(q) ||
         (m.reference || '').toLowerCase().includes(q) ||
         (m.reason || '').toLowerCase().includes(q) ||
-        (m.userName || '').toLowerCase().includes(q)
+        (m.userName || '').toLowerCase().includes(q) ||
+        (m.userEmail || '').toLowerCase().includes(q)
       )
     }
     return true
@@ -232,6 +238,8 @@ export default function Movements({ products, combos, movements, onAdd, canEdit 
   // Resumen de unidades del filtro actual
   const totalEntradas = filtered.filter(m => m.type === 'entrada').reduce((s, m) => s + (m.quantity || 0), 0)
   const totalSalidas = filtered.filter(m => m.type === 'salida').reduce((s, m) => s + (m.quantity || 0), 0)
+  const ajustes = filtered.filter(m => m.type === 'ajuste')
+  const totalAjustes = ajustes.reduce((s, m) => s + (Number(m.delta) || 0), 0)
 
   return (
     <div className="movements-container">
@@ -422,6 +430,12 @@ export default function Movements({ products, combos, movements, onAdd, canEdit 
           📤 Salidas ({movements.filter(m => m.type === 'salida').length})
         </button>
         <button
+          className={`tab-btn ${filterType === 'ajuste' ? 'active' : ''}`}
+          onClick={() => setFilterType('ajuste')}
+        >
+          ⚖️ Ajustes ({movements.filter(m => m.type === 'ajuste').length})
+        </button>
+        <button
           className={`tab-btn ${filterType === 'hoy' ? 'active' : ''}`}
           onClick={() => setFilterType('hoy')}
         >
@@ -459,6 +473,11 @@ export default function Movements({ products, combos, movements, onAdd, canEdit 
         <span className="mov-sum-item">📥 Entró: <strong>{totalEntradas}</strong> u.</span>
         <span className="mov-sum-item">📤 Salió: <strong>{totalSalidas}</strong> u.</span>
         <span className="mov-sum-item">Neto: <strong>{totalEntradas - totalSalidas >= 0 ? '+' : ''}{totalEntradas - totalSalidas}</strong> u.</span>
+        {ajustes.length > 0 && (
+          <span className="mov-sum-item" title="Los ajustes van aparte: no son mercadería que entró ni que se vendió">
+            ⚖️ Ajustes: <strong>{totalAjustes >= 0 ? '+' : ''}{totalAjustes}</strong> u. ({ajustes.length})
+          </span>
+        )}
         <span className="mov-sum-count">{filtered.length} movimientos</span>
       </div>
 
@@ -473,6 +492,8 @@ export default function Movements({ products, combos, movements, onAdd, canEdit 
             const prod = products.find(p => p.id === m.productId)
             const sku = prod?.code
             const isEntrada = m.type === 'entrada'
+            const esAjuste = m.type === 'ajuste'
+            const signo = esAjuste ? (Number(m.delta) >= 0 ? '+' : '−') : (isEntrada ? '+' : '−')
             return (
               <div key={m.id} className={`movement-card ${m.type}`}>
                 <div className="movement-card-content">
@@ -489,18 +510,27 @@ export default function Movements({ products, combos, movements, onAdd, canEdit 
                       Incluye: {m.breakdown.map(b => `${b.quantity}× ${b.productName}`).join(', ')}
                     </div>
                   )}
+                  {esAjuste && m.antes !== undefined && (
+                    <div className="ajuste-detalle">
+                      Tenía <strong>{m.antes}</strong> · quedó en <strong>{m.despues}</strong>
+                    </div>
+                  )}
                   {m.reference && (
                     <div className="reference">Ref: {m.reference}</div>
                   )}
                   <div className="meta-info">
                     <span className="date">{formatDate(m.date)}</span>
-                    {m.userName && <span className="user">• {m.userName}</span>}
+                    {(m.userEmail || m.userName) && (
+                      <span className="user" title={m.userName || ''}>
+                        • {m.userEmail || m.userName}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className={`movement-qty ${m.type}`}>
-                  <span className="mq-num">{isEntrada ? '+' : '−'}{m.quantity}</span>
+                  <span className="mq-num">{signo}{m.quantity}</span>
                   <span className="mq-unit">{m.comboId ? 'combos' : 'u.'}</span>
-                  <span className="mq-label">{isEntrada ? 'ENTRADA' : 'SALIDA'}</span>
+                  <span className="mq-label">{getMovementLabel(m.type).toUpperCase()}</span>
                 </div>
               </div>
             )
