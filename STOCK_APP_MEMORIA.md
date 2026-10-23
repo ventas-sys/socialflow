@@ -3,15 +3,16 @@
 **ÚNICA fuente de verdad del proyecto. Leer entera antes de tocar nada.**
 Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/socialflow
 
-## 📍 ESTADO AL 23/10/2026 — arrancar por acá
+## 📍 ESTADO AL 24/10/2026 — arrancar por acá
 
-Último commit: `e3959c4`. Todo desplegado y verde en los dos proyectos de Vercel.
+Último commit: `2b3494f`. Todo desplegado y verde en los dos proyectos de Vercel.
 
 **🔴 LO MÁS IMPORTANTE ABIERTO — la cuota de Vercel (ver punto 23).** No es de esta app, pero la puede dejar sin servicio. Quedó en manos de OTRO chat, el que maneja el proyecto viejo `socialflow`. **No retomarlo acá salvo que el usuario lo traiga.**
 
 **Las fotos: dos bugs encontrados el 22/10 (puntos 27 y 28), los dos arreglados.** Entre los dos explican por qué desaparecían fotos ya cargadas: guardar antes de que terminaran de bajarse, y la recarga automática cayendo encima del formulario. **Las que se perdieron antes no se recuperan**, hay que volver a sacarlas; ya se le dijo. Queda pendiente que confirme que no le pasa más.
 
 **Esperando que el usuario pruebe (nada de esto está confirmado):**
+0. **⚖️ Ajuste de stock y el mail en los movimientos** (punto 29). Dijo el 23/10: *"lo pruebo mañana o lunes y t aviso"*. Es lo primero a preguntar.
 1. **📦 Stock físico que NO está publicado en ML** — botón del 30/9 en la solapa 🛒 ML (punto 24). Todavía no lo corrió.
 2. **Asociar códigos de Full al escanear** — commit `e7347eb` del 29/9: buscador dentro del cartel rojo "No está en el sistema" (punto 21). Nunca confirmó si funciona.
 3. **Doble descuento del envío 77068364** (punto 19/22). Hay que ver con él cómo cargar la entrada de corrección — la app NO lo puede resolver sola porque no sabe qué salió físicamente del depósito.
@@ -219,6 +220,14 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
     El usuario: *"Está actualizando a cada rato q subo una foto. ¿Pq?"*. Es la cadena completa del bug anterior: **tocar 📷 manda la PWA al fondo**, y al volver con la foto se dispara el chequeo de `version.json` del `visibilitychange`. Si en el medio hubo un deploy, la app **se recargaba con el formulario abierto y se perdía la foto**. Ese día hubo seis deploys seguidos, así que pasaba casi en cada foto. **Es la otra mitad de por qué desaparecían fotos** (la primera mitad es el punto 27).
     **Arreglo** (`src/utils/trabajoEnCurso.js`): un **contador** de trabajo en curso que marcan el formulario de Inventario, el de Combos y el modal del escaneo de 🏬 Envío a Full. Si hay algo abierto, la recarga automática se posterga y el botón de arriba pasa a **"🔄 Hay versión nueva"** en naranja; el chequeo de los 10 minutos la aplica sola cuando se cierra. Es contador y no booleano porque puede haber dos pantallas marcando a la vez y la que cierra primero no tiene que destrabar a la otra.
     **Regla para cualquier cosa que se agregue después: si una pantalla tiene datos a medio cargar, tiene que llamar a `marcarTrabajo()` / `liberarTrabajo()`.** Si no, la recarga automática se la lleva puesta.
+
+29. **AJUSTE DE STOCK A MANO Y QUIÉN HIZO CADA MOVIMIENTO (23/10)**
+    Pedido textual: *"los cambios de stock q hago desde inventario, no lo marques como entrada o salida sino ajuste de stock por visual... Tmb necesito que se agende quien hizo el movimiento... q mail o usuario"*.
+    - **Antes, corregir la cantidad desde Inventario no dejaba NINGÚN rastro**: el stock cambiaba y no había forma de saber quién ni cuándo. Ahora `updateProduct` (App.jsx) detecta el cambio de `quantity` y escribe un movimiento `type: 'ajuste'` con `delta` (con signo), `antes`, `despues`, el motivo "Ajuste por control visual (desde Inventario)" y el mail.
+    - **Es un tipo APARTE de entrada/salida a propósito, y esto no se cambia sin pensarlo:** un conteo visual no es mercadería que entró ni que se vendió. `computeConsumption` (utils/stock.js) sólo suma `type === 'salida'`, así que los ajustes **no** ensucian el ritmo de consumo ni los días de stock; Reports.jsx y Dashboard.jsx filtran entrada/salida, así que tampoco entran en compras ni ventas. Si se marcara como salida, un ajuste de −50 por un error de conteo haría creer que se vendieron 50 más.
+    - En 🔄 Movimientos: solapa **⚖️ Ajustes**, la tarjeta dice "Tenía X · quedó en Y", y el resumen los cuenta aparte del neto.
+    - **Se muestra el MAIL y no el nombre.** El `userName` ya se guardaba, pero es el `displayName` de Google = "Distribuidora Universo", igual para todos. Los ayudantes entran cada uno con su mail (`members/{email}`), así que el mail sí distingue. El buscador también encuentra por mail.
+    - **Falta (ofrecido, no pedido):** importar un Excel en Inventario cambia stock y **no** genera movimientos. Serían miles de golpe; si lo pide, conviene **un solo movimiento resumen por importación**, no uno por fila.
 
 ## Reglas de negocio clave (definidas por el usuario)
 - Stock: descuenta TODO lo despachado desde el depósito propio (FLEX+correo/colecta+ventas sin envío de ML), NUNCA `fulfillment` (Full ya salió al enviarse a bodega). Igual para ambas cuentas. 2 veces/día (13 y 18hs AR). Stock puede quedar negativo. **Clasificación explícita desde el 28/8** (`clasificar`/`descuenta` en api/ml/cron.js): la regla vieja era "todo lo que no sea fulfillment descuenta", así que si fallaba el pedido del envío a ML el tipo quedaba nulo y la venta se descontaba igual — incluidas las de Full — y además no se miraba el estado de la orden (canceladas y sin cobrar también descontaban; caso real: 771 Full + 60 canceladas en 48hs de la cuenta FULL). Ahora: descuentan flex (`self_service`) + correo (`drop_off`/`xd_drop_off`/`cross_docking`) + sin envío, con estado `paid`/`partially_paid`; NO descuentan Full, canceladas/inválidas, sin cobrar (quedan para la corrida siguiente) ni las de tipo desconocido (se reintenta el pedido a ML y si igual no se sabe NO se descuenta: preferimos que falte un descuento antes que descontar una de Full). El resumen del botón "Probar automático ahora" muestra el desglose. Verificado 28/8 en producción: FULL 168 flex + 2 correo (771 Full salteadas — es correcto, ~98% de esa cuenta va por bodega), FERRE 103 flex + 83 correo + 6 sin envío.
