@@ -31,7 +31,9 @@ const HUMAN_LABEL_ID_OVERRIDE = (process.env.WA_HUMAN_LABEL_ID || '').trim();
 // El bot venía usando la otra (id=18, "HUMANO ☹️"), así que marcaba chats con
 // una etiqueta invisible para el equipo. Elegimos por el EMOJI, que es lo único
 // que las distingue. Se puede cambiar con WA_HUMAN_LABEL_EMOJI en el .env.
-const HUMAN_LABEL_EMOJI = process.env.WA_HUMAN_LABEL_EMOJI || '🧐';
+// 23-oct-2026: Rodo recreó todas sus listas y la nueva es "HUMANO 🤓🤓" (la 🧐
+// vieja pudo quedar escondida en la cuenta), así que el emoji por defecto es 🤓.
+const HUMAN_LABEL_EMOJI = process.env.WA_HUMAN_LABEL_EMOJI || '🤓';
 // Limpieza única de la etiqueta HUMANO vieja. Los chats que el bot marcó cuando
 // usaba la etiqueta equivocada quedaron con un punto de color que el equipo ve
 // pero NO puede destildar, porque esa lista no le aparece en WhatsApp.
