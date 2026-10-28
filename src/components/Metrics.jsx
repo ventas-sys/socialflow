@@ -21,7 +21,7 @@ const RANGOS = [
 // Fechas de MP (vienen en -04:00) mostradas en hora argentina.
 const horaAR = (f) => {
   const d = new Date(f)
-  return isNaN(d) ? String(f).slice(0, 16) : d.toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' hs'
+  return isNaN(d) ? String(f).slice(0, 16) : d.toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }) + ' hs'
 }
 const plata = (n) => '$' + Math.round(n || 0).toLocaleString('es-AR')
 const num = (n) => (n || 0).toLocaleString('es-AR')
@@ -484,7 +484,7 @@ export default function Metrics({ mlAccounts, ensureToken }) {
                             </p>
                           </>
                         )}
-                        {s.totalArchivo && (
+                        {!s.saldo && s.totalArchivo && (
                           <>
                             <div className="mt-saldo-fila">
                               <span>Fila «total» del archivo</span>
@@ -511,7 +511,7 @@ export default function Metrics({ mlAccounts, ensureToken }) {
                         )}
                         <p className="mt-hint">
                           {s.saldo?.fuente
-                            ? `Sacado del extracto de MP (${s.saldo.fuente})${s.saldo.fecha ? ` · ${s.saldo.fecha}` : ''}`
+                            ? `Saldo al ${s.hasta ? horaAR(s.hasta) : (s.saldo.fecha || '?')}, la hora del último movimiento del archivo (lo posterior no está). Sacado de la ${s.saldo.fuente}.`
                             : s.tokenDe?.nickname ? `Token de ${s.tokenDe.nickname}` : ''}
                         </p>
                         {(s.crudo || s.config) && <Crudo crudo={s.crudo} config={s.config} />}
