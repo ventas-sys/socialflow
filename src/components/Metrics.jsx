@@ -451,14 +451,36 @@ export default function Metrics({ mlAccounts, ensureToken }) {
             {saldos && (
               <div className="mt-saldos">
                 {saldos.map(s => (
-                  <div className={`mt-saldo ${s.saldo ? 'ok' : 'no'}`} key={s.key}>
+                  <div className={`mt-saldo ${s.saldo || s.saldoCalculado ? 'ok' : 'no'}`} key={s.key}>
                     <span className="mt-saldo-cuenta">{s.key.toUpperCase()}</span>
-                    {s.saldo ? (
+                    {(s.saldo || s.saldoCalculado) ? (
                       <>
                         {s.saldo.total != null && (
                           <div className="mt-saldo-fila"><span>En la cuenta</span><strong>{plata(s.saldo.total)}</strong></div>
                         )}
-                        <div className="mt-saldo-fila"><span>Disponible</span><strong className="verde">{plata(s.saldo.disponible)}</strong></div>
+                        {s.saldo && (
+                          <div className="mt-saldo-fila"><span>Disponible</span><strong className="verde">{plata(s.saldo.disponible)}</strong></div>
+                        )}
+                        {!s.saldo && s.saldoCalculado && (
+                          <>
+                            <div className="mt-saldo-fila">
+                              <span>Disponible <em>(calculado)</em></span>
+                              <strong className="verde">{plata(s.saldoCalculado.disponible)}</strong>
+                            </div>
+                            <p className="mt-hint">
+                              MP no escribió el saldo final en el archivo, así que se calcula:
+                              saldo del {String(s.saldoCalculado.desde || '').slice(0, 10)} ({plata(s.saldoCalculado.saldoInicial)})
+                              {' '}más los movimientos desde esa fecha ({plata(s.saldoCalculado.movimientoNeto)}).
+                            </p>
+                          </>
+                        )}
+                        {s.diferencia != null && (
+                          <p className="mt-hint">
+                            {Math.abs(s.diferencia) < 1
+                              ? '✅ Control: el saldo calculado da IGUAL al que informa MP.'
+                              : `⚠️ Control: el calculado se lleva ${plata(s.diferencia)} con el que informa MP.`}
+                          </p>
+                        )}
                         {s.saldo.aLiquidar != null && (
                           <div className="mt-saldo-fila"><span>A liquidar</span><strong className="naranja">{plata(s.saldo.aLiquidar)}</strong></div>
                         )}

@@ -1208,8 +1208,32 @@ function leerSaldoDelCsv(texto) {
     netoPeriodo = movs.reduce((a, f) => a + (aNumero(f[iCred]) || 0) - (aNumero(f[iDeb]) || 0), 0);
   }
 
+  // Si MP no escribe el saldo final (la cuenta de FULL tiene el campo
+  // check_available_balance ausente y el PUT para prenderlo devuelve 500), el
+  // disponible se CALCULA con lo que el archivo sí trae:
+  //
+  //     disponible de hoy = saldo al empezar + (lo que entró − lo que salió)
+  //
+  // Es la misma identidad con la que está armado el extracto. Se devuelve
+  // aparte del informado, nunca mezclado: donde MP informa el final se puede
+  // comparar uno contra otro y recién entonces confiar en el cálculo.
+  let calculado = null;
+  const base = filasDeSaldo.find((r) => esInicial(r.tipo));
+  if (base && netoPeriodo != null) {
+    calculado = {
+      disponible: base.importe + netoPeriodo,
+      desde: base.fecha,
+      saldoInicial: base.importe,
+      movimientoNeto: netoPeriodo,
+    };
+  }
+  // Control: donde están los dos, cuánto se llevan.
+  const diferencia = (disponible != null && calculado) ? disponible - calculado.disponible : null;
+
   return {
     saldo: disponible != null ? { disponible, fecha: fechaSaldo, fuente: deDonde } : null,
+    saldoCalculado: calculado,
+    diferencia,
     saldoInicial: soloInicial,
     netoPeriodo,
     movimientos: filas.length,
