@@ -455,7 +455,10 @@ export default function Metrics({ mlAccounts, ensureToken }) {
                     <span className="mt-saldo-cuenta">{s.key.toUpperCase()}</span>
                     {(s.saldo || s.saldoCalculado) ? (
                       <>
-                        {s.saldo.total != null && (
+                        {/* s.saldo puede ser null: en FULL MP no escribe el saldo
+                            final y sólo llega saldoCalculado. Leer s.saldo.x sin
+                            el ?. tiraba la app entera (pantalla en blanco, 28/10). */}
+                        {s.saldo?.total != null && (
                           <div className="mt-saldo-fila"><span>En la cuenta</span><strong>{plata(s.saldo.total)}</strong></div>
                         )}
                         {s.saldo && (
@@ -481,14 +484,14 @@ export default function Metrics({ mlAccounts, ensureToken }) {
                               : `⚠️ Control: el calculado se lleva ${plata(s.diferencia)} con el que informa MP.`}
                           </p>
                         )}
-                        {s.saldo.aLiquidar != null && (
+                        {s.saldo?.aLiquidar != null && (
                           <div className="mt-saldo-fila"><span>A liquidar</span><strong className="naranja">{plata(s.saldo.aLiquidar)}</strong></div>
                         )}
                         {s.netoPeriodo != null && (
                           <div className="mt-saldo-fila"><span>Entró en 10 días</span><strong>{plata(s.netoPeriodo)}</strong></div>
                         )}
                         <p className="mt-hint">
-                          {s.saldo.fuente
+                          {s.saldo?.fuente
                             ? `Sacado del extracto de MP (${s.saldo.fuente})${s.saldo.fecha ? ` · ${s.saldo.fecha}` : ''}`
                             : s.tokenDe?.nickname ? `Token de ${s.tokenDe.nickname}` : ''}
                         </p>
@@ -726,6 +729,9 @@ export default function Metrics({ mlAccounts, ensureToken }) {
 // Cómo se vio por dentro el CSV que mandó Mercado Pago. No es para el uso
 // diario: está para poder corregir la lectura cuando el número no cierra, sin
 // tener que adivinar qué columnas trae el archivo.
+const esDiagnostico = (c) => typeof c === 'object' && c !== null && !Array.isArray(c) &&
+  Object.values(c).every(v => v && typeof v === 'object' && 'estado' in v)
+
 function Crudo({ crudo, config, abiertoDeEntrada = false }) {
   const [abierto, setAbierto] = useState(abiertoDeEntrada)
   if (!crudo && !config) return null
@@ -736,12 +742,21 @@ function Crudo({ crudo, config, abiertoDeEntrada = false }) {
       </button>
       {abierto && (
         <div className="mt-crudo-cuerpo">
-          {config && Object.entries(config).map(([nombre, r]) => (
-            <div key={nombre}>
-              <p><strong>{nombre}</strong> ({r.estado})</p>
-              <pre>{r.cuerpo}</pre>
-            </div>
-          ))}
+          {/* config llega de dos formas: {nombre: {estado, cuerpo}} (diagnósticos)
+              o la configuración CRUDA del reporte de MP (paso 'traer'), con
+              arrays, objetos y nulls adentro. Recorrer la cruda como si fuera
+              la otra mostraba basura y con un null tiraba la app. */}
+          {config && (esDiagnostico(config)
+            ? Object.entries(config).map(([nombre, r]) => (
+                <div key={nombre}>
+                  <p><strong>{nombre}</strong> ({String(r.estado)})</p>
+                  <pre>{typeof r.cuerpo === 'string' ? r.cuerpo : JSON.stringify(r.cuerpo, null, 2)}</pre>
+                </div>
+              ))
+            : <>
+                <p><strong>Configuración del reporte en MP:</strong></p>
+                <pre>{JSON.stringify(config, null, 2)}</pre>
+              </>)}
           {!crudo ? null : <>
           <p>Separador «{crudo.separador}» · encabezado en la fila {crudo.filaEncabezado}</p>
           <p><strong>Columnas:</strong> {(crudo.columnas || []).join(' | ') || '(ninguna)'}</p>
