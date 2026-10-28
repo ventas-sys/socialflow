@@ -110,9 +110,13 @@ export default function Metrics({ mlAccounts, ensureToken }) {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ paso, mpToken: acc.mpToken || '', token: acc.accessToken || '', dias: 3 }),
         }).then(x => x.json())
+        // Cuando falla hay que mostrar lo que contestó MP, no sólo el número:
+        // el 500 de FULL no decía nada y no se podía saber por qué.
         const detalle = r.ok
           ? (paso === 'activar' ? 'saldo prendido' : 'pedido')
-          : (r.error || (r.pasos || []).map(p => `${p.paso}: ${p.estado}`).join(' · ') || 'falló')
+          : (r.error || (r.pasos || [])
+              .map(p => `${p.paso}: ${p.estado}${p.detalle ? ` — ${p.detalle}` : ''}`)
+              .join(' · ') || 'falló')
         partes.push(`${key.toUpperCase()}: ${r.ok ? '✅' : '❌'} ${detalle}`)
       }
       setArregloMsg(partes.join('  ·  '))
@@ -473,6 +477,14 @@ export default function Metrics({ mlAccounts, ensureToken }) {
                         <p className="mt-saldo-falta">
                           {s.error || 'Mercado Pago no devolvió el saldo.'}
                         </p>
+                        {s.saldoInicial && (
+                          <p className="mt-hint">
+                            El archivo sólo trae el saldo <strong>al empezar</strong> el período
+                            ({s.saldoInicial.tipo}): {plata(s.saldoInicial.importe)}
+                            {s.saldoInicial.fecha ? ` del ${String(s.saldoInicial.fecha).slice(0, 10)}` : ''}.
+                            Ese NO es el disponible de hoy, por eso no se muestra arriba.
+                          </p>
+                        )}
                         {s.saldoEnElArchivo === false && (
                           <p className="mt-saldo-falta">
                             El reporte de esta cuenta NO incluye el saldo disponible

@@ -1141,17 +1141,6 @@ function ultimoNumeroDeLinea(linea) {
 // nuevo por pasos.
 function leerSaldoDelCsv(texto) {
   const crudas = String(texto || '').split(/\r?\n/).filter((l) => l.trim());
-
-  // El saldo bueno está en el BLOQUE DE RESUMEN de arriba del archivo, que MP
-  // escribe sólo si la cuenta tiene check_available_balance prendido.
-  let disponible = null, deDonde = null, fechaSaldo = null;
-  for (const l of crudas.slice(0, 40)) {
-    if (/(available|final|closing|ending).*balance|balance.*(available|final|closing)|saldo.*(disponible|final)/i.test(l)) {
-      const n = ultimoNumeroDeLinea(l);
-      if (n != null) { disponible = n; deDonde = `resumen: ${l.slice(0, 120)}`; break; }
-    }
-  }
-
   const { columnas, filas, encabezado, sep } = partirCsv(texto);
   const buscarCol = (...patrones) => {
     for (const p of patrones) {
@@ -1160,46 +1149,77 @@ function leerSaldoDelCsv(texto) {
     }
     return -1;
   };
-  // Ojo: BALANCE_AMOUNT NO es el saldo acumulado, es el importe del movimiento
-  // que impacta en el saldo. En FERRE la última fila daba 0 con la cuenta
-  // teniendo $940.517. Sólo se usa si no hay nada mejor, y se avisa.
-  const iSaldo = buscarCol(/available.*balance|balance.*available/i, /final.*balance|balance.*final/i);
+
+  // El saldo NO se busca leyendo renglones sueltos: el reporte trae filas
+  // especiales cuya columna RECORD_TYPE dice qué saldo es, y el importe está
+  // en su columna, no "al final del renglón". Buscarlo a ojo fue el error de
+  // las veces anteriores: con FULL agarró la fila initial_available_balance
+  // (el saldo al EMPEZAR el período, 01/10) y la mostró como disponible de hoy.
+  //
+  // Fila real de FULL:
+  //   2026-10-01T23:00:00.000-04:00,,,initial_available_balance,,17075449.80,0.00,17075449.80,...
+  //    DATE                          -- -- RECORD_TYPE           -- NET_CREDIT  NET_DEBIT GROSS
+  const iTipo = buscarCol(/^record_type$/i, /record.*type/i, /^tipo$/i);
+  const iCred = buscarCol(/net_credit/i, /^credit/i);
+  const iGross = buscarCol(/gross_amount/i, /^gross/i);
+  const iDeb = buscarCol(/net_debit/i, /^debit/i);
   const iFecha = buscarCol(/^date$/i, /release.*date|money.*date/i, /date/i);
 
-  let ultimas5 = [];
-  if (disponible == null && iSaldo > -1 && iFecha > -1) {
-    const conFecha = filas
-      .map((f) => ({ fecha: (f[iFecha] || '').trim(), saldo: aNumero(f[iSaldo]) }))
-      .filter((r) => r.fecha && /\d{4}-\d{2}-\d{2}|\d{2}\/\d{2}\/\d{4}/.test(r.fecha) && r.saldo != null)
-      .sort((a, b) => (a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0));
-    ultimas5 = conFecha.slice(-5);
-    const ultima = conFecha[conFecha.length - 1];
-    if (ultima) {
-      disponible = ultima.saldo;
-      fechaSaldo = ultima.fecha;
-      deDonde = `columna ${columnas[iSaldo]}, movimiento del ${ultima.fecha}`;
+  const importeDe = (f) => {
+    for (const i of [iCred, iGross]) {
+      if (i > -1) { const n = aNumero(f[i]); if (n != null) return n; }
     }
+    return null;
+  };
+
+  // Todas las filas de saldo que traiga el archivo, con su tipo. Se devuelven
+  // SIEMPRE, para poder ver qué hay adentro sin tener que adivinar.
+  const filasDeSaldo = iTipo === -1 ? [] : filas
+    .filter((f) => /balance/i.test(f[iTipo] || ''))
+    .map((f) => ({
+      tipo: (f[iTipo] || '').trim(),
+      importe: importeDe(f),
+      fecha: iFecha > -1 ? (f[iFecha] || '').trim() : '',
+    }))
+    .filter((r) => r.importe != null);
+
+  // El disponible de hoy es el saldo FINAL del período, nunca el inicial.
+  const esFinal = (t) => /(final|end|closing|ending)/i.test(t) && !/initial|opening|start/i.test(t);
+  const esInicial = (t) => /(initial|opening|start)/i.test(t);
+
+  let disponible = null, deDonde = null, fechaSaldo = null, soloInicial = null;
+  const final = [...filasDeSaldo].reverse().find((r) => esFinal(r.tipo));
+  if (final) {
+    disponible = final.importe;
+    fechaSaldo = final.fecha;
+    deDonde = `fila ${final.tipo} del extracto`;
+  } else {
+    // Si el archivo sólo trae el saldo del comienzo, se informa COMO TAL y no
+    // se lo hace pasar por el disponible de hoy.
+    const inicial = [...filasDeSaldo].reverse().find((r) => esInicial(r.tipo));
+    if (inicial) soloInicial = inicial;
   }
 
-  // Neto del período: sirve de control aunque el saldo salga bien.
-  const iCred = buscarCol(/net_credit/i, /^credit/i);
-  const iDeb = buscarCol(/net_debit/i, /^debit/i);
+  // Neto del período. Las filas de saldo NO son movimientos: sumarlas inflaba
+  // el total (en FULL metía los 17 millones del saldo inicial adentro).
   let netoPeriodo = null;
   if (iCred > -1 || iDeb > -1) {
-    netoPeriodo = filas.reduce((a, f) => a + (aNumero(f[iCred]) || 0) - (aNumero(f[iDeb]) || 0), 0);
+    const movs = iTipo === -1 ? filas : filas.filter((f) => !/balance/i.test(f[iTipo] || ''));
+    netoPeriodo = movs.reduce((a, f) => a + (aNumero(f[iCred]) || 0) - (aNumero(f[iDeb]) || 0), 0);
   }
 
   return {
     saldo: disponible != null ? { disponible, fecha: fechaSaldo, fuente: deDonde } : null,
+    saldoInicial: soloInicial,
     netoPeriodo,
     movimientos: filas.length,
     crudo: {
       separador: sep,
       filaEncabezado: encabezado,
       columnas,
-      ultimasPorFecha: ultimas5,
+      filasDeSaldo,
       primeras: crudas.slice(0, 12).map((l) => l.slice(0, 300)),
-      ultimas: crudas.slice(-3).map((l) => l.slice(0, 300)),
+      ultimas: crudas.slice(-6).map((l) => l.slice(0, 300)),
     },
   };
 }
@@ -1244,20 +1264,35 @@ async function mpReporte(req, res) {
   }
 
   if (paso === 'activar') {
-    // Se reenvía la MISMA configuración con el saldo prendido. Tocar sólo ese
-    // campo evita pisarle las columnas, el separador y la frecuencia que la
-    // cuenta ya tenía puestos (FULL y FERRE las tienen distintas).
-    const put = await httpRequest('PUT', REPORTE_BASE + '/config',
-      { ...auth, 'Content-Type': 'application/json' },
-      { ...config, check_available_balance: true });
-    pasos.push({
-      paso: 'prender el saldo en el reporte',
-      estado: put.status,
-      detalle: put.status >= 300 ? String(JSON.stringify(put.body || '')).slice(0, 300) : 'check_available_balance = true',
-    });
+    // Se prueban DOS formas de mandarlo, porque las dos cuentas tienen la
+    // configuración distinta y la de FULL rechazó la primera con un 500:
+    //   1. la MISMA configuración con el saldo prendido (no le pisa a la cuenta
+    //      las columnas, el separador ni la frecuencia que ya tenía)
+    //   2. sólo el campo, por si a MP le molesta que le reenvíen el resto
+    // Se informan las dos con lo que haya contestado MP: sin el cuerpo del
+    // error no hay forma de saber por qué falla, y ya van dos veces en este
+    // tema que adivinar salió mal.
+    const intentos = [
+      ['con toda la configuración', { ...config, check_available_balance: true }],
+      ['sólo el campo del saldo', { check_available_balance: true }],
+    ];
+    let puesto = false;
+    for (const [comoLoMando, cuerpo] of intentos) {
+      const put = await httpRequest('PUT', REPORTE_BASE + '/config',
+        { ...auth, 'Content-Type': 'application/json' }, cuerpo);
+      pasos.push({
+        paso: `prender el saldo (${comoLoMando})`,
+        estado: put.status,
+        detalle: put.status >= 300
+          ? String(typeof put.body === 'object' ? JSON.stringify(put.body) : put.body ?? '').slice(0, 400)
+          : 'aceptado',
+      });
+      if (put.status < 300) { puesto = true; break; }
+    }
     const ahora = await httpRequest('GET', REPORTE_BASE + '/config', auth);
+    pasos.push({ paso: 'releer la configuración', estado: ahora.status, detalle: `check_available_balance = ${ahora.body?.check_available_balance}` });
     return res.status(200).json({
-      ok: put.status < 300 && conSaldo(ahora.body),
+      ok: puesto && conSaldo(ahora.body),
       origenToken: origen, config: ahora.body, saldoEnElArchivo: conSaldo(ahora.body), pasos,
     });
   }
