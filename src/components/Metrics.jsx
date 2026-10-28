@@ -18,6 +18,11 @@ const RANGOS = [
   { key: '30', label: '30 días', dias: 29 },
 ]
 
+// Fechas de MP (vienen en -04:00) mostradas en hora argentina.
+const horaAR = (f) => {
+  const d = new Date(f)
+  return isNaN(d) ? String(f).slice(0, 16) : d.toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' hs'
+}
 const plata = (n) => '$' + Math.round(n || 0).toLocaleString('es-AR')
 const num = (n) => (n || 0).toLocaleString('es-AR')
 const pct = (n) => (n == null ? '—' : (n * 100).toFixed(2).replace('.', ',') + '%')
@@ -451,9 +456,9 @@ export default function Metrics({ mlAccounts, ensureToken }) {
             {saldos && (
               <div className="mt-saldos">
                 {saldos.map(s => (
-                  <div className={`mt-saldo ${s.saldo || s.saldoCalculado ? 'ok' : 'no'}`} key={s.key}>
+                  <div className={`mt-saldo ${s.saldo || s.saldoCalculado || s.totalArchivo ? 'ok' : 'no'}`} key={s.key}>
                     <span className="mt-saldo-cuenta">{s.key.toUpperCase()}</span>
-                    {(s.saldo || s.saldoCalculado) ? (
+                    {(s.saldo || s.saldoCalculado || s.totalArchivo) ? (
                       <>
                         {/* s.saldo puede ser null: en FULL MP no escribe el saldo
                             final y sólo llega saldoCalculado. Leer s.saldo.x sin
@@ -474,6 +479,20 @@ export default function Metrics({ mlAccounts, ensureToken }) {
                               MP no escribió el saldo final en el archivo, así que se calcula:
                               saldo del {String(s.saldoCalculado.desde || '').slice(0, 10)} ({plata(s.saldoCalculado.saldoInicial)})
                               {' '}más los movimientos desde esa fecha ({plata(s.saldoCalculado.movimientoNeto)}).
+                              {s.hasta && <> <strong>Es el saldo al {horaAR(s.hasta)}</strong>, la hora del último movimiento
+                              del archivo: lo que entró o salió después no está.</>}
+                            </p>
+                          </>
+                        )}
+                        {s.totalArchivo && (
+                          <>
+                            <div className="mt-saldo-fila">
+                              <span>Fila «total» del archivo</span>
+                              <strong>{plata(s.totalArchivo.importe)}</strong>
+                            </div>
+                            <p className="mt-hint">
+                              Es lo que MP escribe como total. Todavía no está confirmado si incluye el
+                              saldo inicial: se muestra para compararlo, no como disponible.
                             </p>
                           </>
                         )}
@@ -488,7 +507,7 @@ export default function Metrics({ mlAccounts, ensureToken }) {
                           <div className="mt-saldo-fila"><span>A liquidar</span><strong className="naranja">{plata(s.saldo.aLiquidar)}</strong></div>
                         )}
                         {s.netoPeriodo != null && (
-                          <div className="mt-saldo-fila"><span>Entró en 10 días</span><strong>{plata(s.netoPeriodo)}</strong></div>
+                          <div className="mt-saldo-fila"><span>Movimientos del archivo</span><strong>{plata(s.netoPeriodo)}</strong></div>
                         )}
                         <p className="mt-hint">
                           {s.saldo?.fuente
@@ -760,6 +779,16 @@ function Crudo({ crudo, config, abiertoDeEntrada = false }) {
           {!crudo ? null : <>
           <p>Separador «{crudo.separador}» · encabezado en la fila {crudo.filaEncabezado}</p>
           <p><strong>Columnas:</strong> {(crudo.columnas || []).join(' | ') || '(ninguna)'}</p>
+          {crudo.porTipo && Object.keys(crudo.porTipo).length > 0 && <>
+            <p><strong>Filas por tipo (cuántas · entra · sale):</strong></p>
+            {Object.entries(crudo.porTipo).map(([t, p]) => (
+              <pre key={'t' + t}>{t}: {p.filas} · {plata(p.credito)} · {plata(p.debito)}</pre>
+            ))}
+          </>}
+          {(crudo.filasDeSaldo || []).length > 0 && <>
+            <p><strong>Filas de saldo:</strong></p>
+            {crudo.filasDeSaldo.map((r, i) => <pre key={'s' + i}>{r.tipo} · {plata(r.importe)} · {r.fecha}</pre>)}
+          </>}
           {(crudo.ultimasPorFecha || []).length > 0 && <>
             <p><strong>Últimos movimientos por fecha (fecha → saldo):</strong></p>
             {crudo.ultimasPorFecha.map((r, i) => <pre key={'f' + i}>{r.fecha} → {r.saldo}</pre>)}

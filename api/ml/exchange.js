@@ -1202,11 +1202,46 @@ function leerSaldoDelCsv(texto) {
 
   // Neto del período. Las filas de saldo NO son movimientos: sumarlas inflaba
   // el total (en FULL metía los 17 millones del saldo inicial adentro).
+  //
+  // 28/10: además de las de saldo, el archivo trae filas `subtotal` (una por
+  // tipo) y una `total` (glosario oficial de MP). Se sumaban como si fueran
+  // movimientos y la plata se contaba DOS veces: en FULL daba "entró $24,1M"
+  // cuando el saldo había subido ~$12M. Ahora se suman SÓLO los tipos que son
+  // movimientos de verdad, por nombre exacto.
+  const tipoDe = (f) => (iTipo === -1 ? '' : (f[iTipo] || '').trim().toLowerCase());
+  const esMovimiento = (t) => /^(release|block|unblock|fullblock)$/.test(t);
+  const neto = (f) => (aNumero(f[iCred]) || 0) - (aNumero(f[iDeb]) || 0);
   let netoPeriodo = null;
   if (iCred > -1 || iDeb > -1) {
-    const movs = iTipo === -1 ? filas : filas.filter((f) => !/balance/i.test(f[iTipo] || ''));
-    netoPeriodo = movs.reduce((a, f) => a + (aNumero(f[iCred]) || 0) - (aNumero(f[iDeb]) || 0), 0);
+    const movs = iTipo === -1 ? filas : filas.filter((f) => esMovimiento(tipoDe(f)));
+    netoPeriodo = movs.reduce((a, f) => a + neto(f), 0);
   }
+
+  // Desglose por tipo de fila: cuántas hay y cuánto suma cada una. Es lo que
+  // permite ver de dónde sale cada peso sin tener que adivinar el formato.
+  const porTipo = {};
+  if (iTipo > -1) {
+    for (const f of filas) {
+      const t = tipoDe(f) || '(vacío)';
+      const p = porTipo[t] || (porTipo[t] = { filas: 0, credito: 0, debito: 0 });
+      p.filas += 1;
+      p.credito += aNumero(f[iCred]) || 0;
+      p.debito += aNumero(f[iDeb]) || 0;
+    }
+  }
+
+  // Hasta cuándo llega el archivo: la fecha del último movimiento. El saldo
+  // que se calcula es el de ESE momento, no el de ahora.
+  const fechasMov = iFecha === -1 ? [] : filas
+    .filter((f) => esMovimiento(tipoDe(f)))
+    .map((f) => (f[iFecha] || '').trim()).filter(Boolean).sort();
+  const hasta = fechasMov.length ? fechasMov[fechasMov.length - 1] : null;
+
+  // La fila `total` tal cual la escribe MP. Se informa APARTE y no se la toma
+  // como disponible hasta haberla comparado con el saldo real una vez: el
+  // glosario dice "total neto" pero no dice si incluye el saldo inicial.
+  const filaTotal = [...filas].reverse().find((f) => tipoDe(f) === 'total');
+  const totalArchivo = filaTotal ? { importe: neto(filaTotal), fecha: iFecha > -1 ? (filaTotal[iFecha] || '').trim() : '' } : null;
 
   // Si MP no escribe el saldo final (la cuenta de FULL tiene el campo
   // check_available_balance ausente y el PUT para prenderlo devuelve 500), el
@@ -1236,12 +1271,15 @@ function leerSaldoDelCsv(texto) {
     diferencia,
     saldoInicial: soloInicial,
     netoPeriodo,
+    hasta,
+    totalArchivo,
     movimientos: filas.length,
     crudo: {
       separador: sep,
       filaEncabezado: encabezado,
       columnas,
       filasDeSaldo,
+      porTipo,
       primeras: crudas.slice(0, 12).map((l) => l.slice(0, 300)),
       ultimas: crudas.slice(-6).map((l) => l.slice(0, 300)),
     },
