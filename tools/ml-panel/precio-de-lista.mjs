@@ -114,7 +114,12 @@ async function procesar(id) {
   const condiciones = await textoTarjeta('Condiciones de venta');
   const precio = parsePesos(condiciones);
   if (!precio) throw new Error('no pude leer el precio de venta: ' + condiciones);
-  const { original_price, off } = computeListPrice(precio);
+  const propuesto = computeListPrice(precio);
+  if (!propuesto) {
+    console.log(`\n${id}: venta $${precio} -> ningún precio de lista deja entre 25% y 31% OFF, la salteo`);
+    return 'salteada';
+  }
+  const { original_price, off } = propuesto;
   const actualTxt = await textoTarjeta('Precio de lista');
   const actual = /sin precio de lista/i.test(actualTxt) ? null : parsePesos(actualTxt);
   console.log(`\n${id}: venta $${precio} -> lista $${original_price} (${(off * 100).toFixed(1)}% OFF). Cargado hoy: ${actual ? '$' + actual : 'ninguno'}`);

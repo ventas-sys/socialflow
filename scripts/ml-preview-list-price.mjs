@@ -48,11 +48,13 @@ if (!item?.price) {
   process.exit(1);
 }
 
-const { original_price, off } = computeListPrice(item.price);
+const propuesto = computeListPrice(item.price);
 console.log(`Cuenta: ${acc.label}`);
 console.log(`Publicación: ${item.title}`);
 console.log(`Precio actual: $${item.price}`);
-console.log(`Precio de lista propuesto: $${original_price} (${(off * 100).toFixed(1)}% OFF)`);
+console.log(propuesto
+  ? `Precio de lista propuesto: $${propuesto.original_price} (${(propuesto.off * 100).toFixed(1)}% OFF)`
+  : 'Precio de lista propuesto: ninguno (ningún redondeo deja entre 25% y 31% OFF)');
 
 const actual = await getListPrice(token, itemId);
 console.log(`Precio de lista cargado hoy: ${actual ? '$' + actual : 'ninguno'}`);
