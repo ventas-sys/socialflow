@@ -1,31 +1,32 @@
 #!/usr/bin/env node
-// Calcula (y opcionalmente carga) el "Precio de lista" de UNA publicación
-// puntual de Mercado Libre, para probar antes de aplicarlo en bloque.
+// Calcula el "Precio de lista" de UNA publicación puntual de Mercado Libre
+// y lo compara con el que tiene cargado hoy. Solo lectura: ML no deja
+// escribir el precio de lista por API (ver getListPrice en lib/ml/ml-api.js).
 //
 // Uso:
 //   node scripts/ml-preview-list-price.mjs <item_id> [account_label]
-//     -> solo muestra el cálculo, no escribe nada en ML
-//   node scripts/ml-preview-list-price.mjs <item_id> [account_label] --apply
-//     -> además lo carga de verdad en la publicación
 //
 // Ej: node scripts/ml-preview-list-price.mjs MLA1108642079
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import dotenv from 'dotenv';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.join(__dirname, '../mcp-ml/.env') });
+// dotenv solo está instalado en mcp-ml/. Si no está (ej: sesión en la nube),
+// seguimos con las variables que ya trae el entorno.
+try {
+  const { default: dotenv } = await import('dotenv');
+  dotenv.config({ path: path.join(__dirname, '../mcp-ml/.env') });
+} catch {}
 
 const { loadAccounts, findAccountByLabel } = await import('../lib/ml/qa-config.js');
-const { getAccessToken, getItem, setOriginalPrice } = await import('../lib/ml/ml-api.js');
+const { getAccessToken, getItem, getListPrice } = await import('../lib/ml/ml-api.js');
 const { computeListPrice } = await import('../lib/ml/pricing.js');
 
 const args = process.argv.slice(2);
-const apply = args.includes('--apply');
 const [itemId, label] = args.filter(a => !a.startsWith('--'));
 
 if (!itemId) {
-  console.error('Uso: node scripts/ml-preview-list-price.mjs <item_id> [account_label] [--apply]');
+  console.error('Uso: node scripts/ml-preview-list-price.mjs <item_id> [account_label]');
   process.exit(1);
 }
 
@@ -47,16 +48,18 @@ if (!item?.price) {
   process.exit(1);
 }
 
-const { original_price, off } = computeListPrice(item.price);
+const propuesto = computeListPrice(item.price);
 console.log(`Cuenta: ${acc.label}`);
 console.log(`Publicación: ${item.title}`);
 console.log(`Precio actual: $${item.price}`);
-console.log(`Precio de lista propuesto: $${original_price} (${(off * 100).toFixed(1)}% OFF)`);
+console.log(propuesto
+  ? `Precio de lista propuesto: $${propuesto.original_price} (${(propuesto.off * 100).toFixed(1)}% OFF)`
+  : 'Precio de lista propuesto: ninguno (ningún redondeo deja entre 25% y 31% OFF)');
 
-if (apply) {
-  const res = await setOriginalPrice(token, itemId, original_price);
-  console.log('\n✅ Aplicado en Mercado Libre.');
-  console.log(JSON.stringify({ id: res.id, price: res.price, original_price: res.original_price }, null, 2));
-} else {
-  console.log('\n(vista previa — no se escribió nada. Agregá --apply al final para cargarlo de verdad)');
+const actual = await getListPrice(token, itemId);
+console.log(`Precio de lista cargado hoy: ${actual ? '$' + actual : 'ninguno'}`);
+if (args.includes('--apply')) {
+  console.error('\n--apply ya no existe: ML no permite cargar el precio de lista por API. No se escribió nada.');
+  process.exit(1);
 }
+console.log('\n(solo vista previa — no se escribió nada en ML)');
