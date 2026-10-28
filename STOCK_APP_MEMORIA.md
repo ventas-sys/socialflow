@@ -3,16 +3,17 @@
 **ÚNICA fuente de verdad del proyecto. Leer entera antes de tocar nada.**
 Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/socialflow
 
-## 📍 ESTADO AL 24/10/2026 — arrancar por acá
+## 📍 ESTADO AL 28/10/2026 — arrancar por acá
 
-Último commit: `2b3494f`. Todo desplegado y verde en los dos proyectos de Vercel.
+Último commit: `fe67ef8`. Todo desplegado y verde en los dos proyectos de Vercel.
 
 **🔴 LO MÁS IMPORTANTE ABIERTO — la cuota de Vercel (ver punto 23).** No es de esta app, pero la puede dejar sin servicio. Quedó en manos de OTRO chat, el que maneja el proyecto viejo `socialflow`. **No retomarlo acá salvo que el usuario lo traiga.**
 
 **Las fotos: dos bugs encontrados el 22/10 (puntos 27 y 28), los dos arreglados.** Entre los dos explican por qué desaparecían fotos ya cargadas: guardar antes de que terminaran de bajarse, y la recarga automática cayendo encima del formulario. **Las que se perdieron antes no se recuperan**, hay que volver a sacarlas; ya se le dijo. Queda pendiente que confirme que no le pasa más.
 
 **Esperando que el usuario pruebe (nada de esto está confirmado):**
-0. **⚖️ Ajuste de stock y el mail en los movimientos** (punto 29). Dijo el 23/10: *"lo pruebo mañana o lunes y t aviso"*. Es lo primero a preguntar.
+0. **🔴 "Ver saldos" tilda la app** (punto 30f). Es lo primero a arreglar cuando lo retome.
+0b. **⚖️ Ajuste de stock y el mail en los movimientos** (punto 29). Dijo el 23/10: *"lo pruebo mañana o lunes y t aviso"*, y todavía no confirmó.
 1. **📦 Stock físico que NO está publicado en ML** — botón del 30/9 en la solapa 🛒 ML (punto 24). Todavía no lo corrió.
 2. **Asociar códigos de Full al escanear** — commit `e7347eb` del 29/9: buscador dentro del cartel rojo "No está en el sistema" (punto 21). Nunca confirmó si funciona.
 3. **Doble descuento del envío 77068364** (punto 19/22). Hay que ver con él cómo cargar la entrada de corrección — la app NO lo puede resolver sola porque no sabe qué salió físicamente del depósito.
@@ -26,7 +27,7 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
 
 **Resultado del borrado masivo de fotos de combos (verificado 28/9): quedaron 0 con foto propia y 2861 de 3437 SIN NINGUNA foto.** Sólo 576 heredan la del producto base. Fue lo que el usuario pidió explícitamente, pero el efecto práctico es que la mayoría de los combos ya no muestra foto al armar. La salida es cargar la foto en el PRODUCTO BASE: una sola foto arregla todos los combos que lo usan. **Se le ofreció dos veces** un listado de qué productos base faltan con foto ordenado por cuántos combos arregla cada uno, y las dos veces no contestó — no insistir, esperar a que lo pida.
 
-**Congelado por pedido del usuario:** el saldo de Mercado Pago, hasta noviembre de 2026 (punto 17). "olvidemos por un mes ese tema.. no es tan importante ahora". **No ofrecerlo ni retomarlo.**
+**El saldo de Mercado Pago dejó de estar congelado** (lo retomó él el 25/10). Ver el punto 30: FERRE resuelto, FULL hay que prenderlo desde el panel web de MP, y **quedó un bug abierto: "Ver saldos" tilda la app**. La ingeniería inversa a Real Trends está descartada y no se vuelve a ofrecer.
 
 **De código no queda nada abierto.**
 
@@ -228,6 +229,24 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
     - En 🔄 Movimientos: solapa **⚖️ Ajustes**, la tarjeta dice "Tenía X · quedó en Y", y el resumen los cuenta aparte del neto.
     - **Se muestra el MAIL y no el nombre.** El `userName` ya se guardaba, pero es el `displayName` de Google = "Distribuidora Universo", igual para todos. Los ayudantes entran cada uno con su mail (`members/{email}`), así que el mail sí distingue. El buscador también encuentra por mail.
     - **Falta (ofrecido, no pedido):** importar un Excel en Inventario cambia stock y **no** genera movimientos. Serían miles de golpe; si lo pide, conviene **un solo movimiento resumen por importación**, no uno por fila.
+
+30. **EL SALDO DE MERCADO PAGO — RETOMADO EL 25-28/10 (estaba congelado)**
+    Lo descongeló el usuario. Quedó a mitad de camino, con **un bug abierto** (ver abajo).
+
+    **a) Ingeniería inversa a Real Trends: NO.** Pidió usarla contra `real-trends.com` y después insistió ("Usa ingeniería inversa y resolvelo"). Se le dijo que no y **por qué en una línea**, sin sermón: lo que saldría de ahí es cómo esquivar un bloqueo que MP puso a propósito. Y aparte **no se puede desde esta sesión**: no hay navegador, el proxy rechaza ese dominio (`CONNECT tunnel failed, 403`) y no se toman sus credenciales. **No volver a ofrecerlo ni intentarlo.** Si vuelve a preguntar cómo lo hace Real Trends, la salida legítima es que él mire en su panel de MP **qué aplicaciones tiene conectadas y con qué permisos**.
+
+    **b) FERRE quedó resuelto:** `check_available_balance` prendido ✅ por API.
+
+    **c) FULL no se puede prender por API.** El PUT a `/v1/account/release_report/config` devuelve **500 `internal_error` con `cause: []`** mandando la configuración entera Y mandando sólo `{check_available_balance: true}`. Al releer, el campo **ni siquiera existe** (`undefined`), mientras que en FERRE estaba en `false`. Las configuraciones son de versiones distintas: FULL tiene esquema viejo (reporte **programado mensual**, sin `report_language` ni `display_timezone`), FERRE uno nuevo. **Es el servidor de MP el que se cae, no el cuerpo del pedido: no seguir probando formas de PUT.** Hay que prenderlo **desde el panel web de Mercado Pago** con la cuenta de FULL (Informes → Liberaciones → configuración del informe).
+
+    **d) 🔴 TERCER error mío leyendo este archivo, y el peor.** Mostraba un disponible que no era. El parser buscaba el saldo con una expresión regular sobre los primeros renglones y agarraba *"el último número del renglón"*. Cayó en:
+    `2026-10-01...,,,initial_available_balance,,17075449.80,0.00,...` — que es el saldo **al EMPEZAR** el período, y encima el importe está en `NET_CREDIT_AMOUNT`, no al final del renglón.
+    **Arreglado de verdad:** el reporte trae filas especiales con el tipo en la columna **`RECORD_TYPE`**. Ahora se parsea esa columna, se busca la fila de saldo **FINAL** y se lee su importe. Si sólo está la inicial, **no se muestra ningún disponible** y se dice qué es. De paso, `netoPeriodo` excluye las filas de saldo: sumarlas metía los 17 millones del saldo inicial dentro de "entró en 10 días".
+    **Regla: en este archivo NO se busca nada "a ojo" por renglón. Se parsea por columna.**
+
+    **e) El disponible se CALCULA cuando MP no lo escribe:** `disponible = saldo inicial + (lo que entró − lo que salió)`, que es la identidad con la que está armado el extracto. Va **aparte** del informado, nunca mezclado, y donde están los dos la pantalla muestra la diferencia — **FERRE sirve de control**: si ahí da 0, el número calculado de FULL es confiable.
+
+    **f) 🔴 BUG ABIERTO: "💳 Ver saldos" tilda la app.** Pantalla en blanco (28/10, commit `fe67ef8`). **Sin diagnosticar — no tocar a ciegas.** Para revisar la próxima vez: el CSV de FULL puede pesar varios MB y `httpText` lo baja entero en la función; `cargarSaldos` pide las dos cuentas en paralelo con `Promise.all`; y el componente `Crudo` recibe en `config` el objeto crudo de MP (con arrays y objetos anidados) cuando esperaba `{nombre: {estado, cuerpo}}`. Lo primero a mirar es la consola del navegador y si la función de Vercel está cortando por tiempo.
 
 ## Reglas de negocio clave (definidas por el usuario)
 - Stock: descuenta TODO lo despachado desde el depósito propio (FLEX+correo/colecta+ventas sin envío de ML), NUNCA `fulfillment` (Full ya salió al enviarse a bodega). Igual para ambas cuentas. 2 veces/día (13 y 18hs AR). Stock puede quedar negativo. **Clasificación explícita desde el 28/8** (`clasificar`/`descuenta` en api/ml/cron.js): la regla vieja era "todo lo que no sea fulfillment descuenta", así que si fallaba el pedido del envío a ML el tipo quedaba nulo y la venta se descontaba igual — incluidas las de Full — y además no se miraba el estado de la orden (canceladas y sin cobrar también descontaban; caso real: 771 Full + 60 canceladas en 48hs de la cuenta FULL). Ahora: descuentan flex (`self_service`) + correo (`drop_off`/`xd_drop_off`/`cross_docking`) + sin envío, con estado `paid`/`partially_paid`; NO descuentan Full, canceladas/inválidas, sin cobrar (quedan para la corrida siguiente) ni las de tipo desconocido (se reintenta el pedido a ML y si igual no se sabe NO se descuenta: preferimos que falte un descuento antes que descontar una de Full). El resumen del botón "Probar automático ahora" muestra el desglose. Verificado 28/8 en producción: FULL 168 flex + 2 correo (771 Full salteadas — es correcto, ~98% de esa cuenta va por bodega), FERRE 103 flex + 83 correo + 6 sin envío.
