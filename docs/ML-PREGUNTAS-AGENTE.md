@@ -21,27 +21,40 @@
   mergeado.
 - **Nueva función: "Precio de lista" automático** (el precio tachado + %OFF que se ve en las
   publicaciones). Pedido por Rodo: calcularlo a partir del precio de venta, apuntando a dejar
-  entre 25% y 30% OFF, con un número redondo (al millar, o 500 si no entra en el rango).
-  Fórmula verificada contra 2 publicaciones reales: **precio ÷ 0,70, redondeado**.
-  - `lib/ml/pricing.js` → `computeListPrice(price)` (cálculo puro, sin tocar nada)
-  - `lib/ml/ml-api.js` → `setOriginalPrice(token, itemId, originalPrice)` (escribe de verdad en ML)
-  - `scripts/ml-preview-list-price.mjs` → por default SOLO MUESTRA el cálculo; hace falta
-    `--apply` explícito para cargarlo en una publicación real
-  - **PR #180 — sigue en DRAFT, todavía sin probar en vivo.**
+  entre 25% y 31% OFF, con un número redondo (al millar, con pasos más chicos — 500/100/50/10 —
+  si el precio es bajo). Fórmula: **precio ÷ 0,70, redondeado**.
+  - `lib/ml/pricing.js` → `computeListPrice(price)` (cálculo puro, sin tocar nada; devuelve
+    `null` si ningún redondeo entra en el rango)
+  - **IMPORTANTE, descubierto el 28-oct-2026 en otra sesión (con las credenciales reales):**
+    Mercado Libre **NO deja escribir el precio de lista por API** (`PUT /items` con
+    `original_price` da "not modifiable" en publicaciones con ventas, y en variaciones se
+    descarta sin avisar). `lib/ml/ml-api.js` → `getListPrice()` quedó de SOLO LECTURA (lee
+    `/items/{id}/sale_price`). `scripts/ml-preview-list-price.mjs` ya no tiene `--apply`.
+  - **La carga real se hace por `tools/ml-panel/precio-de-lista.mjs`**: automatiza el panel de
+    vendedor con un navegador de verdad (Playwright/Edge), porque no hay otra forma. **Se
+    corre en una PC con pantalla** (necesita loguearse a mano la primera vez) — no sirve desde
+    una sesión en la nube. Modo por default es "explorar" (no guarda nada); hace falta
+    `--aplicar` para cargarlo de verdad, publicación por publicación o desde un archivo
+    (`--archivo=lista.txt`).
+  - **PR #180 — sigue en DRAFT**, con los commits de las dos sesiones (cálculo + API de
+    solo-lectura + el script de navegador). Falta probarlo de punta a punta.
 
 **Pendiente (retomar acá)**
-1. Rodo cargó `ML_ACCOUNTS` en **"Secretos de red"** del entorno (no en "Variables de
-   entorno", que es pública — ojo con esa distinción en la UI de Claude Code). Una sesión
-   **nueva** ya la debería tener disponible sola.
-2. Con las credenciales disponibles: correr `node scripts/ml-preview-list-price.mjs
-   MLA1108642079` (sin `--apply`) y mostrarle el resultado a Rodo antes de tocar nada real.
-3. Sin confirmar: si `MLA837056082` (el segundo item que pasó) reemplaza al anterior como
+1. Correr `tools/ml-panel/precio-de-lista.mjs` en modo "explorar" (sin `--aplicar`) contra
+   `MLA1108642079` **desde una PC con pantalla**, para confirmar que encuentra bien los campos
+   del panel antes de cargar nada de verdad.
+2. Sin confirmar: si `MLA837056082` (el segundo item que pasó Rodo) reemplaza al anterior como
    prueba, o se agrega.
-4. Recién con el OK de Rodo sobre el número calculado: correr con `--apply` en ESA publicación
-   puntual, y confirmar a ojo en Mercado Libre que el precio tachado se ve bien.
-5. Definir alcance antes de aplicarlo en bloque: ¿todas las publicaciones activas (FULL +
+3. Recién con el OK de Rodo sobre el número calculado: correr con `--aplicar` en ESA
+   publicación puntual, y confirmar a ojo en Mercado Libre que el precio tachado se ve bien.
+4. Definir alcance antes de aplicarlo en bloque: ¿todas las publicaciones activas (FULL +
    LOCAL) o un subconjunto? ¿Es carga única o también para publicaciones nuevas de acá en más?
-6. Mergear el PR #180 una vez confirmado que funciona en la prueba puntual.
+   (`--archivo=lista.txt` ya soporta cargar muchas de una).
+5. Mergear el PR #180 una vez confirmado que funciona en la prueba puntual.
+6. `ML_ACCOUNTS` quedó cargado en **"Secretos de red"** del entorno (no en "Variables de
+   entorno", que es pública — ojo con esa distinción en la UI de Claude Code), para que las
+   sesiones en la nube puedan LEER precios/calcular. El script del panel (`tools/ml-panel/`)
+   necesita además correr en una PC, eso no lo resuelve el secreto del entorno.
 
 **Importante para no romper nada**
 - El `refresh_token` de ML es de un solo uso — **nunca** pedir un `access_token` nuevo "por
