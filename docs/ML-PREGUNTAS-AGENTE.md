@@ -4,6 +4,56 @@
 > multi-cuenta, orientado a **cerrar la venta**. Hermano del bot de WhatsApp (mismo patrón).
 > Estado: **EN VIVO — "Tatiana" 100% automática** (webhook activo, probado con pregunta real).
 
+## 📌 Estado al 28-oct-2026 (última sesión — MCP + Precio de lista)
+
+**Hecho**
+- **Conector MCP propio de Mercado Libre** en `mcp-ml/`: 10 herramientas de SOLO LECTURA
+  (items, fotos, descripción, reseñas, preguntas, ventas/órdenes, visitas, envíos). PR #102
+  mergeado. Reutiliza `ML_ACCOUNTS` y el store de tokens compartido, no crea nada nuevo del
+  lado de ML.
+- **Hook de arranque de sesión** (`.claude/hooks/session-start.sh` + `.claude/settings.json`):
+  corre `npm install` en `mcp-ml/` solo, porque `node_modules` no se commitea y cada sesión
+  nueva arrancaba con el conector roto (`CONNECTION_CLOSED`). PR #178 mergeado.
+- **MCP oficial de Mercado Libre** agregado como alternativa, al lado del propio:
+  `mercadolibre-oficial` en `.mcp.json`, apunta a `https://mcp.mercadolibre.com/mcp`. Usa un
+  `access_token` que vence cada ~6hs (a diferencia del propio, que se renueva solo);
+  `scripts/ml-get-access-token.mjs` lo saca de forma segura (mismo store compartido). PR #179
+  mergeado.
+- **Nueva función: "Precio de lista" automático** (el precio tachado + %OFF que se ve en las
+  publicaciones). Pedido por Rodo: calcularlo a partir del precio de venta, apuntando a dejar
+  entre 25% y 30% OFF, con un número redondo (al millar, o 500 si no entra en el rango).
+  Fórmula verificada contra 2 publicaciones reales: **precio ÷ 0,70, redondeado**.
+  - `lib/ml/pricing.js` → `computeListPrice(price)` (cálculo puro, sin tocar nada)
+  - `lib/ml/ml-api.js` → `setOriginalPrice(token, itemId, originalPrice)` (escribe de verdad en ML)
+  - `scripts/ml-preview-list-price.mjs` → por default SOLO MUESTRA el cálculo; hace falta
+    `--apply` explícito para cargarlo en una publicación real
+  - **PR #180 — sigue en DRAFT, todavía sin probar en vivo.**
+
+**Pendiente (retomar acá)**
+1. Rodo cargó `ML_ACCOUNTS` en **"Secretos de red"** del entorno (no en "Variables de
+   entorno", que es pública — ojo con esa distinción en la UI de Claude Code). Una sesión
+   **nueva** ya la debería tener disponible sola.
+2. Con las credenciales disponibles: correr `node scripts/ml-preview-list-price.mjs
+   MLA1108642079` (sin `--apply`) y mostrarle el resultado a Rodo antes de tocar nada real.
+3. Sin confirmar: si `MLA837056082` (el segundo item que pasó) reemplaza al anterior como
+   prueba, o se agrega.
+4. Recién con el OK de Rodo sobre el número calculado: correr con `--apply` en ESA publicación
+   puntual, y confirmar a ojo en Mercado Libre que el precio tachado se ve bien.
+5. Definir alcance antes de aplicarlo en bloque: ¿todas las publicaciones activas (FULL +
+   LOCAL) o un subconjunto? ¿Es carga única o también para publicaciones nuevas de acá en más?
+6. Mergear el PR #180 una vez confirmado que funciona en la prueba puntual.
+
+**Importante para no romper nada**
+- El `refresh_token` de ML es de un solo uso — **nunca** pedir un `access_token` nuevo "por
+  fuera" del store compartido (`lib/ml/token-store.js`, función `getAccessToken()` en
+  `lib/ml/ml-api.js`). Pedirlo de otra forma rota el token que usa el Agente de Preguntas en
+  producción (ya pasó el 22-ago-2026, ver más abajo).
+- Esta sesión mergeó los PR #102/#178/#179 a mano (uno por uno, con confirmación de Rodo en el
+  chat) en vez de usar el flujo de auto-merge que ya existe en este repo (ver sección
+  "🚀 Merge automático de los PR" más abajo, decisión del 14-oct-2026). Para la próxima, evaluar
+  si conviene activarlo también para los PR de MCP/precio de lista, o si Rodo prefiere seguir
+  aprobando estos a mano por ser cambios más sensibles (tocan precios/escritura en ML).
+
 ## 📌 Estado al 14-oct-2026 (retomar acá)
 
 **Funcionando y confirmado**
