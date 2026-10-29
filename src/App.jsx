@@ -57,24 +57,40 @@ const msDe = (t) => (t?.toMillis ? t.toMillis() : new Date(t || 0).getTime())
 // pendiente viejo). Las dos consultas son por un solo campo: no hacen falta
 // índices compuestos; el userId se filtra acá, que es lo mismo porque todos
 // los datos son de la misma empresa.
+// Si la ventana corta falla (permisos, índice, red) o vuelve vacía, se cae al
+// listado completo de siempre: MEJOR LENTO QUE VACÍO. El motivo queda en
+// `motivoEnviosCompletos` para poder verlo en pantalla.
+export let motivoEnviosCompletos = ''
+
 async function traerEnvios(todos = false) {
-  const porId = new Map()
-  const sumar = (snap) => snap.docs.forEach(d => {
+  const ordenar = (m) => [...m.values()].sort((a, b) => msDe(b.createdAt) - msDe(a.createdAt))
+  const sumarEn = (m) => (snap) => snap.docs.forEach(d => {
     const s = { id: d.id, ...d.data() }
-    if (s.userId === ORG_ID) porId.set(d.id, s)
+    if (s.userId === ORG_ID) m.set(d.id, s)
   })
-  if (todos) {
-    sumar(await getDocs(query(collection(db, 'shipments'), where('userId', '==', ORG_ID))))
-  } else {
-    const desde = Timestamp.fromMillis(Date.now() - DIAS_ENVIOS * 24 * 3600 * 1000)
-    const [recientes, activos] = await Promise.all([
-      getDocs(query(collection(db, 'shipments'), where('createdAt', '>=', desde))),
-      getDocs(query(collection(db, 'shipments'), where('status', 'in', ENVIOS_ACTIVOS))),
-    ])
-    sumar(recientes)
-    sumar(activos)
+
+  if (!todos) {
+    try {
+      const corto = new Map()
+      const sumar = sumarEn(corto)
+      const desde = Timestamp.fromMillis(Date.now() - DIAS_ENVIOS * 24 * 3600 * 1000)
+      const [recientes, activos] = await Promise.all([
+        getDocs(query(collection(db, 'shipments'), where('createdAt', '>=', desde))),
+        getDocs(query(collection(db, 'shipments'), where('status', 'in', ENVIOS_ACTIVOS))),
+      ])
+      sumar(recientes)
+      sumar(activos)
+      if (corto.size) { motivoEnviosCompletos = ''; return ordenar(corto) }
+      motivoEnviosCompletos = 'la consulta corta no trajo ningún envío'
+    } catch (e) {
+      motivoEnviosCompletos = e?.code || e?.message || String(e)
+    }
+    console.warn('Envíos: se trae el listado completo —', motivoEnviosCompletos)
   }
-  return [...porId.values()].sort((a, b) => msDe(b.createdAt) - msDe(a.createdAt))
+
+  const todosM = new Map()
+  sumarEn(todosM)(await getDocs(query(collection(db, 'shipments'), where('userId', '==', ORG_ID))))
+  return ordenar(todosM)
 }
 
 export default function App() {
@@ -118,6 +134,8 @@ export default function App() {
   // entero se pide cuando el reporte mira más atrás.
   const [enviosCompletos, setEnviosCompletos] = useState(false)
   const [cargandoEnvios, setCargandoEnvios] = useState(false)
+  // Por qué hubo que traer el listado completo de envíos (vacío = todo normal)
+  const [avisoEnvios, setAvisoEnvios] = useState('')
   const [usdRate, setUsdRate] = useState(1000)
   // Lo que se le paga al motoquero por zona, por vigencia (settings/zonasFlex)
   const [tarifas, setTarifas] = useState(null)
@@ -396,18 +414,20 @@ export default function App() {
 
       // Envíos y motoqueros: colecciones opcionales. Si sus reglas todavía no
       // están publicadas, se ignoran sin romper la carga del inventario.
+      // Cada uno en su try: un error trayendo los envíos no tiene por qué dejar
+      // el tablero sin motoqueros (ni al revés)
       try {
-        const [envios, couriersSnap] = await Promise.all([
-          traerEnvios(false),
-          getDocs(query(collection(db, 'couriers'), where('userId', '==', ORG_ID))),
-        ])
-        setShipments(envios)
-        setEnviosCompletos(false)
+        setShipments(await traerEnvios(false))
+        setEnviosCompletos(!!motivoEnviosCompletos)
+        setAvisoEnvios(motivoEnviosCompletos)
+      } catch (err) {
+        console.warn('Envíos no disponibles (¿faltan reglas?):', err?.code)
+      }
+      try {
+        const couriersSnap = await getDocs(query(collection(db, 'couriers'), where('userId', '==', ORG_ID)))
         setCouriers(couriersSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       } catch (err) {
-        console.warn('Envíos/motoqueros no disponibles (¿faltan reglas?):', err?.code)
-        setShipments([])
-        setCouriers([])
+        console.warn('Motoqueros no disponibles (¿faltan reglas?):', err?.code)
       }
 
       // Panel financiero: solo lo lee el master. Es colección opcional, si sus
@@ -1346,6 +1366,7 @@ export default function App() {
                 diasEnvios={DIAS_ENVIOS}
                 enviosCompletos={enviosCompletos}
                 cargandoEnvios={cargandoEnvios}
+                avisoEnvios={avisoEnvios}
                 onLoadAllShipments={loadAllShipments}
                 couriers={couriers}
                 mlAccounts={mlAccounts}

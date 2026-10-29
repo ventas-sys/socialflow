@@ -131,6 +131,7 @@ export default function Shipments({
   onReloadShipments, // recarga el tablero después de que el servidor sincroniza
   diasEnvios = 35, // ventana que se trae al abrir (ver traerEnvios en App.jsx)
   enviosCompletos = true, cargandoEnvios = false, onLoadAllShipments,
+  avisoEnvios = '', // por qué hubo que traer el listado completo (vacío = normal)
   tarifas, onSaveTarifas, // lo que se le paga al motoquero por zona, por vigencia
 }) {
   const mapRef = useRef(null)
@@ -694,6 +695,9 @@ export default function Shipments({
         </div>
       )}
       {!syncing && syncMsg && <div className={`ship-sync-msg ${syncMsg.startsWith('✅') ? 'ok' : 'warn'}`}>{syncMsg}</div>}
+      {avisoEnvios && (
+        <div className="ship-sync-msg warn">⚠️ Se trajo el listado completo de envíos — {avisoEnvios}</div>
+      )}
 
       <div className="ship-viewtabs">
         <button className={view === 'tablero' ? 'active' : ''} onClick={() => setView('tablero')}>🗂️ Tablero</button>
