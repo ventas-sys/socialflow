@@ -40,6 +40,43 @@ import Users, { PERM_TABS } from './components/Users'
 import Auth from './components/Auth'
 import './App.css'
 
+// --- Cuánto se trae al abrir la app ---
+// Los envíos crecen ~250 por día entre FLEX y correo, y los movimientos otro
+// tanto: traer el histórico entero en cada apertura es lo que terminó trabando
+// los celulares del depósito. Al abrir se trae SOLO la ventana que se usa.
+const DIAS_ENVIOS = 35 // cubre los períodos rápidos del reporte (hoy / 7 / 30)
+const ENVIOS_ACTIVOS = ['pendiente', 'armado', 'camino', 'demorado']
+// Solapas que necesitan los movimientos. Si el usuario no entra a ninguna
+// (p. ej. un ayudante que solo usa Envíos y Empaque) no se bajan nunca.
+const TABS_CON_MOVS = ['dashboard', 'inventory', 'combos', 'movements', 'reports']
+
+const msDe = (t) => (t?.toMillis ? t.toMillis() : new Date(t || 0).getTime())
+
+// Envíos del tablero: los de los últimos DIAS_ENVIOS días MÁS todos los que
+// siguen activos tengan la fecha que tengan (así no desaparece del tablero un
+// pendiente viejo). Las dos consultas son por un solo campo: no hacen falta
+// índices compuestos; el userId se filtra acá, que es lo mismo porque todos
+// los datos son de la misma empresa.
+async function traerEnvios(todos = false) {
+  const porId = new Map()
+  const sumar = (snap) => snap.docs.forEach(d => {
+    const s = { id: d.id, ...d.data() }
+    if (s.userId === ORG_ID) porId.set(d.id, s)
+  })
+  if (todos) {
+    sumar(await getDocs(query(collection(db, 'shipments'), where('userId', '==', ORG_ID))))
+  } else {
+    const desde = Timestamp.fromMillis(Date.now() - DIAS_ENVIOS * 24 * 3600 * 1000)
+    const [recientes, activos] = await Promise.all([
+      getDocs(query(collection(db, 'shipments'), where('createdAt', '>=', desde))),
+      getDocs(query(collection(db, 'shipments'), where('status', 'in', ENVIOS_ACTIVOS))),
+    ])
+    sumar(recientes)
+    sumar(activos)
+  }
+  return [...porId.values()].sort((a, b) => msDe(b.createdAt) - msDe(a.createdAt))
+}
+
 export default function App() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -71,10 +108,16 @@ export default function App() {
   const [finanzas, setFinanzas] = useState([])
   // Envíos a bodega Full (armado + descuento de stock)
   const [fullEnvios, setFullEnvios] = useState([])
-  // Al abrir solo se traen los movimientos de los últimos 60 días (son miles).
-  // El historial completo se pide a mano desde la solapa Movimientos.
+  // Los movimientos NO se traen al abrir: se bajan los últimos 60 días recién
+  // cuando se entra a una solapa que los usa, y el historial completo se pide a
+  // mano desde la solapa Movimientos.
   const [movsCompletos, setMovsCompletos] = useState(false)
   const [cargandoMovs, setCargandoMovs] = useState(false)
+  const movsPedidos = useRef(false)
+  // Envíos: al abrir viene la ventana corta (ver traerEnvios). El histórico
+  // entero se pide cuando el reporte mira más atrás.
+  const [enviosCompletos, setEnviosCompletos] = useState(false)
+  const [cargandoEnvios, setCargandoEnvios] = useState(false)
   const [usdRate, setUsdRate] = useState(1000)
   // Lo que se le paga al motoquero por zona, por vigencia (settings/zonasFlex)
   const [tarifas, setTarifas] = useState(null)
@@ -302,6 +345,8 @@ export default function App() {
   const loadUserData = async (currentUser) => {
     setLoadingData(true)
     setAccessDenied(false)
+    movsPedidos.current = false
+    setEnviosCompletos(false)
     try {
       if (currentUser.email === ADMIN_EMAIL) {
         await migrateOldData(currentUser.uid)
@@ -315,30 +360,23 @@ export default function App() {
 
       const qProducts = query(collection(db, 'products'), where('userId', '==', ORG_ID))
       const qCombos = query(collection(db, 'combos'), where('userId', '==', ORG_ID))
-      // Movimientos: SOLO los últimos 60 días. Cada venta genera uno (~300 por
-      // día), así que traer el histórico entero era lo que más demoraba al
-      // abrir. 60 días es justo la ventana que usa la salud de stock. Se filtra
-      // por fecha (sin el userId) para no necesitar un índice compuesto en
-      // Firebase; el userId se filtra acá, que es lo mismo porque todos los
-      // datos son de la misma empresa. El historial completo se pide aparte.
-      const desde60 = Timestamp.fromMillis(Date.now() - 60 * 24 * 3600 * 1000)
-      const qMovs = query(collection(db, 'movements'), where('date', '>=', desde60))
+      // Los MOVIMIENTOS ya no se bajan al abrir: son decenas de miles (cada
+      // corrida del cron deja uno por producto vendido) y eran, junto con los
+      // envíos, lo que trababa los celulares. Se bajan recién cuando se entra a
+      // una solapa que los usa (ver cargarMovimientos).
 
       // Primero se pinta lo que ya está guardado en el dispositivo (instantáneo)
       // y recién después se actualiza contra el servidor.
       const desdeCache = async () => {
         try {
-          const [pC, cC, mC] = await Promise.all([
-            getDocsFromCache(qProducts), getDocsFromCache(qCombos), getDocsFromCache(qMovs),
+          const [pC, cC] = await Promise.all([
+            getDocsFromCache(qProducts), getDocsFromCache(qCombos),
           ])
           if (pC.empty && cC.empty) return false
           setProducts(pC.docs.map(d => ({ id: d.id, ...strip(d.data()) }))
             .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt)))
           setCombos(cC.docs.map(d => ({ id: d.id, ...strip(d.data()) }))
             .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt)))
-          setMovements(mC.docs.map(d => ({ id: d.id, ...d.data() }))
-            .filter(m => m.userId === ORG_ID)
-            .sort((a, b) => toMillis(b.date) - toMillis(a.date)))
           setLoadingData(false)
           return true
         } catch (e) {
@@ -347,10 +385,9 @@ export default function App() {
       }
       await desdeCache()
 
-      const [productsSnap, combosSnap, movementsSnap, settingsSnap] = await Promise.all([
+      const [productsSnap, combosSnap, settingsSnap] = await Promise.all([
         getDocs(qProducts),
         getDocs(qCombos),
-        getDocs(qMovs),
         getDoc(doc(db, 'settings', ORG_ID)),
       ])
 
@@ -360,15 +397,12 @@ export default function App() {
       // Envíos y motoqueros: colecciones opcionales. Si sus reglas todavía no
       // están publicadas, se ignoran sin romper la carga del inventario.
       try {
-        const [shipmentsSnap, couriersSnap] = await Promise.all([
-          getDocs(query(collection(db, 'shipments'), where('userId', '==', ORG_ID))),
+        const [envios, couriersSnap] = await Promise.all([
+          traerEnvios(false),
           getDocs(query(collection(db, 'couriers'), where('userId', '==', ORG_ID))),
         ])
-        setShipments(
-          shipmentsSnap.docs
-            .map(d => ({ id: d.id, ...d.data() }))
-            .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
-        )
+        setShipments(envios)
+        setEnviosCompletos(false)
         setCouriers(couriersSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       } catch (err) {
         console.warn('Envíos/motoqueros no disponibles (¿faltan reglas?):', err?.code)
@@ -424,12 +458,6 @@ export default function App() {
           .map(d => ({ id: d.id, ...strip(d.data()) }))
           .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
       )
-      setMovements(
-        movementsSnap.docs
-          .map(d => ({ id: d.id, ...d.data() }))
-          .filter(m => m.userId === ORG_ID)
-          .sort((a, b) => toMillis(b.date) - toMillis(a.date))
-      )
       setMovsCompletos(false)
 
       if (currentUser.email === ADMIN_EMAIL) {
@@ -455,8 +483,61 @@ export default function App() {
 
   // Historial completo de movimientos (todos los años). Se pide a mano desde la
   // solapa Movimientos porque son decenas de miles y tardan en bajar.
+  // Movimientos de los últimos 60 días (la ventana que usa la salud de stock).
+  // Se bajan la primera vez que se entra a una solapa que los necesita, no al
+  // abrir la app: un ayudante que solo usa Envíos / Empaque / Envío Full no los
+  // baja nunca, y antes se le iban decenas de miles de documentos al celular.
+  const cargarMovimientos = useCallback(async () => {
+    if (movsPedidos.current) return
+    movsPedidos.current = true
+    setCargandoMovs(true)
+    try {
+      const desde60 = Timestamp.fromMillis(Date.now() - 60 * 24 * 3600 * 1000)
+      // Se filtra por fecha (sin el userId) para no necesitar un índice
+      // compuesto en Firebase; el userId se filtra acá, que es lo mismo porque
+      // todos los datos son de la misma empresa.
+      const q = query(collection(db, 'movements'), where('date', '>=', desde60))
+      const armar = (snap) => snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(m => m.userId === ORG_ID)
+        .sort((a, b) => msDe(b.date) - msDe(a.date))
+      try {
+        const cache = await getDocsFromCache(q)
+        if (!cache.empty) setMovements(armar(cache))
+      } catch { /* sin caché local: se espera al servidor */ }
+      setMovements(armar(await getDocs(q)))
+      setMovsCompletos(false)
+    } catch (e) {
+      movsPedidos.current = false // que se pueda reintentar al volver a entrar
+      console.warn('No se pudieron traer los movimientos:', e?.code || e?.message)
+    } finally {
+      setCargandoMovs(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!user || loadingData) return
+    if (TABS_CON_MOVS.includes(currentTab)) cargarMovimientos()
+  }, [user, loadingData, currentTab, cargarMovimientos])
+
+  // Trae TODOS los envíos (no solo la ventana corta): lo pide el reporte
+  // cuando se elige una fecha anterior a la ventana.
+  const loadAllShipments = useCallback(async () => {
+    if (enviosCompletos || cargandoEnvios) return
+    setCargandoEnvios(true)
+    try {
+      setShipments(await traerEnvios(true))
+      setEnviosCompletos(true)
+    } catch (e) {
+      console.warn('No se pudo traer el histórico de envíos:', e?.code || e?.message)
+    } finally {
+      setCargandoEnvios(false)
+    }
+  }, [enviosCompletos, cargandoEnvios])
+
   const loadAllMovements = async () => {
     if (movsCompletos || cargandoMovs) return
+    movsPedidos.current = true
     setCargandoMovs(true)
     try {
       const snap = await getDocs(query(collection(db, 'movements'), where('userId', '==', ORG_ID)))
@@ -512,6 +593,9 @@ export default function App() {
       setShipments([])
       setCouriers([])
       setMlAccounts({})
+      movsPedidos.current = false
+      setMovsCompletos(false)
+      setEnviosCompletos(false)
       setCurrentTab('dashboard')
     } catch (error) {
       console.error('Logout error:', error)
@@ -758,11 +842,7 @@ export default function App() {
   const reloadShipments = async () => {
     if (!user) return
     try {
-      const snap = await getDocs(query(collection(db, 'shipments'), where('userId', '==', ORG_ID)))
-      const tm = (t) => (t?.toMillis ? t.toMillis() : new Date(t || 0).getTime())
-      setShipments(
-        snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => tm(b.createdAt) - tm(a.createdAt))
-      )
+      setShipments(await traerEnvios(enviosCompletos))
     } catch { /* sin permisos o sin red: se mantiene lo que hay */ }
   }
 
@@ -1263,6 +1343,10 @@ export default function App() {
                 shipments={flexShipments}
                 allShipments={shipments}
                 onReloadShipments={reloadShipments}
+                diasEnvios={DIAS_ENVIOS}
+                enviosCompletos={enviosCompletos}
+                cargandoEnvios={cargandoEnvios}
+                onLoadAllShipments={loadAllShipments}
                 couriers={couriers}
                 mlAccounts={mlAccounts}
                 onSaveAccount={saveMlAccount}

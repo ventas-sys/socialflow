@@ -129,6 +129,8 @@ export default function Shipments({
   isAdmin = false, // solo el master conecta ML, trae ventas y vacía el tablero
   allShipments, // incluye los de CORREO (solo para dedup del sync; el tablero recibe solo FLEX)
   onReloadShipments, // recarga el tablero después de que el servidor sincroniza
+  diasEnvios = 35, // ventana que se trae al abrir (ver traerEnvios en App.jsx)
+  enviosCompletos = true, cargandoEnvios = false, onLoadAllShipments,
   tarifas, onSaveTarifas, // lo que se le paga al motoquero por zona, por vigencia
 }) {
   const mapRef = useRef(null)
@@ -176,8 +178,15 @@ export default function Shipments({
           (s.oldEnt || s.oldDem || s.oldArc ? ` · 🧹 Viejos revisados: ${s.oldEnt || 0} entregados, ${s.oldDem || 0} demorados, ${s.oldArc || 0} archivados` : '')
         )
       }
-      // Traer a esta sesión lo que el servidor escribió
-      await onReloadShipments?.()
+      // Traer a esta sesión lo que el servidor escribió. Si no escribió nada no
+      // se recarga: bajar el tablero entero cada 15/30 minutos para no cambiar
+      // nada era de lo que más trababa el celular.
+      const s2 = r.summary || {}
+      const escribio = !r.skipped && (
+        s2.created || s2.nCorreo || s2.updEnt || s2.updDem || s2.updArc ||
+        s2.oldEnt || s2.oldDem || s2.oldArc || s2.autoArchivados
+      )
+      if (escribio) await onReloadShipments?.()
     } catch (e) {
       if (!silent) setSyncMsg('❌ ' + e.message)
     } finally {
@@ -542,6 +551,16 @@ export default function Shipments({
   const [hasta, setHasta] = useState('')
   const rangoFechas = !!(desde && hasta)
 
+  // Al abrir solo se traen los envíos de los últimos `diasEnvios` días (más los
+  // que siguen activos). Los botones rápidos del reporte no pasan de 30 días,
+  // así que alcanza; si se elige a mano una fecha anterior se pide el histórico
+  // completo recién ahí.
+  const faltaHistorico = !enviosCompletos && rangoFechas &&
+    new Date(`${desde}T00:00:00`).getTime() < Date.now() - diasEnvios * 24 * 3600 * 1000
+  useEffect(() => {
+    if (faltaHistorico) onLoadAllShipments?.()
+  }, [faltaHistorico, onLoadAllShipments])
+
   // Filas del período (sin filtro de motoquero, para el resumen por motoquero)
   const rangeRows = useMemo(() => {
     const now = new Date()
@@ -887,6 +906,11 @@ export default function Shipments({
         </>
       ) : (
         <>
+          {(cargandoEnvios || faltaHistorico) && (
+            <div className="ship-sync-msg loading">
+              ⏳ Trayendo los envíos anteriores a los últimos {diasEnvios} días…
+            </div>
+          )}
           <div className="rep-controls">
             <div className="rep-range">
               {['hoy', 'semana', 'mes'].map(r => (

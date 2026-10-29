@@ -68,9 +68,26 @@ export default async function handler(req, res) {
     }
     await setDoc(guardRef, { lastRunAt: Timestamp.now(), userId: ORG_ID }, { merge: true });
 
-    // Envíos existentes (para dedup y refresco de estados)
-    const existingSnap = await getDocs(query(collection(db, 'shipments'), where('userId', '==', ORG_ID)));
-    const existing = existingSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Envíos existentes (para dedup y refresco de estados). NO se lee el
+    // histórico entero: la colección crece ~250 documentos por día entre FLEX y
+    // correo. Alcanza con los últimos 60 días (el dedup mira ventas de 7 días y
+    // el autoarchivado, entregados de 7) más todo lo que siga sin cerrarse,
+    // tenga la fecha que tenga. Las dos consultas son por un solo campo, así que
+    // no hacen falta índices compuestos; el userId se filtra acá.
+    const desdeMs = Timestamp.fromMillis(Date.now() - 60 * 24 * 3600 * 1000);
+    const ABIERTOS = ['pendiente', 'armado', 'camino', 'demorado', 'entregado'];
+    const [recientesSnap, abiertosSnap] = await Promise.all([
+      getDocs(query(collection(db, 'shipments'), where('createdAt', '>=', desdeMs))),
+      getDocs(query(collection(db, 'shipments'), where('status', 'in', ABIERTOS))),
+    ]);
+    const porId = new Map();
+    for (const snap of [recientesSnap, abiertosSnap]) {
+      snap.docs.forEach(d => {
+        const s = { id: d.id, ...d.data() };
+        if (s.userId === ORG_ID) porId.set(d.id, s);
+      });
+    }
+    const existing = [...porId.values()];
     const seen = new Set(existing.map(s => String(s.packId || s.code)));
 
     const summary = {
