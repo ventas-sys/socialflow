@@ -34,7 +34,7 @@ const descuenta = (c) => c === 'flex' || c === 'correo' || c === 'sin_envio';
 // pago quedan para la corrida siguiente (siguen dentro de la ventana de 48hs).
 const PAGADAS = new Set(['paid', 'partially_paid']);
 
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: 'AIzaSyDnIYGZF37XaTetiG3a_0jrk4DvpKlF8JY',
   authDomain: 'stock-e-inventario.firebaseapp.com',
   projectId: 'stock-e-inventario',
@@ -45,7 +45,7 @@ const firebaseConfig = {
 
 const barcodesOf = (x) => (x.barcodes?.length ? x.barcodes : (x.barcode ? [x.barcode] : []));
 
-async function ensureToken(db, key, acc) {
+export async function ensureToken(db, key, acc) {
   const expMs = acc.expiresAt?.toMillis ? acc.expiresAt.toMillis() : new Date(acc.expiresAt || 0).getTime();
   if (expMs && expMs - Date.now() > 10 * 60 * 1000) return acc.accessToken;
   const body = new URLSearchParams({

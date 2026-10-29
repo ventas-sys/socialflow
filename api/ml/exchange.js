@@ -1066,7 +1066,7 @@ async function shipStatus(req, res) {
 //
 // El reporte se pide, MP lo genera (entre 10 segundos y un minuto) y después
 // se baja el CSV.
-const REPORTE_BASE = 'https://api.mercadopago.com/v1/account/release_report';
+export const REPORTE_BASE = 'https://api.mercadopago.com/v1/account/release_report';
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // El CSV de MP no empieza en la primera línea: arriba trae un bloque de resumen
@@ -1422,6 +1422,15 @@ async function mpReporte(req, res) {
   }
 
   // paso === 'traer'
+  const r = await traerUltimoSaldo(auth, pasos);
+  return res.status(200).json({ origenToken: origen, saldoEnElArchivo: conSaldo(config), config, ...r });
+}
+
+// Baja el archivo de liberaciones MÁS NUEVO que MP ya tenga y le lee el saldo.
+// Lo usan el botón 💳 Ver saldos (paso 'traer') y el automático de
+// api/ml/saldos.js: tiene que ser la MISMA lectura, la que se verificó contra
+// el saldo real el 28/10.
+export async function traerUltimoSaldo(auth, pasos = []) {
   const lista = await httpRequest('GET', REPORTE_BASE + '/list', auth);
   pasos.push({ paso: 'listar los archivos', estado: lista.status });
   const arr = Array.isArray(lista.body) ? lista.body : [];
@@ -1430,24 +1439,41 @@ async function mpReporte(req, res) {
     .sort((a, b) => String(fechaDe(a)).localeCompare(String(fechaDe(b))))
     .map((f) => ({ nombre: f.file_name, fecha: fechaDe(f) }));
   if (!archivos.length) {
-    return res.status(200).json({
-      ok: false, origenToken: origen, saldoEnElArchivo: conSaldo(config), pasos, archivos,
-      error: 'MP todavía no tiene ningún archivo generado. Pedí uno y volvé en un rato.',
-    });
+    return { ok: false, pasos, archivos, error: 'MP todavía no tiene ningún archivo generado. Pedí uno y volvé en un rato.' };
   }
   const elegido = archivos[archivos.length - 1];
   const bajada = await httpText('GET', `${REPORTE_BASE}/${elegido.nombre}`, auth);
   pasos.push({ paso: `bajar ${elegido.nombre}`, estado: bajada.status, detalle: `${(bajada.text || '').length} caracteres` });
   if (bajada.status !== 200 || !bajada.text) {
-    return res.status(200).json({ ok: false, origenToken: origen, pasos, archivos, error: 'No se pudo bajar el archivo.' });
+    return { ok: false, pasos, archivos, error: 'No se pudo bajar el archivo.' };
   }
-
   const leido = leerSaldoDelCsv(bajada.text);
-  return res.status(200).json({
-    ok: true, origenToken: origen, archivo: elegido.nombre, fechaArchivo: elegido.fecha,
-    saldoEnElArchivo: conSaldo(config),
-    archivos: archivos.slice(-5), config, pasos, ...leido,
-  });
+  return { ok: true, archivo: elegido.nombre, fechaArchivo: elegido.fecha, archivos: archivos.slice(-5), pasos, ...leido };
+}
+
+// Pide a MP un archivo nuevo de los últimos `dias` días. No espera nada: MP lo
+// genera cuando puede y lo levanta la próxima lectura.
+export async function pedirReporte(auth, dias = 3) {
+  const finMs = Date.now();
+  const iniMs = finMs - Number(dias) * 24 * 3600 * 1000;
+  const iso = (ms) => new Date(ms).toISOString().slice(0, 19) + 'Z';
+  const alta = await httpRequest('POST', REPORTE_BASE,
+    { ...auth, 'Content-Type': 'application/json' },
+    { begin_date: iso(iniMs), end_date: iso(finMs) });
+  return { estado: alta.status, ok: alta.status < 300,
+    detalle: alta.status >= 300 ? String(JSON.stringify(alta.body || '')).slice(0, 300) : `${iso(iniMs)} → ${iso(finMs)}` };
+}
+
+// De los dos tokens de una cuenta, el primero que pueda leer la configuración
+// del reporte. Primero el de ML: es el que viene generando los archivos.
+export async function authDelReporte(token, mpToken) {
+  const tokens = [['ML', (token || '').trim()], ['MP', (mpToken || '').trim()]].filter(([, t]) => t);
+  for (const [origen, tk] of tokens) {
+    const a = { 'Authorization': 'Bearer ' + tk };
+    const r = await httpRequest('GET', REPORTE_BASE + '/config', a);
+    if (r.status === 200 && r.body && !r.body.raw) return { auth: a, origen };
+  }
+  return null;
 }
 
 async function mpSaldoReal(req, res) {

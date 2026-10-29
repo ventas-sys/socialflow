@@ -1,4 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { doc, getDoc } from 'firebase/firestore'
+import { db } from '../firebase'
 import './Metrics.css'
 
 const API = '/api/ml/exchange'
@@ -47,6 +49,15 @@ export default function Metrics({ mlAccounts, ensureToken }) {
   // Saldo real de Mercado Pago (necesita el Access Token propio de MP)
   const [saldos, setSaldos] = useState(null)
   const [saldosBusy, setSaldosBusy] = useState(false)
+  // Último saldo que dejó el automático (api/ml/saldos.js, 14 veces por día).
+  // Está en ml_accounts, que sólo lee el admin: para un ayudante falla en
+  // silencio y el cuadro no aparece.
+  const [saldoAuto, setSaldoAuto] = useState(null)
+  useEffect(() => {
+    getDoc(doc(db, 'ml_accounts', 'saldoMP'))
+      .then(d => { if (d.exists()) setSaldoAuto(d.data()) })
+      .catch(() => {})
+  }, [])
 
   const cuentas = ['full', 'ferre'].filter(k => mlAccounts?.[k]?.accessToken)
   // El tipo de envío hay que preguntárselo a ML envío por envío: en 15 o 30
@@ -418,6 +429,29 @@ export default function Metrics({ mlAccounts, ensureToken }) {
 
           <div className="mt-panel">
             <h2>💳 Saldo en Mercado Pago</h2>
+            {saldoAuto && (
+              <div className="mt-saldos">
+                {['full', 'ferre'].map(k => {
+                  const s = saldoAuto[k]
+                  const err = saldoAuto[k + 'Error']
+                  return (
+                    <div className={`mt-saldo ${s ? 'ok' : 'no'}`} key={'auto' + k}>
+                      <span className="mt-saldo-cuenta">{k.toUpperCase()}</span>
+                      {s ? (
+                        <>
+                          <div className="mt-saldo-fila"><span>Disponible</span><strong className="verde">{plata(s.disponible)}</strong></div>
+                          <p className="mt-hint">Saldo al {s.hasta ? horaAR(s.hasta) : '?'} (automático)</p>
+                        </>
+                      ) : <p className="mt-saldo-falta">Todavía no hay saldo automático.</p>}
+                      {err && <p className="mt-hint">⚠️ La última lectura ({horaAR(err.at?.toDate ? err.at.toDate() : err.at)}) falló: {err.mensaje}. Se muestra el último bueno.</p>}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            <p className="mt-hint">
+              Se actualiza solo cada hora de 7 a 18hs y a las 0 y 6hs. El botón lee lo último en este momento.
+            </p>
             <p className="mt-hint">
               Mercado Pago no deja preguntar el saldo de frente (da 403 con todos los permisos), así que el
               saldo se saca del <strong>reporte de liberaciones</strong>, que es el extracto de la cuenta.

@@ -7,10 +7,25 @@
     "api/ml/cron.js": { "maxDuration": 300 },
     "api/ml/exchange.js": { "maxDuration": 300 },
     "api/ml/envios.js": { "maxDuration": 300 },
+    "api/ml/saldos.js": { "maxDuration": 300 },
     "api/contabilium.js": { "maxDuration": 60 }
   },
   "crons": [
     { "path": "/api/ml/cron", "schedule": "0 16 * * *" },
-    { "path": "/api/ml/cron", "schedule": "0 21 * * *" }
+    { "path": "/api/ml/cron", "schedule": "0 21 * * *" },
+    { "path": "/api/ml/saldos", "schedule": "0 10 * * *" },
+    { "path": "/api/ml/saldos", "schedule": "0 11 * * *" },
+    { "path": "/api/ml/saldos", "schedule": "0 12 * * *" },
+    { "path": "/api/ml/saldos", "schedule": "0 13 * * *" },
+    { "path": "/api/ml/saldos", "schedule": "0 14 * * *" },
+    { "path": "/api/ml/saldos", "schedule": "0 15 * * *" },
+    { "path": "/api/ml/saldos", "schedule": "0 16 * * *" },
+    { "path": "/api/ml/saldos", "schedule": "0 17 * * *" },
+    { "path": "/api/ml/saldos", "schedule": "0 18 * * *" },
+    { "path": "/api/ml/saldos", "schedule": "0 19 * * *" },
+    { "path": "/api/ml/saldos", "schedule": "0 20 * * *" },
+    { "path": "/api/ml/saldos", "schedule": "0 21 * * *" },
+    { "path": "/api/ml/saldos", "schedule": "0 3 * * *" },
+    { "path": "/api/ml/saldos", "schedule": "0 9 * * *" }
   ]
 }
