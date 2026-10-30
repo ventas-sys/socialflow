@@ -799,7 +799,7 @@ export default function Shipments({
       )}
       {!syncing && syncMsg && <div className={`ship-sync-msg ${syncMsg.startsWith('✅') ? 'ok' : 'warn'}`}>{syncMsg}</div>}
       {avisoEnvios && (
-        <div className="ship-sync-msg warn">⚠️ Se trajo el listado completo de envíos — {avisoEnvios}</div>
+        <div className="ship-sync-msg warn">⚠️ Envíos: {avisoEnvios}</div>
       )}
 
       <div className="ship-viewtabs">

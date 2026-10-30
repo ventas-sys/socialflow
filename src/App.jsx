@@ -52,6 +52,16 @@ const TABS_CON_MOVS = ['dashboard', 'inventory', 'combos', 'movements', 'reports
 
 const msDe = (t) => (t?.toMillis ? t.toMillis() : new Date(t || 0).getTime())
 
+// Firestore, cuando la conexión está mal, NO devuelve error: se queda
+// reintentando para siempre. En el celular del depósito eso se veía como
+// "no trae nada y no dice nada". Con un tiempo límite la espera termina en
+// un error que sí se puede mostrar.
+const conLimite = (promesa, ms, que) => Promise.race([
+  promesa,
+  new Promise((_, rechazar) =>
+    setTimeout(() => rechazar(new Error(`${que} tardó más de ${Math.round(ms / 1000)}s`)), ms)),
+])
+
 // Envíos del tablero: los de los últimos DIAS_ENVIOS días MÁS todos los que
 // siguen activos tengan la fecha que tengan (así no desaparece del tablero un
 // pendiente viejo). Las dos consultas son por un solo campo: no hacen falta
@@ -74,14 +84,14 @@ async function traerEnvios(todos = false) {
       const corto = new Map()
       const sumar = sumarEn(corto)
       const desde = Timestamp.fromMillis(Date.now() - DIAS_ENVIOS * 24 * 3600 * 1000)
-      const [recientes, activos] = await Promise.all([
+      const [recientes, activos] = await conLimite(Promise.all([
         getDocs(query(collection(db, 'shipments'), where('createdAt', '>=', desde))),
         getDocs(query(collection(db, 'shipments'), where('status', 'in', ENVIOS_ACTIVOS))),
-      ])
+      ]), 25000, 'la consulta de envíos')
       sumar(recientes)
       sumar(activos)
       if (corto.size) { motivoEnviosCompletos = ''; return ordenar(corto) }
-      motivoEnviosCompletos = 'la consulta corta no trajo ningún envío'
+      motivoEnviosCompletos = 'la consulta corta no trajo ninguno, se pidió el listado completo'
     } catch (e) {
       motivoEnviosCompletos = e?.code || e?.message || String(e)
     }
@@ -89,7 +99,9 @@ async function traerEnvios(todos = false) {
   }
 
   const todosM = new Map()
-  sumarEn(todosM)(await getDocs(query(collection(db, 'shipments'), where('userId', '==', ORG_ID))))
+  sumarEn(todosM)(await conLimite(
+    getDocs(query(collection(db, 'shipments'), where('userId', '==', ORG_ID))),
+    45000, 'el listado completo de envíos'))
   return ordenar(todosM)
 }
 
@@ -206,11 +218,15 @@ export default function App() {
     if (!id) return []
     if (photoCache.current.has(id)) return photoCache.current.get(id)
     try {
-      const snap = await getDoc(doc(db, 'photos', id))
+      // Con tiempo límite: si la conexión está mal, Firestore no falla, se
+      // queda esperando, y la foto nunca aparece ni avisa. Al vencer se
+      // devuelve vacío y se puede reintentar (no se cachea el fracaso).
+      const snap = await conLimite(getDoc(doc(db, 'photos', id)), 20000, 'la foto')
       const photos = snap.exists() ? (snap.data().photos || []) : []
       photoCache.current.set(id, photos)
       return photos
-    } catch {
+    } catch (e) {
+      console.warn('No se pudo traer la foto', id, e?.code || e?.message)
       return []
     }
   }, [])
@@ -422,25 +438,42 @@ export default function App() {
           return false
         }
       }
-      await desdeCache()
+      const pintoDesdeCache = await desdeCache()
 
-      // Inventario y ajustes. En su propio try: si falla, los envíos y el resto
-      // tienen que cargar igual (un ayudante de depósito puede no necesitar el
-      // inventario para trabajar).
-      let productsSnap = null, combosSnap = null
-      try {
-        let settingsSnap
-        ;[productsSnap, combosSnap, settingsSnap] = await Promise.all([
-          getDocs(qProducts),
-          getDocs(qCombos),
-          getDoc(doc(db, 'settings', ORG_ID)),
-        ])
-        setDepositMap(settingsSnap.exists() ? settingsSnap.data().depositMapPhoto || null : null)
-        setTarifas(settingsSnap.exists() ? settingsSnap.data().zonasFlex || null : null)
-      } catch (e) {
-        setErrorCarga(`No se pudo traer el inventario (${e?.code || e?.message || e})`)
-        if (e?.code === 'permission-denied') throw e
+      // Inventario y ajustes. Aparte del resto por dos motivos:
+      //  · si falla, los envíos y lo demás tienen que cargar igual (un ayudante
+      //    de depósito puede no necesitar el inventario para trabajar);
+      //  · son ~5.000 documentos y en una conexión mala tardan muchísimo. Si ya
+      //    se pintó del caché NO se espera: se actualiza por atrás y la carga
+      //    sigue de largo. Antes esto bloqueaba todo lo que venía después, así
+      //    que un inventario lento dejaba la app sin envíos, sin ML y sin fotos
+      //    —y sin ningún cartel, porque nunca llegaba a fallar—.
+      const traerInventario = async () => {
+        try {
+          const [productsSnap, combosSnap, settingsSnap] = await conLimite(Promise.all([
+            getDocs(qProducts),
+            getDocs(qCombos),
+            getDoc(doc(db, 'settings', ORG_ID)),
+          ]), 60000, 'el inventario')
+          setDepositMap(settingsSnap.exists() ? settingsSnap.data().depositMapPhoto || null : null)
+          setTarifas(settingsSnap.exists() ? settingsSnap.data().zonasFlex || null : null)
+          setProducts(
+            productsSnap.docs
+              .map(d => ({ id: d.id, ...strip(d.data()) }))
+              .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
+          )
+          setCombos(
+            combosSnap.docs
+              .map(d => ({ id: d.id, ...strip(d.data()) }))
+              .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
+          )
+        } catch (e) {
+          setErrorCarga(`No se pudo actualizar el inventario (${e?.code || e?.message || e})`)
+          if (!pintoDesdeCache) throw e
+        }
       }
+      if (pintoDesdeCache) traerInventario()
+      else await traerInventario()
 
       // Envíos y motoqueros: colecciones opcionales. Si sus reglas todavía no
       // están publicadas, se ignoran sin romper la carga del inventario.
@@ -451,7 +484,10 @@ export default function App() {
         setEnviosCompletos(!!motivoEnviosCompletos)
         setAvisoEnvios(motivoEnviosCompletos)
       } catch (err) {
-        console.warn('Envíos no disponibles (¿faltan reglas?):', err?.code)
+        // Que no se lo trague la consola: si los envíos no vienen hay que
+        // poder leer el motivo desde el celular.
+        console.warn('Envíos no disponibles:', err?.code || err?.message)
+        setAvisoEnvios(`no se pudieron traer: ${err?.code || err?.message || err}`)
       }
       try {
         const couriersSnap = await getDocs(query(collection(db, 'couriers'), where('userId', '==', ORG_ID)))
@@ -498,16 +534,6 @@ export default function App() {
         setMlAccounts({})
       }
 
-      if (productsSnap) setProducts(
-        productsSnap.docs
-          .map(d => ({ id: d.id, ...strip(d.data()) }))
-          .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
-      )
-      if (combosSnap) setCombos(
-        combosSnap.docs
-          .map(d => ({ id: d.id, ...strip(d.data()) }))
-          .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
-      )
       setMovsCompletos(false)
 
       if (currentUser.email === ADMIN_EMAIL) {
