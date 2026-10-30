@@ -25,5 +25,11 @@
 - Costo neto $2.100; para que queden **$1.000 netos**: vender a **~$5.300** por Mercado Envíos con envío a cargo del comprador (comisión 13,5% + costo fijo ~$1.100 + IVA), ~$4.860 si Responsable Inscripto, ~$3.710 con retiro en persona, ~$7.460 por Full con envío gratis. Mercado (09/2026): genéricos < $4.500, grueso $4.500–7.500, originales > $7.500.
 - El usuario revisó su Excel propio (COSTO_ML_35): tenía el envío al 35% en el precio pero al 100% en los costos, el IVA a pagar con signo invertido y doble castigo en la ganancia final — corregido y entregado por chat (no commitear: datos reales).
 
+## Método de precios del usuario en Contabilium (visto 10/2026)
+- Arma cada producto Full como **combo** con componentes a costo neto s/IVA: producto + "COSTO ENVIO A FULL" ($250,03 flete reposición) + "AGREGADO CARRITO HASTA 15/25 MIL" (= cargo fijo ML, netos reales: $900,10 y $1.780,10) + "COSTO DIA FULL PEQUEÑO (30DIAS)" ($22,53) + publicidad marca/producto ($10 + $50). Precio automático: costo total × (1+Rentabilidad%) = precio sin IVA → ×1,21.
+- **La "Rentabilidad" de Contabilium es markup puro**: NO descuenta la comisión de ML (~13,5% s/ precio final, neta para RI) ni IIBB/otros. Regla: rentabilidad real deseada r → cargar en Contabilium `(1+r)/0,83665 − 1` (sin IIBB) o `(1+r)/0,76665 − 1` (con IIBB 5% + otros 2% del Excel del usuario).
+- **Error típico a controlar**: el ítem "agregado carrito" del combo debe corresponder al tramo del PRECIO FINAL, no del costo (ej.: combo armado con "hasta 25 mil" pero precio resultante $26.287 → tramo 25-33k, ~$450 netos más).
+- El usuario es RI y trabaja todo a valores netos; el IVA lo compensa débito-crédito en la DDJJ (no es costo). Pendiente: actualizar la hoja "Parámetros" del Excel con los tramos netos reales (la lib ya está).
+
 ## Datos sensibles
 - Repo **público**: nunca commitear costos/precios de compra reales ni credenciales. Los Excel del usuario van por chat.
