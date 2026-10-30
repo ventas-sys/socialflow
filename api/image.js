@@ -12,9 +12,11 @@ import { modeloTexto } from '../lib/gemini-texto.js';
 //      de cada red social.
 //
 // Motor de imagen:
-//   - Si hay OPENAI_API_KEY -> gpt-image-1 (el motor de ChatGPT). EDITA la foto
+//   - Si hay OPENAI_API_KEY -> GPT Image (el motor de ChatGPT). EDITA la foto
 //     real, respeta el producto y escribe bien el logo/textos. RECOMENDADO.
-//   - Si no, cae a Gemini (gemini-2.5-flash-image) con el mismo prompt.
+//     OpenAI apagó gpt-image-1 el 23/10/2026: se prueban los modelos de
+//     OPENAI_IMAGE_MODELS (o OPENAI_IMAGE_MODEL) en orden y se usa el primero que exista.
+//   - Si no hay key o OpenAI falla, cae a Gemini (gemini-2.5-flash-image).
 //   - Sin foto -> Imagen 4 (texto->imagen) como último respaldo.
 export const config = { maxDuration: 60 };
 
@@ -86,13 +88,18 @@ export default async function handler(req, res) {
 
   // --- PASO 2: generar la imagen -----------------------------------------
   if (photoB64) {
+    let note = 'Falta OPENAI_API_KEY en Vercel (Production) o falta redeploy — usando Gemini (respaldo)';
     if (OK) {
-      return openaiEdit(res, OK, { photoB64, photoMime, prompt, size: openaiSize(platform), quality: q, brief: overlay });
+      const r = await openaiEdit(OK, { photoB64, photoMime, prompt, size: openaiSize(platform), quality: q });
+      if (r.b64) return res.status(200).json({ url: 'data:image/png;base64,' + r.b64, engine: 'openai', model: r.model, brief: overlay });
+      // Si tardó demasiado no hay tiempo para el respaldo (límite de Vercel).
+      if (r.timeout || !GK) return res.status(500).json({ error: r.error });
+      note = r.error + ' — usando Gemini (respaldo)';
     }
     return geminiImage(res, GK, {
       photoB64, photoMime,
       prompt: prompt + ' Encuadre ' + geminiAr(platform) + '.',
-      note: 'Falta OPENAI_API_KEY en Vercel (Production) o falta redeploy — usando Gemini (respaldo)',
+      note,
     });
   }
 
@@ -113,8 +120,7 @@ export default async function handler(req, res) {
 }
 
 // ---- Formatos por red social ------------------------------------------------
-// gpt-image-1 acepta: 1024x1024, 1536x1024 (horizontal), 1024x1536 (vertical).
-// Tamaño de GENERACIÓN de gpt-image-1 (solo admite 1024x1024, 1024x1536, 1536x1024).
+// Tamaño de GENERACIÓN de GPT Image (1024x1024, 1024x1536, 1536x1024).
 // Elegimos el más cercano a la orientación de cada red; el front reformatea
 // después al tamaño EXACTO de la red (con relleno desenfocado, sin cortar).
 function openaiSize(p) {
@@ -269,9 +275,30 @@ function geminiBrief(GK, { productName, price, photoDesc, mlDesc, photoB64, phot
   });
 }
 
-// ---- PASO 2a: gpt-image-1 (OpenAI) edita la foto real -----------------------
-// Si viene `logo`, se manda como 2ª imagen (image[]) para que copie el logo real.
-function openaiEdit(res, key, { photoB64, photoMime, prompt, size, logo, quality, brief }) {
+// ---- PASO 2a: GPT Image (OpenAI) edita la foto real ------------------------
+// gpt-image-1 fue dado de baja (23/10/2026). Reemplazos según
+// developers.openai.com/api/docs/deprecations: gpt-image-2.5-flare /
+// gpt-image-2.5-sunburst. gpt-image-2 queda como último intento.
+// Se puede forzar otro orden con OPENAI_IMAGE_MODEL (uno o varios, separados por coma).
+const OPENAI_IMAGE_MODELS = ['gpt-image-2.5-flare', 'gpt-image-2.5-sunburst', 'gpt-image-2'];
+
+// Prueba cada modelo hasta que uno exista. Devuelve { b64, model } o { error, timeout }.
+async function openaiEdit(key, opts) {
+  const env = (process.env.OPENAI_IMAGE_MODEL || '').split(',').map(x => x.trim()).filter(Boolean);
+  const models = [...new Set([...env, ...OPENAI_IMAGE_MODELS])];
+  let last = { error: 'OpenAI: ningún modelo de imagen disponible' };
+  for (const model of models) {
+    const r = await openaiEditOnce(key, model, opts);
+    if (r.b64 || r.timeout) return r;
+    last = r;
+    // Modelo inexistente / sin acceso -> probar el siguiente. Otro error -> cortar.
+    if (!/does not exist|not found|model_not_found|invalid model|not supported|must be|do not have access|verified/i.test(r.error)) return r;
+  }
+  return last;
+}
+
+// Si viene `logo`, se manda como 2ª imagen para que copie el logo real.
+function openaiEditOnce(key, model, { photoB64, photoMime, prompt, size, logo, quality }) {
   return new Promise((resolve) => {
     const boundary = '----socialflow' + Math.random().toString(16).slice(2);
     const CRLF = '\r\n';
@@ -279,15 +306,13 @@ function openaiEdit(res, key, { photoB64, photoMime, prompt, size, logo, quality
     const ext = mime.includes('png') ? 'png' : (mime.includes('webp') ? 'webp' : 'jpg');
     const field = (name, val) =>
       Buffer.from(`--${boundary}${CRLF}Content-Disposition: form-data; name="${name}"${CRLF}${CRLF}${val}${CRLF}`);
-    // Con logo -> field name "image[]" (múltiples imágenes). Sin logo -> "image".
-    const imgField = logo ? 'image[]' : 'image';
     const imagePart = (fname, fmime, b64) => [
-      Buffer.from(`--${boundary}${CRLF}Content-Disposition: form-data; name="${imgField}"; filename="${fname}"${CRLF}Content-Type: ${fmime}${CRLF}${CRLF}`),
+      Buffer.from(`--${boundary}${CRLF}Content-Disposition: form-data; name="image[]"; filename="${fname}"${CRLF}Content-Type: ${fmime}${CRLF}${CRLF}`),
       Buffer.from(b64, 'base64'),
       Buffer.from(CRLF),
     ];
     const chunks = [
-      field('model', 'gpt-image-1'),
+      field('model', model),
       field('prompt', prompt),
       field('size', size),
       field('quality', quality || 'high'),
@@ -317,16 +342,15 @@ function openaiEdit(res, key, { photoB64, photoMime, prompt, size, logo, quality
       resp.on('end', () => {
         try {
           const j = JSON.parse(data);
-          if (j.error) { res.status(500).json({ error: 'OpenAI: ' + (j.error.message || 'error') }); return resolve(); }
+          if (j.error) return resolve({ error: `OpenAI (${model}): ` + (j.error.message || 'error') });
           const b64 = j?.data?.[0]?.b64_json;
-          if (!b64) { res.status(500).json({ error: 'OpenAI sin imagen: ' + data.substring(0, 200) }); return resolve(); }
-          res.status(200).json({ url: 'data:image/png;base64,' + b64, engine: 'gpt-image-1', brief: brief || null });
-          resolve();
-        } catch (e) { res.status(500).json({ error: 'Parse OpenAI: ' + e.message }); resolve(); }
+          if (!b64) return resolve({ error: `OpenAI (${model}) sin imagen: ` + data.substring(0, 200) });
+          resolve({ b64, model });
+        } catch (e) { resolve({ error: 'Parse OpenAI: ' + e.message }); }
       });
     });
-    r.on('error', (e) => { res.status(500).json({ error: 'OpenAI request: ' + e.message }); resolve(); });
-    r.setTimeout(56000, () => { r.destroy(); res.status(500).json({ error: 'La imagen en calidad alta tardó demasiado (límite de Vercel). Probá de nuevo o usá el Cartel Pro.' }); resolve(); });
+    r.on('error', (e) => resolve({ error: 'OpenAI request: ' + e.message }));
+    r.setTimeout(56000, () => { r.destroy(); resolve({ timeout: true, error: 'La imagen en calidad alta tardó demasiado (límite de Vercel). Probá de nuevo o usá el Cartel Pro.' }); });
     r.write(body); r.end();
   });
 }

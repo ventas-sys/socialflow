@@ -79,7 +79,7 @@ textarea{resize:vertical;min-height:60px;}
     <div class="logo-icon">←</div>
     <div><div class="logo-title">Agente Redes</div><div class="logo-sub">UNIPROVEEDORES · AGENCIA</div></div>
   </a>
-  <div class="ia-badge">✅ Cartel IA v3 · gpt-image-1</div>
+  <div class="ia-badge">✅ Cartel IA v3 · GPT Image</div>
 </div>
 <div class="main">
   <div class="tip">✅ Subí la foto, completá el producto y generá copies + imágenes IA.</div>
@@ -416,9 +416,9 @@ async function genImg(id){
     try{ if(window.formatForPlatform) finalUrl=await window.formatForPlatform(finalUrl,id); }catch(_){}
     d.url=finalUrl;
     genImages[id]=d.url;
-    const engOk=d.engine==='gpt-image-1';
+    const engOk=d.engine==='openai';
     const engTag=engOk
-      ?'<div style="font-size:11px;color:#00c864;background:rgba(0,200,100,0.1);border:1px solid rgba(0,200,100,0.25);border-radius:8px;padding:6px 10px;margin-bottom:8px">🟢 Motor: ChatGPT (gpt-image-1)</div>'
+      ?'<div style="font-size:11px;color:#00c864;background:rgba(0,200,100,0.1);border:1px solid rgba(0,200,100,0.25);border-radius:8px;padding:6px 10px;margin-bottom:8px">🟢 Motor: ChatGPT ('+(d.model||'GPT Image')+')</div>'
       :'<div style="font-size:11px;color:#ffb020;background:rgba(255,176,32,0.1);border:1px solid rgba(255,176,32,0.3);border-radius:8px;padding:6px 10px;margin-bottom:8px">🟡 Motor: Gemini (respaldo)'+(d.note?' — '+d.note:'')+'</div>';
     resultDiv.innerHTML=`
       ${engTag}
@@ -427,7 +427,7 @@ async function genImg(id){
         <a href="${d.url}" target="_blank" download style="flex:1;text-align:center;background:linear-gradient(135deg,rgba(139,92,246,0.3),rgba(59,130,246,0.3));border:1px solid rgba(139,92,246,0.4);border-radius:8px;padding:8px;color:#c4b5fd;font-size:12px;text-decoration:none;display:block">⬇️ Descargar</a>
         <button onclick="genImg('${id}')" style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px;color:#aaa;font-size:12px;cursor:pointer;font-family:inherit">🔄 Nueva versión</button>
       </div>`;
-    notify('🎨 Cartel generado para '+PN[id]+(d.engine==='gpt-image-1'?' (ChatGPT)':''));
+    notify('🎨 Cartel generado para '+PN[id]+(d.engine==='openai'?' (ChatGPT)':''));
   }catch(e){
     resultDiv.innerHTML='<div style="color:#ff8080;font-size:12px;padding:10px;text-align:center">❌ '+e.message+'</div>';
   }

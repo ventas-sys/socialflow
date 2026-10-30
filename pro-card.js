@@ -8,7 +8,7 @@
    ============================================================================ */
 // Agrega el logo REAL de UNIPROVEEDORES en una BARRA SUPERIOR propia (extiende
 // el alto de la imagen), separada del diseño para que NO se superponga con el
-// título. gpt-image-1 no dibuja el logo; se agrega acá, exacto y prolijo.
+// título. GPT Image no dibuja el logo; se agrega acá, exacto y prolijo.
 window.stampBrandLogo = function (imgUrl) {
   return new Promise((resolve) => {
     const base = new Image(); base.crossOrigin = 'anonymous';
