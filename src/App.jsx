@@ -109,6 +109,8 @@ export default function App() {
   const [depositMap, setDepositMap] = useState(null)
   const [loadingData, setLoadingData] = useState(false)
   const [accessDenied, setAccessDenied] = useState(false)
+  // Motivo por el que la carga inicial falló, para poder verlo en el celular
+  const [errorCarga, setErrorCarga] = useState('')
   const [members, setMembers] = useState([])
   // Pedido de edición de un combo desde la pestaña Inventario
   const [comboEditRequest, setComboEditRequest] = useState(null)
@@ -363,9 +365,28 @@ export default function App() {
   const loadUserData = async (currentUser) => {
     setLoadingData(true)
     setAccessDenied(false)
+    setErrorCarga('')
     movsPedidos.current = false
     setEnviosCompletos(false)
     try {
+      // --- LOS PERMISOS, PRIMERO ---
+      // Antes se leían al FINAL de esta función. Cualquier error en el medio
+      // (productos, envíos, lo que sea) saltaba al catch y `myPerms` quedaba en
+      // null, y con null `canSee` deja ver TODAS las solapas: el ayudante veía
+      // lo que no tiene que ver, justo cuando además no le cargaba nada.
+      // Es una lectura de UN documento chiquito: va antes que nada y aparte.
+      if (currentUser.email !== ADMIN_EMAIL) {
+        try {
+          const me = await getDoc(doc(db, 'members', currentUser.email.toLowerCase()))
+          // Sin doc de permisos ve todo, por compatibilidad con los miembros
+          // viejos; eso es una decisión, no un error.
+          setMyPerms(me.exists() ? me.data() : null)
+        } catch (e) {
+          setErrorCarga(`No se pudieron leer tus permisos (${e?.code || e?.message || e})`)
+          throw e
+        }
+      }
+
       if (currentUser.email === ADMIN_EMAIL) {
         await migrateOldData(currentUser.uid)
         await migrateInlinePhotos()
@@ -403,14 +424,23 @@ export default function App() {
       }
       await desdeCache()
 
-      const [productsSnap, combosSnap, settingsSnap] = await Promise.all([
-        getDocs(qProducts),
-        getDocs(qCombos),
-        getDoc(doc(db, 'settings', ORG_ID)),
-      ])
-
-      setDepositMap(settingsSnap.exists() ? settingsSnap.data().depositMapPhoto || null : null)
-      setTarifas(settingsSnap.exists() ? settingsSnap.data().zonasFlex || null : null)
+      // Inventario y ajustes. En su propio try: si falla, los envíos y el resto
+      // tienen que cargar igual (un ayudante de depósito puede no necesitar el
+      // inventario para trabajar).
+      let productsSnap = null, combosSnap = null
+      try {
+        let settingsSnap
+        ;[productsSnap, combosSnap, settingsSnap] = await Promise.all([
+          getDocs(qProducts),
+          getDocs(qCombos),
+          getDoc(doc(db, 'settings', ORG_ID)),
+        ])
+        setDepositMap(settingsSnap.exists() ? settingsSnap.data().depositMapPhoto || null : null)
+        setTarifas(settingsSnap.exists() ? settingsSnap.data().zonasFlex || null : null)
+      } catch (e) {
+        setErrorCarga(`No se pudo traer el inventario (${e?.code || e?.message || e})`)
+        if (e?.code === 'permission-denied') throw e
+      }
 
       // Envíos y motoqueros: colecciones opcionales. Si sus reglas todavía no
       // están publicadas, se ignoran sin romper la carga del inventario.
@@ -468,12 +498,12 @@ export default function App() {
         setMlAccounts({})
       }
 
-      setProducts(
+      if (productsSnap) setProducts(
         productsSnap.docs
           .map(d => ({ id: d.id, ...strip(d.data()) }))
           .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
       )
-      setCombos(
+      if (combosSnap) setCombos(
         combosSnap.docs
           .map(d => ({ id: d.id, ...strip(d.data()) }))
           .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
@@ -483,15 +513,10 @@ export default function App() {
       if (currentUser.email === ADMIN_EMAIL) {
         const membersSnap = await getDocs(collection(db, 'members'))
         setMembers(membersSnap.docs.map(d => ({ email: d.id, ...d.data() })))
-      } else {
-        // Ayudante: cargar sus permisos (solapas visibles y si puede modificar)
-        try {
-          const me = await getDoc(doc(db, 'members', currentUser.email.toLowerCase()))
-          if (me.exists()) setMyPerms(me.data())
-        } catch { /* sin doc de permisos → ve todo (compatibilidad) */ }
       }
     } catch (error) {
       console.error('Error loading data:', error)
+      setErrorCarga(prev => prev || `No se pudieron traer los datos (${error?.code || error?.message || error})`)
       // El administrador nunca queda bloqueado por un error de permisos
       if (error.code === 'permission-denied' && currentUser.email !== ADMIN_EMAIL) {
         setAccessDenied(true)
@@ -1310,6 +1335,12 @@ export default function App() {
       </nav>
 
       <main className="app-main">
+        {errorCarga && (
+          <div className="aviso-carga">
+            ⚠️ {errorCarga}
+            <button onClick={() => loadUserData(user)}>Reintentar</button>
+          </div>
+        )}
         {loadingData ? (
           <div className="loading-container">
             <div className="spinner"></div>
