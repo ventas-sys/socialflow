@@ -104,11 +104,7 @@ export default async function handler(req, res) {
     await signInWithEmailAndPassword(getAuth(app), process.env.CRON_EMAIL, process.env.CRON_PASSWORD);
     const db = getFirestore(app);
 
-    // Candado: manual (force) respeta 90s; automático, 8 minutos
-    // 30/10: el candado automático pasó de 8 a 15 minutos. Cada corrida lee
-    // miles de documentos y el proyecto se comió 719.000 lecturas en un día
-    // (el tope sin costo son 50.000). Con 15 minutos son la mitad de corridas
-    // y las ventas nuevas siguen apareciendo a tiempo para imprimir.
+    // Candado: manual (force) respeta 90s; automático, 15 minutos.
     const force = !!req.body?.force;
     const guardRef = doc(db, 'settings', 'enviosSync');
     const guard = await getDoc(guardRef);
@@ -119,29 +115,60 @@ export default async function handler(req, res) {
     }
     await setDoc(guardRef, { lastRunAt: Timestamp.now(), userId: ORG_ID }, { merge: true });
 
-    // Envíos existentes (para dedup y refresco de estados). NO se lee el
-    // histórico entero: la colección crece ~250 documentos por día entre FLEX y
-    // correo, y cada corrida de esto se paga en lecturas de Firestore.
-    // 14 días alcanzan de sobra: el dedup sólo compara contra ventas de los
-    // últimos 7 (`from`), y todo lo que siga ABIERTO entra igual por la segunda
-    // consulta, tenga la fecha que tenga — incluidos los entregados que faltan
-    // archivar. Las dos consultas son por un solo campo, así que no hacen falta
-    // índices compuestos; el userId se filtra acá.
-    const desdeMs = Timestamp.fromMillis(Date.now() - 14 * 24 * 3600 * 1000);
-    const ABIERTOS = ['pendiente', 'armado', 'camino', 'demorado', 'entregado'];
-    const [recientesSnap, abiertosSnap] = await Promise.all([
-      getDocs(query(collection(db, 'shipments'), where('createdAt', '>=', desdeMs))),
-      getDocs(query(collection(db, 'shipments'), where('status', 'in', ABIERTOS))),
-    ]);
+    // --- Cuánto se LEE en cada corrida ---
+    // Esto corría cada pocos minutos y en cada corrida se traía la ventana
+    // entera de envíos. El 30/10 el proyecto llegó a 719.000 lecturas en un
+    // día (el tope sin costo son 50.000) y Firestore empezó a rechazar
+    // lecturas: la app se quedaba sin datos y sin permisos. Así que hay dos
+    // tipos de corrida:
+    //
+    //  · CORRIENTE (cada 15 min): sólo lee el índice de ya importados —UN
+    //    documento— y los envíos que siguen abiertos (unos cientos). Con eso
+    //    alcanza para importar las ventas nuevas y refrescar estados.
+    //  · MANTENIMIENTO (cada 3 horas, o si falta el índice): lee la ventana
+    //    de 20 días, rearma el índice, archiva los entregados viejos y borra
+    //    los de correo cumplidos. Nada de eso necesita correr cada 15 min.
+    const indiceRef = doc(db, 'settings', 'enviosImportados');
+    const indiceSnap = await getDoc(indiceRef);
+    const indice = indiceSnap.exists() ? (indiceSnap.data().ids || {}) : null;
+    const ultimoMant = guard.exists() ? toMillis(guard.data().lastMantenimientoAt) : 0;
+    const mantenimiento = !indice || (Date.now() - ultimoMant > 3 * 3600 * 1000);
+
+    const ACTIVOS = ['pendiente', 'armado', 'camino', 'demorado'];
+    const ABIERTOS = [...ACTIVOS, 'entregado'];
     const porId = new Map();
-    for (const snap of [recientesSnap, abiertosSnap]) {
-      snap.docs.forEach(d => {
-        const s = { id: d.id, ...d.data() };
-        if (s.userId === ORG_ID) porId.set(d.id, s);
-      });
+    const sumar = (snap) => snap.docs.forEach(d => {
+      const s = { id: d.id, ...d.data() };
+      if (s.userId === ORG_ID) porId.set(d.id, s);
+    });
+
+    if (mantenimiento) {
+      // 20 días: cubre los de correo que cumplen 15 y los entregados que
+      // esperan 7 para archivarse, con margen.
+      const desdeMs = Timestamp.fromMillis(Date.now() - 20 * 24 * 3600 * 1000);
+      const [recientesSnap, abiertosSnap] = await Promise.all([
+        getDocs(query(collection(db, 'shipments'), where('createdAt', '>=', desdeMs))),
+        getDocs(query(collection(db, 'shipments'), where('status', 'in', ABIERTOS))),
+      ]);
+      sumar(recientesSnap);
+      sumar(abiertosSnap);
+    } else {
+      sumar(await getDocs(query(collection(db, 'shipments'), where('status', 'in', ACTIVOS))));
     }
     const existing = [...porId.values()];
-    const seen = new Set(existing.map(s => String(s.packId || s.code)));
+
+    // Qué compras ya están importadas. En mantenimiento sale de lo leído; el
+    // resto del tiempo, del índice (los de la corrida se le van agregando).
+    const DIAS_INDICE = 10; // el dedup sólo compara contra ventas de 7 días
+    const indiceNuevo = mantenimiento ? {} : { ...indice };
+    if (mantenimiento) {
+      for (const s of existing) {
+        const k = String(s.packId || s.code);
+        if (k) indiceNuevo[k] = toMillis(s.createdAt) || Date.now();
+      }
+    }
+    const seen = new Set(Object.keys(indiceNuevo));
+    for (const s of existing) seen.add(String(s.packId || s.code));
 
     const summary = {
       created: 0, nPend: 0, nCamino: 0, nEntregado: 0, nDemorado: 0, nCorreo: 0,
@@ -219,7 +246,9 @@ export default async function handler(req, res) {
 
       cuenta.nuevos = groups.size;
       for (const o of groups.values()) {
-        seen.add(String(o.packId || o.shipmentId));
+        const gkey = String(o.packId || o.shipmentId);
+        seen.add(gkey);
+        indiceNuevo[gkey] = Date.now(); // para no reimportarlo en las corridas livianas
         const base = {
           code: String(o.shipmentId || o.packId), packId: o.packId || null,
           recipient: o.recipient || '', address: o.address || '',
@@ -311,10 +340,13 @@ export default async function handler(req, res) {
     // una vez entregado y pasada una semana no hay nada que hacer con ese
     // envío, y si queda a la vista solo infla el contador. En el reporte
     // (incluido el filtro por fechas) se siguen viendo igual.
+    // Sólo en las corridas de MANTENIMIENTO: los entregados viejos y los de
+    // correo cumplidos no están en lo que lee una corriente (ni haría falta
+    // revisarlos cada 15 minutos).
     const HACE_7_DIAS = Date.now() - 7 * 24 * 3600 * 1000;
     const toMs = (t) => (t?.toMillis ? t.toMillis() : new Date(t || 0).getTime());
     summary.autoArchivados = 0;
-    for (const s of existing) {
+    for (const s of mantenimiento ? existing : []) {
       if ((s.status || '') !== 'entregado') continue;
       const cuando = toMs(s.deliveredAt) || toMs(s.updatedAt) || toMs(s.createdAt);
       if (!cuando || cuando > HACE_7_DIAS) continue;
@@ -331,7 +363,7 @@ export default async function handler(req, res) {
 
     // Envíos de correo cumplidos: al resumen y afuera (ver DIAS_CORREO arriba)
     const limiteCorreo = Date.now() - DIAS_CORREO * 24 * 3600 * 1000;
-    const correoViejo = existing.filter((s) => {
+    const correoViejo = (mantenimiento ? existing : []).filter((s) => {
       if (s.channel !== 'correo') return false;
       const ms = toMs(s.createdAt);
       if (!ms) return false; // sin fecha no se borra nada
@@ -355,7 +387,22 @@ export default async function handler(req, res) {
       }
     }
 
-    await setDoc(guardRef, { lastRunAt: Timestamp.now(), lastSummary: summary, userId: ORG_ID }, { merge: true });
+    // El índice de ya importados, podado: sin esto cada corrida tendría que
+    // releer la ventana entera de envíos sólo para no duplicar.
+    const corteIndice = Date.now() - DIAS_INDICE * 24 * 3600 * 1000;
+    const idsPodados = Object.fromEntries(
+      Object.entries(indiceNuevo).filter(([, ms]) => Number(ms) > corteIndice));
+    // Los borrados de correo salen del índice recién cuando les toca por edad:
+    // mientras sigan dentro de la ventana de ventas no tienen que reimportarse.
+    await setDoc(indiceRef, { ids: idsPodados, userId: ORG_ID, actualizadoAt: Timestamp.now() });
+    summary.enIndice = Object.keys(idsPodados).length;
+    summary.mantenimiento = mantenimiento;
+    summary.leidos = existing.length;
+
+    await setDoc(guardRef, {
+      lastRunAt: Timestamp.now(), lastSummary: summary, userId: ORG_ID,
+      ...(mantenimiento ? { lastMantenimientoAt: Timestamp.now() } : {}),
+    }, { merge: true });
     return res.status(200).json({ ok: true, summary });
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message });
