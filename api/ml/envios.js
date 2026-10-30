@@ -23,11 +23,13 @@ const H48 = 48 * 3600 * 1000;
 // 29/10) y eran ~700 por semana que quedaban para siempre. Antes de borrarlos
 // se suma su localidad al resumen de settings/correoResumen, así no se pierde
 // el dato de DÓNDE enviamos más aunque nadie baje el Excel.
-// El borrado automático toca SÓLO los creados a partir de PURGA_DESDE: los
-// anteriores los borra el botón "📮 Registro de correo" de la app, que primero
-// baja el Excel con el detalle (destinatario, dirección, artículos).
+// El 30/10 el usuario bajó el Excel con el detalle de los 2.610 que había y
+// los borró con el botón "📮 Registro de correo" de la app. Desde entonces la
+// purga automática corre pareja sobre todos: lo que pasa los 15 días se va.
+// El Excel con el DETALLE (destinatario, dirección, artículos) sale sólo de
+// ese botón, así que para guardarlo hay que bajarlo cada tanto; la localidad y
+// la cuenta sí quedan para siempre en settings/correoResumen.
 const DIAS_CORREO = 15;
-const PURGA_DESDE = Date.parse('2026-10-29T00:00:00Z');
 
 // Localidad y provincia salen de la dirección que arma ML:
 // "<calle y número>, <ciudad>, <provincia>"
@@ -315,7 +317,8 @@ export default async function handler(req, res) {
     const correoViejo = existing.filter((s) => {
       if (s.channel !== 'correo') return false;
       const ms = toMs(s.createdAt);
-      return ms > PURGA_DESDE && ms < limiteCorreo;
+      if (!ms) return false; // sin fecha no se borra nada
+      return ms < limiteCorreo;
     });
     // Primero el resumen, y SOLO si se pudo guardar se borra: si el resumen
     // falla preferimos dejarlos y que el sync siga andando, antes que borrar
