@@ -116,9 +116,7 @@ El bot marcaba con la 18. Desde la lista de chats se ve un punto amarillo igual,
 O sea que la marca de "este chat necesita una persona" **no la veía nadie**.
 
 - **Qué marca de ahora en más:** `pickHumanLabel()` elige por el **emoji**
-  (`WA_HUMAN_LABEL_EMOJI`, default `🤓` desde el 27-oct-2026: Rodo recreó todas sus listas
-  porque WhatsApp Web/escritorio dejó de mostrar las viejas, y la nueva se llama "HUMANO 🤓🤓";
-  antes era `🧐`). Para forzar un id puntual sigue estando
+  (`WA_HUMAN_LABEL_EMOJI`, default `🧐`). Para forzar un id puntual sigue estando
   `WA_HUMAN_LABEL_ID`.
 - **Cómo limpiar lo ya marcado:** los chats marcados antes conservan la etiqueta vieja, y como
   no aparece en el menú **no se puede destildar a mano**. Para eso está `WA_LIMPIAR_HUMANO`:
