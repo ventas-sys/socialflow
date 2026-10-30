@@ -12,9 +12,11 @@ import { modeloTexto } from '../lib/gemini-texto.js';
 //      de cada red social.
 //
 // Motor de imagen:
-//   - Si hay OPENAI_API_KEY -> gpt-image-1 (el motor de ChatGPT). EDITA la foto
+//   - Si hay OPENAI_API_KEY -> GPT Image (el motor de ChatGPT). EDITA la foto
 //     real, respeta el producto y escribe bien el logo/textos. RECOMENDADO.
-//   - Si no, cae a Gemini (gemini-2.5-flash-image) con el mismo prompt.
+//     OpenAI apagó gpt-image-1 el 23/10/2026: se prueban los modelos de
+//     OPENAI_IMAGE_MODELS (o OPENAI_IMAGE_MODEL) en orden y se usa el primero que exista.
+//   - Si no hay key o OpenAI falla, cae a Gemini (gemini-2.5-flash-image).
 //   - Sin foto -> Imagen 4 (texto->imagen) como último respaldo.
 export const config = { maxDuration: 60 };
 
@@ -86,13 +88,18 @@ export default async function handler(req, res) {
 
   // --- PASO 2: generar la imagen -----------------------------------------
   if (photoB64) {
+    let note = 'Falta OPENAI_API_KEY en Vercel (Production) o falta redeploy — usando Gemini (respaldo)';
     if (OK) {
-      return openaiEdit(res, OK, { photoB64, photoMime, prompt, size: openaiSize(platform), quality: q, brief: overlay });
+      const r = await openaiEdit(OK, { photoB64, photoMime, prompt, size: openaiSize(platform), quality: q });
+      if (r.b64) return res.status(200).json({ url: 'data:image/png;base64,' + r.b64, engine: 'openai', model: r.model, brief: overlay });
+      // Si tardó demasiado no hay tiempo para el respaldo (límite de Vercel).
+      if (r.timeout || !GK) return res.status(500).json({ error: r.error });
+      note = r.error + ' — usando Gemini (respaldo)';
     }
     return geminiImage(res, GK, {
       photoB64, photoMime,
       prompt: prompt + ' Encuadre ' + geminiAr(platform) + '.',
-      note: 'Falta OPENAI_API_KEY en Vercel (Production) o falta redeploy — usando Gemini (respaldo)',
+      note,
     });
   }
 
@@ -113,8 +120,7 @@ export default async function handler(req, res) {
 }
 
 // ---- Formatos por red social ------------------------------------------------
-// gpt-image-1 acepta: 1024x1024, 1536x1024 (horizontal), 1024x1536 (vertical).
-// Tamaño de GENERACIÓN de gpt-image-1 (solo admite 1024x1024, 1024x1536, 1536x1024).
+// Tamaño de GENERACIÓN de GPT Image (1024x1024, 1024x1536, 1536x1024).
 // Elegimos el más cercano a la orientación de cada red; el front reformatea
 // después al tamaño EXACTO de la red (con relleno desenfocado, sin cortar).
 function openaiSize(p) {
@@ -269,9 +275,30 @@ function geminiBrief(GK, { productName, price, photoDesc, mlDesc, photoB64, phot
   });
 }
 
-// ---- PASO 2a: gpt-image-1 (OpenAI) edita la foto real -----------------------
-// Si viene `logo`, se manda como 2ª imagen (image[]) para que copie el logo real.
-function openaiEdit(res, key, { photoB64, photoMime, prompt, size, logo, quality, brief }) {
+// ---- PASO 2a: GPT Image (OpenAI) edita la foto real ------------------------
+// gpt-image-1 fue dado de baja (23/10/2026). Reemplazos según
+// developers.openai.com/api/docs/deprecations: gpt-image-2.5-flare /
+// gpt-image-2.5-sunburst. gpt-image-2 queda como último intento.
+// Se puede forzar otro orden con OPENAI_IMAGE_MODEL (uno o varios, separados por coma).
+const OPENAI_IMAGE_MODELS = ['gpt-image-2.5-flare', 'gpt-image-2.5-sunburst', 'gpt-image-2'];
+
+// Prueba cada modelo hasta que uno exista. Devuelve { b64, model } o { error, timeout }.
+async function openaiEdit(key, opts) {
+  const env = (process.env.OPENAI_IMAGE_MODEL || '').split(',').map(x => x.trim()).filter(Boolean);
+  const models = [...new Set([...env, ...OPENAI_IMAGE_MODELS])];
+  let last = { error: 'OpenAI: ningún modelo de imagen disponible' };
+  for (const model of models) {
+    const r = await openaiEditOnce(key, model, opts);
+    if (r.b64 || r.timeout) return r;
+    last = r;
+    // Modelo inexistente / sin acceso -> probar el siguiente. Otro error -> cortar.
+    if (!/does not exist|not found|model_not_found|invalid model|not supported|must be|do not have access|verified/i.test(r.error)) return r;
+  }
+  return last;
+}
+
+// Si viene `logo`, se manda como 2ª imagen para que copie el logo real.
+function openaiEditOnce(key, model, { photoB64, photoMime, prompt, size, logo, quality }) {
   return new Promise((resolve) => {
     const boundary = '----socialflow' + Math.random().toString(16).slice(2);
     const CRLF = '\r\n';
@@ -279,15 +306,13 @@ function openaiEdit(res, key, { photoB64, photoMime, prompt, size, logo, quality
     const ext = mime.includes('png') ? 'png' : (mime.includes('webp') ? 'webp' : 'jpg');
     const field = (name, val) =>
       Buffer.from(`--${boundary}${CRLF}Content-Disposition: form-data; name="${name}"${CRLF}${CRLF}${val}${CRLF}`);
-    // Con logo -> field name "image[]" (múltiples imágenes). Sin logo -> "image".
-    const imgField = logo ? 'image[]' : 'image';
     const imagePart = (fname, fmime, b64) => [
-      Buffer.from(`--${boundary}${CRLF}Content-Disposition: form-data; name="${imgField}"; filename="${fname}"${CRLF}Content-Type: ${fmime}${CRLF}${CRLF}`),
+      Buffer.from(`--${boundary}${CRLF}Content-Disposition: form-data; name="image[]"; filename="${fname}"${CRLF}Content-Type: ${fmime}${CRLF}${CRLF}`),
       Buffer.from(b64, 'base64'),
       Buffer.from(CRLF),
     ];
     const chunks = [
-      field('model', 'gpt-image-1'),
+      field('model', model),
       field('prompt', prompt),
       field('size', size),
       field('quality', quality || 'high'),
@@ -317,16 +342,15 @@ function openaiEdit(res, key, { photoB64, photoMime, prompt, size, logo, quality
       resp.on('end', () => {
         try {
           const j = JSON.parse(data);
-          if (j.error) { res.status(500).json({ error: 'OpenAI: ' + (j.error.message || 'error') }); return resolve(); }
+          if (j.error) return resolve({ error: `OpenAI (${model}): ` + (j.error.message || 'error') });
           const b64 = j?.data?.[0]?.b64_json;
-          if (!b64) { res.status(500).json({ error: 'OpenAI sin imagen: ' + data.substring(0, 200) }); return resolve(); }
-          res.status(200).json({ url: 'data:image/png;base64,' + b64, engine: 'gpt-image-1', brief: brief || null });
-          resolve();
-        } catch (e) { res.status(500).json({ error: 'Parse OpenAI: ' + e.message }); resolve(); }
+          if (!b64) return resolve({ error: `OpenAI (${model}) sin imagen: ` + data.substring(0, 200) });
+          resolve({ b64, model });
+        } catch (e) { resolve({ error: 'Parse OpenAI: ' + e.message }); }
       });
     });
-    r.on('error', (e) => { res.status(500).json({ error: 'OpenAI request: ' + e.message }); resolve(); });
-    r.setTimeout(56000, () => { r.destroy(); res.status(500).json({ error: 'La imagen en calidad alta tardó demasiado (límite de Vercel). Probá de nuevo o usá el Cartel Pro.' }); resolve(); });
+    r.on('error', (e) => resolve({ error: 'OpenAI request: ' + e.message }));
+    r.setTimeout(56000, () => { r.destroy(); resolve({ timeout: true, error: 'La imagen en calidad alta tardó demasiado (límite de Vercel). Probá de nuevo o usá el Cartel Pro.' }); });
     r.write(body); r.end();
   });
 }
@@ -390,19 +414,50 @@ function geminiCall(res, GK, path, body, kind, note) {
 }
 
 // ============================================================================
-// VIDEO con Google Veo (imagen->video, asíncrono). ~8s por clip (máx de Veo 3).
-// Costo aparte por segundo (cuenta de Google del proyecto).
+// VIDEO (imagen->video, asíncrono). Costo aparte (cuenta de Google del proyecto).
+// Google apagó Veo 3.1 Preview el 22/10/2026; el reemplazo en la Gemini API es
+// Gemini Omni Flash (gemini-omni-1.1-flash) vía la Interactions API.
+// Se usa en modo background: se crea la interacción y el front hace poll.
+// Si Omni no está disponible con la clave, se prueban los modelos Veo viejos.
 // ============================================================================
 const VEO_HOST = 'generativelanguage.googleapis.com';
-// Candidatos de modelo Veo (el que exista con la clave se usa; el 1º que ande).
+const OMNI_MODEL = 'gemini-omni-1.1-flash';
+const INTERACTIONS_REVISION = '2026-05-20';
+// Candidatos de modelo Veo (respaldo; el 1º que ande).
 const VEO_MODELS = [
-  'veo-3.1-generate-preview',
-  'veo-3.1-fast-generate-preview',
-  'veo-3.0-generate-preview',
-  'veo-3.0-fast-generate-preview',
   'veo-3.0-generate-001',
+  'veo-3.0-fast-generate-001',
   'veo-2.0-generate-001',
 ];
+const VIDEO_PROMPT = 'Camara fija. Zoom in lento y sutil hacia el producto, destellos metalicos, pequenas particulas de polvo flotando en la luz. El texto y el logo quedan quietos y nitidos. Estilo publicitario premium.';
+// Errores de "modelo inexistente / dado de baja" -> probar el siguiente.
+const MODEL_GONE = /not found|not supported|does not exist|NOT_FOUND|unsupported|no longer available/i;
+
+// Request JSON contra la Interactions API (auth por header, no por ?key=).
+function omniReq(GK, path, method, body) {
+  return new Promise((resolve) => {
+    const headers = { 'x-goog-api-key': GK, 'Api-Revision': INTERACTIONS_REVISION, 'Content-Type': 'application/json' };
+    if (body) headers['Content-Length'] = Buffer.byteLength(body);
+    const r = https.request({ hostname: VEO_HOST, path, method, headers }, (resp) => {
+      let data = ''; resp.on('data', c => data += c);
+      resp.on('end', () => { let parsed = {}; try { parsed = JSON.parse(data); } catch {} resolve({ status: resp.statusCode, parsed, raw: data }); });
+    });
+    r.on('error', (e) => resolve({ status: 0, parsed: { error: { message: 'Request error: ' + e.message } }, raw: '' }));
+    r.setTimeout(58000, () => { r.destroy(); resolve({ status: 0, parsed: { error: { message: 'Timeout Omni' } }, raw: '' }); });
+    if (body) r.write(body); r.end();
+  });
+}
+
+// Busca el bloque {type:'video', data|uri} en la respuesta (está dentro de `steps`).
+function findVideo(node) {
+  if (!node || typeof node !== 'object') return null;
+  if (node.type === 'video' && (node.data || node.uri)) return node;
+  for (const v of Object.values(node)) {
+    const f = findVideo(v);
+    if (f) return f;
+  }
+  return null;
+}
 
 // Request JSON simple (promisificado) contra generativelanguage.
 function veoReq(GK, path, method, body) {
@@ -430,29 +485,47 @@ async function veoStart(res, GK, body) {
   const { imageB64, imageMime, prompt, aspectRatio } = body || {};
   if (!imageB64) return res.status(400).json({ error: 'Falta la imagen del cartel' });
   const ar = (aspectRatio === '16:9') ? '16:9' : '9:16';
+
+  // 1) Gemini Omni Flash (Interactions API, en background).
+  const omniBody = JSON.stringify({
+    model: OMNI_MODEL,
+    input: [
+      { type: 'image', data: imageB64, mime_type: imageMime || 'image/png' },
+      { type: 'text', text: prompt || VIDEO_PROMPT },
+    ],
+    response_format: { type: 'video', aspect_ratio: ar },
+    background: true,
+  });
+  const o = await omniReq(GK, '/v1beta/interactions', 'POST', omniBody);
+  if (o.parsed?.id) return res.status(200).json({ ok: true, operation: 'interactions/' + o.parsed.id, model: OMNI_MODEL });
+  const omniErr = o.parsed?.error?.message || (o.raw || '').slice(0, 160);
+  if (!MODEL_GONE.test(omniErr)) return res.status(500).json({ error: 'Gemini Omni: ' + omniErr });
+
+  // 2) Respaldo: modelos Veo (predictLongRunning).
   const reqBody = JSON.stringify({
     instances: [{
-      prompt: prompt || 'Camara fija. Zoom in lento y sutil hacia el producto, destellos metalicos, pequenas particulas de polvo flotando en la luz. El texto y el logo quedan quietos y nitidos. Estilo publicitario premium.',
+      prompt: prompt || VIDEO_PROMPT,
       image: { bytesBase64Encoded: imageB64, mimeType: imageMime || 'image/png' },
     }],
     parameters: { aspectRatio: ar, personGeneration: 'allow_adult' },
   });
-  let lastErr = '';
+  let lastErr = omniErr;
   for (const m of VEO_MODELS) {
     const { parsed, raw } = await veoReq(GK, `/v1beta/models/${m}:predictLongRunning?key=${GK}`, 'POST', reqBody);
     if (parsed?.name) return res.status(200).json({ ok: true, operation: parsed.name, model: m });
     const msg = parsed?.error?.message || (raw || '').slice(0, 160);
     lastErr = msg;
     // Si es que ese modelo no existe/no soporta el método -> probar el siguiente.
-    if (/not found|not supported|does not exist|NOT_FOUND|unsupported/i.test(msg)) continue;
+    if (MODEL_GONE.test(msg)) continue;
     // Otro error (permiso, facturación, cuota) -> cortar y reportarlo.
     return res.status(500).json({ error: 'Veo: ' + msg });
   }
-  return res.status(500).json({ error: 'Ningún modelo Veo disponible con tu clave/proyecto. Último error: ' + lastErr });
+  return res.status(500).json({ error: 'Ningún modelo de video disponible con tu clave/proyecto. Último error: ' + lastErr });
 }
 
-function veoPoll(res, GK, operation) {
-  if (!operation) { res.status(400).json({ error: 'Falta operation' }); return Promise.resolve(); }
+async function veoPoll(res, GK, operation) {
+  if (!operation) return res.status(400).json({ error: 'Falta operation' });
+  if (String(operation).startsWith('interactions/')) return omniPoll(res, GK, operation);
   const path = '/v1beta/' + String(operation).replace(/^\/+/, '') + `?key=${GK}`;
   return veoHttp(res, { host: VEO_HOST, path, method: 'GET' }, async (parsed, raw) => {
     if (parsed?.error) return res.status(500).json({ error: parsed.error.message || 'Veo poll error' });
@@ -471,6 +544,23 @@ function veoPoll(res, GK, operation) {
       return res.status(200).json({ done: true, uri, warn: e.message });
     }
   });
+}
+
+async function omniPoll(res, GK, operation) {
+  const { parsed, raw } = await omniReq(GK, '/v1beta/' + operation, 'GET');
+  if (parsed?.error) return res.status(500).json({ error: 'Gemini Omni: ' + (parsed.error.message || 'error') });
+  const st = parsed?.status;
+  if (!st) return res.status(500).json({ error: 'Gemini Omni: respuesta inesperada: ' + (raw || '').slice(0, 200) });
+  if (st === 'in_progress' || st === 'requires_action') return res.status(200).json({ done: false });
+  if (st !== 'completed') return res.status(500).json({ error: 'Gemini Omni: el video terminó con estado ' + st });
+  const v = findVideo(parsed.steps || parsed);
+  if (!v) return res.status(500).json({ error: 'Video listo pero sin datos: ' + JSON.stringify(parsed).slice(0, 300) });
+  if (v.data) return res.status(200).json({ done: true, url: 'data:' + (v.mime_type || 'video/mp4') + ';base64,' + v.data });
+  try {
+    return res.status(200).json({ done: true, url: await veoDownload(v.uri, GK) });
+  } catch (e) {
+    return res.status(200).json({ done: true, uri: v.uri, warn: e.message });
+  }
 }
 
 function veoDownload(uri, GK, redirects = 5) {
