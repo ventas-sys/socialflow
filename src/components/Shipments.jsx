@@ -132,6 +132,7 @@ export default function Shipments({
   diasEnvios = 35, // ventana que se trae al abrir (ver traerEnvios en App.jsx)
   enviosCompletos = true, cargandoEnvios = false, onLoadAllShipments,
   avisoEnvios = '', // por qué hubo que traer el listado completo (vacío = normal)
+  pasoCarga = '', // en qué paso va la carga inicial (para cuando no viene nada)
   onFetchRegistroEnvios, onBorrarEnvios, // registro en Excel y limpieza de los de correo
   tarifas, onSaveTarifas, // lo que se le paga al motoquero por zona, por vigencia
 }) {
@@ -800,6 +801,17 @@ export default function Shipments({
       {!syncing && syncMsg && <div className={`ship-sync-msg ${syncMsg.startsWith('✅') ? 'ok' : 'warn'}`}>{syncMsg}</div>}
       {avisoEnvios && (
         <div className="ship-sync-msg warn">⚠️ Envíos: {avisoEnvios}</div>
+      )}
+      {/* Si el tablero está vacío hay que poder ver si es que no hay envíos o
+          si la carga se quedó colgada en algún paso. Sin esto, las dos cosas
+          se ven igual: todo en cero y sin ningún cartel. */}
+      {allShipments && allShipments.length === 0 && (
+        <div className="ship-sync-msg warn">
+          🔎 {pasoCarga === 'listo'
+            ? 'La carga terminó y no vino ningún envío.'
+            : `La carga se quedó en: ${pasoCarga || 'empezando'}…`}
+          {' '}Motoqueros: {couriers.length}.
+        </div>
       )}
 
       <div className="ship-viewtabs">

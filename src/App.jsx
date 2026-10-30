@@ -123,6 +123,10 @@ export default function App() {
   const [accessDenied, setAccessDenied] = useState(false)
   // Motivo por el que la carga inicial falló, para poder verlo en el celular
   const [errorCarga, setErrorCarga] = useState('')
+  // En qué paso va la carga. Cuando algo no viene y TAMPOCO falla (Firestore
+  // con mala conexión se queda esperando, no da error), esto es lo único que
+  // dice dónde se quedó. Se muestra en Envíos cuando el tablero está vacío.
+  const [pasoCarga, setPasoCarga] = useState('')
   const [members, setMembers] = useState([])
   // Pedido de edición de un combo desde la pestaña Inventario
   const [comboEditRequest, setComboEditRequest] = useState(null)
@@ -382,6 +386,7 @@ export default function App() {
     setLoadingData(true)
     setAccessDenied(false)
     setErrorCarga('')
+    setPasoCarga('empezando')
     movsPedidos.current = false
     setEnviosCompletos(false)
     try {
@@ -393,6 +398,7 @@ export default function App() {
       // Es una lectura de UN documento chiquito: va antes que nada y aparte.
       if (currentUser.email !== ADMIN_EMAIL) {
         try {
+          setPasoCarga('permisos')
           const me = await getDoc(doc(db, 'members', currentUser.email.toLowerCase()))
           // Sin doc de permisos ve todo, por compatibilidad con los miembros
           // viejos; eso es una decisión, no un error.
@@ -438,6 +444,7 @@ export default function App() {
           return false
         }
       }
+      setPasoCarga('caché del dispositivo')
       const pintoDesdeCache = await desdeCache()
 
       // Inventario y ajustes. Aparte del resto por dos motivos:
@@ -472,6 +479,7 @@ export default function App() {
           if (!pintoDesdeCache) throw e
         }
       }
+      setPasoCarga(pintoDesdeCache ? 'inventario (por atrás)' : 'inventario')
       if (pintoDesdeCache) traerInventario()
       else await traerInventario()
 
@@ -480,6 +488,7 @@ export default function App() {
       // Cada uno en su try: un error trayendo los envíos no tiene por qué dejar
       // el tablero sin motoqueros (ni al revés)
       try {
+        setPasoCarga('envíos')
         setShipments(await traerEnvios(false))
         setEnviosCompletos(!!motivoEnviosCompletos)
         setAvisoEnvios(motivoEnviosCompletos)
@@ -490,7 +499,9 @@ export default function App() {
         setAvisoEnvios(`no se pudieron traer: ${err?.code || err?.message || err}`)
       }
       try {
-        const couriersSnap = await getDocs(query(collection(db, 'couriers'), where('userId', '==', ORG_ID)))
+        setPasoCarga('motoqueros')
+        const couriersSnap = await conLimite(
+          getDocs(query(collection(db, 'couriers'), where('userId', '==', ORG_ID))), 25000, 'los motoqueros')
         setCouriers(couriersSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       } catch (err) {
         console.warn('Motoqueros no disponibles (¿faltan reglas?):', err?.code)
@@ -548,6 +559,7 @@ export default function App() {
         setAccessDenied(true)
       }
     } finally {
+      setPasoCarga('listo')
       setLoadingData(false)
     }
   }
@@ -1446,6 +1458,7 @@ export default function App() {
                 enviosCompletos={enviosCompletos}
                 cargandoEnvios={cargandoEnvios}
                 avisoEnvios={avisoEnvios}
+                pasoCarga={pasoCarga}
                 onLoadAllShipments={loadAllShipments}
                 onFetchRegistroEnvios={fetchRegistroEnvios}
                 onBorrarEnvios={borrarEnvios}
