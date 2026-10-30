@@ -414,19 +414,50 @@ function geminiCall(res, GK, path, body, kind, note) {
 }
 
 // ============================================================================
-// VIDEO con Google Veo (imagen->video, asíncrono). ~8s por clip (máx de Veo 3).
-// Costo aparte por segundo (cuenta de Google del proyecto).
+// VIDEO (imagen->video, asíncrono). Costo aparte (cuenta de Google del proyecto).
+// Google apagó Veo 3.1 Preview el 22/10/2026; el reemplazo en la Gemini API es
+// Gemini Omni Flash (gemini-omni-1.1-flash) vía la Interactions API.
+// Se usa en modo background: se crea la interacción y el front hace poll.
+// Si Omni no está disponible con la clave, se prueban los modelos Veo viejos.
 // ============================================================================
 const VEO_HOST = 'generativelanguage.googleapis.com';
-// Candidatos de modelo Veo (el que exista con la clave se usa; el 1º que ande).
+const OMNI_MODEL = 'gemini-omni-1.1-flash';
+const INTERACTIONS_REVISION = '2026-05-20';
+// Candidatos de modelo Veo (respaldo; el 1º que ande).
 const VEO_MODELS = [
-  'veo-3.1-generate-preview',
-  'veo-3.1-fast-generate-preview',
-  'veo-3.0-generate-preview',
-  'veo-3.0-fast-generate-preview',
   'veo-3.0-generate-001',
+  'veo-3.0-fast-generate-001',
   'veo-2.0-generate-001',
 ];
+const VIDEO_PROMPT = 'Camara fija. Zoom in lento y sutil hacia el producto, destellos metalicos, pequenas particulas de polvo flotando en la luz. El texto y el logo quedan quietos y nitidos. Estilo publicitario premium.';
+// Errores de "modelo inexistente / dado de baja" -> probar el siguiente.
+const MODEL_GONE = /not found|not supported|does not exist|NOT_FOUND|unsupported|no longer available/i;
+
+// Request JSON contra la Interactions API (auth por header, no por ?key=).
+function omniReq(GK, path, method, body) {
+  return new Promise((resolve) => {
+    const headers = { 'x-goog-api-key': GK, 'Api-Revision': INTERACTIONS_REVISION, 'Content-Type': 'application/json' };
+    if (body) headers['Content-Length'] = Buffer.byteLength(body);
+    const r = https.request({ hostname: VEO_HOST, path, method, headers }, (resp) => {
+      let data = ''; resp.on('data', c => data += c);
+      resp.on('end', () => { let parsed = {}; try { parsed = JSON.parse(data); } catch {} resolve({ status: resp.statusCode, parsed, raw: data }); });
+    });
+    r.on('error', (e) => resolve({ status: 0, parsed: { error: { message: 'Request error: ' + e.message } }, raw: '' }));
+    r.setTimeout(58000, () => { r.destroy(); resolve({ status: 0, parsed: { error: { message: 'Timeout Omni' } }, raw: '' }); });
+    if (body) r.write(body); r.end();
+  });
+}
+
+// Busca el bloque {type:'video', data|uri} en la respuesta (está dentro de `steps`).
+function findVideo(node) {
+  if (!node || typeof node !== 'object') return null;
+  if (node.type === 'video' && (node.data || node.uri)) return node;
+  for (const v of Object.values(node)) {
+    const f = findVideo(v);
+    if (f) return f;
+  }
+  return null;
+}
 
 // Request JSON simple (promisificado) contra generativelanguage.
 function veoReq(GK, path, method, body) {
@@ -454,29 +485,47 @@ async function veoStart(res, GK, body) {
   const { imageB64, imageMime, prompt, aspectRatio } = body || {};
   if (!imageB64) return res.status(400).json({ error: 'Falta la imagen del cartel' });
   const ar = (aspectRatio === '16:9') ? '16:9' : '9:16';
+
+  // 1) Gemini Omni Flash (Interactions API, en background).
+  const omniBody = JSON.stringify({
+    model: OMNI_MODEL,
+    input: [
+      { type: 'image', data: imageB64, mime_type: imageMime || 'image/png' },
+      { type: 'text', text: prompt || VIDEO_PROMPT },
+    ],
+    response_format: { type: 'video', aspect_ratio: ar },
+    background: true,
+  });
+  const o = await omniReq(GK, '/v1beta/interactions', 'POST', omniBody);
+  if (o.parsed?.id) return res.status(200).json({ ok: true, operation: 'interactions/' + o.parsed.id, model: OMNI_MODEL });
+  const omniErr = o.parsed?.error?.message || (o.raw || '').slice(0, 160);
+  if (!MODEL_GONE.test(omniErr)) return res.status(500).json({ error: 'Gemini Omni: ' + omniErr });
+
+  // 2) Respaldo: modelos Veo (predictLongRunning).
   const reqBody = JSON.stringify({
     instances: [{
-      prompt: prompt || 'Camara fija. Zoom in lento y sutil hacia el producto, destellos metalicos, pequenas particulas de polvo flotando en la luz. El texto y el logo quedan quietos y nitidos. Estilo publicitario premium.',
+      prompt: prompt || VIDEO_PROMPT,
       image: { bytesBase64Encoded: imageB64, mimeType: imageMime || 'image/png' },
     }],
     parameters: { aspectRatio: ar, personGeneration: 'allow_adult' },
   });
-  let lastErr = '';
+  let lastErr = omniErr;
   for (const m of VEO_MODELS) {
     const { parsed, raw } = await veoReq(GK, `/v1beta/models/${m}:predictLongRunning?key=${GK}`, 'POST', reqBody);
     if (parsed?.name) return res.status(200).json({ ok: true, operation: parsed.name, model: m });
     const msg = parsed?.error?.message || (raw || '').slice(0, 160);
     lastErr = msg;
     // Si es que ese modelo no existe/no soporta el método -> probar el siguiente.
-    if (/not found|not supported|does not exist|NOT_FOUND|unsupported/i.test(msg)) continue;
+    if (MODEL_GONE.test(msg)) continue;
     // Otro error (permiso, facturación, cuota) -> cortar y reportarlo.
     return res.status(500).json({ error: 'Veo: ' + msg });
   }
-  return res.status(500).json({ error: 'Ningún modelo Veo disponible con tu clave/proyecto. Último error: ' + lastErr });
+  return res.status(500).json({ error: 'Ningún modelo de video disponible con tu clave/proyecto. Último error: ' + lastErr });
 }
 
-function veoPoll(res, GK, operation) {
-  if (!operation) { res.status(400).json({ error: 'Falta operation' }); return Promise.resolve(); }
+async function veoPoll(res, GK, operation) {
+  if (!operation) return res.status(400).json({ error: 'Falta operation' });
+  if (String(operation).startsWith('interactions/')) return omniPoll(res, GK, operation);
   const path = '/v1beta/' + String(operation).replace(/^\/+/, '') + `?key=${GK}`;
   return veoHttp(res, { host: VEO_HOST, path, method: 'GET' }, async (parsed, raw) => {
     if (parsed?.error) return res.status(500).json({ error: parsed.error.message || 'Veo poll error' });
@@ -495,6 +544,23 @@ function veoPoll(res, GK, operation) {
       return res.status(200).json({ done: true, uri, warn: e.message });
     }
   });
+}
+
+async function omniPoll(res, GK, operation) {
+  const { parsed, raw } = await omniReq(GK, '/v1beta/' + operation, 'GET');
+  if (parsed?.error) return res.status(500).json({ error: 'Gemini Omni: ' + (parsed.error.message || 'error') });
+  const st = parsed?.status;
+  if (!st) return res.status(500).json({ error: 'Gemini Omni: respuesta inesperada: ' + (raw || '').slice(0, 200) });
+  if (st === 'in_progress' || st === 'requires_action') return res.status(200).json({ done: false });
+  if (st !== 'completed') return res.status(500).json({ error: 'Gemini Omni: el video terminó con estado ' + st });
+  const v = findVideo(parsed.steps || parsed);
+  if (!v) return res.status(500).json({ error: 'Video listo pero sin datos: ' + JSON.stringify(parsed).slice(0, 300) });
+  if (v.data) return res.status(200).json({ done: true, url: 'data:' + (v.mime_type || 'video/mp4') + ';base64,' + v.data });
+  try {
+    return res.status(200).json({ done: true, url: await veoDownload(v.uri, GK) });
+  } catch (e) {
+    return res.status(200).json({ done: true, uri: v.uri, warn: e.message });
+  }
 }
 
 function veoDownload(uri, GK, redirects = 5) {
