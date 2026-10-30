@@ -3,9 +3,9 @@
 **ÚNICA fuente de verdad del proyecto. Leer entera antes de tocar nada.**
 Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/socialflow
 
-## 📍 ESTADO AL 28/10/2026 — arrancar por acá
+## 📍 ESTADO AL 30/10/2026 — arrancar por acá
 
-Último commit: ver `git log` (28/10: arreglo de "Ver saldos"). Todo desplegado y verde en los dos proyectos de Vercel.
+Último commit: ver `git log` (30/10: el registro de envíos en Excel). Todo desplegado y verde en los dos proyectos de Vercel.
 
 **🔴 LO MÁS IMPORTANTE ABIERTO — la cuota de Vercel (ver punto 23).** No es de esta app, pero la puede dejar sin servicio. Quedó en manos de OTRO chat, el que maneja el proyecto viejo `socialflow`. **No retomarlo acá salvo que el usuario lo traiga.**
 
@@ -29,7 +29,12 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
 
 **El saldo de Mercado Pago dejó de estar congelado** (lo retomó él el 25/10). Ver el punto 30: FERRE resuelto, FULL hay que prenderlo desde el panel web de MP. El bug de "Ver saldos" que tildaba la app se arregló el 28/10 (30f). La ingeniería inversa a Real Trends está descartada y no se vuelve a ofrecer.
 
-**De código no queda nada abierto.** El 29/10 se arregló lo que trababa los celulares del depósito (punto 31) — **falta que el usuario lo confirme con `redes`**; en su PC el tablero anda (30/10: Motoqueros 3, 1.089 envíos en 7 días). Si alguna vez aparece el cartel amarillo *"Se trajo el listado completo de envíos — …"*, el motivo que dice ahí es la causa de fondo que quedó sin identificar.
+**Lo del 29-30/10 (puntos 31 y 32), que es lo último y lo más fresco:**
+- Se arregló lo que **trababa los celulares del depósito**: la app bajaba el histórico entero en cada apertura. **Falta que lo confirme con `redes` en el celular**; en su PC anda (30/10: Motoqueros 3, 1.089 envíos en 7 días).
+- Ese mismo cambio **dejó el tablero en 0 por unas horas** y el usuario dijo *"No rompas nada d lo q funciona"*. Ya está arreglado con fallback al listado completo. **La causa de fondo sigue sin identificar**: si aparece el cartel amarillo *"Se trajo el listado completo de envíos — …"*, **el motivo que dice ahí ES la causa — pedirle la foto**.
+- Los **envíos de correo se borran a los 15 días**, con el Excel de registro antes. Corrido el 30/10: **2.610 borrados**. El usuario cerró con *"listo ahora si"*.
+
+**De código no queda nada abierto.**
 
 **NO recrear los check-ins automáticos del PR.** Se le mandaban cada 8-10 horas diciendo "Sin cambios. Re-armado." y el 25/9 los marcó como ruido ("Q es esto q estas repitiendo"). Se borraron. Avisar de los deploys sólo cuando hay algo que probar, y en una línea.
 
@@ -262,14 +267,21 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
     - **Después de un sync que no escribió nada ya no se recarga el tablero** (`escribio` en `syncFromML`).
     - **Servidor** (`api/ml/envios.js`): leía la colección entera en cada corrida; ahora los últimos 60 días más los no cerrados.
     Las consultas nuevas son **todas por un solo campo** (`createdAt >=` y `status in [...]`), así que **no hacen falta índices compuestos** — mismo criterio que ya se usaba con los movimientos. Verificado en producción después del deploy: el sync responde 200 y sigue creando/archivando (32s, que son las llamadas a ML, no Firestore).
-    **Efecto conocido:** un paquete **de correo de más de 35 días** ya no aparece al escanearlo en Empaque (los FLEX activos sí, siempre). Se le avisó.
-    **Pendiente, ofrecido y NO autorizado:** borrar los envíos **de correo** con más de 30 días en cada sync (~700 por semana que sólo sirven unos días en Empaque). Es un borrado: no hacerlo sin que lo pida.
+    **🔴 Y ESE MISMO CAMBIO ROMPIÓ EL TABLERO (29/10, mismo día).** El usuario abrió Envíos con `redes` y le quedó **todo en 0, motoqueros incluidos**: *"Peor no sale nada"*, y después *"No rompas nada d lo q funciona"*. La consulta corta no trajo nada en esa sesión, y como los motoqueros compartían el mismo `try/catch` se fueron al vacío junto con los envíos.
+    **Arreglo (commit `6722a15`) — la regla que quedó:** *mejor lento que vacío*. Si la consulta corta falla **o vuelve vacía**, `traerEnvios` cae al listado completo de siempre; los motoqueros se traen en su propio `try`; y cuando hubo que caer se muestra en pantalla un cartel amarillo con el motivo (`motivoEnviosCompletos` → prop `avisoEnvios`), para poder leerlo desde el celular.
+    **La causa de fondo NO se identificó.** Descartado: las dos consultas (`createdAt >=` y `status in`) corren bien en el servidor con el usuario cron, así que **no es índice**. Quedaban como candidatos `permission-denied`, `resource-exhausted` (cuota diaria de lecturas de Firestore — ojo si el proyecto está en plan Spark) y `unavailable`. **Si alguna vez aparece el cartel amarillo, lo que dice al final ES la causa: pedirle la foto.** En la PC del usuario el tablero anda bien (30/10: Motoqueros 3, 1.089 envíos en 7 días); falta que lo confirme en el celular de `redes`.
+    **Lección:** una optimización de lectura nunca puede dejar la pantalla vacía. Siempre fallback al camino viejo, y nunca compartir un `try/catch` entre dos cosas que no dependen una de la otra.
 
 32. **📮 30/10 — los envíos de CORREO se borran a los 15 días, con registro.** Pedido del usuario: *"borra los de correo viejos. de echo los q tienen mas de 15 dias no hace falta guardarlo. lo q podes hacer es un exel de registro para futuras opciones de zonas donde mas tenemos envios y nombre de usuario"*. Eran ~700 por semana que entraban ya archivados (sólo los usa Empaquetado al escanear) y quedaban para siempre.
-    - **Botón 📮 "Registro de correo"** (violeta, SOLO admin, en Envíos → 📊 Reporte). Trae TODOS los de correo que haya en la base, baja `registro-correo-<fecha>.xlsx` con tres hojas —**detalle** (fecha, código, cuenta, destinatario, localidad, dirección, artículos, seguimiento), **por localidad** y **histórico por mes**— y RECIÉN DESPUÉS pregunta si borra los de más de 15 días, diciendo cuántos son y cuántos quedan.
+    - **Botón 📥 "Registro de envíos"** (violeta, SOLO admin, en Envíos → 📊 Reporte). Baja `registro-envios-<fecha>.xlsx` con tres hojas: **Envíos** (TODOS los de la base, con Canal FLEX/CORREO, Cuenta, Código, Destinatario, Localidad, Zona, Dirección, Estado, Motoquero, Artículos, Seguimiento), **Por localidad** (FLEX y correo en columnas separadas + total) y **Correo borrado por mes** (el histórico del servidor). RECIÉN DESPUÉS pregunta si borra los **de correo** de más de 15 días — los FLEX no se tocan nunca.
+      **Nació mal y se corrigió el mismo día:** la primera versión exportaba SÓLO los de correo (son los únicos que se borran) y el usuario avisó: *"no me trajo ningun flex de ninguna cuenta, solo los correos de FERRE"*. Para mirar zonas y clientes los FLEX son el grueso, así que ahora van todos.
     - **Purga automática** en `api/ml/envios.js` (`DIAS_CORREO = 15`): antes de borrar suma localidad y cuenta al resumen mensual de **`settings/correoResumen`** (últimos 24 meses), así el dato de dónde enviamos más no se pierde aunque nadie baje el Excel. **Si el resumen falla NO se borra nada y el sync sigue andando** (`summary.correoError`).
     - **Corrido el 30/10: 2.610 envíos de correo borrados** y el Excel bajado. Había un corte `PURGA_DESDE` para que el automático no se llevara el backlog antes de que el usuario tuviera el Excel; cumplido eso, se sacó y ahora la purga corre pareja.
-    - **Lo que hay que decirle:** el **detalle** (destinatario, dirección, artículos) sólo sale de ese botón y sólo de los últimos 15 días, así que si lo quiere guardar tiene que bajar el Excel cada tanto. La **localidad y la cuenta** sí quedan para siempre solas.
+    - **Lo que hay que decirle:** el **detalle** (destinatario, dirección, artículos) de los de CORREO sólo sale de ese botón y sólo de los últimos 15 días, así que si lo quiere guardar tiene que bajar el Excel cada tanto (con una vez por mes alcanza). La **localidad y la cuenta** sí quedan para siempre solas. Los FLEX no se borran nunca.
+    - **📊 Cuánto entra por cuenta (medido el 30/10, últimos 7 días, `summary.porCuenta` del sync).** Se instrumentó justamente para no contestar de memoria:
+      · **FULL**: 3.000 ventas = 598 FLEX + **1 de correo** + 2.401 por bodega Full + 0 otros.
+      · **FERRE**: 1.185 ventas = 474 FLEX + 681 de correo + 0 Full + **30 "otros"**.
+      O sea: **que casi no entren correos de FULL es correcto, no es un bug** — esa cuenta despacha ~80% por bodega y el resto por FLEX. Los FLEX sí entran de las dos cuentas. **Quedó ofrecido y sin respuesta:** mirar qué son los 30 "otros" de FERRE (ni FLEX, ni correo, ni Full — probablemente retiro en sucursal o sin envío); no entran al tablero ni a Empaque.
 
 ## Reglas de negocio clave (definidas por el usuario)
 - Stock: descuenta TODO lo despachado desde el depósito propio (FLEX+correo/colecta+ventas sin envío de ML), NUNCA `fulfillment` (Full ya salió al enviarse a bodega). Igual para ambas cuentas. 2 veces/día (13 y 18hs AR). Stock puede quedar negativo. **Clasificación explícita desde el 28/8** (`clasificar`/`descuenta` en api/ml/cron.js): la regla vieja era "todo lo que no sea fulfillment descuenta", así que si fallaba el pedido del envío a ML el tipo quedaba nulo y la venta se descontaba igual — incluidas las de Full — y además no se miraba el estado de la orden (canceladas y sin cobrar también descontaban; caso real: 771 Full + 60 canceladas en 48hs de la cuenta FULL). Ahora: descuentan flex (`self_service`) + correo (`drop_off`/`xd_drop_off`/`cross_docking`) + sin envío, con estado `paid`/`partially_paid`; NO descuentan Full, canceladas/inválidas, sin cobrar (quedan para la corrida siguiente) ni las de tipo desconocido (se reintenta el pedido a ML y si igual no se sabe NO se descuenta: preferimos que falte un descuento antes que descontar una de Full). El resumen del botón "Probar automático ahora" muestra el desglose. Verificado 28/8 en producción: FULL 168 flex + 2 correo (771 Full salteadas — es correcto, ~98% de esa cuenta va por bodega), FERRE 103 flex + 83 correo + 6 sin envío.
