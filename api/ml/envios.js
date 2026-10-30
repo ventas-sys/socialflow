@@ -31,6 +31,21 @@ const H48 = 48 * 3600 * 1000;
 // la cuenta sí quedan para siempre en settings/correoResumen.
 const DIAS_CORREO = 15;
 
+// Cada cuánto puede correr la sincronización, según la hora argentina y cuándo
+// se trabaja de verdad (definido por el usuario el 30/10): 9-13hs cada 10 min ·
+// 13-18hs cada 30 min · 18-9hs cada 5 horas. Fuera del horario pesado no tiene
+// sentido pagar lecturas cada 15 minutos.
+// ⚠️ El cliente tiene la MISMA tabla en src/components/Shipments.jsx
+// (syncDelayMs): si se cambia una hay que cambiar la otra.
+const cadenciaMs = () => {
+  const h = Number(new Intl.DateTimeFormat('es-AR', {
+    timeZone: 'America/Argentina/Buenos_Aires', hour: 'numeric', hour12: false,
+  }).format(new Date())) % 24;
+  if (h >= 9 && h < 13) return 10 * 60 * 1000;
+  if (h >= 13 && h < 18) return 30 * 60 * 1000;
+  return 5 * 3600 * 1000;
+};
+
 // Localidad y provincia salen de la dirección que arma ML:
 // "<calle y número>, <ciudad>, <provincia>"
 const partesDir = (dir) => String(dir || '').split(',').map(x => x.trim()).filter(Boolean);
@@ -104,12 +119,13 @@ export default async function handler(req, res) {
     await signInWithEmailAndPassword(getAuth(app), process.env.CRON_EMAIL, process.env.CRON_PASSWORD);
     const db = getFirestore(app);
 
-    // Candado: manual (force) respeta 90s; automático, 15 minutos.
+    // Candado: manual (force) respeta 90s; automático, lo que diga la cadencia
+    // de la hora (ver cadenciaMs arriba).
     const force = !!req.body?.force;
     const guardRef = doc(db, 'settings', 'enviosSync');
     const guard = await getDoc(guardRef);
     const last = guard.exists() ? toMillis(guard.data().lastRunAt) : 0;
-    const minGap = (force ? 90 : 15 * 60) * 1000;
+    const minGap = force ? 90 * 1000 : cadenciaMs();
     if (Date.now() - last < minGap) {
       return res.status(200).json({ ok: true, skipped: true, summary: guard.data()?.lastSummary || null });
     }
@@ -125,14 +141,14 @@ export default async function handler(req, res) {
     //  · CORRIENTE (cada 15 min): sólo lee el índice de ya importados —UN
     //    documento— y los envíos que siguen abiertos (unos cientos). Con eso
     //    alcanza para importar las ventas nuevas y refrescar estados.
-    //  · MANTENIMIENTO (cada 3 horas, o si falta el índice): lee la ventana
+    //  · MANTENIMIENTO (cada 6 horas, o si falta el índice): lee la ventana
     //    de 20 días, rearma el índice, archiva los entregados viejos y borra
     //    los de correo cumplidos. Nada de eso necesita correr cada 15 min.
     const indiceRef = doc(db, 'settings', 'enviosImportados');
     const indiceSnap = await getDoc(indiceRef);
     const indice = indiceSnap.exists() ? (indiceSnap.data().ids || {}) : null;
     const ultimoMant = guard.exists() ? toMillis(guard.data().lastMantenimientoAt) : 0;
-    const mantenimiento = !indice || (Date.now() - ultimoMant > 3 * 3600 * 1000);
+    const mantenimiento = !indice || (Date.now() - ultimoMant > 6 * 3600 * 1000);
 
     const ACTIVOS = ['pendiente', 'armado', 'camino', 'demorado'];
     const ABIERTOS = [...ACTIVOS, 'entregado'];

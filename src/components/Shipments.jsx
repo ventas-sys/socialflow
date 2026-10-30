@@ -197,17 +197,18 @@ export default function Shipments({
     }
   }
 
-  // Frecuencia de actualización según la hora del día (hora argentina):
-  // 0-8hs cada 4hs · 8-10 cada 1h · 10-12 cada 15min · 12-18 cada 30min · 18-24 cada 3hs
+  // Cada cuánto se vuelve a preguntar por ventas nuevas, según la hora
+  // argentina y cuándo se trabaja de verdad (definido por el usuario el 30/10):
+  // 9-13hs cada 10 min · 13-18hs cada 30 min · 18-9hs cada 5 horas.
+  // ⚠️ El servidor tiene la MISMA tabla en api/ml/envios.js (cadenciaMs): si se
+  // cambia acá hay que cambiarla allá, si no el servidor rebota los pedidos.
   const syncDelayMs = () => {
     const h = Number(new Intl.DateTimeFormat('es-AR', {
       timeZone: 'America/Argentina/Buenos_Aires', hour: 'numeric', hour12: false,
-    }).format(new Date()))
-    if (h < 8) return 4 * 3600 * 1000
-    if (h < 10) return 3600 * 1000
-    if (h < 12) return 15 * 60 * 1000
-    if (h < 18) return 30 * 60 * 1000
-    return 3 * 3600 * 1000
+    }).format(new Date())) % 24
+    if (h >= 9 && h < 13) return 10 * 60 * 1000
+    if (h >= 13 && h < 18) return 30 * 60 * 1000
+    return 5 * 3600 * 1000
   }
 
   // Al abrir la sección y después según el horario, traer las ventas de ML
