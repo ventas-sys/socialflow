@@ -132,7 +132,7 @@ export default function Shipments({
   diasEnvios = 35, // ventana que se trae al abrir (ver traerEnvios en App.jsx)
   enviosCompletos = true, cargandoEnvios = false, onLoadAllShipments,
   avisoEnvios = '', // por qué hubo que traer el listado completo (vacío = normal)
-  onFetchRegistroCorreo, onBorrarEnvios, // registro y limpieza de los de correo
+  onFetchRegistroEnvios, onBorrarEnvios, // registro en Excel y limpieza de los de correo
   tarifas, onSaveTarifas, // lo que se le paga al motoquero por zona, por vigencia
 }) {
   const mapRef = useRef(null)
@@ -668,55 +668,68 @@ export default function Shipments({
     XLSX.writeFile(wb, rangoFechas ? `envios-${desde}_a_${hasta}.xlsx` : `envios-${range}.xlsx`)
   }
 
-  // --- 📮 Registro de los envíos de correo ---
-  // Los de correo no van al tablero (sólo los encuentra Empaquetado al
-  // escanear) y el servidor los borra a los 15 días. Esto baja el Excel con el
-  // detalle que después ya no va a estar —destinatario, dirección, artículos—
-  // más el conteo por localidad y el histórico mensual que guarda el servidor,
-  // y ofrece limpiar de una los que ya pasaron los 15 días.
+  // --- 📥 Registro de envíos ---
+  // Baja a Excel TODO lo que hay en la base: los FLEX (que no se borran nunca)
+  // y los de CORREO (que el servidor borra a los 15 días, así que este archivo
+  // es el único lugar donde queda su detalle). Sirve para ver dónde enviamos
+  // más y quién compra. Al final ofrece limpiar los de correo cumplidos —
+  // NUNCA toca un FLEX.
   const DIAS_CORREO = 15
   const [registrando, setRegistrando] = useState(false)
   const localidadDe = (dir) => {
     const p = String(dir || '').split(',').map(x => x.trim()).filter(Boolean)
     return p.length > 1 ? p.slice(1).join(', ') : '— sin localidad —'
   }
+  const esCorreo = (s) => s.channel === 'correo'
+  const canalDe = (s) => (esCorreo(s) ? 'CORREO' : 'FLEX')
 
-  const registroCorreo = async () => {
-    if (registrando || !onFetchRegistroCorreo) return
+  const registroEnvios = async () => {
+    if (registrando || !onFetchRegistroEnvios) return
     setRegistrando(true)
-    setSyncMsg('⏳ Buscando los envíos de correo…')
+    setSyncMsg('⏳ Buscando todos los envíos…')
     try {
-      const { envios, meses } = await onFetchRegistroCorreo()
-      if (!envios.length) { setSyncMsg('ℹ️ No hay envíos de correo guardados.'); return }
+      const { envios, meses } = await onFetchRegistroEnvios()
+      if (!envios.length) { setSyncMsg('ℹ️ No hay envíos guardados.'); return }
+      const correos = envios.filter(esCorreo)
 
-      // Hoja 1: el detalle, que es lo que se pierde al borrarlos
-      const filas = [['Fecha', 'Código', 'Cuenta', 'Destinatario', 'Localidad', 'Dirección', 'Artículos', 'Seguimiento']]
+      // Hoja 1: el detalle de TODOS
+      const filas = [['Fecha', 'Canal', 'Cuenta', 'Código', 'Destinatario', 'Localidad', 'Zona',
+        'Dirección', 'Estado', 'Motoquero', 'Artículos', 'Seguimiento']]
       envios.forEach(s => filas.push([
         toMillis(s.createdAt) ? new Date(toMillis(s.createdAt)).toLocaleString('es-AR') : '',
-        s.code || '', (s.account || '').toUpperCase(), s.recipient || '',
-        localidadDe(s.address), s.address || '',
+        canalDe(s), (s.account || '').toUpperCase(), s.code || '', s.recipient || '',
+        localidadDe(s.address),
+        effZone(s) && ZONES[effZone(s)] ? ZONES[effZone(s)].label : '',
+        s.address || '',
+        STATUS[s.status || 'pendiente']?.label || '', s.courierName || '',
         (s.items || []).map(i => `${i.quantity || 1}× ${i.title || i.sku || ''}`).join(' · '),
         s.trackingNumber || '',
       ]))
       const ws = XLSX.utils.aoa_to_sheet(filas)
-      ws['!cols'] = [{ wch: 18 }, { wch: 14 }, { wch: 9 }, { wch: 26 }, { wch: 28 }, { wch: 46 }, { wch: 50 }, { wch: 16 }]
+      ws['!cols'] = [{ wch: 18 }, { wch: 9 }, { wch: 9 }, { wch: 14 }, { wch: 26 }, { wch: 28 },
+        { wch: 12 }, { wch: 46 }, { wch: 18 }, { wch: 18 }, { wch: 50 }, { wch: 16 }]
       const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Envíos de correo')
+      XLSX.utils.book_append_sheet(wb, ws, 'Envíos')
 
-      // Hoja 2: dónde enviamos más, con lo que todavía está en la base
+      // Hoja 2: dónde enviamos más, separando FLEX de correo
       const porLoc = new Map()
       envios.forEach(s => {
         const l = localidadDe(s.address)
-        porLoc.set(l, (porLoc.get(l) || 0) + 1)
+        const st = porLoc.get(l) || { flex: 0, correo: 0 }
+        if (esCorreo(s)) st.correo++; else st.flex++
+        porLoc.set(l, st)
       })
-      const locRows = [['Localidad', 'Envíos']]
-      ;[...porLoc.entries()].sort((a, b) => b[1] - a[1]).forEach(r => locRows.push(r))
+      const locRows = [['Localidad', 'FLEX', 'Correo', 'Total']]
+      ;[...porLoc.entries()]
+        .map(([l, st]) => [l, st.flex, st.correo, st.flex + st.correo])
+        .sort((a, b) => b[3] - a[3])
+        .forEach(r => locRows.push(r))
       const ws2 = XLSX.utils.aoa_to_sheet(locRows)
-      ws2['!cols'] = [{ wch: 34 }, { wch: 10 }]
+      ws2['!cols'] = [{ wch: 34 }, { wch: 8 }, { wch: 8 }, { wch: 8 }]
       XLSX.utils.book_append_sheet(wb, ws2, 'Por localidad')
 
-      // Hoja 3: el histórico que guarda el servidor de lo YA borrado
-      const hRows = [['Mes', 'Localidad', 'Envíos']]
+      // Hoja 3: el histórico que guarda el servidor de los de CORREO ya borrados
+      const hRows = [['Mes', 'Localidad', 'Envíos de correo']]
       Object.keys(meses || {}).sort().forEach(mes => {
         const m = meses[mes] || {}
         Object.entries(m.porLocalidad || {})
@@ -724,31 +737,33 @@ export default function Shipments({
           .forEach(([loc, n]) => hRows.push([mes, loc, n]))
       })
       const ws3 = XLSX.utils.aoa_to_sheet(hRows)
-      ws3['!cols'] = [{ wch: 10 }, { wch: 34 }, { wch: 10 }]
-      XLSX.utils.book_append_sheet(wb, ws3, 'Histórico por mes')
+      ws3['!cols'] = [{ wch: 10 }, { wch: 34 }, { wch: 16 }]
+      XLSX.utils.book_append_sheet(wb, ws3, 'Correo borrado por mes')
 
       const hoy = new Date().toISOString().slice(0, 10)
-      XLSX.writeFile(wb, `registro-correo-${hoy}.xlsx`)
+      XLSX.writeFile(wb, `registro-envios-${hoy}.xlsx`)
 
-      // Y recién ahora se ofrece limpiar: el Excel ya está bajado
+      // Y recién ahora se ofrece limpiar. SOLO los de correo cumplidos.
       const limite = Date.now() - DIAS_CORREO * 24 * 3600 * 1000
-      const viejos = envios.filter(s => toMillis(s.createdAt) && toMillis(s.createdAt) < limite)
+      const viejos = correos.filter(s => toMillis(s.createdAt) && toMillis(s.createdAt) < limite)
+      const resumen = `${envios.length} envíos (${envios.length - correos.length} FLEX y ${correos.length} de correo)`
       if (!viejos.length) {
-        setSyncMsg(`✅ Excel bajado: ${envios.length} envíos de correo. Ninguno pasa los ${DIAS_CORREO} días.`)
+        setSyncMsg(`✅ Excel bajado: ${resumen}. Ningún envío de correo pasa los ${DIAS_CORREO} días.`)
         return
       }
       const ok = window.confirm(
-        `Se bajó el Excel con los ${envios.length} envíos de correo.\n\n` +
-        `¿Borrar ahora los ${viejos.length} que tienen más de ${DIAS_CORREO} días?\n` +
-        `Quedan los ${envios.length - viejos.length} más nuevos (los que puede necesitar Empaque).\n\n` +
+        `Se bajó el Excel con ${resumen}.\n\n` +
+        `¿Borrar ahora los ${viejos.length} DE CORREO que tienen más de ${DIAS_CORREO} días?\n` +
+        `Los FLEX no se tocan. Quedan los ${correos.length - viejos.length} de correo más nuevos ` +
+        '(los que puede necesitar Empaque).\n\n' +
         'El detalle ya está en el Excel que se acaba de bajar. Esto no se puede deshacer.'
       )
-      if (!ok) { setSyncMsg(`✅ Excel bajado: ${envios.length} envíos de correo. No se borró nada.`); return }
+      if (!ok) { setSyncMsg(`✅ Excel bajado: ${resumen}. No se borró nada.`); return }
       setSyncMsg(`⏳ Borrando ${viejos.length} envíos de correo…`)
       await onBorrarEnvios(viejos.map(s => s.id))
       setSyncMsg(`✅ Listo: Excel bajado y ${viejos.length} envíos de correo borrados.`)
     } catch (e) {
-      setSyncMsg('❌ No se pudo armar el registro de correo: ' + (e?.message || e))
+      setSyncMsg('❌ No se pudo armar el registro: ' + (e?.message || e))
     } finally {
       setRegistrando(false)
     }
@@ -1028,10 +1043,10 @@ export default function Shipments({
               )}
             </div>
             <button className="rep-export" onClick={exportReport}>⬇️ Exportar Excel</button>
-            {isAdmin && onFetchRegistroCorreo && (
-              <button className="rep-export correo" onClick={registroCorreo} disabled={registrando}
-                title={`Baja el Excel con el detalle de los envíos de correo (destinatario, localidad, artículos) y después ofrece borrar los de más de ${DIAS_CORREO} días`}>
-                {registrando ? '⏳ Armando…' : '📮 Registro de correo'}
+            {isAdmin && onFetchRegistroEnvios && (
+              <button className="rep-export correo" onClick={registroEnvios} disabled={registrando}
+                title={`Baja el Excel con TODOS los envíos —FLEX y correo— con localidad, zona, destinatario y artículos, y después ofrece borrar los DE CORREO de más de ${DIAS_CORREO} días (los FLEX no se tocan)`}>
+                {registrando ? '⏳ Armando…' : '📥 Registro de envíos'}
               </button>
             )}
           </div>

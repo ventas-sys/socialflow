@@ -141,6 +141,9 @@ export default async function handler(req, res) {
       created: 0, nPend: 0, nCamino: 0, nEntregado: 0, nDemorado: 0, nCorreo: 0,
       updEnt: 0, updDem: 0, updArc: 0, oldEnt: 0, oldDem: 0, oldArc: 0,
       flex: 0, correo: 0, total: 0,
+      // Desglose por cuenta: sin esto no se puede contestar "¿por qué no entra
+      // ningún correo de FULL?" sin adivinar
+      porCuenta: {},
     };
     const mlStatus = new Map();
     const tokenByKey = {};
@@ -153,15 +156,22 @@ export default async function handler(req, res) {
       tokenByKey[key] = token;
       const { orders } = await fetchOrdersDetailed(token, from.toISOString());
       summary.total += orders.length;
+      const cuenta = { total: orders.length, flex: 0, correo: 0, full: 0, otros: 0, nuevos: 0 };
+      summary.porCuenta[key] = cuenta;
 
       const groups = new Map();
       for (const o of orders) {
         const isCorreo = ['cross_docking', 'drop_off', 'xd_drop_off'].includes(o.logisticType);
-        if (o.logisticType !== 'self_service' && !isCorreo) continue;
+        if (o.logisticType !== 'self_service' && !isCorreo) {
+          if (o.logisticType === 'fulfillment') cuenta.full++; else cuenta.otros++;
+          continue;
+        }
         if (isCorreo) {
           summary.correo++;
+          cuenta.correo++;
         } else {
           summary.flex++;
+          cuenta.flex++;
           const info = {
             st: o.status === 'cancelled' ? 'cancelled' : o.shipmentStatus,
             tn: o.trackingNumber || null,
@@ -201,6 +211,7 @@ export default async function handler(req, res) {
         }));
       }
 
+      cuenta.nuevos = groups.size;
       for (const o of groups.values()) {
         seen.add(String(o.packId || o.shipmentId));
         const base = {

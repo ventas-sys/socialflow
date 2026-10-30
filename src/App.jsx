@@ -866,20 +866,15 @@ export default function App() {
     } catch { /* sin permisos o sin red: se mantiene lo que hay */ }
   }
 
-  // --- Registro de los envíos de CORREO ---
-  // Los de correo se borran solos a los 15 días (api/ml/envios.js). Esto trae
-  // TODOS los que todavía estén en la base —no sólo la ventana corta— junto con
-  // el resumen mensual que va guardando el servidor, para poder bajar el Excel
-  // de registro y, si el usuario quiere, limpiar los viejos de una.
-  const fetchRegistroCorreo = useCallback(async () => {
-    const [snap, resSnap] = await Promise.all([
-      getDocs(query(collection(db, 'shipments'), where('channel', '==', 'correo'))),
+  // --- Registro de envíos para el Excel ---
+  // Trae TODOS los envíos que haya en la base (FLEX y correo, no sólo la
+  // ventana corta) más el resumen mensual que va guardando el servidor de los
+  // de correo ya borrados. Lo usa el botón 📥 Registro de envíos.
+  const fetchRegistroEnvios = useCallback(async () => {
+    const [envios, resSnap] = await Promise.all([
+      traerEnvios(true),
       getDoc(doc(db, 'settings', 'correoResumen')),
     ])
-    const envios = snap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .filter(s => s.userId === ORG_ID)
-      .sort((a, b) => msDe(b.createdAt) - msDe(a.createdAt))
     return { envios, meses: resSnap.exists() ? (resSnap.data().meses || {}) : {} }
   }, [])
 
@@ -1395,7 +1390,7 @@ export default function App() {
                 cargandoEnvios={cargandoEnvios}
                 avisoEnvios={avisoEnvios}
                 onLoadAllShipments={loadAllShipments}
-                onFetchRegistroCorreo={fetchRegistroCorreo}
+                onFetchRegistroEnvios={fetchRegistroEnvios}
                 onBorrarEnvios={borrarEnvios}
                 couriers={couriers}
                 mlAccounts={mlAccounts}
