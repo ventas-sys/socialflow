@@ -105,11 +105,15 @@ export default async function handler(req, res) {
     const db = getFirestore(app);
 
     // Candado: manual (force) respeta 90s; automático, 8 minutos
+    // 30/10: el candado automático pasó de 8 a 15 minutos. Cada corrida lee
+    // miles de documentos y el proyecto se comió 719.000 lecturas en un día
+    // (el tope sin costo son 50.000). Con 15 minutos son la mitad de corridas
+    // y las ventas nuevas siguen apareciendo a tiempo para imprimir.
     const force = !!req.body?.force;
     const guardRef = doc(db, 'settings', 'enviosSync');
     const guard = await getDoc(guardRef);
     const last = guard.exists() ? toMillis(guard.data().lastRunAt) : 0;
-    const minGap = (force ? 90 : 8 * 60) * 1000;
+    const minGap = (force ? 90 : 15 * 60) * 1000;
     if (Date.now() - last < minGap) {
       return res.status(200).json({ ok: true, skipped: true, summary: guard.data()?.lastSummary || null });
     }
@@ -117,11 +121,13 @@ export default async function handler(req, res) {
 
     // Envíos existentes (para dedup y refresco de estados). NO se lee el
     // histórico entero: la colección crece ~250 documentos por día entre FLEX y
-    // correo. Alcanza con los últimos 60 días (el dedup mira ventas de 7 días y
-    // el autoarchivado, entregados de 7) más todo lo que siga sin cerrarse,
-    // tenga la fecha que tenga. Las dos consultas son por un solo campo, así que
-    // no hacen falta índices compuestos; el userId se filtra acá.
-    const desdeMs = Timestamp.fromMillis(Date.now() - 60 * 24 * 3600 * 1000);
+    // correo, y cada corrida de esto se paga en lecturas de Firestore.
+    // 14 días alcanzan de sobra: el dedup sólo compara contra ventas de los
+    // últimos 7 (`from`), y todo lo que siga ABIERTO entra igual por la segunda
+    // consulta, tenga la fecha que tenga — incluidos los entregados que faltan
+    // archivar. Las dos consultas son por un solo campo, así que no hacen falta
+    // índices compuestos; el userId se filtra acá.
+    const desdeMs = Timestamp.fromMillis(Date.now() - 14 * 24 * 3600 * 1000);
     const ABIERTOS = ['pendiente', 'armado', 'camino', 'demorado', 'entregado'];
     const [recientesSnap, abiertosSnap] = await Promise.all([
       getDocs(query(collection(db, 'shipments'), where('createdAt', '>=', desdeMs))),
