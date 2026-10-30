@@ -866,6 +866,33 @@ export default function App() {
     } catch { /* sin permisos o sin red: se mantiene lo que hay */ }
   }
 
+  // --- Registro de los envíos de CORREO ---
+  // Los de correo se borran solos a los 15 días (api/ml/envios.js). Esto trae
+  // TODOS los que todavía estén en la base —no sólo la ventana corta— junto con
+  // el resumen mensual que va guardando el servidor, para poder bajar el Excel
+  // de registro y, si el usuario quiere, limpiar los viejos de una.
+  const fetchRegistroCorreo = useCallback(async () => {
+    const [snap, resSnap] = await Promise.all([
+      getDocs(query(collection(db, 'shipments'), where('channel', '==', 'correo'))),
+      getDoc(doc(db, 'settings', 'correoResumen')),
+    ])
+    const envios = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(s => s.userId === ORG_ID)
+      .sort((a, b) => msDe(b.createdAt) - msDe(a.createdAt))
+    return { envios, meses: resSnap.exists() ? (resSnap.data().meses || {}) : {} }
+  }, [])
+
+  const borrarEnvios = useCallback(async (ids) => {
+    for (let i = 0; i < ids.length; i += 400) {
+      const batch = writeBatch(db)
+      ids.slice(i, i + 400).forEach(id => batch.delete(doc(db, 'shipments', id)))
+      await batch.commit()
+    }
+    const fuera = new Set(ids)
+    setShipments(prev => prev.filter(s => !fuera.has(s.id)))
+  }, [])
+
   const updateShipment = async (id, data) => {
     if (!user) return
     await updateDoc(doc(db, 'shipments', id), { ...data, updatedAt: Timestamp.now() })
@@ -1368,6 +1395,8 @@ export default function App() {
                 cargandoEnvios={cargandoEnvios}
                 avisoEnvios={avisoEnvios}
                 onLoadAllShipments={loadAllShipments}
+                onFetchRegistroCorreo={fetchRegistroCorreo}
+                onBorrarEnvios={borrarEnvios}
                 couriers={couriers}
                 mlAccounts={mlAccounts}
                 onSaveAccount={saveMlAccount}

@@ -17,6 +17,51 @@ import { fetchOrdersDetailed } from './exchange.js';
 const ORG_ID = 'distribuidora-universo';
 const H48 = 48 * 3600 * 1000;
 
+// --- Purga de los envíos de CORREO ---
+// Los de correo no van al tablero: se importan sólo para que Empaquetado los
+// encuentre al escanear. A los 15 días ya no hacen falta (pedido del usuario el
+// 29/10) y eran ~700 por semana que quedaban para siempre. Antes de borrarlos
+// se suma su localidad al resumen de settings/correoResumen, así no se pierde
+// el dato de DÓNDE enviamos más aunque nadie baje el Excel.
+// El borrado automático toca SÓLO los creados a partir de PURGA_DESDE: los
+// anteriores los borra el botón "📮 Registro de correo" de la app, que primero
+// baja el Excel con el detalle (destinatario, dirección, artículos).
+const DIAS_CORREO = 15;
+const PURGA_DESDE = Date.parse('2026-10-29T00:00:00Z');
+
+// Localidad y provincia salen de la dirección que arma ML:
+// "<calle y número>, <ciudad>, <provincia>"
+const partesDir = (dir) => String(dir || '').split(',').map(x => x.trim()).filter(Boolean);
+export const localidadDe = (dir) => {
+  const p = partesDir(dir);
+  return p.length > 1 ? p.slice(1).join(', ') : '— sin localidad —';
+};
+// Las claves de un mapa de Firestore no pueden tener punto ni los caracteres
+// que se usan en las rutas de campo
+const claveOk = (t) => String(t).replace(/[.~*/[\]`]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || '—';
+
+// Suma al resumen mensual los envíos de correo que están por borrarse
+async function sumarResumenCorreo(db, envios) {
+  const ref = doc(db, 'settings', 'correoResumen');
+  const actual = (await getDoc(ref)).data()?.meses || {};
+  for (const s of envios) {
+    const ms = s.createdAt?.toMillis ? s.createdAt.toMillis() : new Date(s.createdAt || 0).getTime();
+    if (!ms) continue;
+    const mes = new Date(ms).toISOString().slice(0, 7);
+    const m = actual[mes] || { total: 0, porLocalidad: {}, porCuenta: {} };
+    const loc = claveOk(localidadDe(s.address));
+    const cta = claveOk(s.account || 'sin cuenta');
+    m.total = (m.total || 0) + 1;
+    m.porLocalidad[loc] = (m.porLocalidad[loc] || 0) + 1;
+    m.porCuenta[cta] = (m.porCuenta[cta] || 0) + 1;
+    actual[mes] = m;
+  }
+  // Se guardan los últimos 24 meses para que el documento no crezca sin fin
+  const meses = Object.fromEntries(
+    Object.entries(actual).sort((a, b) => a[0].localeCompare(b[0])).slice(-24));
+  await setDoc(ref, { meses, userId: ORG_ID, actualizadoAt: Timestamp.now() }, { merge: true });
+}
+
 const firebaseConfig = {
   apiKey: 'AIzaSyDnIYGZF37XaTetiG3a_0jrk4DvpKlF8JY',
   authDomain: 'stock-e-inventario.firebaseapp.com',
@@ -263,6 +308,31 @@ export default async function handler(req, res) {
       updates.slice(i, i + 400).forEach(([id, patch]) =>
         batch.update(doc(db, 'shipments', id), { ...patch, updatedAt: Timestamp.now() }));
       await batch.commit();
+    }
+
+    // Envíos de correo cumplidos: al resumen y afuera (ver DIAS_CORREO arriba)
+    const limiteCorreo = Date.now() - DIAS_CORREO * 24 * 3600 * 1000;
+    const correoViejo = existing.filter((s) => {
+      if (s.channel !== 'correo') return false;
+      const ms = toMs(s.createdAt);
+      return ms > PURGA_DESDE && ms < limiteCorreo;
+    });
+    // Primero el resumen, y SOLO si se pudo guardar se borra: si el resumen
+    // falla preferimos dejarlos y que el sync siga andando, antes que borrar
+    // sin registro o cortar la sincronización entera.
+    summary.correoBorrados = 0;
+    if (correoViejo.length) {
+      try {
+        await sumarResumenCorreo(db, correoViejo);
+        for (let i = 0; i < correoViejo.length; i += 400) {
+          const batch = writeBatch(db);
+          correoViejo.slice(i, i + 400).forEach(s => batch.delete(doc(db, 'shipments', s.id)));
+          await batch.commit();
+        }
+        summary.correoBorrados = correoViejo.length;
+      } catch (e) {
+        summary.correoError = e?.message || String(e);
+      }
     }
 
     await setDoc(guardRef, { lastRunAt: Timestamp.now(), lastSummary: summary, userId: ORG_ID }, { merge: true });

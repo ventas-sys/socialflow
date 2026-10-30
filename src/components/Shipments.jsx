@@ -132,6 +132,7 @@ export default function Shipments({
   diasEnvios = 35, // ventana que se trae al abrir (ver traerEnvios en App.jsx)
   enviosCompletos = true, cargandoEnvios = false, onLoadAllShipments,
   avisoEnvios = '', // por qué hubo que traer el listado completo (vacío = normal)
+  onFetchRegistroCorreo, onBorrarEnvios, // registro y limpieza de los de correo
   tarifas, onSaveTarifas, // lo que se le paga al motoquero por zona, por vigencia
 }) {
   const mapRef = useRef(null)
@@ -667,6 +668,92 @@ export default function Shipments({
     XLSX.writeFile(wb, rangoFechas ? `envios-${desde}_a_${hasta}.xlsx` : `envios-${range}.xlsx`)
   }
 
+  // --- 📮 Registro de los envíos de correo ---
+  // Los de correo no van al tablero (sólo los encuentra Empaquetado al
+  // escanear) y el servidor los borra a los 15 días. Esto baja el Excel con el
+  // detalle que después ya no va a estar —destinatario, dirección, artículos—
+  // más el conteo por localidad y el histórico mensual que guarda el servidor,
+  // y ofrece limpiar de una los que ya pasaron los 15 días.
+  const DIAS_CORREO = 15
+  const [registrando, setRegistrando] = useState(false)
+  const localidadDe = (dir) => {
+    const p = String(dir || '').split(',').map(x => x.trim()).filter(Boolean)
+    return p.length > 1 ? p.slice(1).join(', ') : '— sin localidad —'
+  }
+
+  const registroCorreo = async () => {
+    if (registrando || !onFetchRegistroCorreo) return
+    setRegistrando(true)
+    setSyncMsg('⏳ Buscando los envíos de correo…')
+    try {
+      const { envios, meses } = await onFetchRegistroCorreo()
+      if (!envios.length) { setSyncMsg('ℹ️ No hay envíos de correo guardados.'); return }
+
+      // Hoja 1: el detalle, que es lo que se pierde al borrarlos
+      const filas = [['Fecha', 'Código', 'Cuenta', 'Destinatario', 'Localidad', 'Dirección', 'Artículos', 'Seguimiento']]
+      envios.forEach(s => filas.push([
+        toMillis(s.createdAt) ? new Date(toMillis(s.createdAt)).toLocaleString('es-AR') : '',
+        s.code || '', (s.account || '').toUpperCase(), s.recipient || '',
+        localidadDe(s.address), s.address || '',
+        (s.items || []).map(i => `${i.quantity || 1}× ${i.title || i.sku || ''}`).join(' · '),
+        s.trackingNumber || '',
+      ]))
+      const ws = XLSX.utils.aoa_to_sheet(filas)
+      ws['!cols'] = [{ wch: 18 }, { wch: 14 }, { wch: 9 }, { wch: 26 }, { wch: 28 }, { wch: 46 }, { wch: 50 }, { wch: 16 }]
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Envíos de correo')
+
+      // Hoja 2: dónde enviamos más, con lo que todavía está en la base
+      const porLoc = new Map()
+      envios.forEach(s => {
+        const l = localidadDe(s.address)
+        porLoc.set(l, (porLoc.get(l) || 0) + 1)
+      })
+      const locRows = [['Localidad', 'Envíos']]
+      ;[...porLoc.entries()].sort((a, b) => b[1] - a[1]).forEach(r => locRows.push(r))
+      const ws2 = XLSX.utils.aoa_to_sheet(locRows)
+      ws2['!cols'] = [{ wch: 34 }, { wch: 10 }]
+      XLSX.utils.book_append_sheet(wb, ws2, 'Por localidad')
+
+      // Hoja 3: el histórico que guarda el servidor de lo YA borrado
+      const hRows = [['Mes', 'Localidad', 'Envíos']]
+      Object.keys(meses || {}).sort().forEach(mes => {
+        const m = meses[mes] || {}
+        Object.entries(m.porLocalidad || {})
+          .sort((a, b) => b[1] - a[1])
+          .forEach(([loc, n]) => hRows.push([mes, loc, n]))
+      })
+      const ws3 = XLSX.utils.aoa_to_sheet(hRows)
+      ws3['!cols'] = [{ wch: 10 }, { wch: 34 }, { wch: 10 }]
+      XLSX.utils.book_append_sheet(wb, ws3, 'Histórico por mes')
+
+      const hoy = new Date().toISOString().slice(0, 10)
+      XLSX.writeFile(wb, `registro-correo-${hoy}.xlsx`)
+
+      // Y recién ahora se ofrece limpiar: el Excel ya está bajado
+      const limite = Date.now() - DIAS_CORREO * 24 * 3600 * 1000
+      const viejos = envios.filter(s => toMillis(s.createdAt) && toMillis(s.createdAt) < limite)
+      if (!viejos.length) {
+        setSyncMsg(`✅ Excel bajado: ${envios.length} envíos de correo. Ninguno pasa los ${DIAS_CORREO} días.`)
+        return
+      }
+      const ok = window.confirm(
+        `Se bajó el Excel con los ${envios.length} envíos de correo.\n\n` +
+        `¿Borrar ahora los ${viejos.length} que tienen más de ${DIAS_CORREO} días?\n` +
+        `Quedan los ${envios.length - viejos.length} más nuevos (los que puede necesitar Empaque).\n\n` +
+        'El detalle ya está en el Excel que se acaba de bajar. Esto no se puede deshacer.'
+      )
+      if (!ok) { setSyncMsg(`✅ Excel bajado: ${envios.length} envíos de correo. No se borró nada.`); return }
+      setSyncMsg(`⏳ Borrando ${viejos.length} envíos de correo…`)
+      await onBorrarEnvios(viejos.map(s => s.id))
+      setSyncMsg(`✅ Listo: Excel bajado y ${viejos.length} envíos de correo borrados.`)
+    } catch (e) {
+      setSyncMsg('❌ No se pudo armar el registro de correo: ' + (e?.message || e))
+    } finally {
+      setRegistrando(false)
+    }
+  }
+
   return (
     <div className="shipments-container">
       <div className="ship-header">
@@ -941,6 +1028,12 @@ export default function Shipments({
               )}
             </div>
             <button className="rep-export" onClick={exportReport}>⬇️ Exportar Excel</button>
+            {isAdmin && onFetchRegistroCorreo && (
+              <button className="rep-export correo" onClick={registroCorreo} disabled={registrando}
+                title={`Baja el Excel con el detalle de los envíos de correo (destinatario, localidad, artículos) y después ofrece borrar los de más de ${DIAS_CORREO} días`}>
+                {registrando ? '⏳ Armando…' : '📮 Registro de correo'}
+              </button>
+            )}
           </div>
 
           <div className="rep-totals">

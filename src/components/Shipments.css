@@ -219,6 +219,9 @@
 .rep-range button { background: white; border: 1px solid #d1d5db; border-radius: 9999px; padding: 0.4rem 0.9rem; font-weight: 600; font-size: 0.85rem; cursor: pointer; color: #4b5563; }
 .rep-range button.active { background: #2563eb; color: white; border-color: #2563eb; }
 .rep-export { background: #059669; color: white; border: none; border-radius: 0.5rem; padding: 0.5rem 1rem; font-weight: 600; cursor: pointer; }
+/* El registro de correo baja un Excel y después BORRA: va en otro color */
+.rep-export.correo { background: #7c3aed; }
+.rep-export:disabled { opacity: 0.6; cursor: default; }
 
 .rep-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
 .rep-total { background: white; border: 1px solid #e5e7eb; border-radius: 0.6rem; padding: 0.85rem 1rem; }
