@@ -774,7 +774,7 @@ export default function Shipments({
     <div className="shipments-container">
       <div className="ship-header">
         <div>
-          <h1>🚚 Envíos</h1>
+          <h1>🏍️ Envíos FLEX</h1>
           <p>Entran solos los envíos FLEX / Turbo (los que repartís con moto) como "Pendiente de imprimir" — no el correo ni Full. Escaneá el QR para asignar el motoquero.</p>
         </div>
         <div className="ship-header-actions">
@@ -975,7 +975,7 @@ export default function Shipments({
 
           <div className="ship-list">
             {visible.length === 0 ? (
-              <div className="empty-state"><p>🚚</p><p>No hay envíos. Escaneá un QR para empezar.</p></div>
+              <div className="empty-state"><p>🏍️</p><p>No hay envíos. Escaneá un QR para empezar.</p></div>
             ) : visible.map(s => {
               const st = STATUS[s.status || 'pendiente'] || STATUS.pendiente
               return (

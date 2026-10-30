@@ -9,7 +9,7 @@ export const PERM_TABS = [
   { key: 'inventory', label: '🏭 Inventario' },
   { key: 'combos', label: '🧩 Combos' },
   { key: 'movements', label: '🔄 Movimientos' },
-  { key: 'shipments', label: '🚚 Envíos' },
+  { key: 'shipments', label: '🏍️ Envíos FLEX' },
   { key: 'packing', label: '🗳️ Empaque' },
   { key: 'full', label: '🏬 Envío Full' },
   { key: 'mercadolibre', label: '🛒 ML' }, // solo la ve el master — no se asigna a ayudantes
