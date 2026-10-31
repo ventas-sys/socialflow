@@ -197,6 +197,7 @@ Si falla → revisá la tabla de troubleshooting abajo.
 | Datos desactualizados o "token expirado" | Los `refresh_token` de ML se renuevan solos al usarse; si el error persiste, reconectá esa cuenta desde `conexiones.html` y volvé a copiar `ML_ACCOUNTS` |
 | "El refresh_token ya no sirve (vencido o YA USADO)" | Falta el KV compartido (ver el aviso de abajo): reconectá la cuenta, actualizá `ML_ACCOUNTS` y cargá `KV_REST_API_URL` / `KV_REST_API_TOKEN` |
 | Cambié `mcp-ml/.env` y no se aplica | Reiniciá Claude Code (o el cliente MCP) para que el proceso del servidor se relance y vuelva a leer el `.env` |
+| `mercadolibre-oficial` dejó de responder / 401 | El `ML_ACCESS_TOKEN` venció (~6hs). Corré `node scripts/ml-get-access-token.mjs` y actualizá la variable de entorno |
 
 ---
 
@@ -231,10 +232,63 @@ Sin esas variables, usá el MCP con cuidado: después de consultarlo, revisá el
 
 ---
 
+## 🆕 Alternativa — el MCP OFICIAL de Mercado Libre
+
+Mercado Libre publicó su propio servidor MCP, remoto (no hay que instalar nada):
+[mercadolibre/mercadolibre-mcp-server](https://github.com/mercadolibre/mercadolibre-mcp-server),
+URL `https://mcp.mercadolibre.com/mcp`. Ya está registrado en `.mcp.json` como
+`mercadolibre-oficial`, al lado del nuestro (`mercadolibre`) — **no se reemplazó nada**,
+quedan los dos disponibles.
+
+### Cómo funciona (y por qué igual conviene el nuestro para el día a día)
+
+El oficial se autentica con un **access_token pegado a mano** en un header, no con un
+`refresh_token` que se renueva solo:
+
+```json
+"Authorization": "Bearer ${ML_ACCESS_TOKEN}"
+```
+
+Ese `access_token` **vence cada ~6 horas** (es el mismo tipo de token que usamos
+nosotros). Cuando venza, el MCP oficial va a empezar a fallar y hay que pegarle uno
+nuevo a mano en la variable de entorno `ML_ACCESS_TOKEN` — a diferencia de `mercadolibre`
+(el nuestro), que se renueva solo porque guarda el `refresh_token` en el store
+compartido (ver el aviso de arriba sobre el 22-ago-2026).
+
+**Para no romper nada**, el token para el oficial se consigue con un script que usa
+ESE MISMO store compartido — nunca hay que pedirlo "por fuera" con el `refresh_token`
+de `ML_ACCOUNTS` directamente, porque lo rotaría e invalidaría el que usa el Agente de
+Preguntas en producción:
+
+```bash
+node scripts/ml-get-access-token.mjs        # cuenta por default (la primera)
+node scripts/ml-get-access-token.mjs full   # o indicá el label
+```
+
+Copiá el token que imprime y pegalo como variable de entorno `ML_ACCESS_TOKEN`
+(en claude.ai/code → configuración del entorno → Environment variables, igual que
+hiciste con `ML_ACCOUNTS`). Repetí el comando cuando el oficial deje de responder
+(cada ~6 horas de uso).
+
+### Cuándo usar cuál
+
+| | `mercadolibre` (el nuestro) | `mercadolibre-oficial` |
+|---|---|---|
+| Instalación | `npm install` (ya automatizado por el hook) | Ninguna, es remoto |
+| Token | Se renueva solo | Hay que repegarlo cada ~6hs |
+| Herramientas | Las 10 de la tabla arriba, hechas a medida (ventas, visitas, preguntas) | Las que ML decida exponer — no están documentadas públicamente, hay que probarlas con `/mcp` |
+| Recomendado para | Uso diario, automatizaciones, el agente de preguntas | Probar/comparar, o si el nuestro llegara a fallar |
+
+---
+
 ## 🔗 Referencias
 
 - `lib/ml/qa-config.js` — mismo formato de `ML_ACCOUNTS` que usa el Agente de Preguntas
+- `lib/ml/token-store.js` / `lib/ml/ml-api.js` (`getAccessToken`) — store de tokens compartido (KV)
+- `scripts/ml-get-access-token.mjs` — saca un access_token válido para el MCP oficial sin romper el store compartido
 - `conexiones.html` — de donde se genera/copia `ML_ACCOUNTS`
-- `mcp-ml/.env.example` — plantilla de configuración del servidor
-- MCP servers oficial: https://github.com/modelcontextprotocol/servers
+- `mcp-ml/.env.example` — plantilla de configuración del servidor propio
+- MCP oficial de Mercado Libre: https://github.com/mercadolibre/mercadolibre-mcp-server
+- MCP servers oficial (genérico): https://github.com/modelcontextprotocol/servers
 - Mercado Libre Developers: https://developers.mercadolibre.com.ar
+- Autorización y tokens de ML: https://developers.mercadolibre.com.ar/en_us/authorization-and-token-recommendations
