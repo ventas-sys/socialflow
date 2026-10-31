@@ -3,9 +3,9 @@
 **ÚNICA fuente de verdad del proyecto. Leer entera antes de tocar nada.**
 Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/socialflow
 
-## 📍 ESTADO AL 30/10/2026 — arrancar por acá
+## 📍 ESTADO AL 30/10/2026 (noche) — arrancar por acá
 
-Último commit: ver `git log` (30/10: el registro de envíos en Excel). Todo desplegado y verde en los dos proyectos de Vercel.
+Último commit: ver `git log`. Todo desplegado y verde en los dos proyectos de Vercel.
 
 **🔴 LO MÁS IMPORTANTE ABIERTO — la cuota de Vercel (ver punto 23).** No es de esta app, pero la puede dejar sin servicio. Quedó en manos de OTRO chat, el que maneja el proyecto viejo `socialflow`. **No retomarlo acá salvo que el usuario lo traiga.**
 
@@ -30,11 +30,16 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
 **El saldo de Mercado Pago dejó de estar congelado** (lo retomó él el 25/10). Ver el punto 30: FERRE resuelto, FULL hay que prenderlo desde el panel web de MP. El bug de "Ver saldos" que tildaba la app se arregló el 28/10 (30f). La ingeniería inversa a Real Trends está descartada y no se vuelve a ofrecer.
 
 **Lo del 29-30/10 (puntos 31 y 32), que es lo último y lo más fresco:**
-- Se arregló lo que **trababa los celulares del depósito**: la app bajaba el histórico entero en cada apertura. **Falta que lo confirme con `redes` en el celular**; en su PC anda (30/10: Motoqueros 3, 1.089 envíos en 7 días).
-- Ese mismo cambio **dejó el tablero en 0 por unas horas** y el usuario dijo *"No rompas nada d lo q funciona"*. Ya está arreglado con fallback al listado completo. **La causa de fondo sigue sin identificar**: si aparece el cartel amarillo *"Se trajo el listado completo de envíos — …"*, **el motivo que dice ahí ES la causa — pedirle la foto**.
+- Se arregló lo que **trababa los celulares del depósito**: la app bajaba el histórico entero en cada apertura. **Confirmado funcionando el 30/10 a la noche** (punto 34).
+- Ese mismo cambio **dejó el tablero en 0 por unas horas** y el usuario dijo *"No rompas nada d lo q funciona"* — regla que quedó: **mejor lento que vacío**, siempre fallback al camino viejo. La causa de fondo terminó siendo la cuota (punto 33) más la carga bloqueante (punto 34).
 - Los **envíos de correo se borran a los 15 días**, con el Excel de registro antes. Corrido el 30/10: **2.610 borrados**. El usuario cerró con *"listo ahora si"*.
 
-**🔴 Lo más importante: el 30/10 se descubrió que el proyecto reventaba la cuota de lecturas de Firestore (punto 33). Esa era la causa de TODO lo raro de la semana.** El usuario pasó a Blaze y se bajaron las lecturas 8 veces. **Hay que mirar el gráfico de Firebase el 31/10** con un día completo ya con los recortes, y si sigue alto seguir por el punto 33e (los combos desde el caché).
+**🔴 LO QUE PASÓ ESTA SEMANA, EN UNA LÍNEA:** la app venía fallando de maneras raras (se tildaba, el tablero en 0, los ayudantes viendo solapas que no les tocan, sin fotos) y **todo era UNA sola causa de infraestructura: el proyecto reventaba la cuota de lecturas de Firestore** (719.000 en un día contra un tope de 50.000). Ver **puntos 31, 32, 33 y 34**, en ese orden.
+- El usuario **pasó el proyecto a Blaze** (créditos, tope US$10/mes — ojo: el presupuesto AVISA, NO CORTA).
+- Las lecturas se bajaron muchísimo: el sync de envíos pasó de ~3.900 documentos por corrida a **181** (punto 33), y la cadencia ahora sigue el horario real de trabajo (9-13 cada 10 min · 13-18 cada 30 · 18-9 cada 5 horas).
+- El celular del depósito **quedó funcionando** (punto 34): *"listo funciona"*.
+
+**👉 LO PRIMERO A HACER EN LA PRÓXIMA SESIÓN: mirar el gráfico de lecturas de Firebase** (consola → Firestore → Uso) con el primer día completo ya con todos los recortes. Si sigue alto, seguir por el **punto 33e**: cada apertura baja ~3.400 combos que casi no cambian y se pueden servir del caché del dispositivo. **Medir antes de tocar.**
 
 **De código no queda nada abierto.**
 
@@ -296,6 +301,17 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
     **d) Medido en producción el 30/10:** mantenimiento **3.897 documentos leídos**, corriente **181**. **21 veces menos.** El sync pasa de ~380.000 lecturas/día a ~49.000.
     **e) Lo que falta si sigue alto (NO hecho, medir primero):** cada apertura de la app baja ~1.500 productos + ~3.400 combos. **Los combos casi no cambian** (son definiciones, el stock sale de los productos): se pueden servir del caché del dispositivo con un TTL y ahorrar 3.400 lecturas por apertura. No se hizo para no encimar dos cambios grandes el mismo día.
     **Lección:** cuando varias cosas raras aparecen juntas (no carga, se tilda, permisos mal), buscar UNA causa común de infraestructura antes de arreglar cada síntoma por separado. Y medir el consumo antes de optimizar a ojo.
+
+34. **✅ 30/10 — el celular del depósito, resuelto (cierre de los puntos 31 y 33).** Después de pasar a Blaze, `redes` y `ayudaunofull` SEGUÍAN sin cargar: se veía el inventario pero no los envíos, ni lo de ML, ni las fotos, **y sin ningún cartel de error**. El usuario preguntó si el problema era el celular (un Samsung S9); no lo era.
+    **La pista fue QUÉ cargaba y qué no:** el inventario se mostraba desde el **caché del dispositivo**, y todo lo que había que pedirle al servidor quedaba colgado. Dos causas encadenadas, las dos arregladas (commit `52fa5e5`):
+    - **La carga esperaba el inventario (~5.000 documentos) ANTES de pedir envíos, motoqueros y el resto.** Con una conexión mala eso tarda muchísimo y nada de lo que venía después llegaba a correr. Ahora, si ya se pintó desde el caché, el inventario se actualiza **por atrás** (`traerInventario()` sin await) y la carga sigue de largo.
+    - **Firestore con mala conexión NO devuelve error: se queda reintentando para siempre.** Por eso no aparecía ningún cartel — la app no fallaba, esperaba. Ahora las lecturas grandes y las fotos pasan por `conLimite(...)` (envíos 25s, listado completo 45s, inventario 60s, motoqueros 25s, fotos 20s) y la espera termina en un error que **se muestra en pantalla**.
+    **Herramientas de diagnóstico que quedaron en la app** (de acá salió el arreglo, conviene no sacarlas):
+    - Cartel `.aviso-carga` arriba de todo con el motivo del fallo y botón **Reintentar** (`errorCarga`).
+    - Cartel amarillo en Envíos con el motivo si no vinieron (`avisoEnvios`).
+    - Línea 🔎 en Envíos, **cuando el tablero está vacío**, con el **paso** en que quedó la carga (`pasoCarga`: permisos / caché del dispositivo / inventario / envíos / motoqueros / listo). Distingue lo que antes se veía igual: que no haya envíos, o que nunca se hayan llegado a pedir.
+    **🟡 Honestidad sobre la causa:** el usuario confirmó *"listo funciona"* después de este deploy, pero **no quedó probado cuál de los dos arreglos lo destrabó**, ni si además borró los datos del sitio en ese celular (se le ofreció la prueba en incógnito y el borrado de datos, y no dijo si los hizo). Si vuelve a pasar en otro equipo: **primero mirar la línea 🔎**, y si dice que se quedó en un paso, probar en incógnito para descartar el caché local del teléfono.
+    **Lección:** cuando algo "no anda y no dice nada", el primer trabajo es hacer que diga algo. Dos días se fueron adivinando porque la app no tenía forma de contar dónde se trababa.
 
 ## Reglas de negocio clave (definidas por el usuario)
 - Stock: descuenta TODO lo despachado desde el depósito propio (FLEX+correo/colecta+ventas sin envío de ML), NUNCA `fulfillment` (Full ya salió al enviarse a bodega). Igual para ambas cuentas. 2 veces/día (13 y 18hs AR). Stock puede quedar negativo. **Clasificación explícita desde el 28/8** (`clasificar`/`descuenta` en api/ml/cron.js): la regla vieja era "todo lo que no sea fulfillment descuenta", así que si fallaba el pedido del envío a ML el tipo quedaba nulo y la venta se descontaba igual — incluidas las de Full — y además no se miraba el estado de la orden (canceladas y sin cobrar también descontaban; caso real: 771 Full + 60 canceladas en 48hs de la cuenta FULL). Ahora: descuentan flex (`self_service`) + correo (`drop_off`/`xd_drop_off`/`cross_docking`) + sin envío, con estado `paid`/`partially_paid`; NO descuentan Full, canceladas/inválidas, sin cobrar (quedan para la corrida siguiente) ni las de tipo desconocido (se reintenta el pedido a ML y si igual no se sabe NO se descuenta: preferimos que falte un descuento antes que descontar una de Full). El resumen del botón "Probar automático ahora" muestra el desglose. Verificado 28/8 en producción: FULL 168 flex + 2 correo (771 Full salteadas — es correcto, ~98% de esa cuenta va por bodega), FERRE 103 flex + 83 correo + 6 sin envío.
