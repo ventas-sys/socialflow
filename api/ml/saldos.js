@@ -6,9 +6,10 @@ import { firebaseConfig, ensureToken } from './cron.js';
 import { REPORTE_BASE, authDelReporte, pedirReporte, traerUltimoSaldo } from './exchange.js';
 
 // SALDO DE MERCADO PAGO AUTOMÁTICO (pedido el 28/10).
-// Horario en hora ARGENTINA: cada hora de 7 a 18hs, y a las 0 y a las 6hs.
-// Vercel (plan gratis) sólo deja crons de UNA vez por día, así que son 14
-// entradas separadas en vercel.json, una por hora. Cada una puede correr en
+// Horario en hora ARGENTINA: cada 6 horas, a las 0, 6, 12 y 18hs. (El 28/10
+// era cada hora de 7 a 18; el 1/11 el usuario lo bajó a cada 6hs porque eran
+// demasiados pedidos a MP.) Vercel (plan gratis) sólo deja crons de UNA vez
+// por día, así que son 4 entradas separadas en vercel.json, una por horario. Cada una puede correr en
 // cualquier minuto de su hora (precisión de ±59 min del plan gratis).
 //
 // Qué hace cada corrida, por cuenta:

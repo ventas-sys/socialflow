@@ -49,7 +49,7 @@ export default function Metrics({ mlAccounts, ensureToken }) {
   // Saldo real de Mercado Pago (necesita el Access Token propio de MP)
   const [saldos, setSaldos] = useState(null)
   const [saldosBusy, setSaldosBusy] = useState(false)
-  // Último saldo que dejó el automático (api/ml/saldos.js, 14 veces por día).
+  // Último saldo que dejó el automático (api/ml/saldos.js, 4 veces por día).
   // Está en ml_accounts, que sólo lee el admin: para un ayudante falla en
   // silencio y el cuadro no aparece.
   const [saldoAuto, setSaldoAuto] = useState(null)
@@ -450,7 +450,7 @@ export default function Metrics({ mlAccounts, ensureToken }) {
               </div>
             )}
             <p className="mt-hint">
-              Se actualiza solo cada hora de 7 a 18hs y a las 0 y 6hs. El botón lee lo último en este momento.
+              Se actualiza solo cada 6 horas (0, 6, 12 y 18hs). El botón lee lo último en este momento.
             </p>
             <p className="mt-hint">
               Mercado Pago no deja preguntar el saldo de frente (da 403 con todos los permisos), así que el
