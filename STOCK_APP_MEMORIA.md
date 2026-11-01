@@ -3,7 +3,7 @@
 **ÚNICA fuente de verdad del proyecto. Leer entera antes de tocar nada.**
 Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/socialflow
 
-## 📍 ESTADO AL 30/10/2026 (noche) — arrancar por acá
+## 📍 ESTADO AL 1/11/2026 — arrancar por acá
 
 Último commit: ver `git log`. Todo desplegado y verde en los dos proyectos de Vercel.
 
@@ -39,7 +39,8 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
 - Las lecturas se bajaron muchísimo: el sync de envíos pasó de ~3.900 documentos por corrida a **181** (punto 33), y la cadencia ahora sigue el horario real de trabajo (9-13 cada 10 min · 13-18 cada 30 · 18-9 cada 5 horas).
 - El celular del depósito **quedó funcionando** (punto 34): *"listo funciona"*.
 
-**👉 LO PRIMERO A HACER EN LA PRÓXIMA SESIÓN: mirar el gráfico de lecturas de Firebase** (consola → Firestore → Uso) con el primer día completo ya con todos los recortes. Si sigue alto, seguir por el **punto 33e**: cada apertura baja ~3.400 combos que casi no cambian y se pueden servir del caché del dispositivo. **Medir antes de tocar.**
+**👉 LO PRIMERO A HACER EN LA PRÓXIMA SESIÓN: mirar el gráfico de lecturas de Firebase** (consola → Firestore → Uso). **El 31/10 fue el primer día completo con todos los recortes puestos**, así que ese día es el que hay que comparar contra las 719.000 del 30/10. Si sigue alto, seguir por el **punto 33e**: cada apertura baja ~3.400 combos que casi no cambian y se pueden servir del caché del dispositivo. **Medir antes de tocar.**
+El **1/11 el otro chat** bajó además el saldo automático de MP de 14 corridas por día a 4 (punto 30i), que suma en la misma dirección.
 
 **De código no queda nada abierto.**
 
