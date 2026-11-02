@@ -515,12 +515,18 @@ export default function App() {
       // Ahora van todas juntas, cada una con su tiempo límite, y ninguna
       // depende de las otras.
       setPasoCarga('motoqueros, Envío Full y cuentas')
-      const opcional = async (que, ms, traer, guardar, limpiar) => {
+      // Si una falla NO se vacía lo que haya: dejar la lista en cero se ve
+      // igual que "no hay ninguno" y no se puede distinguir una cosa de la
+      // otra. Se avisa en pantalla con el motivo, que es lo único honesto.
+      const opcional = async (que, ms, traer, guardar) => {
         try {
           guardar(await conLimite(traer(), ms, que))
         } catch (err) {
-          console.warn(`${que}: no se pudo traer —`, err?.code || err?.message)
-          limpiar?.()
+          const motivo = err?.code || err?.message || String(err)
+          console.warn(`${que}: no se pudo traer —`, motivo)
+          setErrorCarga(prev => prev
+            ? `${prev} · ${que} (${motivo})`
+            : `No se pudo traer ${que} (${motivo})`)
         }
       }
       await Promise.all([
@@ -531,15 +537,13 @@ export default function App() {
         opcional('los envíos a Full', 30000,
           () => getDocs(query(collection(db, 'full_envios'), where('userId', '==', ORG_ID))),
           (snap) => setFullEnvios(snap.docs.map(d => ({ id: d.id, ...d.data() }))
-            .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))),
-          () => setFullEnvios([])),
+            .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt)))),
 
         // Finanzas: solo las lee el master
         currentUser.email === ADMIN_EMAIL
           ? opcional('las finanzas', 30000,
               () => getDocs(query(collection(db, 'finanzas'), where('userId', '==', ORG_ID))),
-              (snap) => setFinanzas(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
-              () => setFinanzas([]))
+              (snap) => setFinanzas(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
           : Promise.resolve(),
       ])
 
