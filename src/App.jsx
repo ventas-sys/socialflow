@@ -468,6 +468,10 @@ export default function App() {
           ]), 60000, 'el inventario')
           setDepositMap(settingsSnap.exists() ? settingsSnap.data().depositMapPhoto || null : null)
           setTarifas(settingsSnap.exists() ? settingsSnap.data().zonasFlex || null : null)
+          // La cotización vive en el mismo documento: se lee acá, que es donde
+          // está `settingsSnap`. Fuera de esta función no existe.
+          const rate = settingsSnap.exists() ? settingsSnap.data().usdRate : null
+          if (rate > 0) setUsdRate(rate)
           setProducts(
             productsSnap.docs
               .map(d => ({ id: d.id, ...strip(d.data()) }))
@@ -504,41 +508,40 @@ export default function App() {
       }
       // El resto SIN esperar: el tablero ya está usable con los activos
       completarEnvios()
-      try {
-        setPasoCarga('motoqueros')
-        const couriersSnap = await conLimite(
-          getDocs(query(collection(db, 'couriers'), where('userId', '==', ORG_ID))), 25000, 'los motoqueros')
-        setCouriers(couriersSnap.docs.map(d => ({ id: d.id, ...d.data() })))
-      } catch (err) {
-        console.warn('Motoqueros no disponibles (¿faltan reglas?):', err?.code)
-      }
-
-      // Panel financiero: solo lo lee el master. Es colección opcional, si sus
-      // reglas todavía no están publicadas se ignora y el resto sigue andando.
-      if (currentUser.email === ADMIN_EMAIL) {
+      // El resto son colecciones INDEPENDIENTES: motoqueros, envíos a Full,
+      // finanzas y cuentas de ML. Antes se pedían una tras otra, así que una
+      // que se colgara dejaba sin cargar a todas las de atrás — fue lo que
+      // pasó con Envío Full cuando la consulta de envíos no terminaba nunca.
+      // Ahora van todas juntas, cada una con su tiempo límite, y ninguna
+      // depende de las otras.
+      setPasoCarga('motoqueros, Envío Full y cuentas')
+      const opcional = async (que, ms, traer, guardar, limpiar) => {
         try {
-          const finSnap = await getDocs(query(collection(db, 'finanzas'), where('userId', '==', ORG_ID)))
-          setFinanzas(finSnap.docs.map(d => ({ id: d.id, ...d.data() })))
-          const rate = settingsSnap.exists() ? settingsSnap.data().usdRate : null
-          if (rate > 0) setUsdRate(rate)
+          guardar(await conLimite(traer(), ms, que))
         } catch (err) {
-          console.warn('Finanzas no disponibles (¿faltan reglas?):', err?.code)
-          setFinanzas([])
+          console.warn(`${que}: no se pudo traer —`, err?.code || err?.message)
+          limpiar?.()
         }
       }
+      await Promise.all([
+        opcional('los motoqueros', 25000,
+          () => getDocs(query(collection(db, 'couriers'), where('userId', '==', ORG_ID))),
+          (snap) => setCouriers(snap.docs.map(d => ({ id: d.id, ...d.data() })))),
 
-      // Envíos a bodega Full (colección opcional: si sus reglas todavía no están
-      // publicadas se ignora y el resto de la app sigue funcionando)
-      try {
-        const fSnap = await getDocs(query(collection(db, 'full_envios'), where('userId', '==', ORG_ID)))
-        setFullEnvios(
-          fSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-            .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
-        )
-      } catch (err) {
-        console.warn('Envíos a Full no disponibles (¿faltan reglas?):', err?.code)
-        setFullEnvios([])
-      }
+        opcional('los envíos a Full', 30000,
+          () => getDocs(query(collection(db, 'full_envios'), where('userId', '==', ORG_ID))),
+          (snap) => setFullEnvios(snap.docs.map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))),
+          () => setFullEnvios([])),
+
+        // Finanzas: solo las lee el master
+        currentUser.email === ADMIN_EMAIL
+          ? opcional('las finanzas', 30000,
+              () => getDocs(query(collection(db, 'finanzas'), where('userId', '==', ORG_ID))),
+              (snap) => setFinanzas(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+              () => setFinanzas([]))
+          : Promise.resolve(),
+      ])
 
       // Cuentas de MercadoLibre (colección opcional; solo admin escribe)
       try {
