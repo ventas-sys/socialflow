@@ -62,47 +62,51 @@ const conLimite = (promesa, ms, que) => Promise.race([
     setTimeout(() => rechazar(new Error(`${que} tardó más de ${Math.round(ms / 1000)}s`)), ms)),
 ])
 
-// Envíos del tablero: los de los últimos DIAS_ENVIOS días MÁS todos los que
-// siguen activos tengan la fecha que tengan (así no desaparece del tablero un
-// pendiente viejo). Las dos consultas son por un solo campo: no hacen falta
-// índices compuestos; el userId se filtra acá, que es lo mismo porque todos
-// los datos son de la misma empresa.
-// Si la ventana corta falla (permisos, índice, red) o vuelve vacía, se cae al
-// listado completo de siempre: MEJOR LENTO QUE VACÍO. El motivo queda en
-// `motivoEnviosCompletos` para poder verlo en pantalla.
-export let motivoEnviosCompletos = ''
+// --- Envíos: se piden en DOS tandas, de chica a grande ---
+// La consulta grande (la ventana de días) es el pedido más pesado que hace la
+// app y en el depósito se colgaba: el indicador de pasos mostró "La carga se
+// quedó en: envíos…". Mientras tanto no cargaba NADA de lo que venía después.
+// Ahora primero vienen los ACTIVOS —unos cientos, que es lo que el tablero
+// muestra de verdad— y el tablero ya queda usable; la ventana completa (para
+// los entregados, los archivados y el buscador de Empaque) se trae por atrás
+// y se fusiona cuando llega. Si esa segunda tanda falla, el tablero sigue
+// andando igual.
+// Las consultas son por un solo campo: no hacen falta índices compuestos; el
+// userId se filtra acá, que es lo mismo porque todos los datos son de la
+// misma empresa.
+const ordenarEnvios = (m) => [...m.values()].sort((a, b) => msDe(b.createdAt) - msDe(a.createdAt))
+const sumarEnvios = (m) => (snap) => snap.docs.forEach(d => {
+  const s = { id: d.id, ...d.data() }
+  if (s.userId === ORG_ID) m.set(d.id, s)
+})
 
-async function traerEnvios(todos = false) {
-  const ordenar = (m) => [...m.values()].sort((a, b) => msDe(b.createdAt) - msDe(a.createdAt))
-  const sumarEn = (m) => (snap) => snap.docs.forEach(d => {
-    const s = { id: d.id, ...d.data() }
-    if (s.userId === ORG_ID) m.set(d.id, s)
-  })
+// Lo que está abierto: pendiente, armado, en camino, demorado. Son pocos.
+async function traerEnviosActivos() {
+  const m = new Map()
+  sumarEnvios(m)(await conLimite(
+    getDocs(query(collection(db, 'shipments'), where('status', 'in', ENVIOS_ACTIVOS))),
+    20000, 'los envíos activos'))
+  return ordenarEnvios(m)
+}
 
-  if (!todos) {
-    try {
-      const corto = new Map()
-      const sumar = sumarEn(corto)
-      const desde = Timestamp.fromMillis(Date.now() - DIAS_ENVIOS * 24 * 3600 * 1000)
-      const [recientes, activos] = await conLimite(Promise.all([
-        getDocs(query(collection(db, 'shipments'), where('createdAt', '>=', desde))),
-        getDocs(query(collection(db, 'shipments'), where('status', 'in', ENVIOS_ACTIVOS))),
-      ]), 25000, 'la consulta de envíos')
-      sumar(recientes)
-      sumar(activos)
-      if (corto.size) { motivoEnviosCompletos = ''; return ordenar(corto) }
-      motivoEnviosCompletos = 'la consulta corta no trajo ninguno, se pidió el listado completo'
-    } catch (e) {
-      motivoEnviosCompletos = e?.code || e?.message || String(e)
-    }
-    console.warn('Envíos: se trae el listado completo —', motivoEnviosCompletos)
-  }
+// La ventana de los últimos DIAS_ENVIOS días: completa entregados y
+// archivados, y es la que necesita Empaque para encontrar lo que se escanea.
+async function traerEnviosVentana() {
+  const m = new Map()
+  const desde = Timestamp.fromMillis(Date.now() - DIAS_ENVIOS * 24 * 3600 * 1000)
+  sumarEnvios(m)(await conLimite(
+    getDocs(query(collection(db, 'shipments'), where('createdAt', '>=', desde))),
+    45000, `los envíos de los últimos ${DIAS_ENVIOS} días`))
+  return ordenarEnvios(m)
+}
 
-  const todosM = new Map()
-  sumarEn(todosM)(await conLimite(
+// Todo el histórico: sólo cuando el reporte mira más atrás que la ventana.
+async function traerTodosLosEnvios() {
+  const m = new Map()
+  sumarEnvios(m)(await conLimite(
     getDocs(query(collection(db, 'shipments'), where('userId', '==', ORG_ID))),
-    45000, 'el listado completo de envíos'))
-  return ordenar(todosM)
+    60000, 'el listado completo de envíos'))
+  return ordenarEnvios(m)
 }
 
 export default function App() {
@@ -489,15 +493,17 @@ export default function App() {
       // el tablero sin motoqueros (ni al revés)
       try {
         setPasoCarga('envíos')
-        setShipments(await traerEnvios(false))
-        setEnviosCompletos(!!motivoEnviosCompletos)
-        setAvisoEnvios(motivoEnviosCompletos)
+        setShipments(await traerEnviosActivos())
+        setEnviosCompletos(false)
+        setAvisoEnvios('')
       } catch (err) {
         // Que no se lo trague la consola: si los envíos no vienen hay que
         // poder leer el motivo desde el celular.
         console.warn('Envíos no disponibles:', err?.code || err?.message)
         setAvisoEnvios(`no se pudieron traer: ${err?.code || err?.message || err}`)
       }
+      // El resto SIN esperar: el tablero ya está usable con los activos
+      completarEnvios()
       try {
         setPasoCarga('motoqueros')
         const couriersSnap = await conLimite(
@@ -609,7 +615,7 @@ export default function App() {
     if (enviosCompletos || cargandoEnvios) return
     setCargandoEnvios(true)
     try {
-      setShipments(await traerEnvios(true))
+      setShipments(await traerTodosLosEnvios())
       setEnviosCompletos(true)
     } catch (e) {
       console.warn('No se pudo traer el histórico de envíos:', e?.code || e?.message)
@@ -925,7 +931,8 @@ export default function App() {
   const reloadShipments = async () => {
     if (!user) return
     try {
-      setShipments(await traerEnvios(enviosCompletos))
+      if (enviosCompletos) setShipments(await traerTodosLosEnvios())
+      else { setShipments(await traerEnviosActivos()); completarEnvios() }
     } catch { /* sin permisos o sin red: se mantiene lo que hay */ }
   }
 
@@ -935,11 +942,33 @@ export default function App() {
   // de correo ya borrados. Lo usa el botón 📥 Registro de envíos.
   const fetchRegistroEnvios = useCallback(async () => {
     const [envios, resSnap] = await Promise.all([
-      traerEnvios(true),
+      traerTodosLosEnvios(),
       getDoc(doc(db, 'settings', 'correoResumen')),
     ])
     return { envios, meses: resSnap.exists() ? (resSnap.data().meses || {}) : {} }
   }, [])
+
+  // Suma envíos a los que ya hay, sin pisar el tablero si la segunda tanda
+  // trae menos de lo esperado
+  const fusionarEnvios = useCallback((lista) => {
+    if (!lista?.length) return
+    setShipments(prev => {
+      const m = new Map(prev.map(s => [s.id, s]))
+      lista.forEach(s => m.set(s.id, s))
+      return [...m.values()].sort((a, b) => msDe(b.createdAt) - msDe(a.createdAt))
+    })
+  }, [])
+
+  // La ventana completa, por atrás: completa entregados/archivados y lo que
+  // Empaque necesita para el escaneo. Que falle no rompe el tablero.
+  const completarEnvios = useCallback(() => {
+    traerEnviosVentana()
+      .then(fusionarEnvios)
+      .catch(e => {
+        console.warn('Envíos de la ventana:', e?.code || e?.message)
+        setAvisoEnvios(a => a || `faltan los entregados y archivados (${e?.code || e?.message || e})`)
+      })
+  }, [fusionarEnvios])
 
   const borrarEnvios = useCallback(async (ids) => {
     for (let i = 0; i < ids.length; i += 400) {
