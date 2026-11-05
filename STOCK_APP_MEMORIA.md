@@ -346,6 +346,10 @@ El **1/11 el otro chat** bajó además el saldo automático de MP de 14 corridas
     **Pide confirmación antes de escribir** y al final **baja un Excel** (Resumen + Detalle) con, producto por producto: foto puesta / la publicación no tiene fotos / ninguna publicación activa cae sobre él / no se pudo bajar o guardar.
     **A los productos que ya tienen foto no se los toca nunca.**
     **Sin verificar contra la API real:** la acción `itempics` no se pudo probar desde el chat (no hay token acá). Si vuelve vacía para todo, el sospechoso es el `attributes` del multiget — por eso está el pedido de a una como respaldo.
+    **🐛 5/11, primer intento en producción: `FERRE: object is not iterable`.** El multiget de ML (`/items?ids=...`) devuelve un **array** cuando sale bien y un **objeto** cuando falla (429 por ritmo, 401, un id inválido, o una página de error del CDN que ni siquiera es JSON). El `for..of` sobre eso revienta y se caía la corrida entera — y el bug **ya estaba** en `items()` desde siempre, así que también se llevaba puesto a "Stock físico que NO está publicado". FULL había respondido bien; murió en FERRE.
+    **Arreglo:** helper `multiget()` en `api/ml/exchange.js` — si no vuelve un array reintenta una vez con pausa de 1,2s y, si tampoco, devuelve el motivo en texto. Un lote que falla ya no mata la corrida: se cuenta en `faltaron` y sigue. Si no se pudo leer NADA, devuelve `ok:false` con el motivo (una lista vacía no se confunde más con un error).
+    **⚠️ Y se avisa en pantalla, que esto importa:** si quedaron publicaciones sin leer, **"Stock físico que NO está publicado" puede mostrar productos que SÍ están publicados**. Por eso el panel saca un cartel rojo con el número. En fotos el aviso es más suave (sólo significa que algunas quedan sin foto y se puede volver a correr).
+    **También se le sacó el `?attributes=` al pedido de fotos:** el multiget no siempre respeta el detalle de `pictures` cuando se le pide filtrado, y acá las fotos son justo lo que importa.
 
 
 ## Reglas de negocio clave (definidas por el usuario)

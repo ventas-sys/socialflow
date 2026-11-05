@@ -891,6 +891,31 @@ export async function fetchOrdersDetailed(token, from) {
 
 // Lista TODAS las publicaciones activas del vendedor (para detectar cuáles no
 // están cargadas como combo/producto). Body: { token }.
+// El multiget de ML (/items?ids=...) devuelve un ARRAY cuando sale bien, pero
+// cuando falla (429 por ritmo, 401, un id invalido, o una pagina de error del
+// CDN que ni siquiera es JSON) devuelve un OBJETO. Recorrerlo con for..of
+// revienta con "object is not iterable" y se cae la corrida entera.
+//
+// Paso el 5/11/2026 con la cuenta FERRE y dejo sin fotos y sin cruce a las dos
+// cuentas, aunque FULL habia respondido bien.
+//
+// Esto pide el lote y, si no vuelve un array, reintenta una vez (con una pausa,
+// que la causa mas comun es el ritmo). Si tampoco, devuelve el motivo en texto
+// en vez de romper, y quien llama decide si sigue.
+const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function multiget(url, auth) {
+  for (let intento = 0; intento < 2; intento++) {
+    if (intento) await pausa(1200);
+    const r = await httpRequest('GET', url, auth).catch((e) => ({ status: 0, body: { message: e.message } }));
+    if (Array.isArray(r.body)) return { lista: r.body, problema: null };
+    const b = r.body || {};
+    const motivo = b.message || b.error || (b.raw ? String(b.raw).slice(0, 120) : null) || ('HTTP ' + r.status);
+    if (intento) return { lista: [], problema: motivo };
+  }
+  return { lista: [], problema: 'sin respuesta' };
+}
+
 async function items(req, res) {
   const { token } = req.body || {};
   if (!token) return res.status(400).json({ ok: false, error: 'Falta access_token' });
@@ -914,19 +939,35 @@ async function items(req, res) {
     if (!results.length || !scrollId) break;
   }
 
-  // Detalle en lotes de 20 (multiget): id, título, seller_sku
+  // Detalle en lotes de 20 (multiget): id, título, seller_sku.
+  // Si un lote no se puede leer NO se cae todo: se cuenta y se sigue, y el
+  // resultado avisa cuántas publicaciones quedaron sin leer. Importa, porque
+  // una publicación que falta hace que su producto parezca no publicado.
   const out = [];
+  let faltaron = 0;
+  const problemas = [];
   for (let i = 0; i < ids.length; i += 20) {
     const batch = ids.slice(i, i + 20).join(',');
-    const r = await httpRequest('GET', `https://api.mercadolibre.com/items?ids=${batch}&attributes=id,title,seller_custom_field,status`, auth);
-    for (const entry of (r.body || [])) {
+    const { lista, problema } = await multiget(
+      `https://api.mercadolibre.com/items?ids=${batch}&attributes=id,title,seller_custom_field,status`, auth);
+    if (problema) {
+      faltaron += Math.min(20, ids.length - i);
+      if (problemas.length < 3) problemas.push(problema);
+      continue;
+    }
+    for (const entry of lista) {
       const b = entry?.body;
       if (!b) continue;
       out.push({ mla: b.id, title: b.title || '', sku: b.seller_custom_field || null, status: b.status });
     }
   }
 
-  return res.status(200).json({ ok: true, sellerId, count: out.length, items: out });
+  // Si no se pudo leer NADA, es un error de verdad y no una lista vacía
+  if (!out.length && faltaron) {
+    return res.status(200).json({ ok: false, error: 'No se pudo leer ninguna publicación: ' + problemas[0] });
+  }
+
+  return res.status(200).json({ ok: true, sellerId, count: out.length, items: out, faltaron, problemas });
 }
 
 // Las fotos de un grupo de publicaciones, en el orden en que las tiene ML (la
@@ -945,15 +986,22 @@ async function itemPics(req, res) {
 
   const auth = { 'Authorization': 'Bearer ' + token };
   const out = [];
+  const problemas = [];
+  // Sin ?attributes: el multiget no siempre respeta el detalle de "pictures"
+  // cuando se le pide filtrado, y acá las fotos son justamente lo que importa.
   for (let i = 0; i < lista.length; i += 20) {
     const batch = lista.slice(i, i + 20).join(',');
-    const r = await httpRequest('GET',
-      `https://api.mercadolibre.com/items?ids=${batch}&attributes=id,status,pictures,thumbnail`, auth);
-    for (const entry of (r.body || [])) {
+    const { lista: lote, problema } = await multiget(
+      `https://api.mercadolibre.com/items?ids=${batch}`, auth);
+    if (problema) {
+      if (problemas.length < 3) problemas.push(problema);
+      continue;
+    }
+    for (const entry of lote) {
       const b = entry?.body;
       if (!b) continue;
       const pics = (b.pictures || []).map((x) => x?.secure_url || x?.url).filter(Boolean);
-      // Si la publicacion no trae el detalle de fotos queda el thumbnail, que es
+      // Si la publicación no trae el detalle de fotos queda el thumbnail, que es
       // chico pero sirve: mejor una foto en miniatura que ninguna.
       if (!pics.length && b.thumbnail) pics.push(b.thumbnail);
       out.push({ mla: b.id, status: b.status || null, pics });
@@ -966,7 +1014,7 @@ async function itemPics(req, res) {
   for (let i = 0; i < vacias.length; i += 6) {
     const tanda = vacias.slice(i, i + 6);
     const rs = await Promise.all(tanda.map((mla) => httpRequest('GET',
-      `https://api.mercadolibre.com/items/${encodeURIComponent(mla)}?attributes=id,status,pictures,thumbnail`,
+      `https://api.mercadolibre.com/items/${encodeURIComponent(mla)}`,
       auth).catch(() => null)));
     rs.forEach((r, k) => {
       const b = r?.status === 200 ? r.body : null;
@@ -979,7 +1027,11 @@ async function itemPics(req, res) {
     });
   }
 
-  return res.status(200).json({ ok: true, count: out.length, items: out });
+  if (!out.length && problemas.length) {
+    return res.status(200).json({ ok: false, error: 'ML no devolvió las fotos: ' + problemas[0] });
+  }
+
+  return res.status(200).json({ ok: true, count: out.length, items: out, problemas });
 }
 
 async function exchange(req, res) {

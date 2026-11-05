@@ -236,6 +236,7 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
     try {
       // 1) Publicaciones activas de todas las cuentas conectadas
       const activas = []
+      let faltaronPub = 0
       for (const { key, label } of conectadas) {
         setFotosMsg(`⏳ Leyendo las publicaciones de ${label}...`)
         const token = await ensureToken(key)
@@ -244,6 +245,7 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
           body: JSON.stringify({ token }),
         }).then(x => x.json())
         if (!r.ok) throw new Error(`${label}: ${r.error || 'no se pudieron leer las publicaciones'}`)
+        faltaronPub += r.faltaron || 0
         r.items.forEach(it => {
           if (!it.status || it.status === 'active') activas.push({ ...it, cuenta: label, key })
         })
@@ -322,6 +324,7 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
         publicaciones: activas.length,
         cuentas: conectadas.map(c => c.label).join(' + '),
         mezclados,
+        faltaronPub,
         sinPublicacion,
         sinFotoEnML,
       }
@@ -337,6 +340,7 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
         `• ${sinPublicacion.length} quedan sin foto: ninguna publicación activa cae sobre ellos.\n` +
         `• ${sinFotoEnML.length} tienen publicación, pero la publicación no tiene fotos.\n` +
         (mezclados ? `• ${mezclados} publicaciones son combos de productos distintos: no se usan, porque esa foto no representa a ninguno.\n` : '') +
+        (faltaronPub ? `• ⚠️ ${faltaronPub} publicaciones no se pudieron leer (ML cortó). Si alguna era de estos productos, van a quedar sin foto; se puede volver a correr después.\n` : '') +
         `\nA los ${products.length - sinFoto.length} productos que YA tienen foto no se los toca. ¿Seguir?`
       )
       if (!seguir) { setFotosMsg('Cancelado, no se tocó nada.'); return }
@@ -447,6 +451,7 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
 
       // 1) Publicaciones de todas las cuentas conectadas
       const activas = []
+      let faltaronPub = 0
       for (const { key, label } of conectadas) {
         setSinPubMsg(`⏳ Leyendo las publicaciones de ${label}...`)
         const token = await ensureToken(key)
@@ -455,6 +460,7 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
           body: JSON.stringify({ token }),
         }).then(x => x.json())
         if (!r.ok) throw new Error(`${label}: ${r.error || 'no se pudieron leer las publicaciones'}`)
+        faltaronPub += r.faltaron || 0
         r.items.forEach(it => {
           if (!it.status || it.status === 'active') activas.push({ ...it, cuenta: label })
         })
@@ -505,6 +511,7 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
       setSinPub({
         huerfanos, unidades, plata,
         publicaciones: activas.length,
+        faltaronPub,
         cuentas: conectadas.map(c => c.label).join(' + '),
         noAsociadas: noAsociadas.length,
         sinArmado,
@@ -1053,6 +1060,14 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
             )}
           </div>
 
+          {sinPub.faltaronPub > 0 && (
+            <p className="ml-sinpub-ojo">
+              🔴 OJO: {sinPub.faltaronPub} publicaciones no se pudieron leer (ML cortó la respuesta).
+              Esta lista puede traer productos que SÍ están publicados. Volvé a correrlo más tarde
+              antes de tomar decisiones con esto.
+            </p>
+          )}
+
           {sinPub.noAsociadas > 0 && (
             <p className="ml-sinpub-ojo">
               ⚠️ Ojo: {sinPub.noAsociadas} publicaciones activas no se pudieron asociar a ningún combo ni
@@ -1115,6 +1130,14 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
               <div><strong>{fotosRes.fallaron.length}</strong><span>fallaron</span></div>
             )}
           </div>
+
+          {fotosRes.faltaronPub > 0 && (
+            <p className="ml-sinpub-ojo">
+              ⚠️ {fotosRes.faltaronPub} publicaciones no se pudieron leer (ML cortó la respuesta).
+              Si alguna era la de estos productos, quedaron sin foto: se puede volver a correr el botón
+              más tarde y completa las que falten.
+            </p>
+          )}
 
           {fotosRes.mezclados > 0 && (
             <p className="ml-sinpub-ojo">
