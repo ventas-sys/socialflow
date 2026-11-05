@@ -311,3 +311,15 @@ vercel-toolbar,
 @media (prefers-color-scheme: dark) {
   .aviso-carga { background: rgba(251,191,36,0.12); color: #fcd34d; border-color: rgba(251,191,36,0.35); }
 }
+
+/* Sin conexión con Firestore: lo que se ve sale de la copia del dispositivo.
+   Va en rojo porque el riesgo es creerle a una lista vacía. */
+.aviso-carga.sin-conexion {
+  background: #fee2e2; color: #991b1b; border-color: #fca5a5;
+}
+.aviso-carga.sin-conexion button { background: #991b1b; }
+@media (prefers-color-scheme: dark) {
+  .aviso-carga.sin-conexion {
+    background: rgba(239,68,68,0.12); color: #fca5a5; border-color: rgba(239,68,68,0.35);
+  }
+}

@@ -74,8 +74,23 @@ const conLimite = (promesa, ms, que) => Promise.race([
 // Las consultas son por un solo campo: no hacen falta índices compuestos; el
 // userId se filtra acá, que es lo mismo porque todos los datos son de la
 // misma empresa.
+// --- De dónde salieron los datos: del servidor o de la copia del equipo ---
+// Firestore, si no puede hablar con el servidor, NO falla: devuelve lo que
+// tenga guardado en el dispositivo. Por eso una lista vacía puede significar
+// "no hay nada" o "no hay conexión", y en pantalla se ven IGUAL. Eso fue lo
+// que pasó con Envío Full: en la PC estaban y en la tablet salía "no hay
+// ninguno", sin un solo error. `snapshot.metadata.fromCache` es lo único que
+// distingue una cosa de la otra, así que se mira en cada lectura.
+let leidoDelCache = false
+const reiniciarOrigen = () => { leidoDelCache = false }
+const huboLecturaDeCache = () => leidoDelCache
+const anotarOrigen = (snap) => {
+  if (snap?.metadata?.fromCache) leidoDelCache = true
+  return snap
+}
+
 const ordenarEnvios = (m) => [...m.values()].sort((a, b) => msDe(b.createdAt) - msDe(a.createdAt))
-const sumarEnvios = (m) => (snap) => snap.docs.forEach(d => {
+const sumarEnvios = (m) => (snap) => anotarOrigen(snap).docs.forEach(d => {
   const s = { id: d.id, ...d.data() }
   if (s.userId === ORG_ID) m.set(d.id, s)
 })
@@ -131,6 +146,8 @@ export default function App() {
   // con mala conexión se queda esperando, no da error), esto es lo único que
   // dice dónde se quedó. Se muestra en Envíos cuando el tablero está vacío.
   const [pasoCarga, setPasoCarga] = useState('')
+  // true cuando algo se leyó de la copia del equipo en vez del servidor
+  const [sinConexion, setSinConexion] = useState(false)
   const [members, setMembers] = useState([])
   // Pedido de edición de un combo desde la pestaña Inventario
   const [comboEditRequest, setComboEditRequest] = useState(null)
@@ -391,6 +408,8 @@ export default function App() {
     setAccessDenied(false)
     setErrorCarga('')
     setPasoCarga('empezando')
+    reiniciarOrigen()
+    setSinConexion(false)
     movsPedidos.current = false
     setEnviosCompletos(false)
     try {
@@ -403,7 +422,7 @@ export default function App() {
       if (currentUser.email !== ADMIN_EMAIL) {
         try {
           setPasoCarga('permisos')
-          const me = await getDoc(doc(db, 'members', currentUser.email.toLowerCase()))
+          const me = anotarOrigen(await getDoc(doc(db, 'members', currentUser.email.toLowerCase())))
           // Sin doc de permisos ve todo, por compatibilidad con los miembros
           // viejos; eso es una decisión, no un error.
           setMyPerms(me.exists() ? me.data() : null)
@@ -461,11 +480,11 @@ export default function App() {
       //    —y sin ningún cartel, porque nunca llegaba a fallar—.
       const traerInventario = async () => {
         try {
-          const [productsSnap, combosSnap, settingsSnap] = await conLimite(Promise.all([
+          const [productsSnap, combosSnap, settingsSnap] = (await conLimite(Promise.all([
             getDocs(qProducts),
             getDocs(qCombos),
             getDoc(doc(db, 'settings', ORG_ID)),
-          ]), 60000, 'el inventario')
+          ]), 60000, 'el inventario')).map(anotarOrigen)
           setDepositMap(settingsSnap.exists() ? settingsSnap.data().depositMapPhoto || null : null)
           setTarifas(settingsSnap.exists() ? settingsSnap.data().zonasFlex || null : null)
           // La cotización vive en el mismo documento: se lee acá, que es donde
@@ -520,7 +539,7 @@ export default function App() {
       // otra. Se avisa en pantalla con el motivo, que es lo único honesto.
       const opcional = async (que, ms, traer, guardar) => {
         try {
-          guardar(await conLimite(traer(), ms, que))
+          guardar(anotarOrigen(await conLimite(traer(), ms, que)))
         } catch (err) {
           const motivo = err?.code || err?.message || String(err)
           console.warn(`${que}: no se pudo traer —`, motivo)
@@ -573,6 +592,7 @@ export default function App() {
       }
     } finally {
       setPasoCarga('listo')
+      setSinConexion(huboLecturaDeCache())
       setLoadingData(false)
     }
   }
@@ -970,7 +990,7 @@ export default function App() {
   // Empaque necesita para el escaneo. Que falle no rompe el tablero.
   const completarEnvios = useCallback(() => {
     traerEnviosVentana()
-      .then(fusionarEnvios)
+      .then(lista => { fusionarEnvios(lista); setSinConexion(huboLecturaDeCache()) })
       .catch(e => {
         console.warn('Envíos de la ventana:', e?.code || e?.message)
         setAvisoEnvios(a => a || `faltan los entregados y archivados (${e?.code || e?.message || e})`)
@@ -1409,6 +1429,14 @@ export default function App() {
       </nav>
 
       <main className="app-main">
+        {sinConexion && (
+          <div className="aviso-carga sin-conexion">
+            📡 Sin conexión con la base de datos. Lo que ves es la copia guardada en
+            este equipo: puede estar vieja y <strong>puede faltar información</strong>
+            (una lista vacía acá no quiere decir que no haya nada).
+            <button onClick={() => loadUserData(user)}>Reintentar</button>
+          </div>
+        )}
         {errorCarga && (
           <div className="aviso-carga">
             ⚠️ {errorCarga}
