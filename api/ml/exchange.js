@@ -16,6 +16,7 @@ export default async function handler(req, res) {
     if (action === 'test') return await test(req, res);
     if (action === 'orders') return await orders(req, res);
     if (action === 'items') return await items(req, res);
+    if (action === 'itempics') return await itemPics(req, res);
     if (action === 'shipstatus') return await shipStatus(req, res);
     if (action === 'topsold') return await topSold(req, res);
     if (action === 'metrics') return await metrics(req, res);
@@ -926,6 +927,59 @@ async function items(req, res) {
   }
 
   return res.status(200).json({ ok: true, sellerId, count: out.length, items: out });
+}
+
+// Las fotos de un grupo de publicaciones, en el orden en que las tiene ML (la
+// primera es la que se ve como principal en la publicación).
+//
+// Hace falta para completar la foto de los productos base que no tienen
+// ninguna: la foto ya existe, está en la publicación que vende ese producto.
+// Se piden de a 20 con el multiget, igual que el detalle de "items".
+async function itemPics(req, res) {
+  const { token, ids } = req.body || {};
+  if (!token) return res.status(400).json({ ok: false, error: 'Falta access_token' });
+
+  const lista = [...new Set((ids || []).map((x) => String(x || '').trim()).filter(Boolean))];
+  if (!lista.length) return res.status(400).json({ ok: false, error: 'No vino ninguna publicacion' });
+  if (lista.length > 200) return res.status(400).json({ ok: false, error: 'Demasiadas publicaciones de una vez (maximo 200)' });
+
+  const auth = { 'Authorization': 'Bearer ' + token };
+  const out = [];
+  for (let i = 0; i < lista.length; i += 20) {
+    const batch = lista.slice(i, i + 20).join(',');
+    const r = await httpRequest('GET',
+      `https://api.mercadolibre.com/items?ids=${batch}&attributes=id,status,pictures,thumbnail`, auth);
+    for (const entry of (r.body || [])) {
+      const b = entry?.body;
+      if (!b) continue;
+      const pics = (b.pictures || []).map((x) => x?.secure_url || x?.url).filter(Boolean);
+      // Si la publicacion no trae el detalle de fotos queda el thumbnail, que es
+      // chico pero sirve: mejor una foto en miniatura que ninguna.
+      if (!pics.length && b.thumbnail) pics.push(b.thumbnail);
+      out.push({ mla: b.id, status: b.status || null, pics });
+    }
+  }
+
+  // El multiget de ML no siempre devuelve el detalle de fotos. A las que
+  // volvieron sin ninguna se las pide de a una, que ahi si viene completo.
+  const vacias = out.filter((x) => !x.pics.length).map((x) => x.mla);
+  for (let i = 0; i < vacias.length; i += 6) {
+    const tanda = vacias.slice(i, i + 6);
+    const rs = await Promise.all(tanda.map((mla) => httpRequest('GET',
+      `https://api.mercadolibre.com/items/${encodeURIComponent(mla)}?attributes=id,status,pictures,thumbnail`,
+      auth).catch(() => null)));
+    rs.forEach((r, k) => {
+      const b = r?.status === 200 ? r.body : null;
+      if (!b) return;
+      const pics = (b.pictures || []).map((x) => x?.secure_url || x?.url).filter(Boolean);
+      if (!pics.length && b.thumbnail) pics.push(b.thumbnail);
+      if (!pics.length) return;
+      const destino = out.find((x) => x.mla === tanda[k]);
+      if (destino) destino.pics = pics;
+    });
+  }
+
+  return res.status(200).json({ ok: true, count: out.length, items: out });
 }
 
 async function exchange(req, res) {

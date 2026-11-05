@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import { cordonDe } from '../utils/cordon'
 import { findProductOrCombo } from '../utils/refMatch'
+import { compressImage } from '../utils/images'
 import { db } from '../firebase'
 import { doc, getDoc, writeBatch, Timestamp } from 'firebase/firestore'
 import { ORG_ID } from '../config'
@@ -29,7 +30,7 @@ const logisticLabel = (t) => ({
 const AUTH_BASE = 'https://auth.mercadolibre.com.ar/authorization'
 const API = '/api/ml/exchange'
 
-export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccount, onPurchase }) {
+export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccount, onPurchase, onGuardarFotos }) {
   const [forms, setForms] = useState({}) // edición de clientId/secret por cuenta
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState({})
@@ -195,6 +196,235 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
       setMsg(m => ({ ...m, [key]: '❌ ' + err.message }))
     } finally {
       setBusy('')
+    }
+  }
+
+  // --- Fotos de los productos base, traídas de las publicaciones de ML ---
+  //
+  // Hay cientos de productos base sin ninguna foto, y la foto YA EXISTE: está
+  // en la publicación que vende ese producto. Esto la trae sola: entra a cada
+  // producto sin foto, busca a qué publicación corresponde, se queda con la
+  // PRIMERA foto de esa publicación y la guarda en el producto base.
+  //
+  // A qué publicación corresponde cada producto se resuelve igual que en el
+  // resto de la solapa: el SKU (o el MLA) de la publicación cae sobre un
+  // producto o sobre un combo, y el combo lleva productos adentro.
+  //
+  // Regla importante, la misma que usa fotoDeCombo: si la publicación arma un
+  // combo que MEZCLA productos distintos, su foto no representa a ninguno de
+  // ellos y NO se usa. Poner la foto de un combo de cinco cosas en un producto
+  // base es peor que dejarlo sin foto: quien arma el pedido agarra lo que no es.
+  //
+  // A los productos que ya tienen foto no se los toca nunca.
+  const sinFotoCount = useMemo(() => products.filter(p => !p.hasPhotos).length, [products])
+  const [fotosBusy, setFotosBusy] = useState(false)
+  const [fotosMsg, setFotosMsg] = useState('')
+  const [fotosRes, setFotosRes] = useState(null)
+
+  // Las fotos de ML vienen como secure_url, pero si alguna llega en http la
+  // página (que es https) la bloquea como contenido mixto y no se baja nunca.
+  const aHttps = (u) => String(u || '').replace(/^http:\/\//, 'https://')
+
+  const traerFotosDeML = async () => {
+    const sinFoto = products.filter(p => !p.hasPhotos)
+    if (!sinFoto.length) { setFotosMsg('✅ Todos los productos base ya tienen foto.'); return }
+    const conectadas = ACCOUNTS.filter(a => mlAccounts?.[a.key]?.accessToken)
+    if (!conectadas.length) { setFotosMsg('⚠️ No hay ninguna cuenta de ML conectada.'); return }
+    if (!onGuardarFotos) { setFotosMsg('⚠️ Esta versión no puede guardar las fotos. Actualizá la app.'); return }
+
+    setFotosBusy(true); setFotosMsg(''); setFotosRes(null)
+    try {
+      // 1) Publicaciones activas de todas las cuentas conectadas
+      const activas = []
+      for (const { key, label } of conectadas) {
+        setFotosMsg(`⏳ Leyendo las publicaciones de ${label}...`)
+        const token = await ensureToken(key)
+        const r = await fetch(`${API}?action=items`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        }).then(x => x.json())
+        if (!r.ok) throw new Error(`${label}: ${r.error || 'no se pudieron leer las publicaciones'}`)
+        r.items.forEach(it => {
+          if (!it.status || it.status === 'active') activas.push({ ...it, cuenta: label, key })
+        })
+      }
+
+      // 2) Qué publicaciones podrían dar la foto de cada producto sin foto.
+      //    Se guardan hasta 2 candidatas por producto, ordenadas: primero la
+      //    publicación que cae derecho sobre el producto, después la que lo
+      //    vende a través de un combo de un solo artículo.
+      setFotosMsg('⏳ Cruzando las publicaciones con los productos sin foto...')
+      const faltan = new Map(sinFoto.map(p => [p.id, p]))
+      const cand = new Map()
+      let mezclados = 0
+      const agregar = (pid, it, prioridad, via) => {
+        const lista = cand.get(pid) || []
+        if (lista.some(x => x.mla === it.mla)) return
+        lista.push({ mla: it.mla, cuenta: it.cuenta, key: it.key, titulo: it.title, prioridad, via })
+        lista.sort((a, b) => a.prioridad - b.prioridad)
+        cand.set(pid, lista.slice(0, 2))
+      }
+      for (const it of activas) {
+        const m = findByRef(it.sku) || findByRef(it.mla)
+        if (!m) continue
+        if (m.type === 'product') {
+          if (faltan.has(m.p.id)) agregar(m.p.id, it, 1, 'publicación del producto')
+          continue
+        }
+        const ids = [...new Set((m.c.items || []).map(ci => ci.productId).filter(Boolean))]
+        if (ids.length > 1) { mezclados++; continue }
+        if (ids.length !== 1) continue
+        if (faltan.has(ids[0])) {
+          agregar(ids[0], it, 2, `combo ${m.c.code || m.c.name || ''}`.trim())
+        }
+      }
+
+      // 3) Las fotos de esas publicaciones. Cada publicación se pide con el
+      //    token de SU cuenta, de a 200.
+      const porCuenta = new Map()
+      for (const lista of cand.values()) {
+        for (const c of lista) {
+          if (!porCuenta.has(c.key)) porCuenta.set(c.key, new Set())
+          porCuenta.get(c.key).add(c.mla)
+        }
+      }
+      const picsDe = new Map()
+      for (const [key, set] of porCuenta) {
+        const label = ACCOUNTS.find(a => a.key === key)?.label || key
+        const ids = [...set]
+        const token = await ensureToken(key)
+        for (let i = 0; i < ids.length; i += 200) {
+          setFotosMsg(`⏳ Buscando las fotos en ${label} (${Math.min(i + 200, ids.length)}/${ids.length})...`)
+          const r = await fetch(`${API}?action=itempics`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, ids: ids.slice(i, i + 200) }),
+          }).then(x => x.json())
+          if (!r.ok) throw new Error(`${label}: ${r.error || 'no se pudieron leer las fotos'}`)
+          r.items.forEach(x => picsDe.set(x.mla, x.pics || []))
+        }
+      }
+
+      // 4) Para cada producto, la primera foto de la primera publicación que
+      //    tenga alguna
+      const plan = []
+      const sinPublicacion = []
+      const sinFotoEnML = []
+      for (const p of sinFoto) {
+        const lista = cand.get(p.id) || []
+        if (!lista.length) { sinPublicacion.push(p); continue }
+        const elegido = lista.find(c => (picsDe.get(c.mla) || []).length)
+        if (!elegido) { sinFotoEnML.push({ ...p, mla: lista[0].mla, cuenta: lista[0].cuenta }); continue }
+        plan.push({ p, ...elegido, url: aHttps(picsDe.get(elegido.mla)[0]) })
+      }
+
+      const resumen = {
+        sinFoto: sinFoto.length,
+        publicaciones: activas.length,
+        cuentas: conectadas.map(c => c.label).join(' + '),
+        mezclados,
+        sinPublicacion,
+        sinFotoEnML,
+      }
+
+      if (!plan.length) {
+        setFotosRes({ ...resumen, puestas: [], fallaron: [] })
+        setFotosMsg('⚠️ No se encontró ninguna foto para traer. Mirá el detalle de abajo.')
+        return
+      }
+
+      const seguir = window.confirm(
+        `Voy a poner la PRIMERA foto de la publicación en ${plan.length} productos base que hoy no tienen ninguna.\n\n` +
+        `• ${sinPublicacion.length} quedan sin foto: ninguna publicación activa cae sobre ellos.\n` +
+        `• ${sinFotoEnML.length} tienen publicación, pero la publicación no tiene fotos.\n` +
+        (mezclados ? `• ${mezclados} publicaciones son combos de productos distintos: no se usan, porque esa foto no representa a ninguno.\n` : '') +
+        `\nA los ${products.length - sinFoto.length} productos que YA tienen foto no se los toca. ¿Seguir?`
+      )
+      if (!seguir) { setFotosMsg('Cancelado, no se tocó nada.'); return }
+
+      // 5) Bajar y comprimir (de a 4 para no ahogar la conexión del depósito)
+      const listos = []
+      const fallaron = []
+      let n = 0
+      const bajar = async (item) => {
+        try {
+          const r = await fetch(item.url)
+          if (!r.ok) throw new Error('HTTP ' + r.status)
+          const blob = await r.blob()
+          if (!blob.size) throw new Error('la foto vino vacía')
+          const dataUrl = await compressImage(blob, 700, 0.7)
+          listos.push({ id: item.p.id, photos: [dataUrl], item })
+        } catch (e) {
+          fallaron.push({ ...item.p, mla: item.mla, cuenta: item.cuenta, motivo: 'No se pudo bajar la foto: ' + (e?.message || e) })
+        } finally {
+          n++
+          setFotosMsg(`⏳ Bajando fotos... ${n}/${plan.length}`)
+        }
+      }
+      for (let i = 0; i < plan.length; i += 4) {
+        await Promise.all(plan.slice(i, i + 4).map(bajar))
+      }
+
+      // 6) Guardar
+      let guardados = 0
+      if (listos.length) {
+        setFotosMsg(`⏳ Guardando ${listos.length} fotos...`)
+        const r = await onGuardarFotos(
+          listos.map(({ id, photos }) => ({ id, photos })),
+          (hechas) => setFotosMsg(`⏳ Guardando fotos... ${hechas}/${listos.length}`),
+        )
+        guardados = r?.guardados ?? listos.length
+        const malos = new Map((r?.fallaron || []).map(f => [f.id, f.motivo]))
+        for (const l of listos) {
+          if (malos.has(l.id)) {
+            fallaron.push({ ...l.item.p, mla: l.item.mla, cuenta: l.item.cuenta, motivo: 'No se pudo guardar: ' + malos.get(l.id) })
+          }
+        }
+      }
+      const puestas = listos
+        .filter(l => !fallaron.some(f => f.id === l.id))
+        .map(l => ({ ...l.item.p, mla: l.item.mla, cuenta: l.item.cuenta, via: l.item.via, titulo: l.item.titulo }))
+
+      // 7) Excel de lo que pasó, para revisarlo con calma
+      const rows = [['Código', 'Producto', 'Resultado', 'Publicación (MLA)', 'Cuenta', 'De dónde salió la foto', 'Título de la publicación']]
+      puestas.forEach(x => rows.push([x.code || '', x.name || '', 'Foto puesta', x.mla || '', x.cuenta || '', x.via || '', x.titulo || '']))
+      fallaron.forEach(x => rows.push([x.code || '', x.name || '', x.motivo || 'Falló', x.mla || '', x.cuenta || '', '', '']))
+      sinFotoEnML.forEach(x => rows.push([x.code || '', x.name || '', 'La publicación no tiene fotos', x.mla || '', x.cuenta || '', '', '']))
+      sinPublicacion.forEach(x => rows.push([x.code || '', x.name || '', 'Ninguna publicación activa cae sobre este producto', '', '', '', '']))
+      const ws = XLSX.utils.aoa_to_sheet(rows)
+      ws['!cols'] = [{ wch: 14 }, { wch: 45 }, { wch: 46 }, { wch: 16 }, { wch: 10 }, { wch: 26 }, { wch: 50 }]
+      const info = XLSX.utils.aoa_to_sheet([
+        ['FOTOS DE PRODUCTOS BASE TRAÍDAS DE LAS PUBLICACIONES DE ML'],
+        [''],
+        [`Cuentas miradas: ${resumen.cuentas}`],
+        [`Publicaciones activas leídas: ${activas.length}`],
+        [`Productos base sin foto antes de empezar: ${sinFoto.length}`],
+        [`Fotos puestas: ${puestas.length}`],
+        [`No se pudieron bajar o guardar: ${fallaron.length}`],
+        [`Con publicación pero la publicación no tiene fotos: ${sinFotoEnML.length}`],
+        [`Sin ninguna publicación activa: ${sinPublicacion.length}`],
+        [''],
+        ['Cómo se eligió la foto:'],
+        ['  1) Si hay una publicación cuyo SKU es el del producto, se usa esa.'],
+        ['  2) Si no, la publicación de un combo que lleve SOLO ese producto.'],
+        ['  3) De la publicación elegida se toma la PRIMERA foto, la principal.'],
+        [''],
+        [`Las publicaciones que son combos de productos DISTINTOS no se usaron (${mezclados}).`],
+        ['Esa foto no representa a ninguno de los productos que lleva adentro, y'],
+        ['ponerla en el producto base hace que quien arma el pedido agarre lo que no es.'],
+        [''],
+        ['A los productos que ya tenían foto no se los tocó.'],
+      ])
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, info, 'Resumen')
+      XLSX.utils.book_append_sheet(wb, ws, 'Detalle')
+      XLSX.writeFile(wb, `fotos-desde-ml-${new Date().toISOString().slice(0, 10)}.xlsx`)
+
+      setFotosRes({ ...resumen, puestas, fallaron })
+      setFotosMsg(`✅ Se pusieron ${puestas.length} fotos${fallaron.length ? `, ${fallaron.length} fallaron` : ''}. Se bajó el Excel con el detalle.`)
+    } catch (e) {
+      setFotosMsg('❌ ' + (e?.message || 'Error'))
+    } finally {
+      setFotosBusy(false)
     }
   }
 
@@ -711,6 +941,13 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
           </div>
 
           <div className="ml-top-row">
+            <button className="ml-btn-missing" onClick={traerFotosDeML} disabled={fotosBusy || !sinFotoCount}>
+              {fotosBusy ? '⏳ Trayendo fotos...' : `📸 Traer las fotos que faltan desde ML (${sinFotoCount} sin foto)`}
+            </button>
+            {fotosMsg && <span className={`ml-cron-msg ${fotosMsg.startsWith('✅') ? 'ok' : fotosMsg.startsWith('⏳') ? '' : 'warn'}`}>{fotosMsg}</span>}
+          </div>
+
+          <div className="ml-top-row">
             <button className="ml-btn-missing" onClick={exportTopSold} disabled={topBusy}>
               {topBusy ? '⏳ Leyendo las ventas del mes...' : '🏆 Top 200 más vendidos (30 días)'}
             </button>
@@ -856,6 +1093,64 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
               {sinPub.huerfanos.length > 40 && (
                 <p className="ml-sinpub-sub">
                   Se muestran los 40 de más stock. Los {sinPub.huerfanos.length} están en el Excel que se bajó.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {fotosRes && (
+        <div className="ml-sinpub">
+          <h3>📸 Fotos traídas de las publicaciones</h3>
+          <p className="ml-sinpub-sub">
+            {fotosRes.cuentas} · {fotosRes.publicaciones} publicaciones activas · {fotosRes.sinFoto} productos base sin foto
+          </p>
+
+          <div className="ml-sinpub-nums">
+            <div><strong>{fotosRes.puestas.length}</strong><span>fotos puestas</span></div>
+            <div><strong>{fotosRes.sinPublicacion.length}</strong><span>sin publicación</span></div>
+            <div><strong>{fotosRes.sinFotoEnML.length}</strong><span>publicación sin fotos</span></div>
+            {fotosRes.fallaron.length > 0 && (
+              <div><strong>{fotosRes.fallaron.length}</strong><span>fallaron</span></div>
+            )}
+          </div>
+
+          {fotosRes.mezclados > 0 && (
+            <p className="ml-sinpub-ojo">
+              ⚠️ {fotosRes.mezclados} publicaciones son combos que mezclan productos distintos: no se usaron.
+              Esa foto no representa a ninguno de los productos que lleva adentro, y ponerla en el producto
+              base hace que quien arma el pedido agarre lo que no es.
+            </p>
+          )}
+
+          {fotosRes.puestas.length === 0 ? (
+            <p className="ml-sinpub-ojo">
+              No se pudo traer ninguna foto. El Excel que se bajó dice, producto por producto, por qué.
+            </p>
+          ) : (
+            <>
+              <div className="ml-preview-table-wrap">
+                <table className="ml-preview-table">
+                  <thead>
+                    <tr><th>Código</th><th>Producto</th><th>Publicación</th><th>Cuenta</th><th>De dónde salió</th></tr>
+                  </thead>
+                  <tbody>
+                    {fotosRes.puestas.slice(0, 40).map(x => (
+                      <tr key={x.id}>
+                        <td className="ml-code">{x.code || '—'}</td>
+                        <td>{x.name}</td>
+                        <td className="ml-code">{x.mla}</td>
+                        <td>{x.cuenta}</td>
+                        <td className="ml-sinpub-motivo">{x.via}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {fotosRes.puestas.length > 40 && (
+                <p className="ml-sinpub-sub">
+                  Se muestran las primeras 40. Las {fotosRes.puestas.length} están en el Excel que se bajó.
                 </p>
               )}
             </>

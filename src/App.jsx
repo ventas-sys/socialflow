@@ -1118,6 +1118,44 @@ export default function App() {
     if (cMap.size) setCombos(prev => prev.map(c => (cMap.has(c.id) ? { ...c, ...cMap.get(c.id) } : c)))
   }
 
+  // Guardar EN TANDA la foto que vino de una publicación de ML en varios
+  // productos base. Cada foto va a su doc de la colección "photos" y el
+  // producto queda en hasPhotos:true, que es el flag que mira el listado.
+  //
+  // Nunca falla todo por uno: si una foto no se puede guardar se anota el
+  // motivo y se sigue con el resto, así una tanda de 200 no se pierde entera
+  // por un producto. Devuelve lo que se guardó y lo que no.
+  const guardarFotosDeProductos = async (pares, onAvance) => {
+    if (!user || !pares?.length) return { guardados: 0, fallaron: [] }
+    const ok = []
+    const fallaron = []
+    let hechos = 0
+    for (let i = 0; i < pares.length; i += 10) {
+      const tanda = pares.slice(i, i + 10)
+      await Promise.all(tanda.map(async ({ id, photos }) => {
+        if (!id || !photos?.length) return
+        try {
+          await savePhotos(id, photos)
+          ok.push(id)
+        } catch (e) {
+          fallaron.push({ id, motivo: e?.code || e?.message || String(e) })
+        }
+      }))
+      hechos += tanda.length
+      onAvance?.(Math.min(hechos, pares.length))
+    }
+    // El flag de los productos va en lotes de 400 (límite de un batch)
+    for (let i = 0; i < ok.length; i += 400) {
+      const batch = writeBatch(db)
+      ok.slice(i, i + 400).forEach(id =>
+        batch.update(doc(db, 'products', id), { hasPhotos: true, updatedAt: Timestamp.now() }))
+      await batch.commit()
+    }
+    const set = new Set(ok)
+    setProducts(prev => prev.map(p => (set.has(p.id) ? { ...p, hasPhotos: true } : p)))
+    return { guardados: ok.length, fallaron }
+  }
+
   // Borrar EN TANDA la foto propia de varios combos. El combo no se toca: se
   // borra su doc de fotos y queda en hasPhotos:false, con lo que pasa a mostrar
   // la del producto base (si es un solo producto base).
@@ -1602,6 +1640,7 @@ export default function App() {
                 mlAccounts={mlAccounts}
                 onSaveAccount={saveMlAccount}
                 onPurchase={registerPurchase}
+                onGuardarFotos={guardarFotosDeProductos}
               />
             )}
             {currentTab === 'reports' && canSee('reports') && <Reports products={products} movements={movements} />}
