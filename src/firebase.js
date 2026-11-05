@@ -39,6 +39,15 @@ function crearDb() {
   try {
     return initializeFirestore(app, {
       localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+      // Firestore habla con el servidor por una conexión de larga duración
+      // (WebChannel). Hay redes —con proxy, filtro de contenido o ciertos
+      // WiFi— que la rompen SIN dar error: la app se queda esperando para
+      // siempre. Pasó en la tablet del depósito el 2/11: traer TRES motoqueros
+      // tardaba más de 25 segundos y nunca llegaba.
+      // Esto hace que el SDK detecte solo ese caso y se pase a long-polling,
+      // que atraviesa esas redes. Donde la conexión normal anda bien, no
+      // cambia nada.
+      experimentalAutoDetectLongPolling: true,
     })
   } catch (e) {
     console.warn('Sin caché local de Firestore:', e?.code || e?.message)
