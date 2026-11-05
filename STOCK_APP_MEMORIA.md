@@ -3,7 +3,7 @@
 **ÚNICA fuente de verdad del proyecto. Leer entera antes de tocar nada.**
 Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/socialflow
 
-## 📍 ESTADO AL 1/11/2026 — arrancar por acá
+## 📍 ESTADO AL 2/11/2026 — arrancar por acá
 
 Último commit: ver `git log`. Todo desplegado y verde en los dos proyectos de Vercel.
 
@@ -39,7 +39,9 @@ Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/
 - Las lecturas se bajaron muchísimo: el sync de envíos pasó de ~3.900 documentos por corrida a **181** (punto 33), y la cadencia ahora sigue el horario real de trabajo (9-13 cada 10 min · 13-18 cada 30 · 18-9 cada 5 horas).
 - El celular del depósito **quedó funcionando** (punto 34): *"listo funciona"*.
 
-**👉 LO PRIMERO A HACER EN LA PRÓXIMA SESIÓN: mirar el gráfico de lecturas de Firebase** (consola → Firestore → Uso). **El 31/10 fue el primer día completo con todos los recortes puestos**, así que ese día es el que hay que comparar contra las 719.000 del 30/10. Si sigue alto, seguir por el **punto 33e**: cada apertura baja ~3.400 combos que casi no cambian y se pueden servir del caché del dispositivo. **Medir antes de tocar.**
+**🔴 LO PRIMERO: ¿anduvo el arreglo de la tablet? (punto 35).** Se subió `experimentalAutoDetectLongPolling` el 2/11 y **quedó sin verificar**. Preguntar si con el ayudante en la tablet ya cargan Envío Full y los motoqueros. Si no, seguir la lista del punto 35.
+
+**Después: mirar el gráfico de lecturas de Firebase** (consola → Firestore → Uso). **El 31/10 fue el primer día completo con todos los recortes puestos**, así que ese día es el que hay que comparar contra las 719.000 del 30/10. Si sigue alto, seguir por el **punto 33e**: cada apertura baja ~3.400 combos que casi no cambian y se pueden servir del caché del dispositivo. **Medir antes de tocar.**
 El **1/11 el otro chat** bajó además el saldo automático de MP de 14 corridas por día a 4 (punto 30i), que suma en la misma dirección.
 
 **De código no queda nada abierto.**
@@ -313,6 +315,21 @@ El **1/11 el otro chat** bajó además el saldo automático de MP de 14 corridas
     - Línea 🔎 en Envíos, **cuando el tablero está vacío**, con el **paso** en que quedó la carga (`pasoCarga`: permisos / caché del dispositivo / inventario / envíos / motoqueros / listo). Distingue lo que antes se veía igual: que no haya envíos, o que nunca se hayan llegado a pedir.
     **🟡 Honestidad sobre la causa:** el usuario confirmó *"listo funciona"* después de este deploy, pero **no quedó probado cuál de los dos arreglos lo destrabó**, ni si además borró los datos del sitio en ese celular (se le ofreció la prueba en incógnito y el borrado de datos, y no dijo si los hizo). Si vuelve a pasar en otro equipo: **primero mirar la línea 🔎**, y si dice que se quedó en un paso, probar en incógnito para descartar el caché local del teléfono.
     **Lección:** cuando algo "no anda y no dice nada", el primer trabajo es hacer que diga algo. Dos días se fueron adivinando porque la app no tenía forma de contar dónde se trababa.
+
+35. **📡 2/11 — la tablet del depósito NO llega a hablar con Firestore (y la app lo disimulaba).** Venía de los puntos 31-34. Síntomas: con el ayudante no cargaban envíos, ni ML, ni fotos, ni Envío Full — **y sin un solo error**. Con el usuario master en PC y en celular andaba todo.
+    **La cadena de arreglos, en orden (cada uno destapó el siguiente):**
+    - **a)** La carga esperaba el inventario (~5.000 docs) ANTES de pedir envíos, motoqueros y el resto, así que un inventario lento dejaba sin cargar todo lo de atrás. Ahora, si ya se pintó del caché, el inventario se actualiza por atrás y la carga sigue (commit `52fa5e5`).
+    - **b)** Motoqueros, Envío Full, finanzas y cuentas de ML se pedían EN FILA detrás de los envíos: una que se colgara dejaba sin cargar a todas las siguientes. Ahora van en paralelo, cada una con su tiempo límite (commit `55f5020`). **En ese mismo commit** se arregló que Finanzas leía `settingsSnap` fuera de alcance (lo rompí yo en `52fa5e5`): al master le quedaba Finanzas vacía y el dólar sin aplicar, silenciado por un catch.
+    - **c)** Los envíos se piden en DOS tandas: primero los ACTIVOS (unos cientos, lo que el tablero muestra) y después, sin esperarla, la ventana de 35 días (commit `0c7a3c0`). Bajó además las lecturas por apertura.
+    - **d)** Si una colección opcional fallaba, yo la vaciaba: **"no hay ninguno" y "falló la consulta" se veían IGUAL**. Ya no se toca lo que haya y se avisa con el motivo (commit `0f21d1a`).
+    **🔎 LO QUE DESTAPÓ LA CAUSA — la instrumentación. NO SACARLA:**
+    - `.aviso-carga` arriba de todo con el motivo y botón **Reintentar** (`errorCarga`).
+    - Línea 🔎 en Envíos con el **paso** en que quedó la carga (`pasoCarga`). Fue la que dijo *"La carga se quedó en: envíos…"*.
+    - Cartel **rojo** `.sin-conexion` cuando algo se leyó de la copia del equipo (`snapshot.metadata.fromCache`, commit `31f4ebc`): Firestore, sin servidor, **NO falla — devuelve lo guardado en el dispositivo**, así que una lista vacía puede ser "no hay nada" o "no hay conexión".
+    **🎯 LA PRUEBA DEFINITIVA (2/11):** el cartel mostró *"No se pudo traer **los motoqueros** (tardó más de 25s) · los envíos a Full (más de 30s)"*. **Los motoqueros son TRES registros.** Con ese tamaño no son ni los permisos ni el volumen: esa tablet no llega a la base. **Permisos descartados.**
+    **Arreglo propuesto (commit `548b290`, SIN VERIFICAR TODAVÍA):** `experimentalAutoDetectLongPolling: true` en `src/firebase.js`. Firestore habla por una conexión de larga duración (WebChannel) y hay redes con proxy, filtro o ciertos WiFi que la rompen sin dar error; con esto el SDK lo detecta y se pasa a long-polling. Donde la conexión normal anda, no cambia nada.
+    **Si NO alcanza, probar en este orden:** 1) la tablet con datos móviles o hotspot (si ahí anda, es el WiFi de ese puesto); 2) si hay VPN, antivirus o filtro de DNS en la tablet; 3) `experimentalForceLongPolling: true` en vez del autodetect.
+    **Lección:** cuando algo "no anda y no dice nada", el primer trabajo es hacer que diga algo. Tres días se fueron adivinando porque la app no podía contar dónde se trababa; apenas pudo, la causa apareció en una pantalla.
 
 ## Reglas de negocio clave (definidas por el usuario)
 - Stock: descuenta TODO lo despachado desde el depósito propio (FLEX+correo/colecta+ventas sin envío de ML), NUNCA `fulfillment` (Full ya salió al enviarse a bodega). Igual para ambas cuentas. 2 veces/día (13 y 18hs AR). Stock puede quedar negativo. **Clasificación explícita desde el 28/8** (`clasificar`/`descuenta` en api/ml/cron.js): la regla vieja era "todo lo que no sea fulfillment descuenta", así que si fallaba el pedido del envío a ML el tipo quedaba nulo y la venta se descontaba igual — incluidas las de Full — y además no se miraba el estado de la orden (canceladas y sin cobrar también descontaban; caso real: 771 Full + 60 canceladas en 48hs de la cuenta FULL). Ahora: descuentan flex (`self_service`) + correo (`drop_off`/`xd_drop_off`/`cross_docking`) + sin envío, con estado `paid`/`partially_paid`; NO descuentan Full, canceladas/inválidas, sin cobrar (quedan para la corrida siguiente) ni las de tipo desconocido (se reintenta el pedido a ML y si igual no se sabe NO se descuenta: preferimos que falte un descuento antes que descontar una de Full). El resumen del botón "Probar automático ahora" muestra el desglose. Verificado 28/8 en producción: FULL 168 flex + 2 correo (771 Full salteadas — es correcto, ~98% de esa cuenta va por bodega), FERRE 103 flex + 83 correo + 6 sin envío.
