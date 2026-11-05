@@ -35,19 +35,38 @@ googleProvider.setCustomParameters({ prompt: 'select_account' })
 // mostrándose aunque se corte internet) mientras se actualiza contra el
 // servidor por atrás. Si el navegador no la soporta (modo incógnito, storage
 // bloqueado, varias pestañas viejas), se sigue sin caché como antes.
+const CLAVE_CONEXION = 'conexionAlternativa'
+
+export function conexionAlternativa() {
+  try { return localStorage.getItem(CLAVE_CONEXION) === '1' } catch { return false }
+}
+
+// Prende o apaga la conexión alternativa en ESTE equipo y recarga la app
+// (Firestore sólo toma esta opción al arrancar).
+export function cambiarConexionAlternativa(prender) {
+  try {
+    if (prender) localStorage.setItem(CLAVE_CONEXION, '1')
+    else localStorage.removeItem(CLAVE_CONEXION)
+  } catch { /* storage bloqueado: no se puede guardar */ }
+  window.location.reload()
+}
+
 function crearDb() {
   try {
     return initializeFirestore(app, {
       localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
       // Firestore habla con el servidor por una conexión de larga duración
       // (WebChannel). Hay redes —con proxy, filtro de contenido o ciertos
-      // WiFi— que la rompen SIN dar error: la app se queda esperando para
-      // siempre. Pasó en la tablet del depósito el 2/11: traer TRES motoqueros
-      // tardaba más de 25 segundos y nunca llegaba.
-      // Esto hace que el SDK detecte solo ese caso y se pase a long-polling,
-      // que atraviesa esas redes. Donde la conexión normal anda bien, no
-      // cambia nada.
-      experimentalAutoDetectLongPolling: true,
+      // WiFi— que la rompen SIN dar error. Pasó en la tablet del depósito:
+      // traer TRES motoqueros tardaba más de 25 segundos y nunca llegaba.
+      // OJO: la autodetección (experimentalAutoDetectLongPolling) YA viene
+      // prendida por defecto en esta versión del SDK, así que no alcanzó.
+      // El paso siguiente es FORZAR long-polling, pero SOLO en el equipo donde
+      // se prende desde el botón del cartel de error (queda guardado en ese
+      // equipo). La PC y el celular que andan bien no cambian.
+      ...(conexionAlternativa()
+        ? { experimentalForceLongPolling: true }
+        : { experimentalAutoDetectLongPolling: true }),
     })
   } catch (e) {
     console.warn('Sin caché local de Firestore:', e?.code || e?.message)

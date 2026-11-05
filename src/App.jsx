@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { computeConsumption } from './utils/stock'
 import { hayTrabajoEnCurso } from './utils/trabajoEnCurso'
-import { auth, googleProvider, db } from './firebase'
+import { auth, googleProvider, db, conexionAlternativa, cambiarConexionAlternativa } from './firebase'
 import {
   signInWithPopup,
   signOut,
@@ -1429,18 +1429,34 @@ export default function App() {
       </nav>
 
       <main className="app-main">
+        {conexionAlternativa() && (
+          <div className="aviso-carga conexion-alternativa">
+            🔌 Este equipo usa la conexión alternativa (más lenta, pero pasa por redes con filtro).
+            <button onClick={() => cambiarConexionAlternativa(false)}>Volver a la normal</button>
+          </div>
+        )}
         {sinConexion && (
           <div className="aviso-carga sin-conexion">
             📡 Sin conexión con la base de datos. Lo que ves es la copia guardada en
             este equipo: puede estar vieja y <strong>puede faltar información</strong>
             (una lista vacía acá no quiere decir que no haya nada).
             <button onClick={() => loadUserData(user)}>Reintentar</button>
+            {!conexionAlternativa() && (
+              <button onClick={() => cambiarConexionAlternativa(true)}>
+                Probar conexión alternativa
+              </button>
+            )}
           </div>
         )}
         {errorCarga && (
           <div className="aviso-carga">
             ⚠️ {errorCarga}
             <button onClick={() => loadUserData(user)}>Reintentar</button>
+            {!conexionAlternativa() && (
+              <button onClick={() => cambiarConexionAlternativa(true)}>
+                Probar conexión alternativa
+              </button>
+            )}
           </div>
         )}
         {loadingData ? (
