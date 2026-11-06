@@ -16,7 +16,8 @@ export default async function handler(req, res) {
     if (action === 'test') return await test(req, res);
     if (action === 'orders') return await orders(req, res);
     if (action === 'items') return await items(req, res);
-    if (action === 'itempics') return await itemPics(req, res);
+    if (action === 'itempics' || action === 'itemdetail') return await itemDetail(req, res);
+    if (action === 'mlsearch') return await mlSearch(req, res);
     if (action === 'shipstatus') return await shipStatus(req, res);
     if (action === 'topsold') return await topSold(req, res);
     if (action === 'metrics') return await metrics(req, res);
@@ -970,13 +971,93 @@ async function items(req, res) {
   return res.status(200).json({ ok: true, sellerId, count: out.length, items: out, faltaron, problemas });
 }
 
-// Las fotos de un grupo de publicaciones, en el orden en que las tiene ML (la
-// primera es la que se ve como principal en la publicación).
+// Los datos de un grupo de publicaciones: sus fotos en el orden en que las
+// tiene ML (la primera es la principal) y lo básico de la publicación —
+// precio, link, categoría y si es de catálogo.
 //
-// Hace falta para completar la foto de los productos base que no tienen
-// ninguna: la foto ya existe, está en la publicación que vende ese producto.
+// Lo usan dos cosas: completar la foto de los productos base que no tienen
+// ninguna (la foto ya existe, está en la publicación que vende ese producto) y
+// usar una publicación de FERRE como molde para publicar lo mismo en FULL.
+//
 // Se piden de a 20 con el multiget, igual que el detalle de "items".
-async function itemPics(req, res) {
+// La acción vieja "itempics" sigue entrando acá, por si quedó una pestaña
+// abierta con la versión anterior de la app.
+// Lo que se mira de una publicación para poder copiarla o compararla.
+function datosDe(b) {
+  return {
+    title: b.title || '',
+    price: b.price ?? null,
+    currency: b.currency_id || null,
+    permalink: b.permalink || null,
+    categoryId: b.category_id || null,
+    catalogProductId: b.catalog_product_id || null,
+    listingType: b.listing_type_id || null,
+    condition: b.condition || null,
+    shippingMode: b.shipping?.mode || null,
+    freeShipping: b.shipping?.free_shipping ?? null,
+    available: b.available_quantity ?? null,
+    sku: b.seller_custom_field || null,
+  };
+}
+
+// Busca en el mercado de ML publicaciones parecidas a cada texto que le pasen.
+// Body: { token, consultas: [{ ref, q }] }  →  por cada ref, hasta 3 candidatas.
+//
+// Sirve para los productos base que no están publicados en ninguna de las dos
+// cuentas: la candidata da la categoría, la ficha y, si existe, el PRODUCTO DE
+// CATÁLOGO, que es lo que permite publicar rápido en vez de armar todo de cero.
+// La decisión de si la candidata es "la misma cosa" la toma el usuario mirando
+// el link: acá no se marca nada como igual.
+async function mlSearch(req, res) {
+  const { token, consultas } = req.body || {};
+  if (!token) return res.status(400).json({ ok: false, error: 'Falta access_token' });
+
+  const lista = (consultas || [])
+    .filter((c) => c && c.ref && String(c.q || '').trim())
+    .slice(0, 120);
+  if (!lista.length) return res.status(400).json({ ok: false, error: 'No vino ninguna busqueda' });
+
+  const auth = { 'Authorization': 'Bearer ' + token };
+  const out = [];
+
+  // De a 5 y con una pausa entre tandas: ML corta por ritmo y una busqueda
+  // cortada vale menos que tardar unos segundos mas.
+  for (let i = 0; i < lista.length; i += 5) {
+    if (i) await pausa(250);
+    const tanda = lista.slice(i, i + 5);
+    const rs = await Promise.all(tanda.map((c) => httpRequest('GET',
+      `https://api.mercadolibre.com/sites/MLA/search?q=${encodeURIComponent(String(c.q).trim())}&limit=3`,
+      auth).catch((e) => ({ status: 0, body: { message: e.message } }))));
+    rs.forEach((r, k) => {
+      const ref = tanda[k].ref;
+      const results = r?.body?.results;
+      if (!Array.isArray(results)) {
+        const b = r?.body || {};
+        const motivo = b.message || b.error || (b.raw ? String(b.raw).slice(0, 120) : null) || ('HTTP ' + r?.status);
+        out.push({ ref, candidatas: [], problema: motivo });
+        return;
+      }
+      out.push({
+        ref,
+        candidatas: results.map((x) => ({
+          mla: x.id,
+          title: x.title || '',
+          price: x.price ?? null,
+          currency: x.currency_id || null,
+          permalink: x.permalink || null,
+          categoryId: x.category_id || null,
+          catalogProductId: x.catalog_product_id || null,
+          condition: x.condition || null,
+          vendidos: x.sold_quantity ?? null,
+        })),
+      });
+    });
+  }
+
+  return res.status(200).json({ ok: true, count: out.length, items: out });
+}
+
+async function itemDetail(req, res) {
   const { token, ids } = req.body || {};
   if (!token) return res.status(400).json({ ok: false, error: 'Falta access_token' });
 
@@ -1004,7 +1085,7 @@ async function itemPics(req, res) {
       // Si la publicación no trae el detalle de fotos queda el thumbnail, que es
       // chico pero sirve: mejor una foto en miniatura que ninguna.
       if (!pics.length && b.thumbnail) pics.push(b.thumbnail);
-      out.push({ mla: b.id, status: b.status || null, pics });
+      out.push({ mla: b.id, status: b.status || null, pics, ...datosDe(b) });
     }
   }
 
@@ -1021,9 +1102,10 @@ async function itemPics(req, res) {
       if (!b) return;
       const pics = (b.pictures || []).map((x) => x?.secure_url || x?.url).filter(Boolean);
       if (!pics.length && b.thumbnail) pics.push(b.thumbnail);
-      if (!pics.length) return;
       const destino = out.find((x) => x.mla === tanda[k]);
-      if (destino) destino.pics = pics;
+      if (!destino) return;
+      Object.assign(destino, datosDe(b));
+      if (pics.length) destino.pics = pics;
     });
   }
 
