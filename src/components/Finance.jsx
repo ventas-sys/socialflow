@@ -519,17 +519,6 @@ export default function Finance({ records = [], usdRate = 1000, onAdd, onDelete,
                   </select>
                 </label>
               </div>
-              <label>Monto
-                <input type="number" step="0.01" min="0" placeholder="0.00" value={form.monto}
-                  onChange={e => setForm({ ...form, monto: e.target.value })} required />
-              </label>
-              <label>Proveedor
-                <input list="fin-provs" placeholder="Nombre del proveedor" value={form.proveedor}
-                  onChange={e => setForm({ ...form, proveedor: e.target.value })} />
-                <datalist id="fin-provs">
-                  {proveedoresConocidos.map(p => <option key={p} value={p} />)}
-                </datalist>
-              </label>
               <div className="fin-form-row">
                 <label>Remito
                   <input placeholder="N° remito" value={form.remito} onChange={e => setForm({ ...form, remito: e.target.value })} />
@@ -538,9 +527,20 @@ export default function Finance({ records = [], usdRate = 1000, onAdd, onDelete,
                   <input placeholder="N° factura" value={form.factura} onChange={e => setForm({ ...form, factura: e.target.value })} />
                 </label>
               </div>
+              <label>Proveedor
+                <input list="fin-provs" placeholder="Nombre del proveedor" value={form.proveedor}
+                  onChange={e => setForm({ ...form, proveedor: e.target.value })} />
+                <datalist id="fin-provs">
+                  {proveedoresConocidos.map(p => <option key={p} value={p} />)}
+                </datalist>
+              </label>
               <label>Descripción
                 <input placeholder="Detalle del movimiento" value={form.descripcion}
                   onChange={e => setForm({ ...form, descripcion: e.target.value })} required />
+              </label>
+              <label>Monto
+                <input type="number" step="0.01" min="0" placeholder="0.00" value={form.monto}
+                  onChange={e => setForm({ ...form, monto: e.target.value })} required />
               </label>
               <button type="submit" className="fin-btn" disabled={guardando}>
                 {guardando ? '⏳ Guardando...' : 'Agregar registro'}
