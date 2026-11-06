@@ -158,9 +158,15 @@ export default function Finance({ records = [], usdRate = 1000, onAdd, onDelete,
     e.preventDefault()
     setError('')
     const monto = parseFloat(form.monto) || 0
+    // Todos los campos son obligatorios (decisión del usuario, 6/11/2026).
+    // El `required` del navegador no alcanza: un campo con sólo espacios lo
+    // pasa igual y el registro queda en blanco.
+    if (!form.fecha) return setError('Falta la fecha.')
+    if (!form.remito.trim()) return setError('Falta el número de remito.')
+    if (!form.factura.trim()) return setError('Falta el número de factura.')
+    if (!form.proveedor.trim()) return setError('Falta el proveedor.')
     if (!form.descripcion.trim()) return setError('Poné una descripción del movimiento.')
     if (monto <= 0) return setError('El monto tiene que ser mayor a cero.')
-    if (!form.fecha) return setError('Falta la fecha.')
     setGuardando(true)
     try {
       await onAdd({
@@ -521,15 +527,17 @@ export default function Finance({ records = [], usdRate = 1000, onAdd, onDelete,
               </div>
               <div className="fin-form-row">
                 <label>Remito
-                  <input placeholder="N° remito" value={form.remito} onChange={e => setForm({ ...form, remito: e.target.value })} />
+                  <input placeholder="N° remito" value={form.remito}
+                    onChange={e => setForm({ ...form, remito: e.target.value })} required />
                 </label>
                 <label>Factura
-                  <input placeholder="N° factura" value={form.factura} onChange={e => setForm({ ...form, factura: e.target.value })} />
+                  <input placeholder="N° factura" value={form.factura}
+                    onChange={e => setForm({ ...form, factura: e.target.value })} required />
                 </label>
               </div>
               <label>Proveedor
                 <input list="fin-provs" placeholder="Nombre del proveedor" value={form.proveedor}
-                  onChange={e => setForm({ ...form, proveedor: e.target.value })} />
+                  onChange={e => setForm({ ...form, proveedor: e.target.value })} required />
                 <datalist id="fin-provs">
                   {proveedoresConocidos.map(p => <option key={p} value={p} />)}
                 </datalist>
