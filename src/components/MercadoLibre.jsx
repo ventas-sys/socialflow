@@ -432,26 +432,22 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
     }
   }
 
-  // --- Qué falta publicar en FULL, y con qué molde publicarlo ---
+  // --- Qué falta publicar en FULL, y qué publicación parecida hay en ML ---
   //
   // Son cientos de productos base que no están publicados en la cuenta FULL.
-  // Armar cada publicación de cero es el cuello de botella, y casi siempre ya
-  // existe algo de donde copiar. Esto lo busca y lo deja en un Excel para que
-  // el usuario ponga el OK; publicar es un paso aparte.
+  // Armar cada publicación de cero es el cuello de botella. Esto arma la lista
+  // y, para cada producto, busca en el mercado de ML hasta 3 publicaciones
+  // parecidas, con el link, para que el usuario mire y ponga el OK.
   //
-  // Para cada producto que falta, en este orden:
-  //   A) Ya está publicado en FERRE → esa publicación es el molde (es propia,
-  //      se puede copiar entera). Sólo vale si la publicación cae DERECHO sobre
-  //      el producto o sobre un combo de un solo artículo: la de un combo
-  //      mezclado no es el molde de ninguno de los productos que lleva adentro.
-  //   B) No está en ninguna cuenta → se busca en el mercado de ML por nombre y
-  //      se traen hasta 3 candidatas, con el link para mirarlas.
-  //   C) No apareció nada → hay que armarla de cero.
+  // FERRE no se mira (decisión del usuario, 6/11/2026): se buscan candidatas
+  // del mercado para TODOS los que falten, estén o no publicados en FERRE.
   //
-  // De las publicaciones de OTROS vendedores no se copia nada: sirven de
-  // referencia de categoría, ficha y sobre todo del PRODUCTO DE CATÁLOGO, que
-  // es lo que permite publicar rápido. Marcar cuál sirve es decisión del
-  // usuario mirando el link, no de la app.
+  // De las publicaciones de otros vendedores no se copia nada: sirven de
+  // referencia de categoría, ficha, precio y sobre todo del PRODUCTO DE
+  // CATÁLOGO, que es lo que permite publicar rápido. Nada se marca como
+  // "igual": esa decisión es del usuario mirando el link.
+  //
+  // Este botón NO publica ni modifica nada en ML. Sólo mira.
   const [pubBusy, setPubBusy] = useState(false)
   const [pubMsg, setPubMsg] = useState('')
   const [pubRes, setPubRes] = useState(null)
@@ -472,42 +468,17 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
     .slice(0, 10).join(' ')
     .slice(0, 60).trim()
 
-  // Qué productos cubre una lista de publicaciones. `soloMolde` deja fuera a los
-  // combos mezclados, que sirven para decir "esto se vende" pero no para copiar.
-  const cubrePorPublicacion = (activas, soloMolde) => {
-    const mapa = new Map()
+  // Qué productos quedan cubiertos por una lista de publicaciones: la que cae
+  // sobre un combo cubre a todos los productos que el combo lleva adentro.
+  const cubiertosPor = (activas) => {
+    const set = new Set()
     for (const it of activas) {
       const m = findByRef(it.sku) || findByRef(it.mla)
       if (!m) continue
-      const marcar = (pid, via) => {
-        if (!mapa.has(pid)) mapa.set(pid, [])
-        if (mapa.get(pid).length < 3) mapa.get(pid).push({ ...it, via })
-      }
-      if (m.type === 'product') { marcar(m.p.id, 'publicación del producto'); continue }
-      const ids = [...new Set((m.c.items || []).map(ci => ci.productId).filter(Boolean))]
-      if (!ids.length) continue
-      if (ids.length > 1) {
-        if (soloMolde) continue
-        ids.forEach(pid => marcar(pid, 'combo mezclado'))
-        continue
-      }
-      marcar(ids[0], `combo ${m.c.code || m.c.name || ''}`.trim())
+      if (m.type === 'product') { set.add(m.p.id); continue }
+      ;(m.c.items || []).forEach(ci => { if (ci.productId) set.add(ci.productId) })
     }
-    return mapa
-  }
-
-  const leerActivas = (key, label, setM) => async () => {
-    setM(`⏳ Leyendo las publicaciones de ${label}...`)
-    const token = await ensureToken(key)
-    const r = await fetch(`${API}?action=items`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token }),
-    }).then(x => x.json())
-    if (!r.ok) throw new Error(`${label}: ${r.error || 'no se pudieron leer las publicaciones'}`)
-    return {
-      activas: r.items.filter(it => !it.status || it.status === 'active').map(it => ({ ...it, cuenta: label, key })),
-      faltaron: r.faltaron || 0,
-    }
+    return set
   }
 
   const buscarParaPublicarEnFull = async () => {
@@ -515,102 +486,56 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
     setPubBusy(true); setPubMsg(''); setPubRes(null)
     try {
       // 1) Lo que YA está publicado en FULL
-      const full = await leerActivas('full', 'FULL', setPubMsg)()
-      const cubiertoFull = cubrePorPublicacion(full.activas, false)
-      const faltan = products.filter(p => !cubiertoFull.has(p.id))
+      setPubMsg('⏳ Leyendo las publicaciones de FULL...')
+      const token = await ensureToken('full')
+      const r = await fetch(`${API}?action=items`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      }).then(x => x.json())
+      if (!r.ok) throw new Error('FULL: ' + (r.error || 'no se pudieron leer las publicaciones'))
+      const activas = r.items.filter(it => !it.status || it.status === 'active')
+      const cubiertos = cubiertosPor(activas)
+      const faltan = products.filter(p => !cubiertos.has(p.id))
 
       if (!faltan.length) {
-        setPubRes(null)
         setPubMsg(`✅ Los ${products.length} productos base ya están publicados en FULL.`)
         return
       }
 
-      // 2) Moldes propios en FERRE
-      let moldes = new Map()
-      let ferreFaltaron = 0
-      let ferreConectada = false
-      if (mlAccounts?.ferre?.accessToken) {
-        ferreConectada = true
-        const ferre = await leerActivas('ferre', 'FERRE', setPubMsg)()
-        ferreFaltaron = ferre.faltaron
-        moldes = cubrePorPublicacion(ferre.activas, true)
-      }
-
-      const casoA = faltan.filter(p => moldes.has(p.id))
-      const casoB = faltan.filter(p => !moldes.has(p.id))
-
       const seguir = window.confirm(
         `Faltan publicar ${faltan.length} productos base en FULL.\n\n` +
-        `• ${casoA.length} ya los tenés publicados en FERRE: esa publicación sirve de molde.\n` +
-        `• ${casoB.length} no están en ninguna cuenta: los busco en el mercado de ML, uno por uno.\n\n` +
-        (ferreConectada ? '' : '⚠️ FERRE no está conectada, así que no puedo buscar moldes propios.\n\n') +
-        `La búsqueda de los ${casoB.length} tarda unos minutos. Al final se baja el Excel.\n\n` +
-        `No se publica ni se modifica NADA en ML: esto sólo mira y arma la lista. ¿Seguir?`
+        `Voy a buscar en el mercado de Mercado Libre, uno por uno, hasta 3 publicaciones\n` +
+        `parecidas a cada uno, para que las mires y marques las que sirven.\n\n` +
+        `Tarda unos minutos. Al final se baja el Excel.\n\n` +
+        `No se publica ni se modifica NADA en ML: esto sólo mira. ¿Seguir?`
       )
       if (!seguir) { setPubMsg('Cancelado, no se tocó nada.'); return }
 
-      // 3) Detalle de los moldes de FERRE (precio, link, categoría, catálogo)
-      const detalle = new Map()
-      if (casoA.length) {
-        const ids = [...new Set(casoA.map(p => moldes.get(p.id)[0].mla))]
-        const token = await ensureToken('ferre')
-        for (let i = 0; i < ids.length; i += 200) {
-          setPubMsg(`⏳ Mirando tus publicaciones de FERRE (${Math.min(i + 200, ids.length)}/${ids.length})...`)
-          const r = await fetch(`${API}?action=itemdetail`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token, ids: ids.slice(i, i + 200) }),
-          }).then(x => x.json())
-          if (!r.ok) throw new Error('FERRE: ' + (r.error || 'no se pudo leer el detalle'))
-          r.items.forEach(x => detalle.set(x.mla, x))
-        }
-      }
-
-      // 4) Búsqueda en el mercado para los que no tienen molde propio
+      // 2) Buscar candidatas en el mercado para todos los que faltan
       const encontradas = new Map()
       let sinBuscar = 0
-      if (casoB.length) {
-        const token = await ensureToken('full')
-        const consultas = casoB
-          .map(p => ({ ref: p.id, q: comoBusqueda(p.name, p.code) }))
-          .filter(c => { if (!c.q) { sinBuscar++; return false } return true })
-        for (let i = 0; i < consultas.length; i += 120) {
-          setPubMsg(`⏳ Buscando en Mercado Libre (${Math.min(i + 120, consultas.length)}/${consultas.length})...`)
-          const r = await fetch(`${API}?action=mlsearch`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token, consultas: consultas.slice(i, i + 120) }),
-          }).then(x => x.json())
-          if (!r.ok) throw new Error('Búsqueda: ' + (r.error || 'no se pudo buscar'))
-          r.items.forEach(x => encontradas.set(x.ref, x))
-        }
+      const consultas = faltan
+        .map(p => ({ ref: p.id, q: comoBusqueda(p.name, p.code) }))
+        .filter(c => { if (!c.q) { sinBuscar++; return false } return true })
+      for (let i = 0; i < consultas.length; i += 120) {
+        setPubMsg(`⏳ Buscando en Mercado Libre (${Math.min(i + 120, consultas.length)}/${consultas.length})...`)
+        const rs = await fetch(`${API}?action=mlsearch`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, consultas: consultas.slice(i, i + 120) }),
+        }).then(x => x.json())
+        if (!rs.ok) throw new Error('Búsqueda: ' + (rs.error || 'no se pudo buscar'))
+        rs.items.forEach(x => encontradas.set(x.ref, x))
       }
 
-      // 5) Una fila por producto
+      // 3) Una fila por producto
       setPubMsg('⏳ Armando el Excel...')
       const filas = faltan.map(p => {
-        const molde = moldes.get(p.id)?.[0]
-        if (molde) {
-          const d = detalle.get(molde.mla) || {}
-          return {
-            p, caso: 'A', enFerre: 'Sí',
-            candidatas: [{
-              mla: molde.mla,
-              title: d.title || molde.title || '',
-              price: d.price ?? null,
-              currency: d.currency || 'ARS',
-              permalink: d.permalink || `https://articulo.mercadolibre.com.ar/${String(molde.mla).replace('MLA', 'MLA-')}`,
-              catalogProductId: d.catalogProductId || null,
-              condition: d.condition || null,
-            }],
-            categoria: d.categoryId || '',
-            catalogo: d.catalogProductId || '',
-            nota: `Publicación tuya de FERRE (${molde.via}). Se puede copiar entera.`,
-          }
-        }
         const b = encontradas.get(p.id)
         const cands = b?.candidatas || []
         const conCatalogo = cands.find(c => c.catalogProductId)
         return {
-          p, caso: cands.length ? 'B' : 'C', enFerre: 'No',
+          p,
+          caso: cands.length ? 'Hay candidatas' : 'De cero',
           candidatas: cands,
           categoria: cands[0]?.categoryId || '',
           catalogo: conCatalogo?.catalogProductId || '',
@@ -622,15 +547,15 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
         }
       }).sort((a, b) => (Number(b.p.quantity) || 0) - (Number(a.p.quantity) || 0))
 
-      // 6) Excel
-      const cab = ['Código', 'Producto', 'Stock', 'Precio tuyo', 'En FERRE', 'Caso', 'OK']
+      // 4) Excel
+      const cab = ['Código', 'Producto', 'Stock', 'Precio tuyo', 'Caso', 'OK']
       for (let i = 1; i <= 3; i++) cab.push(`Candidata ${i}`, `Precio ${i}`, `Link ${i}`)
       cab.push('Categoría ML', 'Producto de catálogo', 'Notas')
       const rows = [cab]
       filas.forEach(f => {
         const fila = [
           f.p.code || '', f.p.name || '', Number(f.p.quantity) || 0, Number(f.p.price) || 0,
-          f.enFerre, f.caso, '',
+          f.caso, '',
         ]
         for (let i = 0; i < 3; i++) {
           const c = f.candidatas[i]
@@ -641,39 +566,35 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
       })
       const ws = XLSX.utils.aoa_to_sheet(rows)
       ws['!cols'] = [
-        { wch: 14 }, { wch: 42 }, { wch: 7 }, { wch: 12 }, { wch: 9 }, { wch: 6 }, { wch: 6 },
+        { wch: 14 }, { wch: 42 }, { wch: 7 }, { wch: 12 }, { wch: 14 }, { wch: 6 },
         { wch: 42 }, { wch: 11 }, { wch: 40 },
         { wch: 42 }, { wch: 11 }, { wch: 40 },
         { wch: 42 }, { wch: 11 }, { wch: 40 },
         { wch: 14 }, { wch: 18 }, { wch: 60 },
       ]
-      const nA = filas.filter(f => f.caso === 'A').length
-      const nB = filas.filter(f => f.caso === 'B').length
-      const nC = filas.filter(f => f.caso === 'C').length
+      const conCands = filas.filter(f => f.candidatas.length).length
+      const deCero = filas.length - conCands
+      const conCatalogo = filas.filter(f => f.catalogo).length
       const info = XLSX.utils.aoa_to_sheet([
         ['PRODUCTOS BASE QUE FALTAN PUBLICAR EN LA CUENTA FULL'],
         [''],
         [`Productos base en el sistema: ${products.length}`],
-        [`Publicaciones activas leídas en FULL: ${full.activas.length}`],
+        [`Publicaciones activas leídas en FULL: ${activas.length}`],
         [`FALTAN PUBLICAR EN FULL: ${faltan.length}`],
         [''],
-        [`Caso A — ya publicados en FERRE (hay molde propio): ${nA}`],
-        [`Caso B — candidatas encontradas en el mercado de ML: ${nB}`],
-        [`Caso C — no apareció nada, hay que armarla de cero: ${nC}`],
-        [`Con ficha de producto de catálogo de ML: ${filas.filter(f => f.catalogo).length}`],
+        [`Con candidatas encontradas en el mercado de ML: ${conCands}`],
+        [`Sin nada parecido, hay que armarla de cero: ${deCero}`],
+        [`Con ficha de producto de catálogo de ML: ${conCatalogo}`],
         [''],
         ['CÓMO USAR ESTE ARCHIVO'],
         ['  • La columna OK está vacía a propósito: poné una X en las que te sirven.'],
         ['  • Está ordenado por stock, así arriba queda lo que más plata tiene quieta.'],
         ['  • Los links abren la publicación en ML para que la mires antes de decidir.'],
         [''],
-        ['QUÉ ES CADA CASO'],
-        ['  A) La publicación es TUYA, de FERRE. Se puede copiar entera a FULL:'],
-        ['     mismo título, misma descripción, mismas fotos, misma categoría.'],
-        ['  B) Son publicaciones de OTROS vendedores. Sirven para ver la categoría,'],
-        ['     la ficha técnica, el rango de precio y si existe ficha de catálogo.'],
-        ['     NO se copian fotos ni descripción: es contenido de ellos y ML sanciona.'],
-        ['  C) No apareció nada parecido. Hay que armar la publicación de cero.'],
+        ['LAS CANDIDATAS SON PUBLICACIONES DE OTROS VENDEDORES.'],
+        ['Sirven para ver la categoría, la ficha técnica, el rango de precio y si'],
+        ['existe ficha de catálogo. NO se copian fotos ni descripción: es contenido'],
+        ['de ellos y Mercado Libre lo sanciona.'],
         [''],
         ['Si hay PRODUCTO DE CATÁLOGO, publicar contra esa ficha es lo más rápido:'],
         ['ML ya tiene el título, las fotos y los atributos; vos ponés precio y stock.'],
@@ -690,11 +611,10 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
       XLSX.writeFile(wb, `para-publicar-en-full-${new Date().toISOString().slice(0, 10)}.xlsx`)
 
       setPubRes({
-        faltan: faltan.length, nA, nB, nC,
-        conCatalogo: filas.filter(f => f.catalogo).length,
-        publicaciones: full.activas.length,
-        faltaronPub: full.faltaron + ferreFaltaron,
-        sinBuscar, ferreConectada,
+        faltan: faltan.length, conCands, deCero, conCatalogo,
+        publicaciones: activas.length,
+        faltaronPub: r.faltaron || 0,
+        sinBuscar,
         filas: filas.slice(0, 40),
       })
       setPubMsg(`✅ ${faltan.length} productos para publicar en FULL. Se bajó el Excel.`)
@@ -1215,7 +1135,7 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
           {cronMsg && <span className={`ml-cron-msg ${cronMsg.startsWith('✅') ? 'ok' : 'warn'}`}>{cronMsg}</span>}
           <div className="ml-top-row">
             <button className="ml-btn-missing" onClick={buscarParaPublicarEnFull} disabled={pubBusy}>
-              {pubBusy ? '⏳ Buscando...' : '🆕 Qué falta publicar en FULL (y con qué molde)'}
+              {pubBusy ? '⏳ Buscando...' : '🆕 Qué falta publicar en FULL'}
             </button>
             {pubMsg && <span className={`ml-cron-msg ${pubMsg.startsWith('✅') ? 'ok' : pubMsg.startsWith('⏳') ? '' : 'warn'}`}>{pubMsg}</span>}
           </div>
@@ -1403,18 +1323,11 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
           </p>
 
           <div className="ml-sinpub-nums">
-            <div><strong>{pubRes.nA}</strong><span>con molde en FERRE</span></div>
-            <div><strong>{pubRes.nB}</strong><span>con candidatas de ML</span></div>
-            <div><strong>{pubRes.nC}</strong><span>de cero</span></div>
+            <div><strong>{pubRes.faltan}</strong><span>sin publicar</span></div>
+            <div><strong>{pubRes.conCands}</strong><span>con candidatas</span></div>
+            <div><strong>{pubRes.deCero}</strong><span>de cero</span></div>
             <div><strong>{pubRes.conCatalogo}</strong><span>con ficha de catálogo</span></div>
           </div>
-
-          {!pubRes.ferreConectada && (
-            <p className="ml-sinpub-ojo">
-              ⚠️ FERRE no está conectada, así que no se buscaron moldes propios. Conectala y volvé
-              a correrlo: lo que ya tenés publicado ahí es lo más rápido de pasar a FULL.
-            </p>
-          )}
           {pubRes.faltaronPub > 0 && (
             <p className="ml-sinpub-ojo">
               🔴 OJO: {pubRes.faltaronPub} publicaciones no se pudieron leer (ML cortó la respuesta).
@@ -1430,7 +1343,7 @@ export default function MercadoLibre({ products, combos, mlAccounts, onSaveAccou
           <div className="ml-preview-table-wrap">
             <table className="ml-preview-table">
               <thead>
-                <tr><th>Código</th><th>Producto</th><th>Stock</th><th>Caso</th><th>Molde / candidata</th></tr>
+                <tr><th>Código</th><th>Producto</th><th>Stock</th><th>Caso</th><th>Candidata</th></tr>
               </thead>
               <tbody>
                 {pubRes.filas.map(f => (
