@@ -357,3 +357,7 @@
   font-size: 13px; font-weight: 600; padding: 4px 6px; text-decoration: underline;
 }
 .full-btn-link:hover { color: #1d4ed8; }
+
+/* Un solo código ML por artículo (11/11/2026): verde el que queda, rojo el que sale */
+.full-code-queda { color: #15803d; font-weight: 700; }
+.full-code-sale { color: #b91c1c; text-decoration: line-through; }

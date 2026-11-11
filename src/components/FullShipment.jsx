@@ -539,15 +539,21 @@ export default function FullShipment({
     }
   }
 
-  // Guardar los códigos sueltos como código de barras del combo/producto que ya
-  // existe. Es ADITIVO: los códigos que ya tenía quedan como están.
+  // Dejar cada artículo del pedido con UN SOLO código de etiqueta de Full: el
+  // de este envío. Agrega el que falta y saca los códigos ML viejos.
+  //
+  // Lo que NO se toca nunca: el SKU (campo "code"), los códigos universales
+  // todo números y cualquier otro código que no tenga forma de etiqueta.
   const asociarCodigos = async () => {
     if (!porAsociar?.length || !onAsociarCodigos) return
-    const total = porAsociar.reduce((a, x) => a + x.faltan.length, 0)
+    const agregar = porAsociar.reduce((a, x) => a + x.faltan.length, 0)
+    const quitar = porAsociar.reduce((a, x) => a + (x.sacar?.length || 0), 0)
     if (!window.confirm(
-      `Asociar ${total} ${total === 1 ? 'código' : 'códigos'} a ${porAsociar.length} ` +
-      `${porAsociar.length === 1 ? 'artículo' : 'artículos'} que ya están en el sistema.\n\n` +
-      `Se AGREGAN como código de barras: los que ya tenían cargados no se tocan.\n\n¿Confirmás?`
+      `Dejar un solo código de etiqueta en ${porAsociar.length} ` +
+      `${porAsociar.length === 1 ? 'artículo' : 'artículos'} del pedido.\n\n` +
+      (agregar ? `• Se agregan ${agregar} códigos de este envío.\n` : '') +
+      (quitar ? `• Se SACAN ${quitar} códigos ML viejos, para que al preparar no haya dos.\n` : '') +
+      `\nNo se toca el SKU ni los códigos universales (los de todos números).\n\n¿Confirmás?`
     )) return
     setBusy(true); setMsg('')
     try {
@@ -557,8 +563,8 @@ export default function FullShipment({
           ? products.find(p => p.id === x.id)
           : combos.find(c => c.id === x.id)
         if (!actual) return
-        const previos = barcodesOf(actual)
-        const nuevos = [...previos]
+        const fuera = new Set((x.sacar || []).map(v => normalize(v)))
+        const nuevos = barcodesOf(actual).filter(b => !fuera.has(normalize(b)))
         x.faltan.forEach(r => {
           if (!nuevos.some(b => normalize(b) === normalize(r))) nuevos.push(r)
         })
@@ -567,7 +573,11 @@ export default function FullShipment({
       })
       await onAsociarCodigos(patches)
       setPorAsociar(null)
-      setMsg(`🔗 ${total} códigos asociados. Volvé a escanear las etiquetas: ahora tienen que entrar.`)
+      setMsg(
+        `🔗 Listo: ${agregar} códigos agregados` +
+        (quitar ? ` y ${quitar} códigos ML viejos sacados` : '') +
+        '. Volvé a escanear las etiquetas: ahora tienen que entrar.'
+      )
     } catch (err) {
       setMsg('❌ No se pudieron asociar: ' + err.message)
     } finally {
@@ -684,9 +694,38 @@ export default function FullShipment({
         // y ensucia la lista. Lo mismo cualquier otra cosa que no tenga forma
         // de etiqueta de Full.
         const faltan = refs.filter(r => ES_ETIQUETA_FULL.test(r) && !yaTiene.has(normalize(r)))
-        if (!faltan.length || vistos.has(x.id)) return
-        vistos.add(x.id)
-        sueltos.push({ tipo: m.type, id: x.id, nombre: x.name, code: x.code || '', faltan })
+
+        // UN SOLO CÓDIGO ML POR ARTÍCULO (pedido del usuario, 11/11/2026).
+        // Si el artículo ya tiene un código de etiqueta viejo y este envío trae
+        // otro, quedarse con los dos confunde a quien prepara: escanea uno y no
+        // sabe cuál es el que vale. Se deja SIEMPRE el de este envío, que es el
+        // que está pegado en la caja ahora.
+        // Sólo se tocan los códigos con forma de etiqueta de Full. El SKU
+        // (el campo "code") y los códigos universales todo números NO se tocan.
+        const delEnvio = refs.filter(r => ES_ETIQUETA_FULL.test(r))
+        const mlGuardados = barcodesOf(x).filter(b => ES_ETIQUETA_FULL.test(b))
+        const sePuedeQuedar = delEnvio[0] || mlGuardados[0] || ''
+        const sacar = [...mlGuardados, ...delEnvio]
+          .filter(b => normalize(b) !== normalize(sePuedeQuedar))
+          .filter((b, i, arr) => arr.findIndex(o => normalize(o) === normalize(b)) === i)
+
+        if (!vistos.has(x.id)) {
+          if (sacar.length) {
+            vistos.add(x.id)
+            sueltos.push({
+              tipo: m.type, id: x.id, nombre: x.name, code: x.code || '',
+              faltan: faltan.filter(r => normalize(r) === normalize(sePuedeQuedar)),
+              queda: sePuedeQuedar,
+              sacar,
+            })
+          } else if (faltan.length) {
+            vistos.add(x.id)
+            sueltos.push({
+              tipo: m.type, id: x.id, nombre: x.name, code: x.code || '',
+              faltan, queda: sePuedeQuedar, sacar: [],
+            })
+          }
+        }
       })
       setPorAsociar(sueltos.length ? sueltos : null)
       const unidades = filas.reduce((s, r) => s + r.cantidad, 0)
@@ -917,28 +956,41 @@ export default function FullShipment({
           {canEdit && porAsociar?.length > 0 && (
             <div className="full-asociar">
               <div className="full-asociar-top">
-                <strong>🔗 {porAsociar.length} artículos del pedido tienen códigos sin asociar</strong>
+                <strong>
+                  🔗 {porAsociar.length} artículos del pedido necesitan que se les ordene el código
+                </strong>
                 <button className="full-btn" onClick={asociarCodigos} disabled={busy}>
-                  {busy ? '⏳ Asociando...' : 'Asociar todos'}
+                  {busy ? '⏳ Ordenando...' : 'Dejar uno solo'}
                 </button>
                 <button className="full-btn plano" onClick={() => setPorAsociar(null)} disabled={busy}>
                   Ahora no
                 </button>
               </div>
               <p className="full-asociar-hint">
-                Están cargados en el sistema con su SKU de ML, pero les falta el código de la etiqueta
-                de Full. Por eso al escanearlos dice "no está en el sistema". Asociarlos sólo AGREGA
-                códigos: los que ya tenían quedan igual. Se asocian únicamente los códigos de
-                4 letras + 4 o 5 números; los MLA y los códigos todo números no se tocan.
+                Cada artículo tiene que quedar con <strong>UN SOLO código de etiqueta de Full</strong>:
+                el de este envío, que es el que está pegado en la caja. Si le falta, se le agrega;
+                si tenía uno viejo de otro envío, se lo saca, así quien prepara no se encuentra con
+                dos códigos distintos para la misma cosa.
+                <br />
+                Sólo se tocan los códigos de <strong>4 letras + 4 o 5 números</strong>.
+                El SKU (MLA…) y los códigos universales (todos números) quedan intactos.
               </p>
               <table>
-                <thead><tr><th>Artículo</th><th>SKU cargado</th><th>Códigos a agregar</th></tr></thead>
+                <thead>
+                  <tr>
+                    <th>Artículo</th><th>SKU cargado</th><th>Queda</th><th>Se agrega</th><th>Se saca</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {porAsociar.map(x => (
                     <tr key={x.id}>
                       <td>{x.nombre}</td>
                       <td className="full-code">{x.code || '—'}</td>
-                      <td className="full-code">{x.faltan.join(' · ')}</td>
+                      <td className="full-code full-code-queda">{x.queda || '—'}</td>
+                      <td className="full-code">{x.faltan.length ? x.faltan.join(' · ') : '—'}</td>
+                      <td className="full-code full-code-sale">
+                        {x.sacar?.length ? x.sacar.join(' · ') : '—'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
