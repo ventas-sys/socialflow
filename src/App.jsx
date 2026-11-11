@@ -29,7 +29,6 @@ import Dashboard from './components/Dashboard'
 import Inventory from './components/Inventory'
 import Combos from './components/Combos'
 import Movements from './components/Movements'
-import Reports from './components/Reports'
 import Shipments from './components/Shipments'
 import Packing from './components/Packing'
 import MercadoLibre from './components/MercadoLibre'
@@ -48,7 +47,7 @@ const DIAS_ENVIOS = 35 // cubre los períodos rápidos del reporte (hoy / 7 / 30
 const ENVIOS_ACTIVOS = ['pendiente', 'armado', 'camino', 'demorado']
 // Solapas que necesitan los movimientos. Si el usuario no entra a ninguna
 // (p. ej. un ayudante que solo usa Envíos y Empaque) no se bajan nunca.
-const TABS_CON_MOVS = ['dashboard', 'inventory', 'combos', 'movements', 'reports']
+const TABS_CON_MOVS = ['dashboard', 'inventory', 'combos', 'movements', 'metrics']
 
 const msDe = (t) => (t?.toMillis ? t.toMillis() : new Date(t || 0).getTime())
 
@@ -1616,10 +1615,14 @@ export default function App() {
                 onUpdateShipment={updateShipment}
               />
             )}
-            {currentTab === 'metrics' && canSee('metrics') && (
+            {currentTab === 'metrics' && (canSee('metrics') || canSee('reports')) && (
               <Metrics
                 mlAccounts={mlAccounts}
                 ensureToken={(key) => ensureMlToken(mlAccounts, key, saveMlAccount)}
+                products={products}
+                movements={movements}
+                verVentas={canSee('metrics')}
+                verInventario={canSee('reports')}
               />
             )}
             {currentTab === 'finanzas' && isAdmin && (
@@ -1643,7 +1646,6 @@ export default function App() {
                 onGuardarFotos={guardarFotosDeProductos}
               />
             )}
-            {currentTab === 'reports' && canSee('reports') && <Reports products={products} movements={movements} />}
             {currentTab === 'users' && isAdmin && (
               <Users
                 members={members}

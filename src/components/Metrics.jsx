@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../firebase'
+import Reports from './Reports'
 import './Metrics.css'
 
 const API = '/api/ml/exchange'
@@ -29,7 +30,17 @@ const plata = (n) => '$' + Math.round(n || 0).toLocaleString('es-AR')
 const num = (n) => (n || 0).toLocaleString('es-AR')
 const pct = (n) => (n == null ? '—' : (n * 100).toFixed(2).replace('.', ',') + '%')
 
-export default function Metrics({ mlAccounts, ensureToken }) {
+// Reportes dejó de ser una solapa aparte: mostraba casi lo mismo que Métricas
+// (pedido del usuario, 11/11/2026). Ahora las dos viven acá, en dos vistas:
+// "Ventas" (lo de MercadoLibre) e "Inventario" (lo que mostraba Reportes).
+// Los permisos se respetan: si al ayudante sólo le toca una de las dos, ve esa
+// sola y sin el selector.
+export default function Metrics({
+  mlAccounts, ensureToken,
+  products = [], movements = [],
+  verVentas = true, verInventario = true,
+}) {
+  const [vista, setVista] = useState(verVentas ? 'ventas' : 'inventario')
   const [cuenta, setCuenta] = useState('ambas')
   const [rango, setRango] = useState('hoy')
   const [conEnvios, setConEnvios] = useState(true)
@@ -290,8 +301,29 @@ export default function Metrics({ mlAccounts, ensureToken }) {
   const ALTO_BARRA = 170 // px
   const etiqueta = { ventas: 'Ventas', unidades: 'Unidades', dinero: 'Dinero' }
 
+  const selector = verVentas && verInventario && (
+    <div className="mt-vistas">
+      <button className={vista === 'ventas' ? 'on' : ''} onClick={() => setVista('ventas')}>
+        🛒 Ventas
+      </button>
+      <button className={vista === 'inventario' ? 'on' : ''} onClick={() => setVista('inventario')}>
+        📈 Inventario
+      </button>
+    </div>
+  )
+
+  if (vista === 'inventario' || !verVentas) {
+    return (
+      <div className="metrics">
+        {selector}
+        <Reports products={products} movements={movements} />
+      </div>
+    )
+  }
+
   return (
     <div className="metrics">
+      {selector}
       <div className="mt-head">
         <div>
           <h1>📊 Métricas</h1>

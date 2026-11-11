@@ -7,6 +7,9 @@ import LazyThumb from './LazyThumb'
 import './FullShipment.css'
 import { marcarTrabajo, liberarTrabajo } from '../utils/trabajoEnCurso'
 
+// Cuántos envíos se listan en el selector antes de tener que apretar "Ver todos".
+const MAX_ENVIOS_LISTA = 4
+
 // Armado del envío a bodega FULL. El depósito escanea artículo por artículo
 // (código del combo o código de barras del producto): cada escaneo suma una
 // unidad al envío y, al descontar, sale del stock. En paralelo se compara
@@ -95,6 +98,18 @@ export default function FullShipment({
     () => envios.find(e => e.id === envioId) || abiertos[0] || envios[0] || null,
     [envios, envioId, abiertos]
   )
+
+  // El selector listaba TODOS los envíos y se hacía larguísimo (pedido del
+  // usuario, 11/11/2026). Se muestran los 4 más nuevos y con "Ver todos" se
+  // abre la lista completa. El envío que está seleccionado va SIEMPRE, aunque
+  // sea viejo: si no, al elegir uno del historial desaparecía de la lista.
+  const [verTodosEnvios, setVerTodosEnvios] = useState(false)
+  const enviosVisibles = useMemo(() => {
+    if (verTodosEnvios) return envios
+    const primeros = envios.slice(0, MAX_ENVIOS_LISTA)
+    if (envio && !primeros.some(e => e.id === envio.id)) return [...primeros, envio]
+    return primeros
+  }, [envios, verTodosEnvios, envio])
 
   const buscar = (ref) => findProductOrCombo(products, combos, ref)
 
@@ -851,12 +866,21 @@ export default function FullShipment({
         <div className="full-head-acc">
           <select value={envio?.id || ''} onChange={e => setEnvioId(e.target.value)} className="full-select">
             {!envios.length && <option value="">Sin envíos</option>}
-            {envios.map(e => (
+            {enviosVisibles.map(e => (
               <option key={e.id} value={e.id}>
                 N° {e.numero} · {e.estado === 'cerrado' ? 'cerrado' : 'abierto'} · {fmtFecha(e.createdAt)}
               </option>
             ))}
           </select>
+          {envios.length > MAX_ENVIOS_LISTA && (
+            <button
+              type="button"
+              className="full-btn-link"
+              onClick={() => setVerTodosEnvios(v => !v)}
+            >
+              {verTodosEnvios ? 'Ver menos' : `Ver todos (${envios.length})`}
+            </button>
+          )}
           {canEdit && <button className="full-btn" onClick={crear}>+ Nuevo envío</button>}
         </div>
       </div>

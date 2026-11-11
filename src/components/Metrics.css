@@ -256,3 +256,12 @@
 }
 .mt-reporte-btns { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .5rem; }
 .mt-btn-sec { background: #64748b; }
+
+/* Selector de vista (Ventas / Inventario): Reportes se fusionó acá el 11/11/2026 */
+.mt-vistas { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.mt-vistas button {
+  padding: 8px 16px; border: 1px solid #cbd5e1; background: #fff; color: #334155;
+  border-radius: 999px; cursor: pointer; font-size: 14px; font-weight: 600;
+}
+.mt-vistas button:hover { background: #f1f5f9; }
+.mt-vistas button.on { background: #2563eb; border-color: #2563eb; color: #fff; }

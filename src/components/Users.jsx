@@ -13,7 +13,8 @@ export const PERM_TABS = [
   { key: 'packing', label: '🗳️ Empaque' },
   { key: 'full', label: '🏬 Envío Full' },
   { key: 'mercadolibre', label: '🛒 ML' }, // solo la ve el master — no se asigna a ayudantes
-  { key: 'reports', label: '📈 Reportes' },
+  // Reportes se fusionó con Métricas el 11/11/2026: una sola solapa con dos
+  // vistas. El permiso viejo 'reports' se sigue respetando (ver App.jsx).
   { key: 'metrics', label: '📊 Métricas' },
 ]
 

@@ -350,3 +350,10 @@
   border-radius: 8px;
   text-align: center;
 }
+
+/* "Ver todos" del selector de envíos: la lista se recorta a 4 (11/11/2026) */
+.full-btn-link {
+  background: none; border: none; color: #2563eb; cursor: pointer;
+  font-size: 13px; font-weight: 600; padding: 4px 6px; text-decoration: underline;
+}
+.full-btn-link:hover { color: #1d4ed8; }
