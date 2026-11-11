@@ -13,6 +13,8 @@
 //                                                 publicación { dias, limit, account }
 //   GET  /api/ml/questions?action=postventa    -> manda los mensajes post-entrega que ya
 //                                                 cumplieron los 5 min (&ver=1 solo mira la cola)
+//   GET  /api/ml/questions?action=reclamos     -> reclamos abiertos y mensajes de retiro/factura
+//                                                 de las dos cuentas (SOLO LECTURA); &modo=probar
 //   POST /api/ml/questions   (webhook de ML)    -> ML manda { resource, user_id, topic }
 //                                                 => responde la pregunta automáticamente
 //
@@ -23,6 +25,7 @@ import { cors } from '../_http.js';
 // 10s por defecto del plan Hobby se cortaba en la mitad. Igual que api/image.js.
 export const config = { maxDuration: 60 };
 import { loadAccounts, findAccountByUser, findAccountByLabel, otherAccount, NEGOCIO } from '../../lib/ml/qa-config.js';
+import { recolectarCuenta, armarCasos, resumenEnTexto, sondear } from '../../lib/ml/reclamos.mjs';
 import { getAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, getRecentQuestions, searchSellerItem, postAnswer, itemContext, getMe, getOrders, getItemsBulk } from '../../lib/ml/ml-api.js';
 import { construirReporte } from '../../lib/ml/conversion.js';
 import { filaMedidas, ordenarFilas, medidasCsv } from '../../lib/ml/medidas.js';
@@ -1146,6 +1149,56 @@ export default async function handler(req, res) {
       atrasadas.sort((a, b) => (b.hace_minutos || 0) - (a.hace_minutos || 0));
       return res.status(200).json({ ok: true, minutos, bot_apagado: botApagado,
         cuantas: atrasadas.filter(a => !a.error).length, atrasadas });
+    }
+
+    // RECLAMOS Y MENSAJES DE COMPRADORES (SOLO LECTURA) — pedido de Rodo 11-nov-2026.
+    // Lee los reclamos abiertos de las DOS cuentas y los mensajes sin leer que
+    // preguntan por horarios de retiro o por cambios de factura, y los separa en
+    // "se puede resolver solo" y "necesita ayuda". No responde ni cierra nada.
+    // Vive acá y no en un archivo nuevo porque el proyecto ya está en las 12
+    // funciones del plan de Vercel.
+    //   GET ?action=reclamos&key=...             -> JSON con casos y texto de WhatsApp
+    //   GET ?action=reclamos&modo=probar&key=... -> qué le responde ML a cada ruta
+    //   &account=full|local para una sola cuenta
+    if (action === 'reclamos') {
+      const expected = (process.env.ML_SWEEP_KEY || '').trim();
+      if (req.method === 'GET' && expected && (req.query?.key || '').toString() !== expected) {
+        return res.status(401).json({ error: 'key inválida' });
+      }
+      if (!accounts.length) return res.status(400).json({ error: 'No hay cuentas configuradas (ML_ACCOUNTS).' });
+      const label = (req.query?.account || req.body?.account || '').toString();
+      const target = label ? [findAccountByLabel(accounts, label)].filter(Boolean) : accounts;
+      if (!target.length) return res.status(400).json({ error: 'No existe la cuenta "' + label + '".' });
+      const modo = (req.query?.modo || req.body?.modo || '').toString();
+
+      if (modo === 'probar') {
+        const sondeos = [];
+        for (const acc of target) {
+          try { sondeos.push({ cuenta: acc.label, ...(await sondear(await tokenOf(acc), acc.user_id)) }); }
+          catch (e) { sondeos.push({ cuenta: acc.label, error: e.message }); }
+        }
+        return res.status(200).json({ ok: true, sondeos });
+      }
+
+      let entradas = [];
+      const avisos = [];
+      for (const acc of target) {
+        try {
+          const r = await recolectarCuenta(await tokenOf(acc), acc);
+          entradas = entradas.concat(r.entradas);
+          avisos.push(...r.avisos);
+        } catch (e) {
+          avisos.push(`${acc.label}: ${e.message}`);
+        }
+      }
+      const porLabel = Object.fromEntries(accounts.map(a => [a.label, a]));
+      const casos = armarCasos(entradas, porLabel, NEGOCIO);
+      return res.status(200).json({
+        ok: true, total: casos.length,
+        resolver_solos: casos.filter(c => c.solo).length,
+        necesitan_ayuda: casos.filter(c => !c.solo).length,
+        avisos, texto: resumenEnTexto(casos), casos,
+      });
     }
 
     // BARRIDO: responde las preguntas que quedaron pendientes (una cuenta o todas).
