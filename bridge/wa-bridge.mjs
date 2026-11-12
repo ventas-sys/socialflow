@@ -16,6 +16,7 @@ import { RECORDATORIO } from '../lib/wa/business-config.js';
 import { crearVigilante } from '../lib/wa/vigilante-navegador.mjs';
 import { crearVigilanteSilencio } from '../lib/wa/vigilante-silencio.mjs';
 import { decidirAvisos, umbralMinutos, describirError } from '../lib/wa/avisos-ml.mjs';
+import { duracionTotal, planEscritura, MAX_MS as ESCRIBIENDO_MAX_MS } from '../lib/wa/escritura.mjs';
 import { agendarContacto } from '../lib/google/contacts.js';
 
 const { Client, LocalAuth } = pkg;
@@ -133,9 +134,33 @@ const botSendingUntil = new Map();
 // TODO envío del bot pasa por acá. Registra la huella ANTES de enviar (para
 // que el evento la encuentre aunque llegue en plena transmisión) + candado
 // de 20s por chat + ID único del mensaje al confirmar.
-async function botSend(client, chatId, body) {
+// "Escribiendo…" antes de contestarle a un cliente (12-nov-2026, pedido de Rodo):
+// un mensaje que aparece de golpe se siente robótico. Se muestra el estado
+// "escribiendo", una pausa y se retoma, entre 5 y 15 segundos según el largo
+// (ver lib/wa/escritura.mjs). Solo cambia el RITMO, no el mensaje.
+// WA_ESCRIBIENDO=no lo apaga sin tocar código.
+const ESCRIBIENDO = (process.env.WA_ESCRIBIENDO || 'si').trim().toLowerCase() !== 'no';
+
+async function simularEscritura(client, chatId, body) {
+  let chat = null;
+  try { chat = await client.getChatById(chatId); } catch { /* chats @lid: sin indicador, igual espera */ }
+  for (const paso of planEscritura(duracionTotal(String(body || '').length))) {
+    try { if (chat) { if (paso.escribiendo) await chat.sendStateTyping(); else await chat.clearState(); } } catch {}
+    await new Promise(r => setTimeout(r, paso.ms));
+  }
+  try { if (chat) await chat.clearState(); } catch {}
+}
+
+async function botSend(client, chatId, body, { escribir = false } = {}) {
   botSentRecent.push({ chatId, body, at: Date.now() });      // pre-registro
-  botSendingUntil.set(chatId, Date.now() + 20_000);          // candado
+  const demorar = escribir && ESCRIBIENDO;
+  // El candado tiene que cubrir también la espera de "escribiendo": si no, el
+  // evento del propio mensaje del bot podría tomarse por un asesor humano.
+  botSendingUntil.set(chatId, Date.now() + 20_000 + (demorar ? ESCRIBIENDO_MAX_MS : 0));   // candado
+  if (demorar) {
+    await simularEscritura(client, chatId, body);
+    botSendingUntil.set(chatId, Date.now() + 20_000);
+  }
   const sent = await client.sendMessage(chatId, body);
   // El bot le habló a alguien: el reloj del silencio vuelve a cero. Los avisos
   // al supervisor NO cuentan (si no, el propio aviso taparía el problema).
@@ -1507,7 +1532,7 @@ async function handleIncoming(client, msg) {
 
     for (const m of (result.messages || [])) {
       if (m.delaySec) await new Promise(r => setTimeout(r, m.delaySec * 1000));
-      await botSend(client, from, m.body);
+      await botSend(client, from, m.body, { escribir: true });
       lastActivityAt.set(from, Date.now());
       recordHistory(from, 'bot', m.body);
       console.log(`[${from}] <- ${m.body.slice(0, 80)}`);
