@@ -31,5 +31,13 @@
 - **Error típico a controlar**: el ítem "agregado carrito" del combo debe corresponder al tramo del PRECIO FINAL, no del costo (ej.: combo armado con "hasta 25 mil" pero precio resultante $26.287 → tramo 25-33k, ~$450 netos más).
 - El usuario es RI y trabaja todo a valores netos; el IVA lo compensa débito-crédito en la DDJJ (no es costo). Pendiente: actualizar la hoja "Parámetros" del Excel con los tramos netos reales (la lib ya está).
 
+## Tarifas REALES verificadas en liquidaciones de ML (nov/2026)
+- **Comisión: 14,35%** sobre el precio final ("Cargo por vender"), verificada idéntica en 3 ventas (categorías accesorios termo/mate).
+- **Costo fijo < $15.000: $1.330** por unidad en la liquidación (reemplaza estimaciones previas); tramos 15-25k y 25-33k sin muestra real aún (~$2.630/$3.300 estimados).
+- **≥ $33.000: SIN costo fijo**, envío gratis a cargo del vendedor (ej. real: $8.590 una venta de $56.497 por Full).
+- **Flex con envío a cargo del comprador: el vendedor COBRA el envío** en la liquidación (ej.: +$6.990 sobre venta de $6.900) — el costo real de reparto va aparte.
+- **Retenciones reales por venta ≈ 0,72% del cobro** (ICD 0,6% + SIRTAC 0,1% + IIBB provincial centavos) — NO el 5%+2% del Excel viejo del usuario.
+- PENDIENTE: cruzar con la factura mensual de ML si los cargos de la liquidación son finales o traen IVA recuperable aparte (cambia la ganancia ~±40% del monto de cargos; el Excel v2 entregado por chat modela ambos escenarios con un "factor").
+
 ## Datos sensibles
 - Repo **público**: nunca commitear costos/precios de compra reales ni credenciales. Los Excel del usuario van por chat.
