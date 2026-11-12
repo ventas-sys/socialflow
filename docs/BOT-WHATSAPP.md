@@ -48,8 +48,9 @@ Cada mensaje va a la IA con un **banco de memoria** (armado desde business-confi
 "El pibe nuevo" de CABA en su primer laburo: porteño, buena onda, gracioso pero despistado/inocente, aprendiendo. Mensajes de 1-3 líneas. Sus errores se leen como de aprendiz. Nunca inventa precios/stock; si duda, deriva al supervisor.
 
 **Ritmo de escritura (12-nov-2026, pedido de Rodo).** Antes de cada respuesta a un
-cliente el bot muestra "escribiendo…" entre 5 y 15 segundos, con una pausa en el
-medio (`lib/wa/escritura.mjs`; pruebas: `node scripts/test-escritura.mjs`). Solo es
+cliente el bot muestra "escribiendo…" con una pausa en el medio: **5 segundos si la
+respuesta es corta (hasta ~40 caracteres), 15 si es larga (desde ~220) y en el medio
+si es mediana** (más o menos un segundo de azar) (`lib/wa/escritura.mjs`; pruebas: `node scripts/test-escritura.mjs`). Solo es
 ritmo, el mensaje es el mismo. `WA_ESCRIBIENDO=no` en el `.env` lo apaga.
 
 **Honestidad (no se negocia).** Tatiana tiene tono de "la nueva" que está aprendiendo,
