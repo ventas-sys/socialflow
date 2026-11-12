@@ -117,13 +117,7 @@ async function ensureToken(db, key, acc) {
 export default async function handler(req, res) {
   cors(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
-  // El cron de Vercel entra por GET (lo marca con la cabecera x-vercel-cron) y
-  // cuenta como corrida automática: respeta la cadencia igual que la app.
-  // Así el tablero ya está lleno a las 9 aunque nadie haya abierto nada.
-  const esCron = req.method === 'GET' && !!req.headers['x-vercel-cron'];
-  if (req.method !== 'POST' && !esCron) {
-    return res.status(405).json({ ok: false, error: 'Method not allowed' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'Method not allowed' });
   try {
     if (!process.env.CRON_EMAIL || !process.env.CRON_PASSWORD) {
       throw new Error('Faltan las variables CRON_EMAIL / CRON_PASSWORD');
@@ -134,7 +128,7 @@ export default async function handler(req, res) {
 
     // Candado: manual (force) respeta 90s; automático, lo que diga la cadencia
     // de la hora (ver cadenciaMs arriba).
-    const force = !esCron && !!req.body?.force;
+    const force = !!req.body?.force;
     const guardRef = doc(db, 'settings', 'enviosSync');
     const guard = await getDoc(guardRef);
     const last = guard.exists() ? toMillis(guard.data().lastRunAt) : 0;

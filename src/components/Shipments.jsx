@@ -209,8 +209,6 @@ export default function Shipments({
   //   lunes a sábado 9-13hs → cada 10 min (es cuando se arman los FLEX)
   //   lunes a sábado 13-18hs → cada 30 min
   //   el resto, y todo el domingo → cada 5 horas
-  // Además hay un cron en vercel.json que sincroniza del lado del servidor en
-  // esa misma franja, así el tablero ya está lleno al abrir la app.
   // ⚠️ El servidor tiene la MISMA tabla en api/ml/envios.js (cadenciaMs): si se
   // cambia acá hay que cambiarla allá, si no el servidor rebota los pedidos.
   const syncDelayMs = () => {
