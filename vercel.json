@@ -11,6 +11,8 @@
     "api/contabilium.js": { "maxDuration": 60 }
   },
   "crons": [
+    { "path": "/api/ml/envios", "schedule": "40 11 * * 1-6" },
+    { "path": "/api/ml/envios", "schedule": "0,20,40 12-15 * * 1-6" },
     { "path": "/api/ml/cron", "schedule": "0 16 * * *" },
     { "path": "/api/ml/cron", "schedule": "0 21 * * *" },
     { "path": "/api/ml/saldos", "schedule": "0 3 * * *" },

@@ -37,10 +37,17 @@ const DIAS_CORREO = 15;
 // sentido pagar lecturas cada 15 minutos.
 // ⚠️ El cliente tiene la MISMA tabla en src/components/Shipments.jsx
 // (syncDelayMs): si se cambia una hay que cambiar la otra.
+// ⚠️ La MISMA tabla está en src/components/Shipments.jsx (syncDelayMs): si se
+// cambia una hay que cambiar la otra, si no el servidor rebota los pedidos.
+// El domingo no se arman pedidos, así que no se gasta en consultar.
 const cadenciaMs = () => {
-  const h = Number(new Intl.DateTimeFormat('es-AR', {
-    timeZone: 'America/Argentina/Buenos_Aires', hour: 'numeric', hour12: false,
-  }).format(new Date())) % 24;
+  const p = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    hour: 'numeric', hour12: false, weekday: 'short',
+  }).formatToParts(new Date());
+  const h = Number(p.find(x => x.type === 'hour')?.value || 0) % 24;
+  const domingo = p.find(x => x.type === 'weekday')?.value === 'Sun';
+  if (domingo) return 5 * 3600 * 1000;
   if (h >= 9 && h < 13) return 10 * 60 * 1000;
   if (h >= 13 && h < 18) return 30 * 60 * 1000;
   return 5 * 3600 * 1000;
@@ -110,7 +117,13 @@ async function ensureToken(db, key, acc) {
 export default async function handler(req, res) {
   cors(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'Method not allowed' });
+  // El cron de Vercel entra por GET (lo marca con la cabecera x-vercel-cron) y
+  // cuenta como corrida automática: respeta la cadencia igual que la app.
+  // Así el tablero ya está lleno a las 9 aunque nadie haya abierto nada.
+  const esCron = req.method === 'GET' && !!req.headers['x-vercel-cron'];
+  if (req.method !== 'POST' && !esCron) {
+    return res.status(405).json({ ok: false, error: 'Method not allowed' });
+  }
   try {
     if (!process.env.CRON_EMAIL || !process.env.CRON_PASSWORD) {
       throw new Error('Faltan las variables CRON_EMAIL / CRON_PASSWORD');
@@ -121,7 +134,7 @@ export default async function handler(req, res) {
 
     // Candado: manual (force) respeta 90s; automático, lo que diga la cadencia
     // de la hora (ver cadenciaMs arriba).
-    const force = !!req.body?.force;
+    const force = !esCron && !!req.body?.force;
     const guardRef = doc(db, 'settings', 'enviosSync');
     const guard = await getDoc(guardRef);
     const last = guard.exists() ? toMillis(guard.data().lastRunAt) : 0;

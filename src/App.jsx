@@ -98,7 +98,7 @@ const sumarEnvios = (m) => (snap) => anotarOrigen(snap).docs.forEach(d => {
 async function traerEnviosActivos() {
   const m = new Map()
   sumarEnvios(m)(await conLimite(
-    getDocs(query(collection(db, 'shipments'), where('status', 'in', ENVIOS_ACTIVOS))),
+    getDocs(qEnviosActivos()),
     20000, 'los envíos activos'))
   return ordenarEnvios(m)
 }
@@ -113,6 +113,26 @@ async function traerEnviosVentana() {
     45000, `los envíos de los últimos ${DIAS_ENVIOS} días`))
   return ordenarEnvios(m)
 }
+
+// Lo último que quedó guardado EN EL DISPOSITIVO, para pintar la pantalla al
+// instante mientras el servidor contesta. En el depósito se abre Envíos FLEX
+// decenas de veces por mañana y esperar la consulta cada vez no va.
+// OJO: a propósito NO pasa por anotarOrigen. Acá la caché se lee QUERIENDO,
+// no por falta de conexión, así que no debe encender el aviso de "sin
+// conexión" (que sí tiene que aparecer cuando el servidor no contesta).
+async function deCache(consulta, filtrar = (s) => s.userId === ORG_ID) {
+  const m = new Map()
+  const snap = await getDocsFromCache(consulta)
+  snap.docs.forEach(d => {
+    const s = { id: d.id, ...d.data() }
+    if (filtrar(s)) m.set(d.id, s)
+  })
+  return m
+}
+const qEnviosActivos = () =>
+  query(collection(db, 'shipments'), where('status', 'in', ENVIOS_ACTIVOS))
+const qFullEnvios = () =>
+  query(collection(db, 'full_envios'), where('userId', '==', ORG_ID))
 
 // Todo el histórico: sólo cuando el reporte mira más atrás que la ventana.
 async function traerTodosLosEnvios() {
@@ -515,7 +535,24 @@ export default function App() {
       // el tablero sin motoqueros (ni al revés)
       try {
         setPasoCarga('envíos')
-        setShipments(await traerEnviosActivos())
+        // Primero lo que ya está guardado en el aparato: el tablero aparece
+        // al instante. Si había algo, la consulta al servidor sigue POR
+        // ATRÁS y no se espera — abrir Envíos FLEX deja de ser una espera.
+        let pintoEnviosDeCache = false
+        try {
+          const guardados = ordenarEnvios(await deCache(qEnviosActivos()))
+          if (guardados.length) { setShipments(guardados); pintoEnviosDeCache = true }
+        } catch { /* sin caché local: se espera al servidor, como antes */ }
+        if (pintoEnviosDeCache) {
+          // Se FUSIONA, no se reemplaza: la ventana completa (entregados y
+          // archivados) puede llegar antes que esto, y pisarla dejaría a
+          // Empaque sin nada que encontrar al escanear.
+          traerEnviosActivos()
+            .then(fusionarEnvios)
+            .catch(err => console.warn('Envíos (refresco por atrás):', err?.code || err?.message))
+        } else {
+          setShipments(await traerEnviosActivos())
+        }
         setEnviosCompletos(false)
         setAvisoEnvios('')
       } catch (err) {
@@ -547,13 +584,24 @@ export default function App() {
             : `No se pudo traer ${que} (${motivo})`)
         }
       }
+      // Mismo criterio que con los envíos: lo guardado en el aparato se pinta
+      // antes de pedir nada, así Envío Full abre lleno en vez de en blanco.
+      try {
+        const guardados = [...(await deCache(qFullEnvios())).values()]
+          .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt))
+        if (guardados.length) setFullEnvios(guardados)
+      } catch { /* sin caché local: queda como antes */ }
+
       await Promise.all([
         opcional('los motoqueros', 25000,
           () => getDocs(query(collection(db, 'couriers'), where('userId', '==', ORG_ID))),
           (snap) => setCouriers(snap.docs.map(d => ({ id: d.id, ...d.data() })))),
 
+        // Los envíos a Full ya cerrados no cambian más, así que lo guardado en
+        // el aparato alcanza para pintar la pantalla al toque; el servidor
+        // después actualiza el que esté abierto.
         opcional('los envíos a Full', 30000,
-          () => getDocs(query(collection(db, 'full_envios'), where('userId', '==', ORG_ID))),
+          () => getDocs(qFullEnvios()),
           (snap) => setFullEnvios(snap.docs.map(d => ({ id: d.id, ...d.data() }))
             .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt)))),
 

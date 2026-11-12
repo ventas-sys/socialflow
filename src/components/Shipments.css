@@ -76,9 +76,18 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
 }
+/* El repaso automático: una línea finita, no un cartel. El tablero ya está
+   a la vista y no hay que esperar nada, así que no debe ocupar lugar. */
+.ship-sync-fondo {
+  font-size: 0.76rem;
+  color: #6b7280;
+  margin: -0.3rem 0 0.7rem;
+  animation: pulse-sync 1.6s ease-in-out infinite;
+}
 @media (prefers-color-scheme: dark) {
   .ship-sync-msg.ok { background: rgba(16,185,129,0.15); color: #6ee7b7; }
   .ship-sync-msg.warn { background: rgba(251,191,36,0.12); color: #fcd34d; }
+  .ship-sync-fondo { color: #9ca3af; }
 }
 
 .btn-scan-ship {

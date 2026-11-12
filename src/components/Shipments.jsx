@@ -151,14 +151,19 @@ export default function Shipments({
   const [actionId, setActionId] = useState(null) // envío enfocado tras escanear
   const [range, setRange] = useState('hoy') // reporte: hoy | semana | mes
   const [syncMsg, setSyncMsg] = useState('')
-  const [syncing, setSyncing] = useState(false)
+  const [syncing, setSyncing] = useState(false)   // lo pidió el usuario a mano
+  const [syncFondo, setSyncFondo] = useState(false) // el repaso automático
   const syncingRef = useRef(false)
   const shipmentsRef = useRef(shipments); shipmentsRef.current = shipments
   const allShipmentsRef = useRef(allShipments); allShipmentsRef.current = allShipments || shipments
   const syncFromML = async (silent = false) => {
     if (syncingRef.current) return // no solapar sincronizaciones
     syncingRef.current = true
-    setSyncing(true) // avisar SIEMPRE, también en la actualización automática
+    // El repaso automático NO tapa la pantalla: el tablero ya se ve (viene de
+    // lo guardado en el aparato) y no hay nada que esperar. Sólo el botón
+    // apretado a mano muestra el cartel grande, porque ahí sí hay que esperar.
+    if (silent) setSyncFondo(true)
+    else setSyncing(true)
     try {
       // La sincronización corre EN EL SERVIDOR (con las credenciales del cron):
       // la puede disparar cualquier sesión sin exponer los tokens de ML, y un
@@ -195,18 +200,27 @@ export default function Shipments({
     } finally {
       syncingRef.current = false
       setSyncing(false)
+      setSyncFondo(false)
     }
   }
 
-  // Cada cuánto se vuelve a preguntar por ventas nuevas, según la hora
-  // argentina y cuándo se trabaja de verdad (definido por el usuario el 30/10):
-  // 9-13hs cada 10 min · 13-18hs cada 30 min · 18-9hs cada 5 horas.
+  // Cada cuánto se vuelve a preguntar por ventas nuevas, según el día y la
+  // hora argentina y cuándo se trabaja de verdad (definido por el usuario):
+  //   lunes a sábado 9-13hs → cada 10 min (es cuando se arman los FLEX)
+  //   lunes a sábado 13-18hs → cada 30 min
+  //   el resto, y todo el domingo → cada 5 horas
+  // Además hay un cron en vercel.json que sincroniza del lado del servidor en
+  // esa misma franja, así el tablero ya está lleno al abrir la app.
   // ⚠️ El servidor tiene la MISMA tabla en api/ml/envios.js (cadenciaMs): si se
   // cambia acá hay que cambiarla allá, si no el servidor rebota los pedidos.
   const syncDelayMs = () => {
-    const h = Number(new Intl.DateTimeFormat('es-AR', {
-      timeZone: 'America/Argentina/Buenos_Aires', hour: 'numeric', hour12: false,
-    }).format(new Date())) % 24
+    const p = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      hour: 'numeric', hour12: false, weekday: 'short',
+    }).formatToParts(new Date())
+    const h = Number(p.find(x => x.type === 'hour')?.value || 0) % 24
+    const domingo = p.find(x => x.type === 'weekday')?.value === 'Sun'
+    if (domingo) return 5 * 3600 * 1000
     if (h >= 9 && h < 13) return 10 * 60 * 1000
     if (h >= 13 && h < 18) return 30 * 60 * 1000
     return 5 * 3600 * 1000
@@ -780,8 +794,8 @@ export default function Shipments({
         </div>
         <div className="ship-header-actions">
           {isAdmin && (
-            <button className="btn-sync-ship" onClick={() => syncFromML(false)} disabled={syncing}>
-              {syncing ? '⏳ Trayendo...' : '🔄 Traer ventas de ML'}
+            <button className="btn-sync-ship" onClick={() => syncFromML(false)} disabled={syncing || syncFondo}>
+              {syncing || syncFondo ? '⏳ Trayendo...' : '🔄 Traer ventas de ML'}
             </button>
           )}
           <button className="btn-scan-ship" onClick={() => setShowScanner(true)}>📷 Escanear QR</button>
@@ -798,7 +812,11 @@ export default function Shipments({
           ⏳ Trayendo las ventas de MercadoLibre... esperá un momento, puede tardar hasta un minuto. No hace falta volver a tocar el botón.
         </div>
       )}
-      {!syncing && syncMsg && <div className={`ship-sync-msg ${syncMsg.startsWith('✅') ? 'ok' : 'warn'}`}>{syncMsg}</div>}
+      {/* El repaso automático no corta el trabajo: una rayita y nada más */}
+      {syncFondo && !syncing && (
+        <div className="ship-sync-fondo">⏳ Buscando ventas nuevas por atrás… podés seguir trabajando.</div>
+      )}
+      {!syncing && !syncFondo && syncMsg && <div className={`ship-sync-msg ${syncMsg.startsWith('✅') ? 'ok' : 'warn'}`}>{syncMsg}</div>}
       {avisoEnvios && (
         <div className="ship-sync-msg warn">⚠️ Envíos: {avisoEnvios}</div>
       )}
