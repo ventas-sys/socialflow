@@ -9,8 +9,16 @@ for (const largo of [0, 1, 20, 60, 120, 220, 500, 5000]) {
     assert.ok(d >= MIN_MS && d <= MAX_MS, `largo ${largo} azar ${azar} -> ${d}`);
   }
 }
-// Un mensaje largo tarda más que uno corto (mismo azar).
-assert.ok(duracionTotal(200, 0.5) > duracionTotal(10, 0.5));
+// Corto = 5 s, largo = 15 s, el medio queda en el medio (sin azar: 0.5 no suma ni resta).
+assert.equal(duracionTotal(10, 0.5), 5000);
+assert.equal(duracionTotal(40, 0.5), 5000);
+assert.equal(duracionTotal(220, 0.5), 15000);
+assert.equal(duracionTotal(600, 0.5), 15000);
+const medio = duracionTotal(130, 0.5);
+assert.ok(medio > 8000 && medio < 12000, 'medio: ' + medio);
+// Crece parejo con el largo.
+let prev = 0;
+for (let n = 0; n <= 260; n += 20) { const d = duracionTotal(n, 0.5); assert.ok(d >= prev, `n=${n}`); prev = d; }
 
 // El plan: empieza escribiendo, pausa en el medio, termina escribiendo, y suma el total.
 for (const total of [5000, 6000, 8000, 11000, 15000, 100, 99999]) {
