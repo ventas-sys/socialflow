@@ -233,13 +233,13 @@ function renderBreakdown(d, extraHeaderHtml){
           <tr><td>Costo fijo por unidad (productos &lt; $33.000 por Mercado Envíos)</td><td class="num">${fmt$(d.costoFijoUnidad||0)}</td><td class="num">${fmtPct((d.costoFijoUnidad||0)/precioTotal)}</td></tr>
           <tr><td>Costo de envío gratis${d.freeShipping ? '' : ' (no aplica)'}</td><td class="num">${fmt$(d.costoEnvioGratis||0)}</td><td class="num">${fmtPct((d.costoEnvioGratis||0)/precioTotal)}</td></tr>
           <tr><td>Cargo por cuotas sin interés</td><td class="num">${fmt$(d.cargoCuotas)}</td><td class="num">${fmtPct(d.cargoCuotasPct)}</td></tr>
-          <tr><td>IVA sobre comisión + envío + cuotas</td><td class="num">${fmt$(d.iva)}</td><td class="num">${fmtPct(d.ivaPct)}</td></tr>
+          <tr><td>IVA contenido en los cargos (ya incluido arriba)</td><td class="num">${fmt$(d.iva)}</td><td class="num">${fmtPct(d.ivaPct)}</td></tr>
           ${d.almacenamiento ? `<tr><td>Almacenamiento Full (estimado/mes)</td><td class="num">${fmt$(d.almacenamiento)}</td><td class="num">—</td></tr>` : ''}
           <tr class="total"><td>Total gastos Mercado Libre</td><td class="num">${fmt$(d.totalCostosML)}</td><td class="num">${fmtPct(d.totalCostosMLPct)}</td></tr>
           <tr class="total"><td>Ingreso neto recibido</td><td class="num">${fmt$(d.ingresoNeto)}</td><td class="num">${fmtPct(d.ingresoNetoPct)}</td></tr>
         </tbody>
       </table>
-      <div class="note">Percepción IIBB (informativo, no resta de la ganancia): ${fmt$(d.iibb)} · ${d.ivaRecuperable ? 'Como sos Responsable Inscripto, el IVA de arriba se recuperó como crédito fiscal y ya está sumado de vuelta en la Ganancia.' : 'El IVA de arriba se trata como costo real (Monotributo/Exento).'}</div>
+      <div class="note">Retenciones por cobro ≈0,72% (informativo, pagos a cuenta, no restan de la ganancia): ${fmt$(d.iibb)} · Los cargos de ML son finales con IVA incluido. ${d.ivaRecuperable ? 'Como sos Responsable Inscripto, el IVA contenido se recupera como crédito fiscal y ya está sumado de vuelta en la Ganancia.' : 'El IVA contenido se trata como costo real (Monotributo/Exento).'}</div>
     </div>`;
 }
 

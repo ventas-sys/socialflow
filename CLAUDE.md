@@ -31,13 +31,18 @@
 - **Error típico a controlar**: el ítem "agregado carrito" del combo debe corresponder al tramo del PRECIO FINAL, no del costo (ej.: combo armado con "hasta 25 mil" pero precio resultante $26.287 → tramo 25-33k, ~$450 netos más).
 - El usuario es RI y trabaja todo a valores netos; el IVA lo compensa débito-crédito en la DDJJ (no es costo). Pendiente: actualizar la hoja "Parámetros" del Excel con los tramos netos reales (la lib ya está).
 
-## Tarifas REALES verificadas en liquidaciones de ML (nov/2026)
-- **Comisión: 14,35%** sobre el precio final ("Cargo por vender"), verificada idéntica en 3 ventas (categorías accesorios termo/mate).
-- **Costo fijo < $15.000: $1.330** por unidad en la liquidación (reemplaza estimaciones previas); tramos 15-25k y 25-33k sin muestra real aún (~$2.630/$3.300 estimados).
-- **≥ $33.000: SIN costo fijo**, envío gratis a cargo del vendedor (ej. real: $8.590 una venta de $56.497 por Full).
-- **Flex con envío a cargo del comprador: el vendedor COBRA el envío** en la liquidación (ej.: +$6.990 sobre venta de $6.900) — el costo real de reparto va aparte.
+## Tarifas REALES verificadas (liquidaciones + reportes de facturación Oct/2026, analizados 11/2026)
+- **IVA RESUELTO**: la suma de TODAS las líneas de cargos+percepciones del mes coincide al centavo con los débitos automáticos → **los montos de ML son finales CON IVA incluido** (comisión, costo fijo, envíos, colecta, almacenamiento, publicidad). Para RI: costo neto = monto/1,21 (17,36% vuelve como crédito). Comprobación: componente Contabilium $900,10 neto × 1,21 = $1.089 = costo fijo bruto viejo. El "factor" del Excel v2 queda en 0,8264.
+- **Comisión por categoría** (final c/IVA): Bazar/tapones 14,35%; Herramientas 14,5% (la más común); Construcción/vehículos/jardín 14%; rango total visto 13,5%–16%.
+- **Costo fijo** (final c/IVA, tramo por precio final): <$15.000 = **$1.330** (45 muestras; fin sept ya se vieron $1.370–1.470, ML lo ajusta seguido); $15–25k = **$2.740–2.780** (real, 24 muestras; reemplaza el estimado $2.630); $25–33k sin muestra (~$3.300 estimado).
+- **≥ $33.000: SIN costo fijo**, envío gratis a cargo del vendedor: típico $7.490–8.990 ($8.590 confirmado), hasta $14.190–17.490 en pesados.
+- **Flex**: ML acredita al vendedor $4.990/$6.990/$8.990/$10.490 por entrega (<$33k, envío a cargo comprador); en ventas ≥$33k por Flex se vieron acreditaciones de solo el 10% de la tarifa. Oct: +$12,85M bonificado, −$0,68M anulado (devoluciones).
+- **Full — colecta (envío a Full)**: tarifa nominal ~$58.851/m³ pero ML bonificó ~95% (efectiva ~$971/m³; mediana de cargo = 4,8% del nominal, varía por producto/rotación). Reales: tapón pico cebador $5,36/u; discos $2–13/u; promedio cuenta $19,21/u. El componente Contabilium "COSTO ENVIO A FULL" $250,03 está MUY sobreestimado para productos chicos.
+- **Full — almacenamiento diario por unidad**: Pequeña $0,75 · Mediana $2,40 · Grande $20 · Extragrande $65 (el componente $22,53/30d del usuario para pequeño es correcto). **Stock antiguo**: pequeño $350 (4–6m) / $3.250 (6–12m), mediano $470 / $4.485 — se multiplica ×9 pasados los 6 meses; retiro de stock $175–230/u (conviene retirar antes del 6º mes).
 - **Retenciones reales por venta ≈ 0,72% del cobro** (ICD 0,6% + SIRTAC 0,1% + IIBB provincial centavos) — NO el 5%+2% del Excel viejo del usuario.
-- PENDIENTE: cruzar con la factura mensual de ML si los cargos de la liquidación son finales o traen IVA recuperable aparte (cambia la ganancia ~±40% del monto de cargos; el Excel v2 entregado por chat modela ambos escenarios con un "factor").
+- **Débito mensual automático** (Oct: $53,5M): 87% son PERCEPCIONES (IVA RG 5319/2023 $26,7M + IVA rég. gral $1,5M + IIBB $18,4M) que NO son costo (a cuenta en DDJJ); costos reales solo $6,8M (publicidad $5,25M + Full $1,58M + Mi página $32k). La comisión/costo fijo/envíos se descuentan en la liquidación de cada venta, no acá.
+- Rentabilidad real con IVA resuelto (costos reales por chat, no acá): tapón a $7.226 por Full → ganancia neta ~$1.490 (~60% s/costo); disco TRF-4.5 a $26.287 → ~$1.400 (~10% s/costo).
+- Entregado por chat: `Costos-ML-Detalle-Oct2026.xlsx` (resumen mensual + tarifas + calculadora SKU v3). Pendiente menor: confirmar tramo 25–33k con una venta real; costo del pico cebador suelto.
 
 ## Datos sensibles
 - Repo **público**: nunca commitear costos/precios de compra reales ni credenciales. Los Excel del usuario van por chat.
