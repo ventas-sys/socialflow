@@ -47,6 +47,18 @@ Cada mensaje va a la IA con un **banco de memoria** (armado desde business-confi
 
 "El pibe nuevo" de CABA en su primer laburo: porteño, buena onda, gracioso pero despistado/inocente, aprendiendo. Mensajes de 1-3 líneas. Sus errores se leen como de aprendiz. Nunca inventa precios/stock; si duda, deriva al supervisor.
 
+**Ritmo de escritura (12-nov-2026, pedido de Rodo).** Antes de cada respuesta a un
+cliente el bot muestra "escribiendo…" entre 5 y 15 segundos, con una pausa en el
+medio (`lib/wa/escritura.mjs`; pruebas: `node scripts/test-escritura.mjs`). Solo es
+ritmo, el mensaje es el mismo. `WA_ESCRIBIENDO=no` en el `.env` lo apaga.
+
+**Honestidad (no se negocia).** Tatiana tiene tono de "la nueva" que está aprendiendo,
+pero si alguien le pregunta EN SERIO si es un bot, una IA o una persona, dice la verdad
+(es la asistente virtual de Uniproveedores) y ofrece pasarlo con una persona. No dice
+que es de carne y hueso ni inventa una vida personal (hijos, plata, familia). Rodo pidió
+lo contrario el 12-nov y se le explicó que eso no se hace: engaña al cliente y se
+apoya en una historia inventada para dar lástima.
+
 ## 🔔 Marcado para humano (post migración Etiquetas→Listas de WhatsApp)
 
 1. 🔵 Chat marcado **NO LEÍDO** (siempre funciona)
