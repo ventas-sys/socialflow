@@ -161,9 +161,12 @@ export default function Finance({ records = [], usdRate = 1000, onAdd, onDelete,
     // Todos los campos son obligatorios (decisión del usuario, 6/11/2026).
     // El `required` del navegador no alcanza: un campo con sólo espacios lo
     // pasa igual y el registro queda en blanco.
+    // Excepción: remito y factura NO son excluyentes (12/11/2026). Un
+    // movimiento puede venir con remito, con factura, o con los dos; lo que
+    // no puede es venir sin ninguno de los dos.
     if (!form.fecha) return setError('Falta la fecha.')
-    if (!form.remito.trim()) return setError('Falta el número de remito.')
-    if (!form.factura.trim()) return setError('Falta el número de factura.')
+    if (!form.remito.trim() && !form.factura.trim())
+      return setError('Poné el número de remito o el de factura (al menos uno).')
     if (!form.proveedor.trim()) return setError('Falta el proveedor.')
     if (!form.descripcion.trim()) return setError('Poné una descripción del movimiento.')
     if (monto <= 0) return setError('El monto tiene que ser mayor a cero.')
@@ -528,13 +531,14 @@ export default function Finance({ records = [], usdRate = 1000, onAdd, onDelete,
               <div className="fin-form-row">
                 <label>Remito
                   <input placeholder="N° remito" value={form.remito}
-                    onChange={e => setForm({ ...form, remito: e.target.value })} required />
+                    onChange={e => setForm({ ...form, remito: e.target.value })} />
                 </label>
                 <label>Factura
                   <input placeholder="N° factura" value={form.factura}
-                    onChange={e => setForm({ ...form, factura: e.target.value })} required />
+                    onChange={e => setForm({ ...form, factura: e.target.value })} />
                 </label>
               </div>
+              <div className="fin-hint">Remito o factura: alcanza con uno de los dos.</div>
               <label>Proveedor
                 <input list="fin-provs" placeholder="Nombre del proveedor" value={form.proveedor}
                   onChange={e => setForm({ ...form, proveedor: e.target.value })} required />

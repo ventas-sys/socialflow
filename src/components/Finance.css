@@ -96,6 +96,7 @@
   color: #111827; background: #f9fafb; font-family: inherit; text-transform: none;
 }
 .fin-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+.fin-hint { font-size: 0.72rem; color: #6b7280; margin-top: -0.2rem; }
 .fin-btn { background: #2563eb; color: white; border: none; border-radius: 0.5rem; padding: 0.7rem; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
 .fin-btn:disabled { opacity: 0.6; cursor: default; }
 
