@@ -30,7 +30,7 @@ import { getAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, 
 import { construirReporte } from '../../lib/ml/conversion.js';
 import { filaMedidas, ordenarFilas, medidasCsv } from '../../lib/ml/medidas.js';
 import { compararCatalogos, faltantesCsv } from '../../lib/ml/catalogo.js';
-import { copiarPublicacion, resolverIdPublicacion } from '../../lib/ml/copiar.js';
+import { copiarPublicacion, resolverIdPublicacion, ajustarPublicacion } from '../../lib/ml/copiar.js';
 import { searchMyItems, getItemsFichaBulk, mlAdsGet, getUserItemsVisits, getOrdersPagina } from '../../lib/ml/ml-api.js';
 import { resumenKeys, probarKeyMedia } from '../../lib/gemini-keys.js';
 import { modeloTexto } from '../../lib/gemini-texto.js';
@@ -763,6 +763,20 @@ export default async function handler(req, res) {
       if (q.tipo) opts.tipo = String(q.tipo);
       const out = await copiarPublicacion({ id, destinoLabel: dest, opts, confirmar, forzar: si(q.forzar) });
       return res.status(out.ok ? 200 : 422).json({ id_origen: id, ...out });
+    }
+
+    // AJUSTAR una publicación propia: cambiar título o pausar/cerrar.
+    // Pide la misma key que copiar (ML_SWEEP_KEY) si está configurada.
+    if (action === 'ajustar') {
+      const q = { ...(req.body || {}), ...(req.query || {}) };
+      const expected = (process.env.ML_SWEEP_KEY || '').trim();
+      if (expected && String(q.key || '') !== expected) return res.status(401).json({ error: 'key inválida' });
+      const alias = { ferre: 'local', ferreteria: 'local' };
+      const cuenta = alias[String(q.cuenta || '').toLowerCase()] || String(q.cuenta || '').toLowerCase();
+      if (!cuenta || !q.id) return res.status(400).json({ error: 'Faltan &cuenta= y &id=' });
+      if (!q.titulo && !q.estado) return res.status(400).json({ error: 'Pasá &titulo= o &estado=' });
+      const out = await ajustarPublicacion({ cuentaLabel: cuenta, id: String(q.id), titulo: q.titulo, estado: q.estado });
+      return res.status(200).json(out);
     }
 
     // SONDA DE MERCADO ADS (Product Ads): prueba los endpoints de publicidad
