@@ -1,6 +1,6 @@
 // Pruebas del clasificador de reclamos y mensajes (sin red). node scripts/test-reclamos.mjs
 import assert from 'node:assert/strict';
-import { clasificarTexto, motivoLegible, vencimientoReclamo, vendedorPuedeActuar, accionesDelVendedor, productosConMasReclamos, respuestaSugerida, armarCasos, resumenEnTexto } from '../lib/ml/reclamos.mjs';
+import { clasificarTexto, motivoLegible, vencimientoReclamo, vendedorPuedeActuar, accionesDelVendedor, accionesEnTexto, productosConMasReclamos, respuestaSugerida, armarCasos, resumenEnTexto } from '../lib/ml/reclamos.mjs';
 
 // Mensajes de compradores
 // Retiro por el local: hace falta intención de ir a buscarlo.
@@ -20,8 +20,9 @@ assert.equal(clasificarTexto('Hola buen día tenés forma de saber aproximadamen
 assert.equal(clasificarTexto('Hola disculpa mira quería cambiar el domicilio porque no va a llegar a un horario que haya gente en mi casa'), 'cambio_domicilio');
 assert.equal(clasificarTexto('¿cuándo llega mi pedido?'), 'envio_horario');
 // Palabras graves: nunca "solo"
-assert.equal(clasificarTexto('Quiero la devolución del dinero, retiro el sábado'), 'otro');
+assert.equal(clasificarTexto('Quiero la devolución del dinero, retiro el sábado'), 'problema_producto');
 assert.equal(clasificarTexto('Muchas gracias por todo'), 'otro');
+assert.equal(clasificarTexto('Buenas tardes, muchas gracias'), 'otro');   // "tardes" NO es demora de entrega
 assert.equal(clasificarTexto(''), 'otro');
 assert.equal(clasificarTexto(null), 'otro');
 
@@ -54,6 +55,52 @@ const envio = respuestaSugerida('envio_horario', { mode: 'full' });
 assert.match(envio, /Actualizá la app de Mercado Libre/);
 assert.doesNotMatch(envio, /\b\d{1,2}(:\d\d)? ?(hs|horas)\b/);
 assert.doesNotMatch(envio, /https?:|whatsapp|Bacacay/i);
+
+
+// ── Mensajes REALES de FULL (14-nov-2026). Cada uno con la categoría que corresponde. ──
+const reales = [
+  ['Buenas tardes \nHice la compra porque supuestamente llegaba hoy domingo 25/10 \nAhora me la reprograman para entre el 26 y el 28\nAnulé la compra porque no puedo recibirla en esa fecha', 'envio_horario'],
+  ['Buenas tardes, te puedo devolver los tapones. Están muy buenos , pero al enrroscar me queda el pico del lado de la manija.', 'problema_producto'],
+  ['Hola buenas tardes. El producto que me llegó no es lo que compré. La publicacion dice que es con botones y me vino un piloto plastico sin botones y diferente al publicado. los quiero devolver.', 'problema_producto'],
+  ['Cuando llega a aq hora?', 'envio_horario'],
+  ['Hola !!! Me acaba de llegar el pulverizador que les compré, pero me llegó sin el recipiente naranja de dos litros', 'problema_producto'],
+  ['Hola será q llega antes de las 19:45 ', 'envio_horario'],
+  ['Hola buenas tardes, quisiera asegurarme que hoy sin falta llega mi pedido ya que lo necesito hoy si o si. Si no llega me conviene cancelar la compra y aún veo que no se despacha. Gracias ', 'envio_horario'],
+  ['Buenas tardes, necesitaría cambiar el producto por piezas de 1/8. Como debo proceder?', 'problema_producto'],
+  ['Buenas tardes, compré un cutter tipo bisturí pero recibí otra cosa, adjunto fotos.', 'problema_producto'],
+  ['Hola buenas tardes quería hacer un reclamo porque los dos pulverizadores que compré vinieron sin el cuerpo', 'problema_producto'],
+  ['Hola buenos días revien hice una compra. De una tapa de arranque. Me dice q llega hoy. Será posible?. Porq la necesito', 'envio_horario'],
+  ['hola cómo estás ? acabo de recibir el producto y es distinto al de la publicación. yo lo compre por q venia con patitas de goma y el cosito del medio para retirarlo y este es todo metal y no me sirve ', 'problema_producto'],
+  ['hola buenas tardes recien me dejan la bolsa y hay 8 tapones en vez de 10\n', 'problema_producto'],
+  ['Hola buenas tardes recién me acaba de llegar el envío pero los dos juegos de juntas vinieron rotos', 'problema_producto'],
+  ['Buenas tardes,yo compré por 12 regatones y me llegó un solo regatón ', 'problema_producto'],
+  ['Hola\nComo estas? \nNecesitaría 12 llaveros más \nTendrás disponibles? Los puedo retirar personalmente?', 'retiro_horarios'],
+  ['Hola, buenas tardes. Al momento de la compra me figuraba que el pedido llegaba hoy martes y ahora figura que llega mañana ...', 'envio_horario'],
+  ['buenos dias. Preciso la factura de la compra para realizar la rendicion de gastos', 'cambio_factura'],
+  ['Hola en qué horario llegarían?', 'envio_horario'],
+  ['Hola disculpa mira quería cambiar el domicilio porque no va a llegar a un horario que haya gente en mi casa', 'cambio_domicilio'],
+  ['Buenas tardes , me podrian enviar la Factura de la compra.\n', 'cambio_factura'],
+];
+for (const [texto, esperado] of reales) assert.equal(clasificarTexto(texto), esperado, texto.slice(0, 60));
+// En FULL, preguntar por retirar NO se contesta solo (puede ser una venta nueva); en LOCAL sí.
+const retiroFull = armarCasos([{ cuenta: 'full', tipo: 'mensaje', id: 'r', texto: 'Los puedo retirar personalmente?' }], { full: { label: 'full', mode: 'full' } })[0];
+assert.equal(retiroFull.solo, false);
+assert.equal(retiroFull.respuesta, null);
+assert.match(retiroFull.accion, /[Pp]uede ser una venta nueva/);
+const retiroLocal = armarCasos([{ cuenta: 'local', tipo: 'mensaje', id: 'r', texto: 'Los puedo retirar personalmente?' }], { local: { label: 'local', mode: 'local' } })[0];
+assert.equal(retiroLocal.solo, true);
+assert.match(retiroLocal.respuesta, /Floresta/);
+// Un problema con el producto nunca es "solo" y aparece en su grupo
+const prob = armarCasos([{ cuenta: 'full', tipo: 'mensaje', id: 'p', texto: 'me llegó roto, quiero devolverlo' }], { full: { label: 'full', mode: 'full' } });
+assert.equal(prob[0].solo, false);
+assert.match(resumenEnTexto(prob), /Mensajes por un problema con el producto \(1\)/);
+
+// Motivos: ML manda el código en inglés
+assert.equal(motivoLegible('PDD9939', 'repentant_buyer'), 'se arrepintió de la compra (PDD9939)');
+assert.equal(motivoLegible('PDD9946', 'broken_item'), 'el producto llegó roto (PDD9946)');
+assert.equal(motivoLegible('PNR9567', 'delivered_but_not_receive_package'), 'figura entregado pero no lo recibió (PNR9567)');
+assert.equal(motivoLegible('XX1', 'algo_nuevo'), 'algo_nuevo (XX1)');
+assert.equal(accionesEnTexto(['refund', 'send_message_to_mediator', 'otra']), 'devolver la plata · escribirle al mediador de ML · otra');
 
 // ¿El vendedor puede actuar? Forma real de un reclamo de FULL en mediación de ML:
 // mediador interno y available_actions vacías en las dos partes.

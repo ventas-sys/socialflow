@@ -1693,3 +1693,49 @@ los 5 minutos. Lo que importa es si se **repite**.
 ciego **y nadie se entera** — el mismo patrón que la caída del bot. Está
 pendiente decidir si el bridge debe avisar por WhatsApp "no puedo consultar las
 preguntas de ML, revisalas a mano" cuando pasen N fallos seguidos.
+
+---
+
+## Reclamos y mensajes de compradores (SOLO LECTURA) — 14-nov-2026
+
+Pedido de Rodo: leer los reclamos abiertos y los mensajes de compradores de las dos
+cuentas (probando primero en FULL) y separar lo que se resuelve solo de lo que necesita
+su ayuda. **Solo lee: no responde, no cierra y no manda nada.** Código en
+`lib/ml/reclamos.mjs`; la acción vive dentro de `api/ml/questions.js` porque el proyecto
+ya está en las 12 funciones de Vercel. Pruebas: `node scripts/test-reclamos.mjs`.
+
+```
+GET https://socialflow-flax.vercel.app/api/ml/questions?action=reclamos&account=full&key=<ML_SWEEP_KEY>
+    &modo=probar   -> qué le responde ML a cada ruta (para corregir el código)
+```
+
+**Rutas de ML verificadas con FULL real** (todas 200): `/post-purchase/v1/claims/search?status=opened&players.role=respondent&players.user_id=<id>`
+(lista en `data`, trae motivo, etapa, partes y acciones del vendedor), `…/claims/<id>`,
+`…/claims/<id>/messages` (devuelve una lista) y `/messages/unread?role=seller&tag=post_sale`
+(`results: [{resource: "/packs/<pack>/sellers/<id>", count}]`). El nombre del motivo viene del
+código en inglés (`repentant_buyer`, `broken_item`…) y se traduce en `MOTIVOS_ES`.
+
+**Qué mostró la primera lectura real de FULL (14-nov):** 61 reclamos abiertos. 28 están en
+**mediación de ML** (`stage: dispute`, mediador interno, sin acciones para el vendedor: ML ya
+devolvió la plata y cubre los costos). En 33 el vendedor tiene acciones
+(`send_message_to_complainant`, `refund`, `open_dispute`, a veces `allow_return` /
+`allow_partial_refund`; en disputa, `send_message_to_mediator`); varios **vencen el lunes
+16/11 al mediodía**. Casi todos son "producto" (arrepentido, roto, distinto, faltan accesorios),
+solo 2 de "no llegó". Más 10 pedidos de factura y mensajes sobre horario de entrega.
+
+**Dónde se concentran los reclamos** (del título de cada orden): partes de desmalezadora
+(~12 de 61; 5 son la **caja de engranaje 26 mm vs 28 mm**), tapones/picos para termo Stanley
+(5, más un mensaje: "el pico queda del lado de la manija"), tapa pico de botella (3),
+regatones y packs con **cantidades incompletas** ("8 en vez de 10", "1 de 12").
+
+**Errores de clasificación que aparecieron con datos reales (y quedaron con pruebas):**
+- "buenas **tardes**" activaba el detector de horario de entrega (`tard\w*`) y mandaba mensajes
+  de producto roto a "se resuelve con una respuesta fija". Ya no: un problema con el producto
+  (roto, faltante, distinto, devolver) **nunca** es "solo".
+- "horario" no es retiro por el local, y "retirarlo" puede ser sacar una pieza.
+- En FULL, una pregunta por retirar puede ser una venta nueva: no se contesta con respuesta fija.
+
+**Lo que NO está hecho:** el envío periódico del resumen por WhatsApp; detectar envíos
+demorados o reprogramados y abrir mensaje al comprador (ML solo habilita al vendedor a
+escribir primero con un reclamo o un problema de envío); redactar respuestas a reclamos para
+que Rodo las apruebe. Los reclamos con plata (devolución, reembolso) quedan siempre en manos de Rodo.
