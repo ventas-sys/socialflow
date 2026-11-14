@@ -30,6 +30,7 @@ import { getAccessToken, getQuestion, getItem, getUnanswered, getItemQuestions, 
 import { construirReporte } from '../../lib/ml/conversion.js';
 import { filaMedidas, ordenarFilas, medidasCsv } from '../../lib/ml/medidas.js';
 import { compararCatalogos, faltantesCsv } from '../../lib/ml/catalogo.js';
+import { copiarPublicacion, resolverIdPublicacion, ajustarPublicacion } from '../../lib/ml/copiar.js';
 import { searchMyItems, getItemsFichaBulk, mlAdsGet, getUserItemsVisits, getOrdersPagina } from '../../lib/ml/ml-api.js';
 import { resumenKeys, probarKeyMedia } from '../../lib/gemini-keys.js';
 import { modeloTexto } from '../../lib/gemini-texto.js';
@@ -736,6 +737,46 @@ export default async function handler(req, res) {
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="faltan-en-${accD.label}-${hoy}.csv"`);
       return res.status(200).send(faltantesCsv(faltan, notas));
+    }
+
+    // COPIAR UNA PUBLICACIÓN A LA OTRA CUENTA (FULL -> FERRE o al revés).
+    // Acepta el ID (MLA123), el link del artículo o el link /up/MLAU... del
+    // producto. Sin &confirmar=1 es un ensayo: muestra qué se crearía.
+    // Crear exige la key (ML_SWEEP_KEY) si está configurada: crea algo real.
+    if (action === 'copiar') {
+      const q = { ...(req.body || {}), ...(req.query || {}) };
+      const si = v => ['1', 'true', 'si'].includes(String(v ?? '').toLowerCase());
+      const confirmar = si(q.confirmar);
+      const expected = (process.env.ML_SWEEP_KEY || '').trim();
+      if (confirmar && expected && String(q.key || '') !== expected) {
+        return res.status(401).json({ error: 'Para crear la publicación hace falta &key=… (ML_SWEEP_KEY).' });
+      }
+      const entrada = String(q.id || q.link || q.url || '').trim();
+      if (!entrada) return res.status(400).json({ error: 'Falta &id= (ID MLA… o el link de la publicación).' });
+      const id = await resolverIdPublicacion(entrada);
+      const alias = { ferre: 'local', ferreteria: 'local' };
+      const dest = q.destino ? (alias[String(q.destino).toLowerCase()] || String(q.destino).toLowerCase()) : null;
+      const opts = {};
+      if (q.stock != null) opts.stock = Number(q.stock);
+      if (q.precio != null) opts.precio = Number(q.precio);
+      if (q.ajuste != null) opts.ajuste = Number(q.ajuste);
+      if (q.tipo) opts.tipo = String(q.tipo);
+      const out = await copiarPublicacion({ id, destinoLabel: dest, opts, confirmar, forzar: si(q.forzar) });
+      return res.status(out.ok ? 200 : 422).json({ id_origen: id, ...out });
+    }
+
+    // AJUSTAR una publicación propia: cambiar título o pausar/cerrar.
+    // Pide la misma key que copiar (ML_SWEEP_KEY) si está configurada.
+    if (action === 'ajustar') {
+      const q = { ...(req.body || {}), ...(req.query || {}) };
+      const expected = (process.env.ML_SWEEP_KEY || '').trim();
+      if (expected && String(q.key || '') !== expected) return res.status(401).json({ error: 'key inválida' });
+      const alias = { ferre: 'local', ferreteria: 'local' };
+      const cuenta = alias[String(q.cuenta || '').toLowerCase()] || String(q.cuenta || '').toLowerCase();
+      if (!cuenta || !q.id) return res.status(400).json({ error: 'Faltan &cuenta= y &id=' });
+      if (!q.titulo && !q.estado) return res.status(400).json({ error: 'Pasá &titulo= o &estado=' });
+      const out = await ajustarPublicacion({ cuentaLabel: cuenta, id: String(q.id), titulo: q.titulo, estado: q.estado });
+      return res.status(200).json(out);
     }
 
     // SONDA DE MERCADO ADS (Product Ads): prueba los endpoints de publicidad
