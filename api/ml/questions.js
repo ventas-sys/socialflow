@@ -1196,7 +1196,8 @@ export default async function handler(req, res) {
       return res.status(200).json({
         ok: true, total: casos.length,
         resolver_solos: casos.filter(c => c.solo).length,
-        necesitan_ayuda: casos.filter(c => !c.solo).length,
+        en_mediacion_ml: casos.filter(c => c.ml).length,
+        necesitan_ayuda: casos.filter(c => !c.solo && !c.ml).length,
         avisos, texto: resumenEnTexto(casos), casos,
       });
     }
