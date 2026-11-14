@@ -8,6 +8,8 @@
 //                                                 seguridad si el webhook no entra)
 //   GET  /api/ml/questions?action=diag         -> diagnóstico: token, cuentas, pendientes,
 //                                                 último webhook y qué está fallando
+//   GET  /api/ml/questions?action=mercado      -> precios de mercado y catálogo (datos
+//                                                 públicos de ML): &q=texto y/o &item=MLA...
 //   GET  /api/ml/questions?action=conversion   -> control de conversión: cruza preguntas con
 //                                                 ventas por SKU y dice qué le falta a cada
 //                                                 publicación { dias, limit, account }
@@ -19,7 +21,7 @@
 //                                                 => responde la pregunta automáticamente
 //
 // Config: variable de entorno ML_ACCOUNTS (JSON). Ver lib/ml/qa-config.js.
-import { cors } from '../_http.js';
+import { cors, httpRequest } from '../_http.js';
 
 // El reporte de medidas recorre TODO el catálogo (2000+ publicaciones); con los
 // 10s por defecto del plan Hobby se cortaba en la mitad. Igual que api/image.js.
@@ -608,6 +610,89 @@ export default async function handler(req, res) {
   }
 
   try {
+    // MERCADO: precios de mercado y catálogo de un producto. Lee DATOS PÚBLICOS de la
+    // API de ML con el token vigente del store (la respuesta nunca incluye el token).
+    //   &q=texto   -> estadísticas de precios + top publicaciones más baratas
+    //   &item=MLA… -> además la publicación, su producto de catálogo y el buy box
+    if (action === 'mercado') {
+      const acc = findAccountByLabel(accounts, (req.query?.account || 'full').toString()) || accounts[0];
+      if (!acc) return res.status(400).json({ error: 'Sin cuentas en ML_ACCOUNTS' });
+      const token = await getAccessToken(acc);
+      const apiGet = (path) => httpRequest('GET', 'https://api.mercadolibre.com' + path,
+        { 'Authorization': 'Bearer ' + token });
+      const out = {};
+      const itemId = (req.query?.item || '').toString().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      let q = (req.query?.q || '').toString().trim();
+
+      if (itemId) {
+        const it = await apiGet(`/items/${itemId}`);
+        if (it.status === 200) {
+          const i = it.body;
+          out.item = {
+            id: i.id, titulo: i.title, precio: i.price, estado: i.status,
+            vendidos: i.sold_quantity, catalog_listing: i.catalog_listing,
+            catalog_product_id: i.catalog_product_id, envio: i.shipping?.logistic_type,
+          };
+          if (!q) q = i.title;
+          if (i.catalog_product_id) {
+            const p = await apiGet(`/products/${i.catalog_product_id}`);
+            if (p.status === 200) {
+              const bb = p.body?.buy_box_winner;
+              out.catalogo = {
+                product_id: i.catalog_product_id,
+                nombre: p.body?.name,
+                buy_box: bb ? {
+                  item_id: bb.item_id, precio: bb.price, vendedor: bb.seller_id,
+                  envio: bb.shipping?.logistic_type, soy_yo: String(bb.seller_id) === String(acc.user_id),
+                } : null,
+              };
+              const comp = await apiGet(`/products/${i.catalog_product_id}/items`);
+              if (comp.status === 200 && Array.isArray(comp.body?.results)) {
+                out.catalogo.competidores = comp.body.results.slice(0, 15).map(r => ({
+                  item_id: r.item_id, precio: r.price, vendedor: r.seller_id,
+                  envio: r.shipping?.logistic_type, gratis: !!r.shipping?.free_shipping,
+                  soy_yo: String(r.seller_id) === String(acc.user_id),
+                }));
+              }
+            } else {
+              out.catalogo = { product_id: i.catalog_product_id, error: 'HTTP ' + p.status };
+            }
+          }
+        } else {
+          out.item = { error: 'HTTP ' + it.status, detalle: JSON.stringify(it.body).slice(0, 200) };
+        }
+      }
+
+      if (q) {
+        const s = await apiGet(`/sites/MLA/search?q=${encodeURIComponent(q)}&limit=50`);
+        const rs = (s.status === 200 && Array.isArray(s.body?.results))
+          ? s.body.results.filter(r => r.price > 0) : [];
+        if (rs.length) {
+          const precios = rs.map(r => r.price).sort((a, b) => a - b);
+          const pct = (p) => precios[Math.min(precios.length - 1, Math.round(p * (precios.length - 1)))];
+          out.mercado = {
+            consulta: q,
+            publicaciones: precios.length,
+            precio_min: precios[0], p25: pct(0.25), mediana: pct(0.5), p75: pct(0.75),
+            precio_max: precios[precios.length - 1],
+            con_envio_gratis: rs.filter(r => r.shipping?.free_shipping).length,
+            full: rs.filter(r => r.shipping?.logistic_type === 'fulfillment').length,
+            top_baratas: rs.slice().sort((a, b) => a.price - b.price).slice(0, 10).map(r => ({
+              titulo: String(r.title).slice(0, 70), precio: r.price,
+              vendedor: r.seller?.nickname || r.seller?.id || r.seller_id,
+              full: r.shipping?.logistic_type === 'fulfillment', gratis: !!r.shipping?.free_shipping,
+              soy_yo: String(r.seller?.id ?? r.seller_id) === String(acc.user_id),
+            })),
+          };
+        } else {
+          out.mercado = { consulta: q, error: 'HTTP ' + s.status, detalle: JSON.stringify(s.body).slice(0, 200) };
+        }
+      }
+
+      if (!itemId && !q) return res.status(400).json({ error: 'Falta q= o item=' });
+      return res.status(200).json(out);
+    }
+
     // DIAGNÓSTICO: qué está pasando con el agente (se puede abrir con GET en el navegador).
     if (action === 'diag') {
       // En paralelo: en el plan Hobby la función corta a los 10s y una cuenta
