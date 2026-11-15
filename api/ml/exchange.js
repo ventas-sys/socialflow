@@ -18,6 +18,8 @@ export default async function handler(req, res) {
     if (action === 'items') return await items(req, res);
     if (action === 'itempics' || action === 'itemdetail') return await itemDetail(req, res);
     if (action === 'mlsearch') return await mlSearch(req, res);
+    if (action === 'preguntas') return await preguntas(req, res);
+    if (action === 'responder') return await responder(req, res);
     if (action === 'shipstatus') return await shipStatus(req, res);
     if (action === 'topsold') return await topSold(req, res);
     if (action === 'metrics') return await metrics(req, res);
@@ -915,6 +917,91 @@ async function multiget(url, auth) {
     if (intento) return { lista: [], problema: motivo };
   }
   return { lista: [], problema: 'sin respuesta' };
+}
+
+// --- Preguntas de compradores ---
+// Las que están SIN RESPONDER de una cuenta, de la más nueva a la más vieja,
+// con los datos de la publicación por la que preguntan (título, link, precio
+// y stock en ML). Sin eso el que contesta no sabe de qué le están hablando.
+//
+// Van las dos cuentas: la app llama una vez por cuenta y junta.
+async function preguntas(req, res) {
+  const { token, limite = 50 } = req.body || {};
+  if (!token) return res.status(400).json({ ok: false, error: 'Falta access_token' });
+  const auth = { 'Authorization': 'Bearer ' + token };
+
+  const me = await httpRequest('GET', 'https://api.mercadolibre.com/users/me', auth);
+  if (me.status !== 200) {
+    return res.status(200).json({ ok: false, error: me.body?.message || ('HTTP ' + me.status) });
+  }
+  const sellerId = me.body.id;
+
+  const url = 'https://api.mercadolibre.com/questions/search?api_version=4' +
+    `&seller_id=${sellerId}&status=UNANSWERED` +
+    `&sort_fields=date_created&sort_types=DESC&limit=${Math.min(Number(limite) || 50, 50)}`;
+  const r = await httpRequest('GET', url, auth);
+  if (r.status !== 200) {
+    return res.status(200).json({ ok: false, error: r.body?.message || ('HTTP ' + r.status) });
+  }
+
+  const lista = (r.body?.questions || []).map(q => ({
+    id: q.id,
+    texto: q.text || '',
+    fecha: q.date_created || null,
+    mla: q.item_id || null,
+    compradorId: q.from?.id || null,
+  }));
+
+  // Datos de las publicaciones preguntadas, de a 20 (multiget), sin repetir.
+  // Que esto falle no deja sin contestar: la pregunta se muestra igual.
+  const mlas = [...new Set(lista.map(q => q.mla).filter(Boolean))];
+  const pub = {};
+  for (let i = 0; i < mlas.length; i += 20) {
+    const batch = mlas.slice(i, i + 20).join(',');
+    const { lista: datos } = await multiget(
+      `https://api.mercadolibre.com/items?ids=${batch}` +
+      '&attributes=id,title,permalink,price,available_quantity,status,thumbnail', auth);
+    for (const entry of datos) {
+      const b = entry?.body;
+      if (!b?.id) continue;
+      pub[b.id] = {
+        titulo: b.title || '', link: b.permalink || '', precio: b.price ?? null,
+        stock: b.available_quantity ?? null, estado: b.status || '', foto: b.thumbnail || '',
+      };
+    }
+  }
+
+  return res.status(200).json({
+    ok: true, sellerId, nickname: me.body.nickname || '',
+    total: r.body?.total ?? lista.length,
+    preguntas: lista.map(q => ({ ...q, pub: pub[q.mla] || null })),
+  });
+}
+
+// Contestar una pregunta. ML no deja editar ni borrar una respuesta una vez
+// publicada, así que la app pide confirmación antes de llamar acá.
+async function responder(req, res) {
+  const { token, preguntaId, texto } = req.body || {};
+  if (!token) return res.status(400).json({ ok: false, error: 'Falta access_token' });
+  if (!preguntaId) return res.status(400).json({ ok: false, error: 'Falta la pregunta' });
+  const limpio = String(texto || '').trim();
+  if (!limpio) return res.status(400).json({ ok: false, error: 'La respuesta está vacía' });
+  // ML corta en 2000 caracteres: mejor avisar que que lo rebote el servidor.
+  if (limpio.length > 2000) {
+    return res.status(400).json({ ok: false, error: 'La respuesta no puede pasar de 2000 caracteres' });
+  }
+
+  const r = await httpRequest('POST', 'https://api.mercadolibre.com/answers',
+    { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    { question_id: preguntaId, text: limpio });
+
+  if (r.status !== 200 && r.status !== 201) {
+    const b = r.body || {};
+    const motivo = b.message || b.error ||
+      (Array.isArray(b.cause) && b.cause[0]?.message) || ('HTTP ' + r.status);
+    return res.status(200).json({ ok: false, error: motivo });
+  }
+  return res.status(200).json({ ok: true, preguntaId });
 }
 
 async function items(req, res) {

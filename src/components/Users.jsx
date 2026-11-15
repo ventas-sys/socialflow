@@ -12,6 +12,7 @@ export const PERM_TABS = [
   { key: 'shipments', label: '🏍️ Envíos FLEX' },
   { key: 'packing', label: '🗳️ Empaque' },
   { key: 'full', label: '🏬 Envío Full' },
+  { key: 'preguntas', label: '💬 Preguntas' },
   { key: 'mercadolibre', label: '🛒 ML' }, // solo la ve el master — no se asigna a ayudantes
   // Reportes se fusionó con Métricas el 11/11/2026: una sola solapa con dos
   // vistas. El permiso viejo 'reports' se sigue respetando (ver App.jsx).

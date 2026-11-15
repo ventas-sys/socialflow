@@ -35,6 +35,7 @@ import MercadoLibre from './components/MercadoLibre'
 import Metrics from './components/Metrics'
 import Finance from './components/Finance'
 import FullShipment from './components/FullShipment'
+import Preguntas from './components/Preguntas'
 import Users, { PERM_TABS } from './components/Users'
 import Auth from './components/Auth'
 import './App.css'
@@ -1652,6 +1653,13 @@ export default function App() {
                 onAsociarCodigos={bulkApplyPatches}
                 onDescontar={registerPurchase}
                 canEdit={canEdit}
+              />
+            )}
+            {/* Preguntas de las dos cuentas: para contestar sin entrar a ML */}
+            {currentTab === 'preguntas' && canSee('preguntas') && (
+              <Preguntas
+                mlAccounts={mlAccounts}
+                ensureToken={(key) => ensureMlToken(mlAccounts, key, saveMlAccount)}
               />
             )}
             {currentTab === 'packing' && canSee('packing') && (

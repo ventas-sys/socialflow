@@ -1,0 +1,98 @@
+.preg-container { padding: 1.5rem; max-width: 900px; margin: 0 auto; }
+
+.preg-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.preg-header h1 { margin: 0 0 0.3rem; font-size: 1.6rem; }
+.preg-header p { margin: 0; color: #6b7280; font-size: 0.88rem; max-width: 56ch; line-height: 1.45; }
+.preg-acciones { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.preg-btn-refresh {
+  background: #2563eb; color: #fff; border: none; border-radius: 0.5rem;
+  padding: 0.75rem 1.1rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.preg-btn-refresh:disabled { opacity: 0.6; cursor: default; }
+
+.preg-msg { border-radius: 0.5rem; padding: 0.6rem 0.9rem; margin-bottom: 0.8rem; font-size: 0.88rem; font-weight: 500; }
+.preg-msg.ok { background: #dcfce7; color: #166534; }
+.preg-msg.warn { background: #fef3c7; color: #92400e; }
+.preg-fondo { font-size: 0.76rem; color: #6b7280; margin-bottom: 0.7rem; }
+
+.preg-filtros { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
+.preg-tabs { display: flex; gap: 0.3rem; }
+.preg-tabs button {
+  background: #f3f4f6; border: 1px solid #e5e7eb; color: #374151;
+  padding: 0.45rem 0.8rem; border-radius: 0.5rem; font-size: 0.82rem;
+  font-weight: 600; cursor: pointer;
+}
+.preg-tabs button.active { background: #2563eb; border-color: #2563eb; color: #fff; }
+.preg-tabs button:disabled { opacity: 0.45; cursor: default; }
+.preg-buscar {
+  flex: 1; min-width: 200px; padding: 0.5rem 0.7rem; font-size: 0.88rem;
+  border: 1px solid #d1d5db; border-radius: 0.5rem; background: #f9fafb;
+  color: #111827; font-family: inherit;
+}
+
+.preg-vacio { text-align: center; color: #6b7280; padding: 2.5rem 1rem; font-size: 0.95rem; }
+
+.preg-lista { display: flex; flex-direction: column; gap: 0.9rem; }
+
+.preg-item {
+  background: #fff; border: 1px solid #e5e7eb; border-left: 4px solid #e5e7eb;
+  border-radius: 0.6rem; padding: 0.9rem;
+}
+/* Cuanto más vieja, más fuerte se marca: una pregunta sin contestar se pierde */
+.preg-item.tibia { border-left-color: #f59e0b; }
+.preg-item.vieja { border-left-color: #dc2626; background: #fffbfb; }
+
+.preg-item-top { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.6rem; flex-wrap: wrap; }
+.preg-cuenta { font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 0.35rem; letter-spacing: 0.4px; }
+.preg-cuenta.full { background: #dbeafe; color: #1e40af; }
+.preg-cuenta.ferre { background: #fce7f3; color: #9d174d; }
+.preg-fecha { font-size: 0.76rem; color: #6b7280; }
+.preg-alerta { font-size: 0.72rem; color: #b91c1c; font-weight: 600; }
+
+.preg-pub { display: flex; gap: 0.6rem; align-items: flex-start; margin-bottom: 0.6rem; }
+.preg-foto { width: 46px; height: 46px; object-fit: contain; border-radius: 0.35rem; background: #f9fafb; flex-shrink: 0; }
+.preg-pub-datos { min-width: 0; }
+.preg-titulo { font-size: 0.85rem; font-weight: 600; color: #1d4ed8; text-decoration: none; display: block; }
+.preg-titulo:hover { text-decoration: underline; }
+.preg-meta { display: flex; gap: 0.6rem; flex-wrap: wrap; font-size: 0.76rem; color: #6b7280; margin-top: 0.15rem; }
+.preg-stock { color: #166534; font-weight: 600; }
+.preg-stock.cero { color: #b91c1c; }
+.preg-mla { font-family: ui-monospace, monospace; }
+
+.preg-texto {
+  background: #f9fafb; border-radius: 0.5rem; padding: 0.65rem 0.8rem;
+  font-size: 0.95rem; color: #111827; line-height: 1.45; margin-bottom: 0.6rem;
+}
+
+.preg-respuesta {
+  width: 100%; padding: 0.55rem 0.7rem; border: 1px solid #d1d5db;
+  border-radius: 0.5rem; font-size: 0.9rem; font-family: inherit;
+  color: #111827; background: #fff; resize: vertical;
+}
+.preg-item-pie { display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; }
+.preg-largo { font-size: 0.72rem; color: #9ca3af; }
+.preg-btn-enviar {
+  background: #059669; color: #fff; border: none; border-radius: 0.5rem;
+  padding: 0.55rem 1rem; font-weight: 600; cursor: pointer; font-size: 0.88rem;
+}
+.preg-btn-enviar:disabled { opacity: 0.5; cursor: default; }
+
+@media (max-width: 640px) {
+  .preg-container { padding: 1rem 0.8rem; }
+  .preg-btn-refresh { width: 100%; }
+  .preg-acciones { width: 100%; }
+}
+
+@media (prefers-color-scheme: dark) {
+  .preg-header p, .preg-fecha, .preg-meta, .preg-fondo, .preg-vacio { color: #9ca3af; }
+  .preg-item { background: #1f2937; border-color: #374151; border-left-color: #374151; }
+  .preg-item.vieja { background: #2a1f1f; }
+  .preg-texto { background: #111827; color: #e5e7eb; }
+  .preg-respuesta, .preg-buscar { background: #111827; border-color: #374151; color: #e5e7eb; }
+  .preg-tabs button { background: #111827; border-color: #374151; color: #d1d5db; }
+  .preg-tabs button.active { background: #2563eb; border-color: #2563eb; color: #fff; }
+  .preg-msg.ok { background: rgba(16,185,129,0.15); color: #6ee7b7; }
+  .preg-msg.warn { background: rgba(251,191,36,0.12); color: #fcd34d; }
+  .preg-foto { background: #111827; }
+}
