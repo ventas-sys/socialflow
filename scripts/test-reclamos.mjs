@@ -1,6 +1,6 @@
 // Pruebas del clasificador de reclamos y mensajes (sin red). node scripts/test-reclamos.mjs
 import assert from 'node:assert/strict';
-import { clasificarTexto, motivoLegible, vencimientoReclamo, vendedorPuedeActuar, accionesDelVendedor, accionesEnTexto, productosConMasReclamos, respuestaSugerida, armarCasos, resumenEnTexto } from '../lib/ml/reclamos.mjs';
+import { clasificarTexto, motivoLegible, vencimientoReclamo, vendedorPuedeActuar, accionesDelVendedor, accionObligatoria, accionesEnTexto, productosConMasReclamos, respuestaSugerida, armarCasos, resumenEnTexto } from '../lib/ml/reclamos.mjs';
 
 // Mensajes de compradores
 // Retiro por el local: hace falta intención de ir a buscarlo.
@@ -101,6 +101,24 @@ assert.equal(motivoLegible('PDD9946', 'broken_item'), 'el producto llegó roto (
 assert.equal(motivoLegible('PNR9567', 'delivered_but_not_receive_package'), 'figura entregado pero no lo recibió (PNR9567)');
 assert.equal(motivoLegible('XX1', 'algo_nuevo'), 'algo_nuevo (XX1)');
 assert.equal(accionesEnTexto(['refund', 'send_message_to_mediator', 'otra']), 'devolver la plata · escribirle al mediador de ML · otra');
+
+
+// ── Obligatoria vs opcional (el panel de ML dijo 2 "por atender" y yo mostraba 33) ──
+const conMandatory = (acc) => ({ players: [{ role: 'respondent', available_actions: acc }] });
+assert.equal(accionObligatoria(conMandatory([{ action: 'refund', mandatory: false }, { action: 'open_dispute', mandatory: false }])), false);
+assert.equal(accionObligatoria(conMandatory([{ action: 'send_message_to_mediator', mandatory: true, due_date: '2026-11-16T17:00:00Z' }])), true);
+assert.equal(accionObligatoria(conMandatory([{ action: 'refund' }])), true);   // sin el dato: se asume obligatoria
+assert.equal(accionObligatoria(conMandatory([])), false);
+assert.equal(accionObligatoria(null), false);
+const mix = armarCasos([
+  { cuenta: 'full', tipo: 'reclamo', id: 'o1', motivo: 'x', accion_vendedor: true, obligatoria: true, vence: Date.parse('2026-11-16T17:00:00Z') },
+  { cuenta: 'full', tipo: 'reclamo', id: 'o2', motivo: 'x', accion_vendedor: true, obligatoria: false },
+  { cuenta: 'full', tipo: 'reclamo', id: 'o3', motivo: 'x', accion_vendedor: true, obligatoria: false },
+], { full: { label: 'full', mode: 'full' } });
+assert.equal(mix.filter(c => c.opcional).length, 2);
+const txtMix = resumenEnTexto(mix, { ahora: Date.parse('2026-11-16T10:00:00Z') });
+assert.match(txtMix, /Reclamos que necesitan tu respuesta \(1\)/);
+assert.match(txtMix, /podés actuar pero no es obligatorio \(2\)/);
 
 // ¿El vendedor puede actuar? Forma real de un reclamo de FULL en mediación de ML:
 // mediador interno y available_actions vacías en las dos partes.
