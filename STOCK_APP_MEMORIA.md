@@ -3,7 +3,27 @@
 **ÚNICA fuente de verdad del proyecto. Leer entera antes de tocar nada.**
 Rama: `claude/stock-inventory-app-06rlv5` · PR #38 (draft) · Repo: ventas-sys/socialflow
 
-## 📍 ESTADO AL 2/11/2026 — arrancar por acá
+## 📍 ESTADO AL 16/11/2026 — arrancar por acá
+
+**⬇️ LO ÚLTIMO ESTÁ AL FINAL: puntos 38 a 43 y la lista de pendientes al 16/11.**
+Lo de abajo (hasta el punto 37) es el estado al 2/11 y se deja porque el
+contexto sigue sirviendo, pero **lo vigente es el final del archivo**.
+
+Resumen de lo que pasó entre el 6 y el 16/11:
+- **Finanzas**: formulario reordenado, todo obligatorio salvo que **remito y
+  factura no son excluyentes** (alcanza con uno). Punto 38.
+- **Envío Full**: selector recortado a 4, **Reportes se fusionó en Métricas**,
+  y al cargar un envío queda **un solo código de etiqueta** por artículo. Punto 39.
+- **Envíos FLEX**: abre con lo guardado en el aparato y se refresca por atrás.
+  Acá se rompió el deploy por los crons de `vercel.json` — **leer el punto 40,
+  es la lección más útil del mes**.
+- **Solapa 💬 Preguntas nueva**: contestar las dos cuentas de ML desde el
+  sistema, con el hilo anterior del comprador, saludo y cierre tildados y el
+  panel de respuestas rápidas. Puntos 41 y 42.
+- **Los 519 productos sin publicar en FULL quedaron con referencia** y todo
+  guardado en `docs/publicar-en-full/`. Punto 43.
+
+## 📍 Estado al 2/11/2026 (histórico)
 
 Último commit: ver `git log`. Todo desplegado y verde en los dos proyectos de Vercel.
 
@@ -372,3 +392,72 @@ El **1/11 el otro chat** bajó además el saldo automático de MP de 14 corridas
 - Stock: descuenta TODO lo despachado desde el depósito propio (FLEX+correo/colecta+ventas sin envío de ML), NUNCA `fulfillment` (Full ya salió al enviarse a bodega). Igual para ambas cuentas. 2 veces/día (13 y 18hs AR). Stock puede quedar negativo. **Clasificación explícita desde el 28/8** (`clasificar`/`descuenta` en api/ml/cron.js): la regla vieja era "todo lo que no sea fulfillment descuenta", así que si fallaba el pedido del envío a ML el tipo quedaba nulo y la venta se descontaba igual — incluidas las de Full — y además no se miraba el estado de la orden (canceladas y sin cobrar también descontaban; caso real: 771 Full + 60 canceladas en 48hs de la cuenta FULL). Ahora: descuentan flex (`self_service`) + correo (`drop_off`/`xd_drop_off`/`cross_docking`) + sin envío, con estado `paid`/`partially_paid`; NO descuentan Full, canceladas/inválidas, sin cobrar (quedan para la corrida siguiente) ni las de tipo desconocido (se reintenta el pedido a ML y si igual no se sabe NO se descuenta: preferimos que falte un descuento antes que descontar una de Full). El resumen del botón "Probar automático ahora" muestra el desglose. Verificado 28/8 en producción: FULL 168 flex + 2 correo (771 Full salteadas — es correcto, ~98% de esa cuenta va por bodega), FERRE 103 flex + 83 correo + 6 sin envío.
 - Reparto (Envíos): SOLO FLEX/Turbo (motos propias). Por venta/cliente, no por producto. Historial 7 días para ver evolución; demorados hasta 1 semana.
 - ML paga por zona (bonificación); al motoquero se le paga otro monto; el comprador puede haber pagado o no el envío — 3 columnas separadas en el reporte.
+
+
+38. **💰 6/11 — Finanzas: el formulario en el orden del papel y todo obligatorio.** Lo pidió así: arriba tipo, fecha y moneda; después **remito y factura**, proveedor, descripción y monto. Y después *"Deja todo obligatorio"*.
+    El `required` del navegador no alcanza: un campo con sólo espacios lo pasa igual y el registro queda en blanco. Por eso la validación está en `agregar` con `.trim()`.
+    **✏️ CORRECCIÓN del 12/11 — remito y factura NO son excluyentes.** El usuario mandó captura: *"es q puede ser solo remito o solo factura. no es excluyente"*. Ahora se pide **al menos uno de los dos**, no los dos. El resto de los campos sigue obligatorio. Hay una línea gris abajo de los dos campos que lo aclara.
+
+39. **🧹 11/11 — tres cambios de pantalla pedidos juntos.**
+    a) **El selector de envíos a Full mostraba todos** y eran demasiados. `MAX_ENVIOS_LISTA = 4` + "Ver todos (N)". El envío seleccionado **siempre** entra en la lista aunque quede fuera de los 4.
+    b) **Reportes se fusionó adentro de Métricas** (*"pone a lo q muestra reporte dentro de metricas pq es maso lo mismo"*). Una sola solapa con dos vistas. **El permiso viejo `reports` se sigue respetando**: la solapa se ve con `canSee('metrics') || canSee('reports')` y adentro va `verVentas`/`verInventario`, así nadie pasa a ver lo que antes no veía. `TABS_CON_MOVS` cambió `reports` por `metrics`.
+    c) **Un solo código de etiqueta por artículo al cargar un envío Full** (*"si ya tiene y es igual dejalo, si tiene 2 borra ambos y q siempre quede uno solo para no confundir en la preparacion"*). `asociarCodigos` deja el código del envío que se está cargando y saca los viejos. **Toca SOLO los códigos de etiqueta** (`/^[A-Z]{4}\d{4,5}$/i`, tipo HWOM34860): **nunca el SKU (`MLA…`) ni los códigos de barras numéricos**. El panel muestra Queda / Se agrega / Se saca.
+
+40. **🏍️ 12/11 — abrir Envíos FLEX era una espera, y el cartel tapaba la pantalla.** *"no puedo buscar a cada rato.. tiene q tenerlo cargado en segundo plano o algo. el horario mas importante es de lunes a sabado de 9 a 13hs q armamos los pedidos de FLEX"*.
+    **La causa:** el inventario ya se pintaba desde la caché local de Firestore (`getDocsFromCache`), **los envíos y los envíos a Full no**. Cada apertura iba al servidor de cero.
+    **Lo que se hizo:** helper `deCache(consulta)` en App.jsx + `qEnviosActivos()` / `qFullEnvios()`. Se pinta primero lo guardado y recién después se refresca contra el servidor, sin esperar.
+    **⚠️ DOS TRAMPAS que ya están resueltas y no hay que volver a pisar:**
+    - `deCache` **NO pasa por `anotarOrigen` a propósito**. Acá la caché se lee QUERIENDO, no por falta de conexión: si pasara, encendería el aviso de "sin conexión" siempre.
+    - El refresco por atrás **FUSIONA** (`fusionarEnvios`), no reemplaza. La ventana completa (entregados y archivados) puede llegar antes, y pisarla dejaba a **Empaque sin nada que encontrar al escanear**.
+    También: el repaso automático dejó de mostrar el cartel grande (ahora es una línea finita, `ship-sync-fondo`); el cartel queda sólo para el botón apretado a mano. Y el **domingo** la cadencia baja a 5 horas (no se arman pedidos).
+    **🔴 EL DEPLOY SE ROMPIÓ Y ES LA LECCIÓN MÁS ÚTIL DE TODO ESTO.** Se habían agregado dos crons a `vercel.json` para que el servidor sincronizara solo de 9 a 13. **Fallaron los DOS proyectos del repo** (`stock-inventario` Y `socialflow`), y ahí estuvo la pista: socialflow es el proyecto viejo, no se le tocó una línea de código — **lo único que comparten es `vercel.json`**. **Vercel rechaza los crons que corren varias veces por día** (los 6 que ya había son todos de una vez por día). Los rechaza **antes de construir**, así que `npm run build` local pasa verde y el deploy igual muere.
+    **Regla que queda:** si falla el deploy de los dos proyectos a la vez, mirar `vercel.json` primero, no el código. Y **no agregar crons sub-diarios**.
+    **Quedó pendiente** que el servidor sincronice solo de 9 a 13 sin crons. La salida propuesta (**no aprobada todavía**): mover el repaso de `Shipments.jsx` a App.jsx, así corre con cualquier solapa abierta. En el depósito la app está abierta toda la mañana, así que da lo mismo que el cron.
+
+41. **💬 15-16/11 — solapa Preguntas: contestar las dos cuentas desde el sistema.** *"Agrega una solapa de preguntas en el stock. Para poder responder ambas. Cuando tatiana no pueda"*.
+    **No toca el respondedor automático del socialflow viejo** (sobre eso había dicho *"dejalo"*). Esto es aparte y manual.
+    **Dónde:** solapa 💬 Preguntas. Permiso `preguntas` en `PERM_TABS`, se asigna como cualquier otra. **Ojo: arranca visible para todos** (así funciona `canSee`), y las respuestas son públicas e irreversibles — se le avisó para que decida si la deja sólo a Tatiana y al reemplazo.
+    **Qué muestra:** las preguntas SIN RESPONDER de FULL y FERRE juntas, de la más nueva a la más vieja, con etiqueta de cuenta, nombre del comprador, y de qué publicación es (foto, título, precio, **stock en ML** y link). Las de más de 4hs en amarillo y las de más de un día en rojo.
+    **Antes de enviar pide confirmación mostrando el texto final completo**, porque **ML NO deja editar ni borrar una respuesta publicada**. Eso no se saca.
+    **Si una cuenta falla se sigue viendo la otra**, y se avisa cuál falló.
+    **Código:** `api/ml/exchange.js` acciones **`preguntas`** y **`responder`**; `src/components/Preguntas.jsx` + `.css`.
+    **🐛 El hilo del comprador no venía nunca (16/11).** Se había usado el filtro **`from=<comprador>` de `/questions/search`: ese filtro NO devuelve nada**. El historial salía vacío en todas las preguntas aunque el comprador hubiera preguntado cinco veces — y despistaba que el **nombre** sí aparecía (se pide por `/users/{id}`, que anda bien).
+    **Arreglo:** `preguntasRecientes()` trae el listado reciente de la cuenta (contestadas y sin contestar, hasta 200 = 4 páginas de 50) y **se agrupa por comprador de nuestro lado** con `q.from.id`. Es seguro porque ese id ya se venía usando para buscar el nombre. De paso son 4 pedidos por cuenta en vez de dos por comprador. Si el listado no se puede leer, la pantalla lo dice (`diag.escaneadas`) en vez de mostrar hilos vacíos como si el comprador nunca hubiera preguntado nada.
+    **⚠️ Trampa de React que ya está resuelta:** `ensureToken` llega como función nueva en cada render de App. Si `traer` dependiera de ella, el efecto se re-montaría en cada render y **quedaría pidiendo preguntas sin parar**. Por eso va por `useRef` y el `useCallback` depende sólo de `claveCuentas`.
+
+42. **⚡ 16/11 — saludo, cierre y panel de respuestas rápidas.** El usuario mandó capturas de cómo lo tiene en el otro sistema y pidió lo mismo.
+    - **Saludo arriba y cierre abajo, los dos TILDADOS por defecto**, se destildan por pregunta. El confirmar muestra el texto final armado (`armar()` = saludo + cuerpo + cierre, separados por línea en blanco).
+    - **Panel lateral con los 8 botones de siempre** (HAY STOCK, MEDIDAS Y +, PASATE!, A CARRITO, ENVIOS, X MAYOR, CUBRE PILETA, FACTURA) con sus colores y **sus textos reales ya cargados** (los pasó por captura; están en `CONFIG_VACIA` como valor inicial). Al tocar un botón el texto **SE SUMA** a lo escrito, no lo pisa: así se arma una respuesta con dos o tres.
+    - **"Administrar"**: editar saludo, cierre y cada respuesta (nombre, color, texto), reordenar, borrar y agregar. Sólo con permiso de edición.
+    **Se guarda en `settings/{ORG_ID}` campo `preguntasConfig`**, NO en el navegador: vale para cualquiera que conteste y desde cualquier aparato. Mismo patrón que `zonasFlex`/`usdRate`.
+    **El contador cuenta el texto COMPLETO** (saludo + respuesta + cierre) y no deja enviar si pasa los **2000** que acepta ML — varias de esas respuestas son largas y sumadas se pasaban.
+
+43. **📋 7-11/11 — los 519 productos base sin publicar en FULL, con referencia de ML.** Es la continuación del punto 37 y **el trabajo más caro de rehacer: ~200 búsquedas web.**
+    **Todo quedó guardado en `docs/publicar-en-full/`** (Excel entregado, `resultados.json`, `productos.json`, `armar.js`, `merge.js` y un `LEEME.md` con los números, las reglas y los datos a corregir). **Leer ese LEEME antes de retomar.**
+    **Números:** 519 sin publicar · **505 con referencia** · **74 con ficha de catálogo** (los más rápidos) · 330 Alta / 147 Media / 20 Baja · 14 vapers + 1 esencia que ML prohíbe.
+    **Cómo se buscó, porque no es obvio:** la API de ML (`/sites/MLA/search`) devuelve `forbidden` aunque se use token de vendedor, y el sitio público redirige las IP de datacenter a una página anti-bot. **Lo que sí funciona es WebSearch filtrado a `mercadolibre.com.ar`**, que además saca las fichas de catálogo (`/p/MLA…`, `/up/MLAU…`). El presupuesto es de **200 búsquedas por turno**, compartido por todos los agentes del turno.
+    **Lo que falta: que el usuario marque la columna OK.** Eso destraba la etapa 2 (el publicador automático), donde hay que definir precio, stock y tipo de envío por publicación.
+
+
+## 🔴 Pendientes al 16/11/2026 (lo que hay que preguntar o esperar)
+
+**Del usuario, que destraban trabajo:**
+1. **El Excel con la columna OK marcada** → es lo único que falta para arrancar el publicador automático a FULL (etapa 2).
+2. Qué son los **7 productos** cuyo nombre no alcanza para buscarlos (ver `docs/publicar-en-full/LEEME.md`).
+3. Si la solapa **Preguntas** la ven todos o sólo Tatiana y el reemplazo.
+4. Si quiere que el repaso de ML corra con **cualquier solapa abierta** (reemplazo del cron que Vercel rechazó, punto 40).
+
+**Sin confirmar por el usuario (no dar por bueno):**
+- El botón **📸 fotos desde ML** (punto 36) nunca se corrió en serio.
+- **Mandar una respuesta** desde la solapa Preguntas de punta a punta (que se publique en ML y desaparezca de la lista). Es la única acción irreversible de la solapa.
+- El botón **"Probar conexión alternativa"** en la tablet (punto 35).
+
+**De siempre, no son de código:** las 38 publicaciones que faltan, el Top 200 (medida/foto/ubicación), cargar las ubicaciones del depósito, y **re-exportar las publicaciones de FERRE con la columna SKU** (sin eso el cruce de FERRE se queda corto, ver arriba).
+
+**Reglas que el usuario fijó y no se vuelven a discutir:**
+- **Nunca** pushear a otra rama que no sea `claude/stock-inventory-app-06rlv5`.
+- **No tocar** el socialflow viejo (main) ni su respondedor de preguntas.
+- **La ingeniería inversa a Real Trends está descartada**: no se ofrece ni se intenta. Sus capturas se usan sólo como referencia de qué mostrar, y lo que se muestra sale de la API de ML.
+- **Claves y secretos NUNCA en el chat** (*"No me pegues la clave en el chat"*): van en variables de entorno de Vercel o se pegan en la UI de la app.
+- ***"No rompas nada d lo q funciona"*** — mejor lento que vacío, siempre fallback al camino viejo.
+- **No recrear los check-ins automáticos del PR.**

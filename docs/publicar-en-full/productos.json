@@ -1,0 +1,6236 @@
+{
+ "todos": [
+  {
+   "code": "2",
+   "nom": "UP-",
+   "st": 0,
+   "pr": 43
+  },
+  {
+   "code": "0009",
+   "nom": "CUENTA GANADO CONTADOR MANUAL TEATRO",
+   "st": -830,
+   "pr": 1500.06
+  },
+  {
+   "code": "0012",
+   "nom": "ADAPTADOR ENCHUFE 2P MOSQUITO",
+   "st": 0,
+   "pr": 450.1
+  },
+  {
+   "code": "0022",
+   "nom": "RELOJ SILICONA",
+   "st": 0,
+   "pr": 657
+  },
+  {
+   "code": "0029",
+   "nom": "PILA BOTON CR 2032 3V MAXCELL",
+   "st": 0,
+   "pr": 900.03
+  },
+  {
+   "code": "0032",
+   "nom": "PILA AA MAKAO",
+   "st": -66,
+   "pr": 320.1
+  },
+  {
+   "code": "0046",
+   "nom": "PILA BOTON AG13 LR44 A76 X10PCS",
+   "st": -10,
+   "pr": 930
+  },
+  {
+   "code": "0050",
+   "nom": "LINTERNA METALICA ALUMINIO 9 LEDS LUZ BRILLANTE",
+   "st": -121,
+   "pr": 1050.03
+  },
+  {
+   "code": "0053",
+   "nom": "PINZA PUNTA AISLADA 1000V  8",
+   "st": 0,
+   "pr": 3360.1
+  },
+  {
+   "code": "0055",
+   "nom": "DISCO FLAP LIJADOR 115MM GRANO 80",
+   "st": 1528,
+   "pr": 0
+  },
+  {
+   "code": "0056",
+   "nom": "DISCO FLAP LIJADOR 115MM GRANO 40",
+   "st": 2099,
+   "pr": 0
+  },
+  {
+   "code": "0058",
+   "nom": "FRESADORA PARA ASIENTOS DE CANILLA CON 5 REPUESTOS",
+   "st": 19,
+   "pr": 9440.06
+  },
+  {
+   "code": "0059",
+   "nom": "PISTOLA P/ BARRITA SILICONA CHICA",
+   "st": -16,
+   "pr": 2030.09
+  },
+  {
+   "code": "0063",
+   "nom": "DUCHADOR CROMADO + SOPORTE + FLEXIBLE ACERO",
+   "st": -3,
+   "pr": 4115.03
+  },
+  {
+   "code": "0072",
+   "nom": "CANDADO TRABA DISCO P/ MOTOS C/ ALARMA DE 110 DB",
+   "st": -1,
+   "pr": 19980.06
+  },
+  {
+   "code": "0077",
+   "nom": "CANILLA ESFERICA METALICA 1/2 CON MANGA ECONOMICA",
+   "st": 0,
+   "pr": 1776.06
+  },
+  {
+   "code": "0082",
+   "nom": "SET DESTORNILLADOR X 6 BLISTER CELULARES",
+   "st": 0,
+   "pr": 480.06
+  },
+  {
+   "code": "0088",
+   "nom": "PISTOLA P/ BARRITA SILICONA GRANDE",
+   "st": -3,
+   "pr": 2700.11
+  },
+  {
+   "code": "0091",
+   "nom": "BOLSA AGUA CALIENTE ELECTRICA A 220V",
+   "st": 0,
+   "pr": 4995.08
+  },
+  {
+   "code": "0093",
+   "nom": "PINZA MULTIFUNCION CHICA C/ LINTERNA",
+   "st": 0,
+   "pr": 4050.08
+  },
+  {
+   "code": "0096",
+   "nom": "KIT DESTORNILLADOR 32 EN 1 CAJA PARA CELULARES",
+   "st": 0,
+   "pr": 2400.06
+  },
+  {
+   "code": "0099",
+   "nom": "CARTUCHO GAS BUTANO DESCARTABLE 227 GR P/ SOLDADOR",
+   "st": -7,
+   "pr": 2209.03
+  },
+  {
+   "code": "0102",
+   "nom": "DESTORNILLADOR DOBLE 2 EN 1 - 6MM CORTO PLANO PHILLIPS",
+   "st": -7,
+   "pr": 660.06
+  },
+  {
+   "code": "103",
+   "nom": "VER ERROR",
+   "st": 0,
+   "pr": 1
+  },
+  {
+   "code": "0107",
+   "nom": "LINTERNA BALIZA 18 LED LUZ CON IMAN 3 FUNCIONES A PILAS",
+   "st": 0,
+   "pr": 2080.1
+  },
+  {
+   "code": "0118",
+   "nom": "FUNDA ASIENTO GEL SILICONA P/ BICICLETAS UNIVERSAL NEGRO",
+   "st": 0,
+   "pr": 1920.06
+  },
+  {
+   "code": "0124",
+   "nom": "ALFOMBRA DESLIZ. - 51027",
+   "st": 0,
+   "pr": 31440.1
+  },
+  {
+   "code": "0126",
+   "nom": "TERMO BALA 1 LITRO ACERO INOXIDABLE CON FUNDA",
+   "st": 0,
+   "pr": 9000.01
+  },
+  {
+   "code": "0128",
+   "nom": "GAS BUTANO 160CM3 CHICO",
+   "st": 0,
+   "pr": 2666.06
+  },
+  {
+   "code": "0134",
+   "nom": "DESTORNILLADOR DOBLE 2 EN 1 - 4MM FINO PLANO PHILLIPS",
+   "st": 0,
+   "pr": 1120.06
+  },
+  {
+   "code": "0136",
+   "nom": "CALCULADORA CIENTIFICA KENKO 2 LINEAS DISPLAY MOD. 82MS",
+   "st": 0,
+   "pr": 3240.06
+  },
+  {
+   "code": "0138",
+   "nom": "TERMO BALA 1/2 LITRO ACERO INOXIDABLE SIN FUNDA",
+   "st": 0,
+   "pr": 6200.01
+  },
+  {
+   "code": "0141",
+   "nom": "TIRAS DE GOMA ANTIDESLIZANTES AUTOADHESIVAS PARA ESCALERA",
+   "st": 0,
+   "pr": 6426.06
+  },
+  {
+   "code": "0142",
+   "nom": "TIMBRE INALAMBRICO A 220 VOLT",
+   "st": 0,
+   "pr": 5160.06
+  },
+  {
+   "code": "0149",
+   "nom": "CABLES MICRO USB CELULAR A USB",
+   "st": 0,
+   "pr": 516.06
+  },
+  {
+   "code": "0152",
+   "nom": "MINI MASAJEADOR 3 PATAS RELAJANTE USB A PILAS",
+   "st": 0,
+   "pr": 2128.1
+  },
+  {
+   "code": "0154",
+   "nom": "MOSQUETON LLAVERO ALUMINIO 45MM",
+   "st": 0,
+   "pr": 156.09
+  },
+  {
+   "code": "0156",
+   "nom": "ANTENA TV TELESCOPICA PORTATIL C/ BASE + RADIO",
+   "st": 0,
+   "pr": 1906.03
+  },
+  {
+   "code": "0158",
+   "nom": "CALENTADOR DE AGUA 24 VOLTS IDEAL AUTO VIAJE",
+   "st": 0,
+   "pr": 3120.1
+  },
+  {
+   "code": "0160",
+   "nom": "JUEGO LLAVES TUBOS X 40 PIEZAS + CRIQUET 3/8",
+   "st": -9,
+   "pr": 5400.06
+  },
+  {
+   "code": "0161",
+   "nom": "BALANZA PERSONAL DIGITAL VIDRIO 150 KG.",
+   "st": 0,
+   "pr": 11680.1
+  },
+  {
+   "code": "0176",
+   "nom": "CORTADORA PICADORA DE CARNE N 12",
+   "st": 0,
+   "pr": 15000.09
+  },
+  {
+   "code": "0179",
+   "nom": "KIT LUZ DE BICI / BICICLETA DESTELLADOR DELANTERA Y TRASERA",
+   "st": 0,
+   "pr": 1305.09
+  },
+  {
+   "code": "0180",
+   "nom": "FOTOCONTROL R4 1500W",
+   "st": 0,
+   "pr": 3500
+  },
+  {
+   "code": "0182",
+   "nom": "PILA BOTON AG10 LR1130 1,5VT 389 189 X 10 PCS",
+   "st": -10,
+   "pr": 813.03
+  },
+  {
+   "code": "0183",
+   "nom": "SECADOR ROJO 40CM",
+   "st": 12,
+   "pr": 1648.03
+  },
+  {
+   "code": "0187",
+   "nom": "PINZA UNIVERSAL AISLADA 1000 V 8",
+   "st": 0,
+   "pr": 3360.1
+  },
+  {
+   "code": "0194",
+   "nom": "TORRE EIFFEL 32 CM METALICA",
+   "st": 0,
+   "pr": 8400.03
+  },
+  {
+   "code": "0199",
+   "nom": "GAS BUTANO 400CC GRANDE",
+   "st": -1,
+   "pr": 3166.06
+  },
+  {
+   "code": "0203",
+   "nom": "GUBIAS FORMON JUEGO 10 PIEZAS PARA MADERA PROFESIONAL",
+   "st": -3,
+   "pr": 11988.06
+  },
+  {
+   "code": "0209",
+   "nom": "PEDERNAL INICIADOR DE FUEGO SUPERVIVENCIA CAMPING",
+   "st": 0,
+   "pr": 2700.08
+  },
+  {
+   "code": "0212",
+   "nom": "CARRETEL NARANJA UNIVERSAL PORTA TANZA C OJAL",
+   "st": -15,
+   "pr": 1824.06
+  },
+  {
+   "code": "0214",
+   "nom": "PINZA OJAL OJALES OJALILLOS + 30 OJALES",
+   "st": 0,
+   "pr": 1843.03
+  },
+  {
+   "code": "0217",
+   "nom": "FUSIBLE PARA AUTO CAMIONETA KIT DE 10 ( PLANOS)",
+   "st": -1,
+   "pr": 504.03
+  },
+  {
+   "code": "0218",
+   "nom": "FOCA INFLABLE 117X80CM 37219",
+   "st": 0,
+   "pr": 5940.08
+  },
+  {
+   "code": "0219",
+   "nom": "MOSQUETON LLAVERO ALUMINIO 55MM",
+   "st": 0,
+   "pr": 4640.06
+  },
+  {
+   "code": "0220",
+   "nom": "LUZ LED ZAPATILLAS CORRER BICI ROLLER RUNNING CLIP FLEXIBLE",
+   "st": 0,
+   "pr": 990.11
+  },
+  {
+   "code": "0222",
+   "nom": "PINZA SACABOCADOS ACERO MANGO ANTIDESLIZANTE",
+   "st": 0,
+   "pr": 5940.06
+  },
+  {
+   "code": "0249",
+   "nom": "LINTERNA LED RECARGABLE A DINAMO - SIN PILAS",
+   "st": 0,
+   "pr": 1800
+  },
+  {
+   "code": "0270",
+   "nom": "REGATON DE GOMA 22MM.",
+   "st": -230,
+   "pr": 103.06
+  },
+  {
+   "code": "0271",
+   "nom": "CARGADOR AUTO 12V USB T/ DEDO",
+   "st": 0,
+   "pr": 675.08
+  },
+  {
+   "code": "0272",
+   "nom": "ALMOHADA INFLABLE DE CUELLO CERVICAL VIAJE",
+   "st": 0,
+   "pr": 1500.06
+  },
+  {
+   "code": "0277",
+   "nom": "TORRE EIFFEL 25 CM METALICA",
+   "st": 0,
+   "pr": 4502.03
+  },
+  {
+   "code": "0279",
+   "nom": "MAGNETIZADOR / DESMAGNETIZADOR",
+   "st": 0,
+   "pr": 2656.07
+  },
+  {
+   "code": "0280",
+   "nom": "LUZ LED PICO BICI MOTO AUTO",
+   "st": 0,
+   "pr": 500
+  },
+  {
+   "code": "0286",
+   "nom": "SECADOR ROJO 50CM",
+   "st": 24,
+   "pr": 2300.03
+  },
+  {
+   "code": "0290",
+   "nom": "EXTRACTOR DE RULEMANES 3 PULGADAS 3 PATAS",
+   "st": 2,
+   "pr": 0
+  },
+  {
+   "code": "0296",
+   "nom": "ESTRELLA NINJA SHURIKEN ARMAS 3 4 5 6 7 8 PUNTAS",
+   "st": 0,
+   "pr": 2025.08
+  },
+  {
+   "code": "0303",
+   "nom": "CALCULADORA CIENTIFICA 88 COLOR",
+   "st": 0,
+   "pr": 4160.06
+  },
+  {
+   "code": "0319",
+   "nom": "MONITOR 24",
+   "st": 0,
+   "pr": 84500
+  },
+  {
+   "code": "0327",
+   "nom": "PUNTAS DE TESTER MULTIMETRO PRUEBA",
+   "st": -9,
+   "pr": 1422.07
+  },
+  {
+   "code": "0330",
+   "nom": "BENCINA LIQUIDA FLUIDO P/ ENCENDEDOR",
+   "st": -6,
+   "pr": 1700.07
+  },
+  {
+   "code": "0332",
+   "nom": "MOSQUETON GALVANIZADO 12 X 140MM",
+   "st": -34,
+   "pr": 0
+  },
+  {
+   "code": "0333",
+   "nom": "GORRA GORRO DE NATACIÀN SILICONA REFORZADA PILETA",
+   "st": 0,
+   "pr": 1450.09
+  },
+  {
+   "code": "0336",
+   "nom": "CEPILLO PARRILLA PARRILLERO SIN PALO",
+   "st": 12,
+   "pr": 6884.03
+  },
+  {
+   "code": "0342",
+   "nom": "FLEXIBLE DE DUCHA MANGUERA ACERO 2 MT",
+   "st": -35,
+   "pr": 2591.03
+  },
+  {
+   "code": "0345",
+   "nom": "PUNTERO LASER VERDE MAS DE1 KM ALCANCE",
+   "st": 0,
+   "pr": 4252.08
+  },
+  {
+   "code": "0351",
+   "nom": "MICROMETRO EXTERIOR 0 - 25MM PROFESIONAL",
+   "st": 0,
+   "pr": 11310.03
+  },
+  {
+   "code": "0353",
+   "nom": "RUEDAS GIRATORIAS SILLA 50MM X4",
+   "st": -11,
+   "pr": 2054.03
+  },
+  {
+   "code": "0374",
+   "nom": "CAIREL ESFERA BOLA FACETADA CHIQUITA 20MM DE CRISTAL",
+   "st": 0,
+   "pr": 270.08
+  },
+  {
+   "code": "0377",
+   "nom": "PISTOLA APLICADORA ETIQUETAS, ETIQUETEADORA P/ ROPA",
+   "st": 0,
+   "pr": 3375.08
+  },
+  {
+   "code": "0380",
+   "nom": "TORRE EIFFEL 38 CM METALICA",
+   "st": 0,
+   "pr": 11423.03
+  },
+  {
+   "code": "0390",
+   "nom": "LUCES NAVIDEÑAS TIPO LED X 100 GUIRNALDA NAVIDAD 4 METROS",
+   "st": 0,
+   "pr": 2025.08
+  },
+  {
+   "code": "0391",
+   "nom": "CANDADO ACERO 60MM CORTO",
+   "st": -14,
+   "pr": 3300.06
+  },
+  {
+   "code": "0397",
+   "nom": "DESTORNILLADOR DOBLE 2 EN 1 - 6MM LARGO PLANO PHILLIPS",
+   "st": 21,
+   "pr": 948.06
+  },
+  {
+   "code": "0398",
+   "nom": "MECHA PORCELANATO PATROLL 8MM",
+   "st": 0,
+   "pr": 1009.06
+  },
+  {
+   "code": "0399",
+   "nom": "CABO PILETA PLASTICO 1.4MT X 19MM",
+   "st": 38,
+   "pr": 2735.01
+  },
+  {
+   "code": "0402",
+   "nom": "CINTA AGRIMENSOR 050 MT MANIJA",
+   "st": -6,
+   "pr": 5600.06
+  },
+  {
+   "code": "0406",
+   "nom": "BOMBA DE AGUA PARA FUENTE FENG SHUI 5W",
+   "st": 4,
+   "pr": 4860.08
+  },
+  {
+   "code": "0409",
+   "nom": "DUCHA DUCHADOR DE MANO DE GOMA PORTATIL",
+   "st": -76,
+   "pr": 2540.06
+  },
+  {
+   "code": "0410",
+   "nom": "ACEITE MULTIUSO LUBRITODO X 100ML",
+   "st": 0,
+   "pr": 808.06
+  },
+  {
+   "code": "0413",
+   "nom": "TUCAN 37451",
+   "st": -2,
+   "pr": 11520.1
+  },
+  {
+   "code": "0416",
+   "nom": "CUELGA CABOS SOPORTE X 4 ESCOBAS",
+   "st": 0,
+   "pr": 4896.03
+  },
+  {
+   "code": "0419",
+   "nom": "CUELGA FACIL PEGAMIL BLISTER X 12 UNIDADES",
+   "st": 0,
+   "pr": 4027.07
+  },
+  {
+   "code": "0424",
+   "nom": "INFLADOR PLASTICO LARGO NEGRO BICI AUTO",
+   "st": 0,
+   "pr": 4940.1
+  },
+  {
+   "code": "0427",
+   "nom": "BALANZA ROMANA 50KG PITON DE MANO O DE COLGAR",
+   "st": -12,
+   "pr": 2400.06
+  },
+  {
+   "code": "0435",
+   "nom": "PUCHING 35X120CM 53017",
+   "st": -22,
+   "pr": 8000.1
+  },
+  {
+   "code": "0436",
+   "nom": "MECHA PORCELANATO PATROLL 6MM",
+   "st": 0,
+   "pr": 848.06
+  },
+  {
+   "code": "0441",
+   "nom": "TUCAN 37429",
+   "st": 0,
+   "pr": 22400.1
+  },
+  {
+   "code": "0444",
+   "nom": "BOTE 73X39 61052",
+   "st": 0,
+   "pr": 12800.1
+  },
+  {
+   "code": "0450",
+   "nom": ".TORNILLO",
+   "st": 0,
+   "pr": 2
+  },
+  {
+   "code": "0451",
+   "nom": ".FERRETERIA",
+   "st": 0,
+   "pr": 2
+  },
+  {
+   "code": "0453",
+   "nom": ".PEGAMENTO",
+   "st": 0,
+   "pr": 2
+  },
+  {
+   "code": "0455",
+   "nom": "TRABA DISCO MOTO",
+   "st": 0,
+   "pr": 5220.06
+  },
+  {
+   "code": "0457",
+   "nom": "GRAMPA PRENSA CABLE 6MM GALVANIZADO",
+   "st": 0,
+   "pr": 1440.06
+  },
+  {
+   "code": "0465",
+   "nom": "ANTIPARRA P/ SOLDADOR AUTOGENA",
+   "st": -8,
+   "pr": 1740.06
+  },
+  {
+   "code": "0467",
+   "nom": "BALDE OVAL",
+   "st": 0,
+   "pr": 5015.03
+  },
+  {
+   "code": "0468",
+   "nom": "BALDE 14LT GRANDE",
+   "st": 0,
+   "pr": 1639.03
+  },
+  {
+   "code": "0471",
+   "nom": "CAÑO DUCHA 45§",
+   "st": 0,
+   "pr": 1560.06
+  },
+  {
+   "code": "0474",
+   "nom": "EMBRAGUE PARA MOTOSIERRA",
+   "st": -18,
+   "pr": 1760.06
+  },
+  {
+   "code": "0475",
+   "nom": "TUBOS X 52 PCS KIT TORX CRIQUE 1/2 Y 1/4 PUNTAS",
+   "st": 0,
+   "pr": 16788.06
+  },
+  {
+   "code": "0476",
+   "nom": "COLCHON 3 PERS. 27307 195X188X35CM",
+   "st": 0,
+   "pr": 29120.1
+  },
+  {
+   "code": "0485",
+   "nom": "PILETA 17395 187X50CM",
+   "st": 0,
+   "pr": 32000.1
+  },
+  {
+   "code": "0486",
+   "nom": "SOPAPA C MANGUITO",
+   "st": 0,
+   "pr": 1121.03
+  },
+  {
+   "code": "0488",
+   "nom": "CINTA METRICA 7,5 MTS 3 FRENOS MM",
+   "st": -32,
+   "pr": 3120.06
+  },
+  {
+   "code": "0492",
+   "nom": "MECHA PORCELANATO PATROLL 5MM",
+   "st": 0,
+   "pr": 848.06
+  },
+  {
+   "code": "0493",
+   "nom": "CORTINA RED 120 MULTICULOR NAVIDAD",
+   "st": 0,
+   "pr": 4050.08
+  },
+  {
+   "code": "0494",
+   "nom": "CORTINA RED 200 MULTICULOR NAVIDAD",
+   "st": 0,
+   "pr": 6750.08
+  },
+  {
+   "code": "0503",
+   "nom": "LLAVERO ALARMA ANTI ROBO",
+   "st": -5,
+   "pr": 2699.03
+  },
+  {
+   "code": "0508",
+   "nom": "ADAPTADOR MICRO USB HEMBRA A USB TIPO C 3.1 MACHO",
+   "st": 0,
+   "pr": 472.08
+  },
+  {
+   "code": "0509",
+   "nom": "PUNTERO LASER VERDE RECARGABLE PROFESIONAL 1000MW 7-EN-1",
+   "st": 0,
+   "pr": 10400.1
+  },
+  {
+   "code": "0515",
+   "nom": "MECHA ESCALONADA X 3 PZS MILIMETROS",
+   "st": 0,
+   "pr": 11200.06
+  },
+  {
+   "code": "0516",
+   "nom": "PULVERIZADOR 20 LT FUMIGADOR BOMBA",
+   "st": 0,
+   "pr": 27147.04
+  },
+  {
+   "code": "0521",
+   "nom": "FRANELA CHICA 40X50 LA NACIONAL X12",
+   "st": 7,
+   "pr": 8038.03
+  },
+  {
+   "code": "0523",
+   "nom": "ALGODON VAPER",
+   "st": 0,
+   "pr": 2025.08
+  },
+  {
+   "code": "0524",
+   "nom": "CAIREL ESFERA BOLA FACETADA CHIQUITA 30MM DE CRISTAL",
+   "st": 0,
+   "pr": 337.08
+  },
+  {
+   "code": "0526",
+   "nom": "BALANCIN W MINI TRAMP",
+   "st": 0,
+   "pr": 100
+  },
+  {
+   "code": "0529",
+   "nom": "CAIREL ESFERA BOLA FACETADA GRANDE 40 MM DE CRISTAL",
+   "st": 0,
+   "pr": 675.08
+  },
+  {
+   "code": "0530",
+   "nom": "CAIREL ESFERA BOLA FACETADA GRANDE 50 MM DE CRISTAL",
+   "st": 0,
+   "pr": 1160.09
+  },
+  {
+   "code": "0531",
+   "nom": "CAIREL ESFERA BOLA FACETADA GIGANTE 60 MM DE CRISTAL",
+   "st": 0,
+   "pr": 1305.09
+  },
+  {
+   "code": "0534",
+   "nom": "OXIMETRO SATUROMETRO ÖNDICE PERFUSION PI DIGITAL DEDO",
+   "st": 0,
+   "pr": 4050.08
+  },
+  {
+   "code": "0539",
+   "nom": "CINTA AGRIMENSOR 020 MT DISCO",
+   "st": -6,
+   "pr": 3200.06
+  },
+  {
+   "code": "0541",
+   "nom": "TIMBRE CAMPANITA P/ BICICLETA TODO METAL",
+   "st": 0,
+   "pr": 1680.06
+  },
+  {
+   "code": "0542",
+   "nom": "DESTORNILLADOR DE IMPACTO A GOLPE 6 PUNTAS ESTUCHE",
+   "st": 0,
+   "pr": 14176.1
+  },
+  {
+   "code": "0551",
+   "nom": "INFLADOR 12VOLTS 11.7X9.7X11.3CM - 29P309",
+   "st": 0,
+   "pr": 10976.1
+  },
+  {
+   "code": "0552",
+   "nom": "INFLADOR 19X16CM - 29P389",
+   "st": 0,
+   "pr": 5440.1
+  },
+  {
+   "code": "0556",
+   "nom": "VELOCIMETRO BICICLETA CUENTA KILOMETRO CICLOCOMPUTADORA",
+   "st": 0,
+   "pr": 3920.06
+  },
+  {
+   "code": "0563",
+   "nom": "CINTA AGRIMENSOR 030 MT DISCO",
+   "st": -1,
+   "pr": 3520.06
+  },
+  {
+   "code": "0564",
+   "nom": "RECEPTOR AUDIO BLUETOOTH AUX SPOTIFY MUSICA AUTO CON BATERIA",
+   "st": -29,
+   "pr": 1714.08
+  },
+  {
+   "code": "0572",
+   "nom": "BANDEJA PARA REPOSERA PLAYERA",
+   "st": 0,
+   "pr": 1100.11
+  },
+  {
+   "code": "0577",
+   "nom": "LLAVE COMBINADA 21MM",
+   "st": -17,
+   "pr": 2307.03
+  },
+  {
+   "code": "0578",
+   "nom": "LLAVE COMBINADA 22MM.",
+   "st": 0,
+   "pr": 4500.04
+  },
+  {
+   "code": "0586",
+   "nom": "ANTIPARRAS NATACION ALTO ESTILO C/TIRAS SUJECION ADULTO",
+   "st": 0,
+   "pr": 1450.09
+  },
+  {
+   "code": "0589",
+   "nom": "DESTORNILLADOR 6 X 150 MM PHILLIPS GRANDE",
+   "st": -1,
+   "pr": 1296.06
+  },
+  {
+   "code": "0590",
+   "nom": "DESTORNILLADOR 6 X 150 MM PLANO GRANDE",
+   "st": 60,
+   "pr": 1296.06
+  },
+  {
+   "code": "0593",
+   "nom": "PINZA MAZA 300 AMP",
+   "st": 30,
+   "pr": 1260.06
+  },
+  {
+   "code": "0594",
+   "nom": "PINZA ALICATE AISLADA 1000V  8",
+   "st": 0,
+   "pr": 3360.1
+  },
+  {
+   "code": "0601",
+   "nom": "BOYA HONGO PLASTICA PILETA P/CLORO",
+   "st": 500,
+   "pr": 1060.01
+  },
+  {
+   "code": "0602",
+   "nom": "BOYA SATELITAL MEDIANA PLASTICA",
+   "st": 0,
+   "pr": 2742.09
+  },
+  {
+   "code": "0604",
+   "nom": "BASE RINCONERA 1 PATA",
+   "st": 0,
+   "pr": 450.09
+  },
+  {
+   "code": "0605",
+   "nom": "BASE RINCONERA 2 PATAS",
+   "st": 0,
+   "pr": 1000.09
+  },
+  {
+   "code": "611",
+   "nom": "TABLA DE LAVAR ROPA EN MADERA PINO",
+   "st": -128,
+   "pr": 8507.05
+  },
+  {
+   "code": "0612",
+   "nom": "LLAVE COMBINADA 16MM",
+   "st": 0,
+   "pr": 1832.03
+  },
+  {
+   "code": "0619",
+   "nom": "HELADO MULTICOLOR 183X92CM - 37351",
+   "st": 0,
+   "pr": 8910.08
+  },
+  {
+   "code": "0621",
+   "nom": "PINCEL NRO. 20",
+   "st": -8,
+   "pr": 1150.03
+  },
+  {
+   "code": "0624",
+   "nom": "PERCHA CUADRADA AUTOADHESIVA X 5 PCS",
+   "st": 30,
+   "pr": 894.06
+  },
+  {
+   "code": "0627",
+   "nom": "LIMA MATRICERO M/ NARANAJA X 5PCS",
+   "st": 0,
+   "pr": 2392.03
+  },
+  {
+   "code": "0628",
+   "nom": "CABO MADERA 1.2MT C ROSCA",
+   "st": 0,
+   "pr": 651.03
+  },
+  {
+   "code": "0630",
+   "nom": "CABO EXTENSIBLE 3MT METAL ROJO",
+   "st": 0,
+   "pr": 6585.03
+  },
+  {
+   "code": "0652",
+   "nom": "CUBRE PILETA 5,20 X 2,20 MT",
+   "st": 0,
+   "pr": 8000
+  },
+  {
+   "code": "0653",
+   "nom": "CUBRE PILETA 6,20 X 2,20 MT",
+   "st": 0,
+   "pr": 8000.09
+  },
+  {
+   "code": "0654",
+   "nom": "CUBRE PILETA 6,30 X 3 MT",
+   "st": 0,
+   "pr": 8000.09
+  },
+  {
+   "code": "0661",
+   "nom": "PILETA ELEFANTE -- 51014",
+   "st": 0,
+   "pr": 21200.1
+  },
+  {
+   "code": "0663",
+   "nom": "PILE C/TECHO 143X143X123CM 51016",
+   "st": -3,
+   "pr": 39360.1
+  },
+  {
+   "code": "0665",
+   "nom": "ARO BASQUET 75X75X50CM - 33154",
+   "st": -16,
+   "pr": 8000.1
+  },
+  {
+   "code": "0667",
+   "nom": "SALVAVIDAS RUEDA 90CM 41087",
+   "st": 0,
+   "pr": 4048.1
+  },
+  {
+   "code": "0668",
+   "nom": "PILETA 3 ANILLOS 100X30CM 57167",
+   "st": 0,
+   "pr": 12160.1
+  },
+  {
+   "code": "0669",
+   "nom": "PILETA 3 ANILLOS 99X23CM 51031",
+   "st": 0,
+   "pr": 11680.1
+  },
+  {
+   "code": "0672",
+   "nom": "PILETA 3 AROS 10303-1",
+   "st": 0,
+   "pr": 9600.1
+  },
+  {
+   "code": "0675",
+   "nom": "COLCHONETA 173X63X18CM 27131",
+   "st": 0,
+   "pr": 16000.1
+  },
+  {
+   "code": "0680",
+   "nom": "ALGUICIDA PARA PILETA  X 1 LTR",
+   "st": 0,
+   "pr": 3215.09
+  },
+  {
+   "code": "0681",
+   "nom": "CLARIFICANTE PARA PILETAS CLOROSIL X 1 LTR",
+   "st": 0,
+   "pr": 3024.09
+  },
+  {
+   "code": "0682",
+   "nom": "SACA ARENA CHICO N§21",
+   "st": 0,
+   "pr": 3000.09
+  },
+  {
+   "code": "0683",
+   "nom": "MICROMETRO EXTERIOR 25 - 50MM PROFESIONAL",
+   "st": 0,
+   "pr": 16751.03
+  },
+  {
+   "code": "0684",
+   "nom": "MICROMETRO EXTERIOR 50 - 75MM PROFESIONAL",
+   "st": 0,
+   "pr": 20838.03
+  },
+  {
+   "code": "0685",
+   "nom": "MICROMETRO EXTERIOR 75 - 100MM PROFESIONAL",
+   "st": 0,
+   "pr": 26781.03
+  },
+  {
+   "code": "0687",
+   "nom": "LUZ LUCES NAVIDAD BLANCA CALIDA X100 NAVIDAD",
+   "st": 0,
+   "pr": 2505
+  },
+  {
+   "code": "0692",
+   "nom": "HIDROLAVADORA 1300W TT",
+   "st": 0,
+   "pr": 42300.09
+  },
+  {
+   "code": "0694",
+   "nom": "PARAGUAS  GOLF CELESTE Y BLANCO TAMAÑO GRANDE",
+   "st": -20,
+   "pr": 6240.1
+  },
+  {
+   "code": "0705",
+   "nom": "LINTERNA EXTENSIBLE CON IMAN",
+   "st": 0,
+   "pr": 5200.03
+  },
+  {
+   "code": "0707",
+   "nom": "BARRENITOS SET X 4 PZAS",
+   "st": 0,
+   "pr": 1840.07
+  },
+  {
+   "code": "0708",
+   "nom": "LIMPIA PILETA BARRE HOJA CELESTE",
+   "st": 2000,
+   "pr": 1687.09
+  },
+  {
+   "code": "0722",
+   "nom": "JUEGO SACABOCADOS GOLPE 9 PIEZAS DE 3 A 12 MM",
+   "st": -4,
+   "pr": 2940.06
+  },
+  {
+   "code": "0729",
+   "nom": "TAPON VERTEDOR LUMILAGRO VIOLETA",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "0731",
+   "nom": "LIMPIA VIDRIO 35CM PROFESIONAL ITALIMPIA",
+   "st": 6,
+   "pr": 5691.08
+  },
+  {
+   "code": "0737",
+   "nom": "CEPILLO LAVA COCHE PLASTICO",
+   "st": -4,
+   "pr": 1451.05
+  },
+  {
+   "code": "0740",
+   "nom": "CABO MADERA 2MT C ROSCA",
+   "st": 0,
+   "pr": 1190.03
+  },
+  {
+   "code": "0741",
+   "nom": "PALA PLASTICA DE MANO C GOMA",
+   "st": 0,
+   "pr": 669.03
+  },
+  {
+   "code": "0744",
+   "nom": "PULVERIZADOR BOMBA 16LT FUMIGADOR",
+   "st": 0,
+   "pr": 21500
+  },
+  {
+   "code": "0753",
+   "nom": "MANGUERA 10 M LUZ LED MULTICOLOR RGB Y 8 EFECTOS TIRA",
+   "st": 0,
+   "pr": 9600.1
+  },
+  {
+   "code": "0757",
+   "nom": "ALARGUE CANILLA 1/2 X 25MM",
+   "st": 0,
+   "pr": 1488.06
+  },
+  {
+   "code": "0758",
+   "nom": "ALARGUE CANILLA 1/2 X 20MM",
+   "st": 0,
+   "pr": 1280.06
+  },
+  {
+   "code": "0759",
+   "nom": "ALARGUE CANILLA 1/2 X 15MM",
+   "st": 0,
+   "pr": 992.06
+  },
+  {
+   "code": "0760",
+   "nom": "ALARGUE CANILLA 1/2 X 30MM",
+   "st": 0,
+   "pr": 1696.06
+  },
+  {
+   "code": "0762",
+   "nom": "CLORO PARA PILETA CLOROSIL X 1 KG",
+   "st": 0,
+   "pr": 6682.09
+  },
+  {
+   "code": "0764",
+   "nom": "ACOPLE MANGUERA 3/4 COD 050",
+   "st": 0,
+   "pr": 799.03
+  },
+  {
+   "code": "0765",
+   "nom": "ACOPLES RAPIDOS 1/2 COD 045",
+   "st": 0,
+   "pr": 761.03
+  },
+  {
+   "code": "0781",
+   "nom": "KIT AEROGRAFO NEUMATICO PROFESIONAL HOBISTA COMPLETO",
+   "st": 0,
+   "pr": 7600.1
+  },
+  {
+   "code": "0783",
+   "nom": "PEZ / NEMO 37614",
+   "st": 0,
+   "pr": 6560.1
+  },
+  {
+   "code": "0787",
+   "nom": "LLAVE COMBINADA 18MM",
+   "st": 0,
+   "pr": 3300.09
+  },
+  {
+   "code": "0797",
+   "nom": "CARGADOR TOMA 12V USB MOTO",
+   "st": 0,
+   "pr": 6400.1
+  },
+  {
+   "code": "0804",
+   "nom": "CONECTOR SNAP RG6",
+   "st": 0,
+   "pr": 300
+  },
+  {
+   "code": "0815",
+   "nom": "SALVAVIDAS 50CM 47224",
+   "st": -1,
+   "pr": 2000.1
+  },
+  {
+   "code": "0822",
+   "nom": "AURICULARES CIERRE",
+   "st": 0,
+   "pr": 1450.09
+  },
+  {
+   "code": "0830",
+   "nom": "BARRETA SACA CLAVOS 50 X 16MM",
+   "st": -50,
+   "pr": 3474.03
+  },
+  {
+   "code": "0832",
+   "nom": "CUCARACHICIDA VENENO CUCARACHAS SOBRE CHINO",
+   "st": 0,
+   "pr": 170.03
+  },
+  {
+   "code": "0833",
+   "nom": "MOTO AGUA 91X51CM  - 37615",
+   "st": 0,
+   "pr": 5400.08
+  },
+  {
+   "code": "0834",
+   "nom": "CARGADOR AUTO 12V CABLE RULO MICRO USB V8",
+   "st": 0,
+   "pr": 800.1
+  },
+  {
+   "code": "0840",
+   "nom": "CINTA AGRIMENSOR 030 MT MANIJA",
+   "st": 24,
+   "pr": 3180.06
+  },
+  {
+   "code": "0841",
+   "nom": "CINTA AGRIMENSOR 100 MT MANIJA",
+   "st": -39,
+   "pr": 3780.06
+  },
+  {
+   "code": "0842",
+   "nom": "SET LLAVES TUBOS CRICKET X 52 PZS VALIJA PLASTICA",
+   "st": 0,
+   "pr": 22400.06
+  },
+  {
+   "code": "0858",
+   "nom": "TRIUNFO FLUIDO DESINFECTANTE 1/2 LITRO",
+   "st": 0,
+   "pr": 2206.03
+  },
+  {
+   "code": "0859",
+   "nom": "TRIUNFO FLUIDO DESINFECTANTE 1 LITRO",
+   "st": 0,
+   "pr": 3994.03
+  },
+  {
+   "code": "0861",
+   "nom": "ESLABON C TUERCA 07 X 65MM",
+   "st": -474,
+   "pr": 672.06
+  },
+  {
+   "code": "0864",
+   "nom": "TENSIOMETRO MAS ESTETOSCOPIO",
+   "st": 0,
+   "pr": 11153.03
+  },
+  {
+   "code": "0865",
+   "nom": "ACEITE MULTIUSO NECHI 250CC",
+   "st": -1,
+   "pr": 2375.06
+  },
+  {
+   "code": "0866",
+   "nom": "PILA BOTON AG01 LR621 1,5VT 364 164 X 10PCS",
+   "st": 0,
+   "pr": 916
+  },
+  {
+   "code": "0873",
+   "nom": "MECHA PORCELANATO PATROLL 12MM",
+   "st": -2,
+   "pr": 1562.06
+  },
+  {
+   "code": "0874",
+   "nom": "PALA ENLOZADA MEDIA LUNA",
+   "st": -17,
+   "pr": 6236.03
+  },
+  {
+   "code": "0877",
+   "nom": "CANDADO BRONCEADO 63MM ARO LARGO",
+   "st": 0,
+   "pr": 2460
+  },
+  {
+   "code": "0878",
+   "nom": "BICHO RED PISO 08 X 08 CM",
+   "st": 0,
+   "pr": 1504.06
+  },
+  {
+   "code": "0881",
+   "nom": "MANGUERA 5 M LUZ LED MULTICOLOR RGB Y 8 EFECTOS TIRA",
+   "st": 0,
+   "pr": 7200.1
+  },
+  {
+   "code": "0883",
+   "nom": "CABO EXTENSIBLE 1.5MT METAL ROJO",
+   "st": 0,
+   "pr": 2778.03
+  },
+  {
+   "code": "0889",
+   "nom": "LIMPIA BOTELLA",
+   "st": 69,
+   "pr": 1529.05
+  },
+  {
+   "code": "0890",
+   "nom": "LLAVE COMBINADA CON CRIKET 09MM",
+   "st": 0,
+   "pr": 1368
+  },
+  {
+   "code": "0891",
+   "nom": "LLAVE COMBINADA CON CRIKET 14MM",
+   "st": 0,
+   "pr": 1368
+  },
+  {
+   "code": "0892",
+   "nom": "LLAVE COMBINADA CON CRIKET 15MM",
+   "st": 0,
+   "pr": 1368
+  },
+  {
+   "code": "0896",
+   "nom": "GUARDACABOS 3/8 9MM GALVANIZADOS",
+   "st": 0,
+   "pr": 149.11
+  },
+  {
+   "code": "0908",
+   "nom": "CAÑO DUCHA 35CM 90§",
+   "st": 0,
+   "pr": 1440.06
+  },
+  {
+   "code": "0910",
+   "nom": "CEPILLOS PARA TALADRO X3 PZS BRONCEADOS",
+   "st": -10,
+   "pr": 1644.06
+  },
+  {
+   "code": "0912",
+   "nom": "CAÑO DUCHA 45CM 90º",
+   "st": 0,
+   "pr": 1944.06
+  },
+  {
+   "code": "0915",
+   "nom": "GUANTE LATEX X 100",
+   "st": 0,
+   "pr": 5000.07
+  },
+  {
+   "code": "0916",
+   "nom": "GUANTE NITRILO NEGRO X 100",
+   "st": -1,
+   "pr": 6460.07
+  },
+  {
+   "code": "0917",
+   "nom": "GUANTE NITRILO AZUL X 100",
+   "st": 0,
+   "pr": 6740.07
+  },
+  {
+   "code": "0918",
+   "nom": "GUANTE NITRILO LILA X 100",
+   "st": 0,
+   "pr": 7739.07
+  },
+  {
+   "code": "0919",
+   "nom": "GUARDACABOS 1/4 6MM GALVANIZADOS",
+   "st": 0,
+   "pr": 124.11
+  },
+  {
+   "code": "0922",
+   "nom": "PISA PAPAS FUNDICION",
+   "st": 6,
+   "pr": 1955.03
+  },
+  {
+   "code": "0924",
+   "nom": "MASCARA BUCEO 290526",
+   "st": 0,
+   "pr": 5184.1
+  },
+  {
+   "code": "0925",
+   "nom": "MASC Y SNORKEL 290546",
+   "st": 0,
+   "pr": 10320.1
+  },
+  {
+   "code": "0927",
+   "nom": "PELOTA 67205 100CM",
+   "st": 0,
+   "pr": 3888.1
+  },
+  {
+   "code": "0931",
+   "nom": "PISTOLA CALOR THUNDER",
+   "st": 0,
+   "pr": 16560.1
+  },
+  {
+   "code": "0932",
+   "nom": "BOMBA SUMERGIBLE 550W TUNDER",
+   "st": 0,
+   "pr": 43740.08
+  },
+  {
+   "code": "0933",
+   "nom": "BOMBA PERIFÉRICA 1/2 TUNDER",
+   "st": 0,
+   "pr": 27200.1
+  },
+  {
+   "code": "0934",
+   "nom": "VENTILADOR 3 EN 1 METAL",
+   "st": 0,
+   "pr": 28800.1
+  },
+  {
+   "code": "0936",
+   "nom": "ROTOMARTILLO THUNDER 1200W 26MM 6J",
+   "st": -1,
+   "pr": 68510.03
+  },
+  {
+   "code": "0938",
+   "nom": "SIERRA CIRCULAR THUNDER 1400 W TL00767",
+   "st": 0,
+   "pr": 42240.03
+  },
+  {
+   "code": "0939",
+   "nom": "AMOLADORA ANGULAR GRANDE 9 PULGADAS 230MM THUNDER TL00465",
+   "st": 0,
+   "pr": 81280.1
+  },
+  {
+   "code": "0940",
+   "nom": "AMOLADORA ANGULAR 180 MM 7 PULGADAS THUNDER PLUS TL00460",
+   "st": 0,
+   "pr": 52625.03
+  },
+  {
+   "code": "0941",
+   "nom": "LUSTRAPULIDORA LUSTRA LIJADORA PULIDORA 1650W 180MM",
+   "st": 0,
+   "pr": 52100.03
+  },
+  {
+   "code": "0942",
+   "nom": "MINI SIERRA 4 PULGADA BATERIA 12V + 2 BATERIAS THUNDER 6905",
+   "st": -1,
+   "pr": 45424.1
+  },
+  {
+   "code": "0945",
+   "nom": "BOMBA ELEVADORA PRESURIZA 1/8 HP TUNDER",
+   "st": -10,
+   "pr": 27401.03
+  },
+  {
+   "code": "0946",
+   "nom": "ASPIRADORA SECO HUMEDO 12 LTS THUNDER",
+   "st": 0,
+   "pr": 40150.03
+  },
+  {
+   "code": "0948",
+   "nom": "ROLLO ALAMBRE MIG 0,8X 1KG",
+   "st": 0,
+   "pr": 6490.03
+  },
+  {
+   "code": "0949",
+   "nom": "ROLLO ALAMBRE MIG 0,9X 1KG",
+   "st": 0,
+   "pr": 6325.03
+  },
+  {
+   "code": "0950",
+   "nom": "PLUMERO LANA",
+   "st": 8,
+   "pr": 4423.05
+  },
+  {
+   "code": "0953",
+   "nom": "ADAPTADOR METAL OTG MICRO USB A IPHONE CELULAR",
+   "st": 0,
+   "pr": 742.08
+  },
+  {
+   "code": "0958",
+   "nom": "ENCENDEDOR CHISPERO MAGIC CLICK PARTY",
+   "st": 5,
+   "pr": 1563.03
+  },
+  {
+   "code": "0960",
+   "nom": "ETIQUETEADORA DE PRECIOS AUTOADHESIVA 8 DIGITOS",
+   "st": 0,
+   "pr": 5340.06
+  },
+  {
+   "code": "0970",
+   "nom": "AGRIMENSOR 50MT DISCO",
+   "st": 0,
+   "pr": 5280.06
+  },
+  {
+   "code": "0971",
+   "nom": "JUEGO ALARGUE X3 1/2",
+   "st": 0,
+   "pr": 9920.06
+  },
+  {
+   "code": "0973",
+   "nom": "JUEGO DE LLAVES TUBO X 24 ENCASTRE DE 1/2 DE 10 A 32 MM",
+   "st": 0,
+   "pr": 17120.1
+  },
+  {
+   "code": "0982",
+   "nom": "LAMPARA VELADOR FLEXIBLE BROCHE",
+   "st": 0,
+   "pr": 5760.06
+  },
+  {
+   "code": "0989",
+   "nom": "LLAVE ALLEN EXTRAPOL 5MM",
+   "st": 0,
+   "pr": 1067.03
+  },
+  {
+   "code": "0993",
+   "nom": "CARGADOR DE PILA BATERIA TALADRO 18V TL0122CAR THUNDER",
+   "st": 0,
+   "pr": 3037.08
+  },
+  {
+   "code": "0999",
+   "nom": "MASILLA PARSECS 250GR",
+   "st": 0,
+   "pr": 5939.07
+  },
+  {
+   "code": "1000",
+   "nom": "MASILLA PARSECS 70GR",
+   "st": 0,
+   "pr": 2563.07
+  },
+  {
+   "code": "1014",
+   "nom": "PARAGUAS NEGRO LARGO",
+   "st": 0,
+   "pr": 3375.08
+  },
+  {
+   "code": "1017",
+   "nom": "PILA A23 X5PCS",
+   "st": -8,
+   "pr": 2400.03
+  },
+  {
+   "code": "1022",
+   "nom": "PINZA UNIVERSAL 8",
+   "st": 0,
+   "pr": 2280.06
+  },
+  {
+   "code": "1024",
+   "nom": "PORTA ESPIRAL X3",
+   "st": 0,
+   "pr": 1121.03
+  },
+  {
+   "code": "1029",
+   "nom": "CORTINA RED 120 LUZ CALIDA NAVIDAD",
+   "st": 0,
+   "pr": 4050.08
+  },
+  {
+   "code": "1030",
+   "nom": "CORTINA RED 200 LUZ CALIDA NAVIDAD",
+   "st": 0,
+   "pr": 6750.08
+  },
+  {
+   "code": "1033",
+   "nom": "SELLADOR ACRILICO PINTABLE BLANCO 426 GR",
+   "st": 0,
+   "pr": 5021.07
+  },
+  {
+   "code": "1035",
+   "nom": "FORMON 4 PIEZAS MANGO MADERA",
+   "st": 0,
+   "pr": 3960.06
+  },
+  {
+   "code": "1043",
+   "nom": "TESTER MULTIMETRO DIGITAL",
+   "st": 0,
+   "pr": 4000.06
+  },
+  {
+   "code": "1044",
+   "nom": "TESTER LAPIZ DE PRUEBA 3 EN 1",
+   "st": 0,
+   "pr": 2504.11
+  },
+  {
+   "code": "1045",
+   "nom": "TIJERA MULTIUSO",
+   "st": 165,
+   "pr": 5456.06
+  },
+  {
+   "code": "1047",
+   "nom": "BOMBA ELEVADORA PRESURIZA 1/2 HP TUNDER",
+   "st": 0,
+   "pr": 49815.08
+  },
+  {
+   "code": "1048",
+   "nom": "TRAZADOR DE LINEA CHOCLA SOLO",
+   "st": 0,
+   "pr": 1102.06
+  },
+  {
+   "code": "1054",
+   "nom": "CONECTOR C ROSCA RG59",
+   "st": 0,
+   "pr": 60
+  },
+  {
+   "code": "1055",
+   "nom": "DERIVADOR DIVISOR TV X2",
+   "st": 0,
+   "pr": 1100
+  },
+  {
+   "code": "1056",
+   "nom": "CONECTOR C ROSCA RG59",
+   "st": 0,
+   "pr": 60
+  },
+  {
+   "code": "1058",
+   "nom": "TRIPLE ADAPTADOR TOMA ENCENDEDOR + CARGADOR AUTO USB 12V",
+   "st": 0,
+   "pr": 1500
+  },
+  {
+   "code": "1059",
+   "nom": "CONECTOR SNAP RG59",
+   "st": 0,
+   "pr": 300
+  },
+  {
+   "code": "1062",
+   "nom": "AGUJA CANASTA",
+   "st": 69,
+   "pr": 180.06
+  },
+  {
+   "code": "1064",
+   "nom": "BARBIJO PLASTICA C FILTRO",
+   "st": 0,
+   "pr": 500.11
+  },
+  {
+   "code": "1072",
+   "nom": "TRABA DISCO MOTO LARGA",
+   "st": -1,
+   "pr": 5220.06
+  },
+  {
+   "code": "1074",
+   "nom": "DESTAPACANERIA LIQUIDO",
+   "st": -1,
+   "pr": 2646.07
+  },
+  {
+   "code": "1075",
+   "nom": "DISCO DIAMANTADO LISO 115MM",
+   "st": 0,
+   "pr": 1920.06
+  },
+  {
+   "code": "1076",
+   "nom": "PULVERIZADOR 5 LT FUMIGADOR BOMBA TUNDER",
+   "st": 0,
+   "pr": 12150.08
+  },
+  {
+   "code": "1077",
+   "nom": "DISCO DIAMANTADO SEGMENTADO 115MM",
+   "st": 0,
+   "pr": 2160.06
+  },
+  {
+   "code": "1083",
+   "nom": "GAS PIMIENTA 60ML GRANDE EN AEROSOL",
+   "st": -42,
+   "pr": 3080.06
+  },
+  {
+   "code": "1086",
+   "nom": "CAPOTA BEBE",
+   "st": -1,
+   "pr": 5714.07
+  },
+  {
+   "code": "1087",
+   "nom": "CARGADOR SAMSUNG SIMIL",
+   "st": -6,
+   "pr": 1470.09
+  },
+  {
+   "code": "1089",
+   "nom": "GUARDACABOS 1/2 12MM GALVANIZADOS",
+   "st": 0,
+   "pr": 339.11
+  },
+  {
+   "code": "1096",
+   "nom": "LAPIZ CARPINTERO 18 CM SOLA",
+   "st": 0,
+   "pr": 350
+  },
+  {
+   "code": "1098",
+   "nom": "LINGA PARA MOTO PITON",
+   "st": 0,
+   "pr": 8280.06
+  },
+  {
+   "code": "1104",
+   "nom": "BOTE C/TECHO 66X66CM - 37243",
+   "st": 0,
+   "pr": 8000.1
+  },
+  {
+   "code": "1107",
+   "nom": "PILETA LONA BALCON BEBE 80X80 NACIONAL",
+   "st": 0,
+   "pr": 52000.09
+  },
+  {
+   "code": "1111",
+   "nom": "BARRA SILICONA C BRILLO SUPRABOND",
+   "st": 0,
+   "pr": 2243.06
+  },
+  {
+   "code": "1118",
+   "nom": "TABLA LAVAR PLASTICA",
+   "st": 0,
+   "pr": 8503
+  },
+  {
+   "code": "1122",
+   "nom": "ROTOMARTILLO THUNDERPLUS 4J 850W MALETIN MANDRIL MECHAS SDS",
+   "st": 0,
+   "pr": 53280.1
+  },
+  {
+   "code": "1123",
+   "nom": "SECADOR ROJO 30CM",
+   "st": -1,
+   "pr": 1534.03
+  },
+  {
+   "code": "1131",
+   "nom": "DISCO ABRASIVO CORTE 115MM X 1,2 ESPESOR THUNDER",
+   "st": 0,
+   "pr": 218.03
+  },
+  {
+   "code": "1132",
+   "nom": "DISCO ABRASIVO CORTE 180MM X 1,8 ESPESOR THUNDER",
+   "st": 0,
+   "pr": 515.03
+  },
+  {
+   "code": "1133",
+   "nom": "DISCO ABRASIVO CORTE 350MM / 14 PLG X 3MM ESPESOR",
+   "st": 0,
+   "pr": 1800.03
+  },
+  {
+   "code": "1135",
+   "nom": "CADENA MINI MOTOSIERRA REPUESTO 4 PULGADAS",
+   "st": -3,
+   "pr": 1628.03
+  },
+  {
+   "code": "1136",
+   "nom": "MOTOSIERRA NAFTERA 52CC ESPADA 20 PLG SISTEMA ANTIVIBRATORIO",
+   "st": 0,
+   "pr": 60000.03
+  },
+  {
+   "code": "1138",
+   "nom": "NIVEL LÁSER AUTONIVELANTE LUZ VERDE 30 MTS BLOQUEO + SOPORTE",
+   "st": 0,
+   "pr": 27850.03
+  },
+  {
+   "code": "1139",
+   "nom": "CINTA DOBLE FAZ SILICONA TRANSPARENTE NANO 20MM",
+   "st": -230,
+   "pr": 502.03
+  },
+  {
+   "code": "1141",
+   "nom": "SOPORTE MAGNETICO IMANTADO - NIVEL LASER ROSCA 1/4 UNIVERSAL",
+   "st": 0,
+   "pr": 7200
+  },
+  {
+   "code": "1144",
+   "nom": "AMOLADORA BANCO THUNDER PLUS TL02315 220V 550W 200MM",
+   "st": 0,
+   "pr": 34320.03
+  },
+  {
+   "code": "1145",
+   "nom": "SOLDADORA TIG 250A MMA ALTA FRECUENCIA TR04925C THUNDER PRO",
+   "st": 0,
+   "pr": 209090.03
+  },
+  {
+   "code": "1146",
+   "nom": "ARRANQUE 15X20",
+   "st": 0,
+   "pr": 18000
+  },
+  {
+   "code": "1147",
+   "nom": "ARRANQUE 25X35",
+   "st": 0,
+   "pr": 38000
+  },
+  {
+   "code": "1149",
+   "nom": "PARAGUAS INFANTIL C SILBATO",
+   "st": 0,
+   "pr": 2266.11
+  },
+  {
+   "code": "1151",
+   "nom": "SOLDADORA THUNDER TL04857C INVERTER 100A",
+   "st": 0,
+   "pr": 48500.04
+  },
+  {
+   "code": "1152",
+   "nom": "OLDADORA INVERTER 200AMP THUNDER TL04860C",
+   "st": 0,
+   "pr": 83300.04
+  },
+  {
+   "code": "1153",
+   "nom": "DISCO DE CORTE MULTIUSOS / MULTIPROPOSITO MADERA",
+   "st": 0,
+   "pr": 2853.04
+  },
+  {
+   "code": "1155",
+   "nom": "AMOLADORA DE BANCO THUNDER 150MM 6'' 1/2HP",
+   "st": 0,
+   "pr": 26445.04
+  },
+  {
+   "code": "1156",
+   "nom": "SOLDADORA INVERTER MIG 130 AMP PARA ALAMBRE FLUX HASTA 1 KG",
+   "st": 0,
+   "pr": 125088.04
+  },
+  {
+   "code": "1158",
+   "nom": "CONECTOR ACOPLE RAPIDO UNIVERSAL 1/4",
+   "st": 0,
+   "pr": 1904.1
+  },
+  {
+   "code": "1159",
+   "nom": "ACOPLE AIRE COMPRESOR CONEXION TIPO ITALIANO HEMBRA 1/4",
+   "st": 0,
+   "pr": 300
+  },
+  {
+   "code": "1160",
+   "nom": "JUEGO MECHAS CINCEL PUNTA PLANA PALA ANCHA SDS PLUS 250MM",
+   "st": -50,
+   "pr": 7344.1
+  },
+  {
+   "code": "1163",
+   "nom": "BATERIA 12V ATORNILLADOR ION LITIO 1.3 AH THUNDER",
+   "st": 0,
+   "pr": 10080.1
+  },
+  {
+   "code": "1175",
+   "nom": "CADENA PARA MOTOSIERRA 16 PULGADAS DORADA",
+   "st": 0,
+   "pr": 4000.1
+  },
+  {
+   "code": "1176",
+   "nom": "ESPADA MOTOSIERRA 12 PULGADAS",
+   "st": 0,
+   "pr": 3545.06
+  },
+  {
+   "code": "1180",
+   "nom": "TORCHA TIG SOLDADORA COMPATIBLE CON THUNDER",
+   "st": 0,
+   "pr": 37400
+  },
+  {
+   "code": "1185",
+   "nom": "DISCO TURBO FINO PATROLL PTF 4.5 115MM",
+   "st": 0,
+   "pr": 6652.06
+  },
+  {
+   "code": "1202",
+   "nom": "HEBILLA DE ATRAQUE METAL PARA CORREA DE 25 MM",
+   "st": 0,
+   "pr": 960.1
+  },
+  {
+   "code": "1204",
+   "nom": "REPUESTO BISAGRAS HERRAJES METAL ASIENTO TAPA INODORO",
+   "st": 0,
+   "pr": 5760.06
+  },
+  {
+   "code": "1205",
+   "nom": "CONVERSION CARBURADOR DE NAFTA A GAS PARA GRUPO ELECTROGENO CHICO",
+   "st": 0,
+   "pr": 19320.06
+  },
+  {
+   "code": "1206",
+   "nom": "CORTADORA DE CESPED HELICOIDAL MANUAL",
+   "st": 0,
+   "pr": 88000.1
+  },
+  {
+   "code": "1207",
+   "nom": "CONVERSION CARBURADOR DE NAFTA A GAS PARA GRUPO ELECTROGENO GRANDE",
+   "st": 0,
+   "pr": 27960.06
+  },
+  {
+   "code": "1208",
+   "nom": "CARGADOR DE PILA BATERIA TALADRO 12V THUNDER",
+   "st": -3,
+   "pr": 3312.1
+  },
+  {
+   "code": "1217",
+   "nom": "CADENA 20 PULGADAS 50CM .325 X 1.5MM 76 ESLABONES",
+   "st": -2,
+   "pr": 7840.1
+  },
+  {
+   "code": "1219",
+   "nom": "HUMECTADOR STICKERS P/ BROCA DIAMANTADA",
+   "st": -1,
+   "pr": 4620
+  },
+  {
+   "code": "1224",
+   "nom": "SOPLETE ENCENDEDOR MAGICLICK TORCH",
+   "st": -28,
+   "pr": 4535
+  },
+  {
+   "code": "1226",
+   "nom": "MOSQUETON CARABINERO ESCALADA A ROSCA",
+   "st": 0,
+   "pr": 1829.03
+  },
+  {
+   "code": "1232",
+   "nom": "TUERCA DESMALEZADORA AUTOFRENTANTE ROSCA IZQUIERDA",
+   "st": 0,
+   "pr": 240.1
+  },
+  {
+   "code": "1238",
+   "nom": "JUEGO RETENES ACEITE PARA DESMALEZADORA",
+   "st": -82,
+   "pr": 496.1
+  },
+  {
+   "code": "1239",
+   "nom": "CADENA 18 PULGADAS 45CM .325 X 1.5MM 72 ESLABONES",
+   "st": 0,
+   "pr": 7360.1
+  },
+  {
+   "code": "1240",
+   "nom": "CADENA 16 PULGADAS 40CM 3/8 X 1.5MM 59 ESLABONES",
+   "st": 0,
+   "pr": 6880.1
+  },
+  {
+   "code": "1242",
+   "nom": "ROTOMARTILLO THUNDERPLUS 10J 1500W MALETIN MANDRIL MECHAS SDS",
+   "st": 0,
+   "pr": 69408.1
+  },
+  {
+   "code": "1244",
+   "nom": "AMOLADORA 115MM 650W A 220V HORSE POWER",
+   "st": 0,
+   "pr": 23328.1
+  },
+  {
+   "code": "1251",
+   "nom": "MONOPATÍN ELÉCTRICO SCOOTER HORSEPOWER PLEGABLE",
+   "st": 0,
+   "pr": 392000.1
+  },
+  {
+   "code": "1255",
+   "nom": "ACCESORIO CORTACERCO P/ DESMALEZADORA",
+   "st": 0,
+   "pr": 37440.1
+  },
+  {
+   "code": "1257",
+   "nom": "CORTACERCO A EXPLOSION NAFTA 22,5CC HORSE POWER",
+   "st": 0,
+   "pr": 138240.1
+  },
+  {
+   "code": "1259",
+   "nom": "EJE FLEXIBLE TRIPA PARA MINI TORNO ALARGUE MINITORNO",
+   "st": 0,
+   "pr": 9360.1
+  },
+  {
+   "code": "1262",
+   "nom": "PUNTA ATONILLADOR SUJETADOR MANDRIL 1/4 150MM ALARGUE",
+   "st": -4,
+   "pr": 3441.03
+  },
+  {
+   "code": "1265",
+   "nom": "PAD DE PULIDO COLOR AZUL 125MM",
+   "st": 0,
+   "pr": 4800.11
+  },
+  {
+   "code": "1273",
+   "nom": "EJE FLEXIBLE TRIPA PARA MINI TORNO ALARGUE MINITORNO",
+   "st": 0,
+   "pr": 7632.11
+  },
+  {
+   "code": "1275",
+   "nom": "GATO HIDRÁULICO CRIQUE CRICKET CARRITO 2 TONELADAS",
+   "st": 0,
+   "pr": 46500.11
+  },
+  {
+   "code": "1280",
+   "nom": "MOTOR PARA BOTE FUERA DE BORDA 2T REFRIGERADO X AIRE 52CC",
+   "st": 0,
+   "pr": 157500.03
+  },
+  {
+   "code": "1284",
+   "nom": "ADAPTADOR ENCHUFE DOBLE TOMA PROLONGADOR",
+   "st": 0,
+   "pr": 500
+  },
+  {
+   "code": "1300",
+   "nom": "CABO METAL PLASTICO",
+   "st": 566,
+   "pr": 815.03
+  },
+  {
+   "code": "1301",
+   "nom": "REJILLA BALLERINA COLORES VARIOS",
+   "st": 210,
+   "pr": 336.03
+  },
+  {
+   "code": "1304",
+   "nom": "BOMBILLA HEXAGONAL BRONCEADA",
+   "st": 0,
+   "pr": 1827.03
+  },
+  {
+   "code": "1305",
+   "nom": "ESENCIA FRZN FRUIT",
+   "st": 0,
+   "pr": 1722
+  },
+  {
+   "code": "1306",
+   "nom": "VAPER STICK V8",
+   "st": 0,
+   "pr": 21750.09
+  },
+  {
+   "code": "1307",
+   "nom": "VIDRIO VAPER V8 / PEN 22",
+   "st": 0,
+   "pr": 607.08
+  },
+  {
+   "code": "1316",
+   "nom": "CALENTADOR DE AGUA 12VOLTS IDEAL AUTO VIAJE",
+   "st": 0,
+   "pr": 1657.09
+  },
+  {
+   "code": "1318",
+   "nom": "COLCHONETA 145X78X40CM - 33055",
+   "st": 0,
+   "pr": 16800.1
+  },
+  {
+   "code": "1321",
+   "nom": "ASIENTO C/TECHO 37275 103X96X80CM",
+   "st": 0,
+   "pr": 22837.09
+  },
+  {
+   "code": "1331",
+   "nom": "PALANGANA GRANDE 9LT",
+   "st": 0,
+   "pr": 5760.1
+  },
+  {
+   "code": "1334",
+   "nom": "BALDE 09LT CHICO",
+   "st": 0,
+   "pr": 1160.03
+  },
+  {
+   "code": "1338",
+   "nom": "DISCO PATROLL CONTINUO 4,5 NARANJA",
+   "st": 0,
+   "pr": 2721.06
+  },
+  {
+   "code": "1339",
+   "nom": "PISTOLA LANZA AGUA FLOTA FLOTA",
+   "st": 0,
+   "pr": 3990.09
+  },
+  {
+   "code": "1340",
+   "nom": "CINTA METRICA 10 MTS MILIMETROS + 3 FRENOS",
+   "st": -12,
+   "pr": 4000.06
+  },
+  {
+   "code": "1341",
+   "nom": "SILICONA BLANCA SUPRABOND CARTUCHO 280ML",
+   "st": -1,
+   "pr": 7009.06
+  },
+  {
+   "code": "1342",
+   "nom": "LLAVE COMBINADA 09MM.",
+   "st": 0,
+   "pr": 362
+  },
+  {
+   "code": "1346",
+   "nom": "GUANTE COCINA NARANJA",
+   "st": 0,
+   "pr": 845.03
+  },
+  {
+   "code": "1348",
+   "nom": "FRESA AVELLANADORA MECHA BISELADOR PARA MADERA 3 X 16",
+   "st": 0,
+   "pr": 2000.11
+  },
+  {
+   "code": "1349",
+   "nom": "TAPON PARA TERMO MATE 1 L / 1,2 L MODELOS",
+   "st": 0,
+   "pr": 1800.06
+  },
+  {
+   "code": "1350",
+   "nom": "RESISTENCIA PARA DUCHADOR",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1351",
+   "nom": "LUZ TRASERA BICI",
+   "st": 0,
+   "pr": 774
+  },
+  {
+   "code": "1355",
+   "nom": "UNION COAXIL H - H FINO",
+   "st": 0,
+   "pr": 100
+  },
+  {
+   "code": "1358",
+   "nom": "CANCAMO M12 MACHO",
+   "st": 0,
+   "pr": 1248.02
+  },
+  {
+   "code": "1360",
+   "nom": "CINTA DOBLE FAZ SILICONA TRANSPARENTE NANO 30MM",
+   "st": 0,
+   "pr": 1063.03
+  },
+  {
+   "code": "1365",
+   "nom": "BROCA CONICA DIAMANTADA 9-50",
+   "st": 0,
+   "pr": 11680.06
+  },
+  {
+   "code": "1366",
+   "nom": "BROCA CONICA DIAMANTADA 9-38",
+   "st": 0,
+   "pr": 8800.06
+  },
+  {
+   "code": "1367",
+   "nom": "4X RUEDA RULEMANES",
+   "st": 0,
+   "pr": 1856.06
+  },
+  {
+   "code": "1378",
+   "nom": "FIJACION UNIVERSAL CON TORNILLO",
+   "st": 0,
+   "pr": 648.06
+  },
+  {
+   "code": "1393",
+   "nom": "CALENTADOR DE AGUA EXTRA LARGO TERMO",
+   "st": -40,
+   "pr": 3022.03
+  },
+  {
+   "code": "1394",
+   "nom": "TENAZA MEDIO CORTE 10",
+   "st": 0,
+   "pr": 3456.06
+  },
+  {
+   "code": "1397",
+   "nom": "CINTA REPARACION DE MOSQUIETERO",
+   "st": 40,
+   "pr": 1944.06
+  },
+  {
+   "code": "1406",
+   "nom": "VINILO REFLECTIVO",
+   "st": 0,
+   "pr": 8500.04
+  },
+  {
+   "code": "1412",
+   "nom": "MECHA ESCALONADA PARA TERMOFUSION 24-31MM",
+   "st": -5,
+   "pr": 2028.06
+  },
+  {
+   "code": "1419",
+   "nom": "CANILLA LAVARROPAS CROMADO 2 SALIDAS 3/4",
+   "st": -16,
+   "pr": 3700
+  },
+  {
+   "code": "1424",
+   "nom": "ADAPTADOR PUNTAS DESTORNILLADORAS 90°",
+   "st": 10,
+   "pr": 9605.06
+  },
+  {
+   "code": "1426",
+   "nom": "MEZCLADOR DE PINTURA 600 X10MM SDS",
+   "st": 0,
+   "pr": 3615.03
+  },
+  {
+   "code": "1434",
+   "nom": "SET TERMOSTATO X 2PZAS 2000W",
+   "st": -3,
+   "pr": 10000
+  },
+  {
+   "code": "1438",
+   "nom": "REPUESTO TERMOSTATO TERMOTANQUE SIMPLE",
+   "st": 0,
+   "pr": 3780.06
+  },
+  {
+   "code": "1444",
+   "nom": "SALVAVIDAS 76CM 35019",
+   "st": -23,
+   "pr": 2600
+  },
+  {
+   "code": "1448",
+   "nom": "CARBURADOR PARA GRUPO ELECTROGENO CHICO (2.0 KVA A 4.0 KVA)",
+   "st": -9,
+   "pr": 4860.06
+  },
+  {
+   "code": "1450",
+   "nom": "JUEGO DESTORNILLADORES AISLADOS 1000V DE 9 PIEZAS",
+   "st": 0,
+   "pr": 8000
+  },
+  {
+   "code": "1452",
+   "nom": "MECHA PORCELANATO PATROLL 10MM",
+   "st": 0,
+   "pr": 1291.06
+  },
+  {
+   "code": "1455",
+   "nom": "ÑOQUERA FABRICA",
+   "st": 0,
+   "pr": 40860.07
+  },
+  {
+   "code": "1458",
+   "nom": "DESTORNILLADOR 5 X 125 MM PHILLIPS GRANDE",
+   "st": 0,
+   "pr": 972.06
+  },
+  {
+   "code": "1459",
+   "nom": "DESTORNILLADOR 4 X 150 MM PHILLIPS MEDIANO",
+   "st": 0,
+   "pr": 816.06
+  },
+  {
+   "code": "1463",
+   "nom": "PINZA NIVELADORA CERAMICA",
+   "st": 60,
+   "pr": 3896.03
+  },
+  {
+   "code": "1465",
+   "nom": "FUMIXAN PASTILLA",
+   "st": -222,
+   "pr": 4529.03
+  },
+  {
+   "code": "1466",
+   "nom": "ADAPTADOR METAL OTG USB A V8 MICRO USB CELULAR",
+   "st": 0,
+   "pr": 378.08
+  },
+  {
+   "code": "1477",
+   "nom": "PISA PAPAS ACERO LOEK - 315",
+   "st": -39,
+   "pr": 0
+  },
+  {
+   "code": "1478",
+   "nom": "FUMIXAN FOG 120CC",
+   "st": 0,
+   "pr": 4267.06
+  },
+  {
+   "code": "1486",
+   "nom": "CHANGO 4 RUEDAS CANADIENSE CAÑO NACIONAL",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1490",
+   "nom": "RESORTE MINI TRAMP",
+   "st": 0,
+   "pr": 162
+  },
+  {
+   "code": "1511",
+   "nom": "DISCO PARA PULIR ACERO FIELTRO",
+   "st": -302,
+   "pr": 0
+  },
+  {
+   "code": "1521",
+   "nom": "DISCO MUELA",
+   "st": 30,
+   "pr": 12603.36
+  },
+  {
+   "code": "1536",
+   "nom": "ESPADA MOTOSIERRA 18 PULGADAS",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1537",
+   "nom": "BASTIDOR MULTIUSO 2 MODULOS",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1538",
+   "nom": "TECLA INTERRUPTOR NEGRO PLATINUM",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1539",
+   "nom": "PALA JARDINERIA METAL",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1540",
+   "nom": "TAPA MIGNON NEGRA JELUZ PLATINUM",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1541",
+   "nom": "TAPA BLANCA 5X10 JELUZ VERONA NBO",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1542",
+   "nom": "DISYUNTOR DIFERENCIAL 2P-40A JELUZ",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1543",
+   "nom": "TERMICA TERMOMAGNETICA 2P-16A",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1544",
+   "nom": "TAPA NEGRA 5X10 JELUZ PLATIMIUN",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1545",
+   "nom": "BASTIDOR SUPERFICIE JELUZ 1 MODULO",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1546",
+   "nom": "MODULO MEDIO PUNTO 1 TECLA PLATIMIUN",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1547",
+   "nom": "RULEMAN 608ZZ",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1548",
+   "nom": "ESTANTERIA 3 NIVELES",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1549",
+   "nom": "ESTANTERIA 4 NIVELES",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1552",
+   "nom": "PRECINTO 200X3.6MM X 100PCS",
+   "st": 0,
+   "pr": 1937.03
+  },
+  {
+   "code": "1554",
+   "nom": "PRECINTO 250X3.6MM X 100PCS",
+   "st": -10,
+   "pr": 2402.03
+  },
+  {
+   "code": "1555",
+   "nom": "PRECINTO 250X4.8MM X 100PCS",
+   "st": -32,
+   "pr": 2402.03
+  },
+  {
+   "code": "1561",
+   "nom": "CORTACERCO A EXPLOSION NAFTA 22,5CC CANFLY",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1562",
+   "nom": "MOTOSIERRA 16\" A BATERIA CANFLY",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1606",
+   "nom": "PRECINTO GRIS 380 X 4,7 X 100PCS",
+   "st": 0,
+   "pr": 4000.03
+  },
+  {
+   "code": "1612",
+   "nom": "PILETA LONA 300 X 200 NACIONAL",
+   "st": 0,
+   "pr": 160000.09
+  },
+  {
+   "code": "1656",
+   "nom": "TIRAS DE GOMA BAÑO 35CM X 8 UNID",
+   "st": 0,
+   "pr": 5627.06
+  },
+  {
+   "code": "1657",
+   "nom": "FIELTRO CUADRADO CHICO X 8 X12PACK",
+   "st": 50,
+   "pr": 8296.06
+  },
+  {
+   "code": "1659",
+   "nom": "FIELTRO REDONDO CHICO X 8 X12PACK",
+   "st": 60,
+   "pr": 1410.06
+  },
+  {
+   "code": "1660",
+   "nom": "PRECINTO 300X3.6MM X 100PCS",
+   "st": 0,
+   "pr": 2790.03
+  },
+  {
+   "code": "1670",
+   "nom": "NO VA MAS --FIELTRO REDONDO GRANDE X 6",
+   "st": 0,
+   "pr": 1419.06
+  },
+  {
+   "code": "1671",
+   "nom": "FIELTRO RECTANGULAR DE CORTE X12PACK",
+   "st": 100,
+   "pr": 1420.06
+  },
+  {
+   "code": "1681",
+   "nom": "PLANCHUELA 175MM SC",
+   "st": 0,
+   "pr": 217.03
+  },
+  {
+   "code": "1682",
+   "nom": "ESQUINERO REDONDO DOBLE",
+   "st": 0,
+   "pr": 761.03
+  },
+  {
+   "code": "1765",
+   "nom": "MALETIN X 3 ALUMINIO",
+   "st": 0,
+   "pr": 113483.03
+  },
+  {
+   "code": "1803",
+   "nom": "DISCO - SIERRA DE CORTE X6 MINI TORNO",
+   "st": -4,
+   "pr": 7672.03
+  },
+  {
+   "code": "1809",
+   "nom": "REGLA METALICA 40CM / 16PULGADAS",
+   "st": 0,
+   "pr": 864
+  },
+  {
+   "code": "1815",
+   "nom": "RODEL 10MM CORTA CERAMICA",
+   "st": 0,
+   "pr": 4000.1
+  },
+  {
+   "code": "1816",
+   "nom": "RODEL 06MM CORTACERAMICA",
+   "st": 0,
+   "pr": 4000.1
+  },
+  {
+   "code": "1847",
+   "nom": "CABLE INTERLOCK TIPO OCHO",
+   "st": 0,
+   "pr": 544.03
+  },
+  {
+   "code": "1860",
+   "nom": "ASIENTO BICICLETA ACOLCHADO",
+   "st": 0,
+   "pr": 1860.03
+  },
+  {
+   "code": "1869",
+   "nom": "LAMPARA VELADOR FLEXIBLE USB",
+   "st": 0,
+   "pr": 5400.08
+  },
+  {
+   "code": "1880",
+   "nom": "LAMPARA DICRO GU10 RGB WIFI",
+   "st": 0,
+   "pr": 8246.07
+  },
+  {
+   "code": "1881",
+   "nom": "LAMPARA RGB WIFI",
+   "st": 0,
+   "pr": 6045.07
+  },
+  {
+   "code": "1890",
+   "nom": "TANQUE DE NAFTA 4 TORNILLOS",
+   "st": 0,
+   "pr": 3200.1
+  },
+  {
+   "code": "1898",
+   "nom": "SOPLADORA A NAFTA CANFLY",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1900",
+   "nom": "MACHETE 12 / 30CM",
+   "st": 0,
+   "pr": 3882.03
+  },
+  {
+   "code": "1910",
+   "nom": "MOSQUETON GIRATORIO DOBLE D 5X50MM 1/2",
+   "st": -20,
+   "pr": 864.06
+  },
+  {
+   "code": "1911",
+   "nom": "MOSQUETON GIRATORIO DOBLE D 5X65MM 3/4",
+   "st": -22,
+   "pr": 960.06
+  },
+  {
+   "code": "1925",
+   "nom": "PINZA ALICATE 6 OBLICUO BULIT",
+   "st": 0,
+   "pr": 6745.06
+  },
+  {
+   "code": "1926",
+   "nom": "LUSTRE TIPO AUTO POLISH",
+   "st": 0,
+   "pr": 4875.03
+  },
+  {
+   "code": "1948",
+   "nom": "DESTORNILLADOR 5 X 150 MM PLANO MEDIANO",
+   "st": 0,
+   "pr": 1068.06
+  },
+  {
+   "code": "1950",
+   "nom": "ALGUICIDA PARA PILETINES  X 1/2 LTR",
+   "st": 0,
+   "pr": 1638.09
+  },
+  {
+   "code": "1963",
+   "nom": "TRANSPORTADOR PVC C NIVEL",
+   "st": 0,
+   "pr": 9695.03
+  },
+  {
+   "code": "1966",
+   "nom": "MINI SOPLETE ELECTRONICO SOLDADOR A BUTANO",
+   "st": 0,
+   "pr": 10753.03
+  },
+  {
+   "code": "1967",
+   "nom": "PINZA PATO VIDRIO CERAMICA VENECITAS",
+   "st": 0,
+   "pr": 9312.1
+  },
+  {
+   "code": "1992",
+   "nom": "JUEGO PULIR AUTO X5 TALADRO",
+   "st": 0,
+   "pr": 7170.11
+  },
+  {
+   "code": "2000",
+   "nom": "TARUGOS",
+   "st": 0,
+   "pr": 12
+  },
+  {
+   "code": "2002",
+   "nom": "GUARDACABOS 3/16 5MM GALVANIZADOS",
+   "st": 0,
+   "pr": 109.11
+  },
+  {
+   "code": "2010",
+   "nom": "CAMPANA CRUZ COMPLETA BRONCE",
+   "st": 0,
+   "pr": 3920.06
+  },
+  {
+   "code": "2015",
+   "nom": "MECHAS PALA X 10 PCS C ALARGUE PARA MADERA",
+   "st": -70,
+   "pr": 5360.06
+  },
+  {
+   "code": "2017",
+   "nom": "ADAPTADOR REBATIBLE 1/2 3/8 1/4",
+   "st": 0,
+   "pr": 8448.06
+  },
+  {
+   "code": "2018",
+   "nom": "ADAPTADOR REBATIBLE 1/2 3/8 1/4 BLISTER",
+   "st": 0,
+   "pr": 17820.06
+  },
+  {
+   "code": "2019",
+   "nom": "BALANZA ELECTRONICA VERDULERO C/BRAZO 40KG",
+   "st": 0,
+   "pr": 3360.06
+  },
+  {
+   "code": "2020",
+   "nom": "BALANZA ELECTRONICO VERDULERO  40KG",
+   "st": 0,
+   "pr": 3360.06
+  },
+  {
+   "code": "2027",
+   "nom": "COLCHONETA ANANA 190X87CM - 37348",
+   "st": 0,
+   "pr": 14400.1
+  },
+  {
+   "code": "2031",
+   "nom": "CEPILLO MATRICERO GRANDE DENTAL X 3",
+   "st": -20,
+   "pr": 1368.06
+  },
+  {
+   "code": "2034",
+   "nom": "CUCHILLO TRAMONTINA 10",
+   "st": 200,
+   "pr": 3136.1
+  },
+  {
+   "code": "2035",
+   "nom": "CUCHILLO TRAMONTINA CARNICERO 7°",
+   "st": 0,
+   "pr": 1920.06
+  },
+  {
+   "code": "2036",
+   "nom": "CUCHILLO TRAMONTINA CARNICERO 8°",
+   "st": 0,
+   "pr": 2048.06
+  },
+  {
+   "code": "2042",
+   "nom": "JUEGO DE LETRAS 10MM X 65MM X27PC",
+   "st": 0,
+   "pr": 20800.06
+  },
+  {
+   "code": "2044",
+   "nom": "JUEGO DE LETRAS 4MM X 60MM X27PC",
+   "st": 0,
+   "pr": 6640.06
+  },
+  {
+   "code": "2045",
+   "nom": "JUEGO DE LETRAS 6MM X60MM  X27PC",
+   "st": 0,
+   "pr": 8800.06
+  },
+  {
+   "code": "2046",
+   "nom": "JUEGO DE NUMEROS 10MM X65MM X X9PC",
+   "st": 0,
+   "pr": 6432.06
+  },
+  {
+   "code": "2048",
+   "nom": "JUEGO DE NUMEROS 4MM X 60MM  X9 PC",
+   "st": 0,
+   "pr": 2400.06
+  },
+  {
+   "code": "2049",
+   "nom": "JUEGO DE NUMEROS 6MM X 60MM X9PC",
+   "st": 0,
+   "pr": 3520.06
+  },
+  {
+   "code": "2052",
+   "nom": "KIT JUNTA MOTOR DESMALEZADORA",
+   "st": 0,
+   "pr": 1216.06
+  },
+  {
+   "code": "2057",
+   "nom": "MARTILLO CARPINTERO 22MM",
+   "st": -5,
+   "pr": 2880.06
+  },
+  {
+   "code": "2058",
+   "nom": "MARTILLO CARPINTERO 25MM",
+   "st": 0,
+   "pr": 3200.06
+  },
+  {
+   "code": "2063",
+   "nom": "ALFOMBRA DESLIZ.  -- 51027",
+   "st": 0,
+   "pr": 31440.1
+  },
+  {
+   "code": "2071",
+   "nom": "PRENSA G REFORZADA 6",
+   "st": -2,
+   "pr": 7452.06
+  },
+  {
+   "code": "2078",
+   "nom": "TUBO ENCASTRE 1/210MM",
+   "st": 0,
+   "pr": 608.06
+  },
+  {
+   "code": "2079",
+   "nom": "TUBO ENCASTRE 1/211MM",
+   "st": 0,
+   "pr": 608.06
+  },
+  {
+   "code": "2080",
+   "nom": "TUBO ENCASTRE 1/212MM",
+   "st": 0,
+   "pr": 608.06
+  },
+  {
+   "code": "2081",
+   "nom": "TUBO ENCASTRE 1/213MM",
+   "st": 0,
+   "pr": 608.06
+  },
+  {
+   "code": "2087",
+   "nom": "TUBO ENCASTRE 1/28MM",
+   "st": 0,
+   "pr": 608.06
+  },
+  {
+   "code": "2088",
+   "nom": "TUBO ENCASTRE 1/29MM",
+   "st": 0,
+   "pr": 800.06
+  },
+  {
+   "code": "2100",
+   "nom": "ENCENDEDOR CHISPERO MAGIC CLICK VOLVANO",
+   "st": -33,
+   "pr": 2926.03
+  },
+  {
+   "code": "2111",
+   "nom": "LLAVE COMBINADA CON CRIKET 10MM",
+   "st": 0,
+   "pr": 1368
+  },
+  {
+   "code": "2112",
+   "nom": "LLAVE COMBINADA CON CRIKET 13MM",
+   "st": 0,
+   "pr": 1368
+  },
+  {
+   "code": "2115",
+   "nom": "ASIENTO INODORO DURO",
+   "st": 0,
+   "pr": 10000.06
+  },
+  {
+   "code": "2135",
+   "nom": "DISCO - SIERRA DE CORTE METAL X10 MINI TORNO",
+   "st": 0,
+   "pr": 1600.1
+  },
+  {
+   "code": "2140",
+   "nom": "TOPE INYEC. PVC CHICO X16 RED",
+   "st": 0,
+   "pr": 1657.06
+  },
+  {
+   "code": "2141",
+   "nom": "TOPE INYEC. PVC CHICO X16 CUADR",
+   "st": 0,
+   "pr": 1657.06
+  },
+  {
+   "code": "2142",
+   "nom": "TOPE INYEC. PVC GRANDE X16 RED",
+   "st": 0,
+   "pr": 2125.06
+  },
+  {
+   "code": "2143",
+   "nom": "TOPE INYEC. PVC GRANDE X16 CUADR",
+   "st": 0,
+   "pr": 2125.06
+  },
+  {
+   "code": "2144",
+   "nom": "LINGA BICI LLAVE COMUN",
+   "st": 0,
+   "pr": 2790.03
+  },
+  {
+   "code": "2210",
+   "nom": "LLAVE AJUSTABLE FRANCESA 6 BULIT",
+   "st": 0,
+   "pr": 8402.06
+  },
+  {
+   "code": "2211",
+   "nom": "LLAVE AJUSTABLE FRANCESA 8 BULIT",
+   "st": 0,
+   "pr": 12234.06
+  },
+  {
+   "code": "2212",
+   "nom": "LLAVE AJUSTABLE FRANCESA 10 BULIT",
+   "st": 0,
+   "pr": 15488.06
+  },
+  {
+   "code": "2500",
+   "nom": "MASILLA ERPOX  100G - 10 MIN SUPRABOND",
+   "st": -16,
+   "pr": 3595.06
+  },
+  {
+   "code": "3000",
+   "nom": "TIRAFONDO 1/4X2",
+   "st": 0,
+   "pr": 50.03
+  },
+  {
+   "code": "6218",
+   "nom": "TENAZA MOSAIQUISMO",
+   "st": 0,
+   "pr": 8032.1
+  },
+  {
+   "code": "1450748321",
+   "nom": "SOPLETE FLAMBEADOR ELECTRONICO SOLDADOR BUTANO CHEF",
+   "st": 0,
+   "pr": 6750.03
+  },
+  {
+   "code": "IJUST3",
+   "nom": "VAPER IJSUT3 BY ELEAF",
+   "st": 0,
+   "pr": 21750.09
+  },
+  {
+   "code": "JUUL",
+   "nom": "LIQUIDO JUUL",
+   "st": 0,
+   "pr": 6364
+  },
+  {
+   "code": "JUULKIT",
+   "nom": "CIGARRILLO JUUL KIT COMPLETO",
+   "st": 0,
+   "pr": 6822
+  },
+  {
+   "code": "MILKMAN",
+   "nom": "LIQUIDO MILKMAN",
+   "st": 0,
+   "pr": 5940.08
+  },
+  {
+   "code": "NAKED",
+   "nom": "LIQUIDO NAKED",
+   "st": 0,
+   "pr": 5940.08
+  },
+  {
+   "code": "NASTYBALLIN",
+   "nom": "LIQUIDO NASTY BALLIN 3MG",
+   "st": 24,
+   "pr": 5940.08
+  },
+  {
+   "code": "NASTYLATA",
+   "nom": "LIQUIDO NASTY LATA 3MG",
+   "st": 0,
+   "pr": 5940.08
+  },
+  {
+   "code": "PEN22",
+   "nom": "CIGARRILLO VAPER SMOK PEN 22",
+   "st": 0,
+   "pr": 21750.09
+  },
+  {
+   "code": "PEN22L",
+   "nom": "CIGARRILLO VAPER SMOK PEN 22 LIGHT",
+   "st": 0,
+   "pr": 21750.09
+  },
+  {
+   "code": "PRINCE",
+   "nom": "VAPER STICK PRINCE",
+   "st": 0,
+   "pr": 21750.09
+  },
+  {
+   "code": "SMOKMAG",
+   "nom": "CIGARRILLO VAPER SMOK MAG",
+   "st": 0,
+   "pr": 24000.1
+  }
+ ],
+ "buscables": [
+  {
+   "code": "2",
+   "nom": "UP-",
+   "st": 0,
+   "pr": 43
+  },
+  {
+   "code": "0009",
+   "nom": "CUENTA GANADO CONTADOR MANUAL TEATRO",
+   "st": -830,
+   "pr": 1500.06
+  },
+  {
+   "code": "0012",
+   "nom": "ADAPTADOR ENCHUFE 2P MOSQUITO",
+   "st": 0,
+   "pr": 450.1
+  },
+  {
+   "code": "0022",
+   "nom": "RELOJ SILICONA",
+   "st": 0,
+   "pr": 657
+  },
+  {
+   "code": "0029",
+   "nom": "PILA BOTON CR 2032 3V MAXCELL",
+   "st": 0,
+   "pr": 900.03
+  },
+  {
+   "code": "0032",
+   "nom": "PILA AA MAKAO",
+   "st": -66,
+   "pr": 320.1
+  },
+  {
+   "code": "0046",
+   "nom": "PILA BOTON AG13 LR44 A76 X10PCS",
+   "st": -10,
+   "pr": 930
+  },
+  {
+   "code": "0050",
+   "nom": "LINTERNA METALICA ALUMINIO 9 LEDS LUZ BRILLANTE",
+   "st": -121,
+   "pr": 1050.03
+  },
+  {
+   "code": "0053",
+   "nom": "PINZA PUNTA AISLADA 1000V  8",
+   "st": 0,
+   "pr": 3360.1
+  },
+  {
+   "code": "0055",
+   "nom": "DISCO FLAP LIJADOR 115MM GRANO 80",
+   "st": 1528,
+   "pr": 0
+  },
+  {
+   "code": "0056",
+   "nom": "DISCO FLAP LIJADOR 115MM GRANO 40",
+   "st": 2099,
+   "pr": 0
+  },
+  {
+   "code": "0058",
+   "nom": "FRESADORA PARA ASIENTOS DE CANILLA CON 5 REPUESTOS",
+   "st": 19,
+   "pr": 9440.06
+  },
+  {
+   "code": "0059",
+   "nom": "PISTOLA P/ BARRITA SILICONA CHICA",
+   "st": -16,
+   "pr": 2030.09
+  },
+  {
+   "code": "0063",
+   "nom": "DUCHADOR CROMADO + SOPORTE + FLEXIBLE ACERO",
+   "st": -3,
+   "pr": 4115.03
+  },
+  {
+   "code": "0072",
+   "nom": "CANDADO TRABA DISCO P/ MOTOS C/ ALARMA DE 110 DB",
+   "st": -1,
+   "pr": 19980.06
+  },
+  {
+   "code": "0077",
+   "nom": "CANILLA ESFERICA METALICA 1/2 CON MANGA ECONOMICA",
+   "st": 0,
+   "pr": 1776.06
+  },
+  {
+   "code": "0082",
+   "nom": "SET DESTORNILLADOR X 6 BLISTER CELULARES",
+   "st": 0,
+   "pr": 480.06
+  },
+  {
+   "code": "0088",
+   "nom": "PISTOLA P/ BARRITA SILICONA GRANDE",
+   "st": -3,
+   "pr": 2700.11
+  },
+  {
+   "code": "0091",
+   "nom": "BOLSA AGUA CALIENTE ELECTRICA A 220V",
+   "st": 0,
+   "pr": 4995.08
+  },
+  {
+   "code": "0093",
+   "nom": "PINZA MULTIFUNCION CHICA C/ LINTERNA",
+   "st": 0,
+   "pr": 4050.08
+  },
+  {
+   "code": "0096",
+   "nom": "KIT DESTORNILLADOR 32 EN 1 CAJA PARA CELULARES",
+   "st": 0,
+   "pr": 2400.06
+  },
+  {
+   "code": "0099",
+   "nom": "CARTUCHO GAS BUTANO DESCARTABLE 227 GR P/ SOLDADOR",
+   "st": -7,
+   "pr": 2209.03
+  },
+  {
+   "code": "0102",
+   "nom": "DESTORNILLADOR DOBLE 2 EN 1 - 6MM CORTO PLANO PHILLIPS",
+   "st": -7,
+   "pr": 660.06
+  },
+  {
+   "code": "103",
+   "nom": "VER ERROR",
+   "st": 0,
+   "pr": 1
+  },
+  {
+   "code": "0107",
+   "nom": "LINTERNA BALIZA 18 LED LUZ CON IMAN 3 FUNCIONES A PILAS",
+   "st": 0,
+   "pr": 2080.1
+  },
+  {
+   "code": "0118",
+   "nom": "FUNDA ASIENTO GEL SILICONA P/ BICICLETAS UNIVERSAL NEGRO",
+   "st": 0,
+   "pr": 1920.06
+  },
+  {
+   "code": "0124",
+   "nom": "ALFOMBRA DESLIZ. - 51027",
+   "st": 0,
+   "pr": 31440.1
+  },
+  {
+   "code": "0126",
+   "nom": "TERMO BALA 1 LITRO ACERO INOXIDABLE CON FUNDA",
+   "st": 0,
+   "pr": 9000.01
+  },
+  {
+   "code": "0128",
+   "nom": "GAS BUTANO 160CM3 CHICO",
+   "st": 0,
+   "pr": 2666.06
+  },
+  {
+   "code": "0134",
+   "nom": "DESTORNILLADOR DOBLE 2 EN 1 - 4MM FINO PLANO PHILLIPS",
+   "st": 0,
+   "pr": 1120.06
+  },
+  {
+   "code": "0136",
+   "nom": "CALCULADORA CIENTIFICA KENKO 2 LINEAS DISPLAY MOD. 82MS",
+   "st": 0,
+   "pr": 3240.06
+  },
+  {
+   "code": "0138",
+   "nom": "TERMO BALA 1/2 LITRO ACERO INOXIDABLE SIN FUNDA",
+   "st": 0,
+   "pr": 6200.01
+  },
+  {
+   "code": "0141",
+   "nom": "TIRAS DE GOMA ANTIDESLIZANTES AUTOADHESIVAS PARA ESCALERA",
+   "st": 0,
+   "pr": 6426.06
+  },
+  {
+   "code": "0142",
+   "nom": "TIMBRE INALAMBRICO A 220 VOLT",
+   "st": 0,
+   "pr": 5160.06
+  },
+  {
+   "code": "0149",
+   "nom": "CABLES MICRO USB CELULAR A USB",
+   "st": 0,
+   "pr": 516.06
+  },
+  {
+   "code": "0152",
+   "nom": "MINI MASAJEADOR 3 PATAS RELAJANTE USB A PILAS",
+   "st": 0,
+   "pr": 2128.1
+  },
+  {
+   "code": "0154",
+   "nom": "MOSQUETON LLAVERO ALUMINIO 45MM",
+   "st": 0,
+   "pr": 156.09
+  },
+  {
+   "code": "0156",
+   "nom": "ANTENA TV TELESCOPICA PORTATIL C/ BASE + RADIO",
+   "st": 0,
+   "pr": 1906.03
+  },
+  {
+   "code": "0158",
+   "nom": "CALENTADOR DE AGUA 24 VOLTS IDEAL AUTO VIAJE",
+   "st": 0,
+   "pr": 3120.1
+  },
+  {
+   "code": "0160",
+   "nom": "JUEGO LLAVES TUBOS X 40 PIEZAS + CRIQUET 3/8",
+   "st": -9,
+   "pr": 5400.06
+  },
+  {
+   "code": "0161",
+   "nom": "BALANZA PERSONAL DIGITAL VIDRIO 150 KG.",
+   "st": 0,
+   "pr": 11680.1
+  },
+  {
+   "code": "0176",
+   "nom": "CORTADORA PICADORA DE CARNE N 12",
+   "st": 0,
+   "pr": 15000.09
+  },
+  {
+   "code": "0179",
+   "nom": "KIT LUZ DE BICI / BICICLETA DESTELLADOR DELANTERA Y TRASERA",
+   "st": 0,
+   "pr": 1305.09
+  },
+  {
+   "code": "0180",
+   "nom": "FOTOCONTROL R4 1500W",
+   "st": 0,
+   "pr": 3500
+  },
+  {
+   "code": "0182",
+   "nom": "PILA BOTON AG10 LR1130 1,5VT 389 189 X 10 PCS",
+   "st": -10,
+   "pr": 813.03
+  },
+  {
+   "code": "0183",
+   "nom": "SECADOR ROJO 40CM",
+   "st": 12,
+   "pr": 1648.03
+  },
+  {
+   "code": "0187",
+   "nom": "PINZA UNIVERSAL AISLADA 1000 V 8",
+   "st": 0,
+   "pr": 3360.1
+  },
+  {
+   "code": "0194",
+   "nom": "TORRE EIFFEL 32 CM METALICA",
+   "st": 0,
+   "pr": 8400.03
+  },
+  {
+   "code": "0199",
+   "nom": "GAS BUTANO 400CC GRANDE",
+   "st": -1,
+   "pr": 3166.06
+  },
+  {
+   "code": "0203",
+   "nom": "GUBIAS FORMON JUEGO 10 PIEZAS PARA MADERA PROFESIONAL",
+   "st": -3,
+   "pr": 11988.06
+  },
+  {
+   "code": "0209",
+   "nom": "PEDERNAL INICIADOR DE FUEGO SUPERVIVENCIA CAMPING",
+   "st": 0,
+   "pr": 2700.08
+  },
+  {
+   "code": "0212",
+   "nom": "CARRETEL NARANJA UNIVERSAL PORTA TANZA C OJAL",
+   "st": -15,
+   "pr": 1824.06
+  },
+  {
+   "code": "0214",
+   "nom": "PINZA OJAL OJALES OJALILLOS + 30 OJALES",
+   "st": 0,
+   "pr": 1843.03
+  },
+  {
+   "code": "0217",
+   "nom": "FUSIBLE PARA AUTO CAMIONETA KIT DE 10 ( PLANOS)",
+   "st": -1,
+   "pr": 504.03
+  },
+  {
+   "code": "0218",
+   "nom": "FOCA INFLABLE 117X80CM 37219",
+   "st": 0,
+   "pr": 5940.08
+  },
+  {
+   "code": "0219",
+   "nom": "MOSQUETON LLAVERO ALUMINIO 55MM",
+   "st": 0,
+   "pr": 4640.06
+  },
+  {
+   "code": "0220",
+   "nom": "LUZ LED ZAPATILLAS CORRER BICI ROLLER RUNNING CLIP FLEXIBLE",
+   "st": 0,
+   "pr": 990.11
+  },
+  {
+   "code": "0222",
+   "nom": "PINZA SACABOCADOS ACERO MANGO ANTIDESLIZANTE",
+   "st": 0,
+   "pr": 5940.06
+  },
+  {
+   "code": "0249",
+   "nom": "LINTERNA LED RECARGABLE A DINAMO - SIN PILAS",
+   "st": 0,
+   "pr": 1800
+  },
+  {
+   "code": "0270",
+   "nom": "REGATON DE GOMA 22MM.",
+   "st": -230,
+   "pr": 103.06
+  },
+  {
+   "code": "0271",
+   "nom": "CARGADOR AUTO 12V USB T/ DEDO",
+   "st": 0,
+   "pr": 675.08
+  },
+  {
+   "code": "0272",
+   "nom": "ALMOHADA INFLABLE DE CUELLO CERVICAL VIAJE",
+   "st": 0,
+   "pr": 1500.06
+  },
+  {
+   "code": "0277",
+   "nom": "TORRE EIFFEL 25 CM METALICA",
+   "st": 0,
+   "pr": 4502.03
+  },
+  {
+   "code": "0279",
+   "nom": "MAGNETIZADOR / DESMAGNETIZADOR",
+   "st": 0,
+   "pr": 2656.07
+  },
+  {
+   "code": "0280",
+   "nom": "LUZ LED PICO BICI MOTO AUTO",
+   "st": 0,
+   "pr": 500
+  },
+  {
+   "code": "0286",
+   "nom": "SECADOR ROJO 50CM",
+   "st": 24,
+   "pr": 2300.03
+  },
+  {
+   "code": "0290",
+   "nom": "EXTRACTOR DE RULEMANES 3 PULGADAS 3 PATAS",
+   "st": 2,
+   "pr": 0
+  },
+  {
+   "code": "0296",
+   "nom": "ESTRELLA NINJA SHURIKEN ARMAS 3 4 5 6 7 8 PUNTAS",
+   "st": 0,
+   "pr": 2025.08
+  },
+  {
+   "code": "0303",
+   "nom": "CALCULADORA CIENTIFICA 88 COLOR",
+   "st": 0,
+   "pr": 4160.06
+  },
+  {
+   "code": "0319",
+   "nom": "MONITOR 24",
+   "st": 0,
+   "pr": 84500
+  },
+  {
+   "code": "0327",
+   "nom": "PUNTAS DE TESTER MULTIMETRO PRUEBA",
+   "st": -9,
+   "pr": 1422.07
+  },
+  {
+   "code": "0330",
+   "nom": "BENCINA LIQUIDA FLUIDO P/ ENCENDEDOR",
+   "st": -6,
+   "pr": 1700.07
+  },
+  {
+   "code": "0332",
+   "nom": "MOSQUETON GALVANIZADO 12 X 140MM",
+   "st": -34,
+   "pr": 0
+  },
+  {
+   "code": "0333",
+   "nom": "GORRA GORRO DE NATACIÀN SILICONA REFORZADA PILETA",
+   "st": 0,
+   "pr": 1450.09
+  },
+  {
+   "code": "0336",
+   "nom": "CEPILLO PARRILLA PARRILLERO SIN PALO",
+   "st": 12,
+   "pr": 6884.03
+  },
+  {
+   "code": "0342",
+   "nom": "FLEXIBLE DE DUCHA MANGUERA ACERO 2 MT",
+   "st": -35,
+   "pr": 2591.03
+  },
+  {
+   "code": "0345",
+   "nom": "PUNTERO LASER VERDE MAS DE1 KM ALCANCE",
+   "st": 0,
+   "pr": 4252.08
+  },
+  {
+   "code": "0351",
+   "nom": "MICROMETRO EXTERIOR 0 - 25MM PROFESIONAL",
+   "st": 0,
+   "pr": 11310.03
+  },
+  {
+   "code": "0353",
+   "nom": "RUEDAS GIRATORIAS SILLA 50MM X4",
+   "st": -11,
+   "pr": 2054.03
+  },
+  {
+   "code": "0374",
+   "nom": "CAIREL ESFERA BOLA FACETADA CHIQUITA 20MM DE CRISTAL",
+   "st": 0,
+   "pr": 270.08
+  },
+  {
+   "code": "0377",
+   "nom": "PISTOLA APLICADORA ETIQUETAS, ETIQUETEADORA P/ ROPA",
+   "st": 0,
+   "pr": 3375.08
+  },
+  {
+   "code": "0380",
+   "nom": "TORRE EIFFEL 38 CM METALICA",
+   "st": 0,
+   "pr": 11423.03
+  },
+  {
+   "code": "0390",
+   "nom": "LUCES NAVIDEÑAS TIPO LED X 100 GUIRNALDA NAVIDAD 4 METROS",
+   "st": 0,
+   "pr": 2025.08
+  },
+  {
+   "code": "0391",
+   "nom": "CANDADO ACERO 60MM CORTO",
+   "st": -14,
+   "pr": 3300.06
+  },
+  {
+   "code": "0397",
+   "nom": "DESTORNILLADOR DOBLE 2 EN 1 - 6MM LARGO PLANO PHILLIPS",
+   "st": 21,
+   "pr": 948.06
+  },
+  {
+   "code": "0398",
+   "nom": "MECHA PORCELANATO PATROLL 8MM",
+   "st": 0,
+   "pr": 1009.06
+  },
+  {
+   "code": "0399",
+   "nom": "CABO PILETA PLASTICO 1.4MT X 19MM",
+   "st": 38,
+   "pr": 2735.01
+  },
+  {
+   "code": "0402",
+   "nom": "CINTA AGRIMENSOR 050 MT MANIJA",
+   "st": -6,
+   "pr": 5600.06
+  },
+  {
+   "code": "0406",
+   "nom": "BOMBA DE AGUA PARA FUENTE FENG SHUI 5W",
+   "st": 4,
+   "pr": 4860.08
+  },
+  {
+   "code": "0409",
+   "nom": "DUCHA DUCHADOR DE MANO DE GOMA PORTATIL",
+   "st": -76,
+   "pr": 2540.06
+  },
+  {
+   "code": "0410",
+   "nom": "ACEITE MULTIUSO LUBRITODO X 100ML",
+   "st": 0,
+   "pr": 808.06
+  },
+  {
+   "code": "0413",
+   "nom": "TUCAN 37451",
+   "st": -2,
+   "pr": 11520.1
+  },
+  {
+   "code": "0416",
+   "nom": "CUELGA CABOS SOPORTE X 4 ESCOBAS",
+   "st": 0,
+   "pr": 4896.03
+  },
+  {
+   "code": "0419",
+   "nom": "CUELGA FACIL PEGAMIL BLISTER X 12 UNIDADES",
+   "st": 0,
+   "pr": 4027.07
+  },
+  {
+   "code": "0424",
+   "nom": "INFLADOR PLASTICO LARGO NEGRO BICI AUTO",
+   "st": 0,
+   "pr": 4940.1
+  },
+  {
+   "code": "0427",
+   "nom": "BALANZA ROMANA 50KG PITON DE MANO O DE COLGAR",
+   "st": -12,
+   "pr": 2400.06
+  },
+  {
+   "code": "0435",
+   "nom": "PUCHING 35X120CM 53017",
+   "st": -22,
+   "pr": 8000.1
+  },
+  {
+   "code": "0436",
+   "nom": "MECHA PORCELANATO PATROLL 6MM",
+   "st": 0,
+   "pr": 848.06
+  },
+  {
+   "code": "0441",
+   "nom": "TUCAN 37429",
+   "st": 0,
+   "pr": 22400.1
+  },
+  {
+   "code": "0444",
+   "nom": "BOTE 73X39 61052",
+   "st": 0,
+   "pr": 12800.1
+  },
+  {
+   "code": "0450",
+   "nom": ".TORNILLO",
+   "st": 0,
+   "pr": 2
+  },
+  {
+   "code": "0451",
+   "nom": ".FERRETERIA",
+   "st": 0,
+   "pr": 2
+  },
+  {
+   "code": "0453",
+   "nom": ".PEGAMENTO",
+   "st": 0,
+   "pr": 2
+  },
+  {
+   "code": "0455",
+   "nom": "TRABA DISCO MOTO",
+   "st": 0,
+   "pr": 5220.06
+  },
+  {
+   "code": "0457",
+   "nom": "GRAMPA PRENSA CABLE 6MM GALVANIZADO",
+   "st": 0,
+   "pr": 1440.06
+  },
+  {
+   "code": "0465",
+   "nom": "ANTIPARRA P/ SOLDADOR AUTOGENA",
+   "st": -8,
+   "pr": 1740.06
+  },
+  {
+   "code": "0467",
+   "nom": "BALDE OVAL",
+   "st": 0,
+   "pr": 5015.03
+  },
+  {
+   "code": "0468",
+   "nom": "BALDE 14LT GRANDE",
+   "st": 0,
+   "pr": 1639.03
+  },
+  {
+   "code": "0471",
+   "nom": "CAÑO DUCHA 45§",
+   "st": 0,
+   "pr": 1560.06
+  },
+  {
+   "code": "0474",
+   "nom": "EMBRAGUE PARA MOTOSIERRA",
+   "st": -18,
+   "pr": 1760.06
+  },
+  {
+   "code": "0475",
+   "nom": "TUBOS X 52 PCS KIT TORX CRIQUE 1/2 Y 1/4 PUNTAS",
+   "st": 0,
+   "pr": 16788.06
+  },
+  {
+   "code": "0476",
+   "nom": "COLCHON 3 PERS. 27307 195X188X35CM",
+   "st": 0,
+   "pr": 29120.1
+  },
+  {
+   "code": "0485",
+   "nom": "PILETA 17395 187X50CM",
+   "st": 0,
+   "pr": 32000.1
+  },
+  {
+   "code": "0486",
+   "nom": "SOPAPA C MANGUITO",
+   "st": 0,
+   "pr": 1121.03
+  },
+  {
+   "code": "0488",
+   "nom": "CINTA METRICA 7,5 MTS 3 FRENOS MM",
+   "st": -32,
+   "pr": 3120.06
+  },
+  {
+   "code": "0492",
+   "nom": "MECHA PORCELANATO PATROLL 5MM",
+   "st": 0,
+   "pr": 848.06
+  },
+  {
+   "code": "0493",
+   "nom": "CORTINA RED 120 MULTICULOR NAVIDAD",
+   "st": 0,
+   "pr": 4050.08
+  },
+  {
+   "code": "0494",
+   "nom": "CORTINA RED 200 MULTICULOR NAVIDAD",
+   "st": 0,
+   "pr": 6750.08
+  },
+  {
+   "code": "0503",
+   "nom": "LLAVERO ALARMA ANTI ROBO",
+   "st": -5,
+   "pr": 2699.03
+  },
+  {
+   "code": "0508",
+   "nom": "ADAPTADOR MICRO USB HEMBRA A USB TIPO C 3.1 MACHO",
+   "st": 0,
+   "pr": 472.08
+  },
+  {
+   "code": "0509",
+   "nom": "PUNTERO LASER VERDE RECARGABLE PROFESIONAL 1000MW 7-EN-1",
+   "st": 0,
+   "pr": 10400.1
+  },
+  {
+   "code": "0515",
+   "nom": "MECHA ESCALONADA X 3 PZS MILIMETROS",
+   "st": 0,
+   "pr": 11200.06
+  },
+  {
+   "code": "0516",
+   "nom": "PULVERIZADOR 20 LT FUMIGADOR BOMBA",
+   "st": 0,
+   "pr": 27147.04
+  },
+  {
+   "code": "0521",
+   "nom": "FRANELA CHICA 40X50 LA NACIONAL X12",
+   "st": 7,
+   "pr": 8038.03
+  },
+  {
+   "code": "0524",
+   "nom": "CAIREL ESFERA BOLA FACETADA CHIQUITA 30MM DE CRISTAL",
+   "st": 0,
+   "pr": 337.08
+  },
+  {
+   "code": "0526",
+   "nom": "BALANCIN W MINI TRAMP",
+   "st": 0,
+   "pr": 100
+  },
+  {
+   "code": "0529",
+   "nom": "CAIREL ESFERA BOLA FACETADA GRANDE 40 MM DE CRISTAL",
+   "st": 0,
+   "pr": 675.08
+  },
+  {
+   "code": "0530",
+   "nom": "CAIREL ESFERA BOLA FACETADA GRANDE 50 MM DE CRISTAL",
+   "st": 0,
+   "pr": 1160.09
+  },
+  {
+   "code": "0531",
+   "nom": "CAIREL ESFERA BOLA FACETADA GIGANTE 60 MM DE CRISTAL",
+   "st": 0,
+   "pr": 1305.09
+  },
+  {
+   "code": "0534",
+   "nom": "OXIMETRO SATUROMETRO ÖNDICE PERFUSION PI DIGITAL DEDO",
+   "st": 0,
+   "pr": 4050.08
+  },
+  {
+   "code": "0539",
+   "nom": "CINTA AGRIMENSOR 020 MT DISCO",
+   "st": -6,
+   "pr": 3200.06
+  },
+  {
+   "code": "0541",
+   "nom": "TIMBRE CAMPANITA P/ BICICLETA TODO METAL",
+   "st": 0,
+   "pr": 1680.06
+  },
+  {
+   "code": "0542",
+   "nom": "DESTORNILLADOR DE IMPACTO A GOLPE 6 PUNTAS ESTUCHE",
+   "st": 0,
+   "pr": 14176.1
+  },
+  {
+   "code": "0551",
+   "nom": "INFLADOR 12VOLTS 11.7X9.7X11.3CM - 29P309",
+   "st": 0,
+   "pr": 10976.1
+  },
+  {
+   "code": "0552",
+   "nom": "INFLADOR 19X16CM - 29P389",
+   "st": 0,
+   "pr": 5440.1
+  },
+  {
+   "code": "0556",
+   "nom": "VELOCIMETRO BICICLETA CUENTA KILOMETRO CICLOCOMPUTADORA",
+   "st": 0,
+   "pr": 3920.06
+  },
+  {
+   "code": "0563",
+   "nom": "CINTA AGRIMENSOR 030 MT DISCO",
+   "st": -1,
+   "pr": 3520.06
+  },
+  {
+   "code": "0564",
+   "nom": "RECEPTOR AUDIO BLUETOOTH AUX SPOTIFY MUSICA AUTO CON BATERIA",
+   "st": -29,
+   "pr": 1714.08
+  },
+  {
+   "code": "0572",
+   "nom": "BANDEJA PARA REPOSERA PLAYERA",
+   "st": 0,
+   "pr": 1100.11
+  },
+  {
+   "code": "0577",
+   "nom": "LLAVE COMBINADA 21MM",
+   "st": -17,
+   "pr": 2307.03
+  },
+  {
+   "code": "0578",
+   "nom": "LLAVE COMBINADA 22MM.",
+   "st": 0,
+   "pr": 4500.04
+  },
+  {
+   "code": "0586",
+   "nom": "ANTIPARRAS NATACION ALTO ESTILO C/TIRAS SUJECION ADULTO",
+   "st": 0,
+   "pr": 1450.09
+  },
+  {
+   "code": "0589",
+   "nom": "DESTORNILLADOR 6 X 150 MM PHILLIPS GRANDE",
+   "st": -1,
+   "pr": 1296.06
+  },
+  {
+   "code": "0590",
+   "nom": "DESTORNILLADOR 6 X 150 MM PLANO GRANDE",
+   "st": 60,
+   "pr": 1296.06
+  },
+  {
+   "code": "0593",
+   "nom": "PINZA MAZA 300 AMP",
+   "st": 30,
+   "pr": 1260.06
+  },
+  {
+   "code": "0594",
+   "nom": "PINZA ALICATE AISLADA 1000V  8",
+   "st": 0,
+   "pr": 3360.1
+  },
+  {
+   "code": "0601",
+   "nom": "BOYA HONGO PLASTICA PILETA P/CLORO",
+   "st": 500,
+   "pr": 1060.01
+  },
+  {
+   "code": "0602",
+   "nom": "BOYA SATELITAL MEDIANA PLASTICA",
+   "st": 0,
+   "pr": 2742.09
+  },
+  {
+   "code": "0604",
+   "nom": "BASE RINCONERA 1 PATA",
+   "st": 0,
+   "pr": 450.09
+  },
+  {
+   "code": "0605",
+   "nom": "BASE RINCONERA 2 PATAS",
+   "st": 0,
+   "pr": 1000.09
+  },
+  {
+   "code": "611",
+   "nom": "TABLA DE LAVAR ROPA EN MADERA PINO",
+   "st": -128,
+   "pr": 8507.05
+  },
+  {
+   "code": "0612",
+   "nom": "LLAVE COMBINADA 16MM",
+   "st": 0,
+   "pr": 1832.03
+  },
+  {
+   "code": "0619",
+   "nom": "HELADO MULTICOLOR 183X92CM - 37351",
+   "st": 0,
+   "pr": 8910.08
+  },
+  {
+   "code": "0621",
+   "nom": "PINCEL NRO. 20",
+   "st": -8,
+   "pr": 1150.03
+  },
+  {
+   "code": "0624",
+   "nom": "PERCHA CUADRADA AUTOADHESIVA X 5 PCS",
+   "st": 30,
+   "pr": 894.06
+  },
+  {
+   "code": "0627",
+   "nom": "LIMA MATRICERO M/ NARANAJA X 5PCS",
+   "st": 0,
+   "pr": 2392.03
+  },
+  {
+   "code": "0628",
+   "nom": "CABO MADERA 1.2MT C ROSCA",
+   "st": 0,
+   "pr": 651.03
+  },
+  {
+   "code": "0630",
+   "nom": "CABO EXTENSIBLE 3MT METAL ROJO",
+   "st": 0,
+   "pr": 6585.03
+  },
+  {
+   "code": "0652",
+   "nom": "CUBRE PILETA 5,20 X 2,20 MT",
+   "st": 0,
+   "pr": 8000
+  },
+  {
+   "code": "0653",
+   "nom": "CUBRE PILETA 6,20 X 2,20 MT",
+   "st": 0,
+   "pr": 8000.09
+  },
+  {
+   "code": "0654",
+   "nom": "CUBRE PILETA 6,30 X 3 MT",
+   "st": 0,
+   "pr": 8000.09
+  },
+  {
+   "code": "0661",
+   "nom": "PILETA ELEFANTE -- 51014",
+   "st": 0,
+   "pr": 21200.1
+  },
+  {
+   "code": "0663",
+   "nom": "PILE C/TECHO 143X143X123CM 51016",
+   "st": -3,
+   "pr": 39360.1
+  },
+  {
+   "code": "0665",
+   "nom": "ARO BASQUET 75X75X50CM - 33154",
+   "st": -16,
+   "pr": 8000.1
+  },
+  {
+   "code": "0667",
+   "nom": "SALVAVIDAS RUEDA 90CM 41087",
+   "st": 0,
+   "pr": 4048.1
+  },
+  {
+   "code": "0668",
+   "nom": "PILETA 3 ANILLOS 100X30CM 57167",
+   "st": 0,
+   "pr": 12160.1
+  },
+  {
+   "code": "0669",
+   "nom": "PILETA 3 ANILLOS 99X23CM 51031",
+   "st": 0,
+   "pr": 11680.1
+  },
+  {
+   "code": "0672",
+   "nom": "PILETA 3 AROS 10303-1",
+   "st": 0,
+   "pr": 9600.1
+  },
+  {
+   "code": "0675",
+   "nom": "COLCHONETA 173X63X18CM 27131",
+   "st": 0,
+   "pr": 16000.1
+  },
+  {
+   "code": "0680",
+   "nom": "ALGUICIDA PARA PILETA  X 1 LTR",
+   "st": 0,
+   "pr": 3215.09
+  },
+  {
+   "code": "0681",
+   "nom": "CLARIFICANTE PARA PILETAS CLOROSIL X 1 LTR",
+   "st": 0,
+   "pr": 3024.09
+  },
+  {
+   "code": "0682",
+   "nom": "SACA ARENA CHICO N§21",
+   "st": 0,
+   "pr": 3000.09
+  },
+  {
+   "code": "0683",
+   "nom": "MICROMETRO EXTERIOR 25 - 50MM PROFESIONAL",
+   "st": 0,
+   "pr": 16751.03
+  },
+  {
+   "code": "0684",
+   "nom": "MICROMETRO EXTERIOR 50 - 75MM PROFESIONAL",
+   "st": 0,
+   "pr": 20838.03
+  },
+  {
+   "code": "0685",
+   "nom": "MICROMETRO EXTERIOR 75 - 100MM PROFESIONAL",
+   "st": 0,
+   "pr": 26781.03
+  },
+  {
+   "code": "0687",
+   "nom": "LUZ LUCES NAVIDAD BLANCA CALIDA X100 NAVIDAD",
+   "st": 0,
+   "pr": 2505
+  },
+  {
+   "code": "0692",
+   "nom": "HIDROLAVADORA 1300W TT",
+   "st": 0,
+   "pr": 42300.09
+  },
+  {
+   "code": "0694",
+   "nom": "PARAGUAS  GOLF CELESTE Y BLANCO TAMAÑO GRANDE",
+   "st": -20,
+   "pr": 6240.1
+  },
+  {
+   "code": "0705",
+   "nom": "LINTERNA EXTENSIBLE CON IMAN",
+   "st": 0,
+   "pr": 5200.03
+  },
+  {
+   "code": "0707",
+   "nom": "BARRENITOS SET X 4 PZAS",
+   "st": 0,
+   "pr": 1840.07
+  },
+  {
+   "code": "0708",
+   "nom": "LIMPIA PILETA BARRE HOJA CELESTE",
+   "st": 2000,
+   "pr": 1687.09
+  },
+  {
+   "code": "0722",
+   "nom": "JUEGO SACABOCADOS GOLPE 9 PIEZAS DE 3 A 12 MM",
+   "st": -4,
+   "pr": 2940.06
+  },
+  {
+   "code": "0729",
+   "nom": "TAPON VERTEDOR LUMILAGRO VIOLETA",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "0731",
+   "nom": "LIMPIA VIDRIO 35CM PROFESIONAL ITALIMPIA",
+   "st": 6,
+   "pr": 5691.08
+  },
+  {
+   "code": "0737",
+   "nom": "CEPILLO LAVA COCHE PLASTICO",
+   "st": -4,
+   "pr": 1451.05
+  },
+  {
+   "code": "0740",
+   "nom": "CABO MADERA 2MT C ROSCA",
+   "st": 0,
+   "pr": 1190.03
+  },
+  {
+   "code": "0741",
+   "nom": "PALA PLASTICA DE MANO C GOMA",
+   "st": 0,
+   "pr": 669.03
+  },
+  {
+   "code": "0744",
+   "nom": "PULVERIZADOR BOMBA 16LT FUMIGADOR",
+   "st": 0,
+   "pr": 21500
+  },
+  {
+   "code": "0753",
+   "nom": "MANGUERA 10 M LUZ LED MULTICOLOR RGB Y 8 EFECTOS TIRA",
+   "st": 0,
+   "pr": 9600.1
+  },
+  {
+   "code": "0757",
+   "nom": "ALARGUE CANILLA 1/2 X 25MM",
+   "st": 0,
+   "pr": 1488.06
+  },
+  {
+   "code": "0758",
+   "nom": "ALARGUE CANILLA 1/2 X 20MM",
+   "st": 0,
+   "pr": 1280.06
+  },
+  {
+   "code": "0759",
+   "nom": "ALARGUE CANILLA 1/2 X 15MM",
+   "st": 0,
+   "pr": 992.06
+  },
+  {
+   "code": "0760",
+   "nom": "ALARGUE CANILLA 1/2 X 30MM",
+   "st": 0,
+   "pr": 1696.06
+  },
+  {
+   "code": "0762",
+   "nom": "CLORO PARA PILETA CLOROSIL X 1 KG",
+   "st": 0,
+   "pr": 6682.09
+  },
+  {
+   "code": "0764",
+   "nom": "ACOPLE MANGUERA 3/4 COD 050",
+   "st": 0,
+   "pr": 799.03
+  },
+  {
+   "code": "0765",
+   "nom": "ACOPLES RAPIDOS 1/2 COD 045",
+   "st": 0,
+   "pr": 761.03
+  },
+  {
+   "code": "0781",
+   "nom": "KIT AEROGRAFO NEUMATICO PROFESIONAL HOBISTA COMPLETO",
+   "st": 0,
+   "pr": 7600.1
+  },
+  {
+   "code": "0783",
+   "nom": "PEZ / NEMO 37614",
+   "st": 0,
+   "pr": 6560.1
+  },
+  {
+   "code": "0787",
+   "nom": "LLAVE COMBINADA 18MM",
+   "st": 0,
+   "pr": 3300.09
+  },
+  {
+   "code": "0797",
+   "nom": "CARGADOR TOMA 12V USB MOTO",
+   "st": 0,
+   "pr": 6400.1
+  },
+  {
+   "code": "0804",
+   "nom": "CONECTOR SNAP RG6",
+   "st": 0,
+   "pr": 300
+  },
+  {
+   "code": "0815",
+   "nom": "SALVAVIDAS 50CM 47224",
+   "st": -1,
+   "pr": 2000.1
+  },
+  {
+   "code": "0822",
+   "nom": "AURICULARES CIERRE",
+   "st": 0,
+   "pr": 1450.09
+  },
+  {
+   "code": "0830",
+   "nom": "BARRETA SACA CLAVOS 50 X 16MM",
+   "st": -50,
+   "pr": 3474.03
+  },
+  {
+   "code": "0832",
+   "nom": "CUCARACHICIDA VENENO CUCARACHAS SOBRE CHINO",
+   "st": 0,
+   "pr": 170.03
+  },
+  {
+   "code": "0833",
+   "nom": "MOTO AGUA 91X51CM  - 37615",
+   "st": 0,
+   "pr": 5400.08
+  },
+  {
+   "code": "0834",
+   "nom": "CARGADOR AUTO 12V CABLE RULO MICRO USB V8",
+   "st": 0,
+   "pr": 800.1
+  },
+  {
+   "code": "0840",
+   "nom": "CINTA AGRIMENSOR 030 MT MANIJA",
+   "st": 24,
+   "pr": 3180.06
+  },
+  {
+   "code": "0841",
+   "nom": "CINTA AGRIMENSOR 100 MT MANIJA",
+   "st": -39,
+   "pr": 3780.06
+  },
+  {
+   "code": "0842",
+   "nom": "SET LLAVES TUBOS CRICKET X 52 PZS VALIJA PLASTICA",
+   "st": 0,
+   "pr": 22400.06
+  },
+  {
+   "code": "0858",
+   "nom": "TRIUNFO FLUIDO DESINFECTANTE 1/2 LITRO",
+   "st": 0,
+   "pr": 2206.03
+  },
+  {
+   "code": "0859",
+   "nom": "TRIUNFO FLUIDO DESINFECTANTE 1 LITRO",
+   "st": 0,
+   "pr": 3994.03
+  },
+  {
+   "code": "0861",
+   "nom": "ESLABON C TUERCA 07 X 65MM",
+   "st": -474,
+   "pr": 672.06
+  },
+  {
+   "code": "0864",
+   "nom": "TENSIOMETRO MAS ESTETOSCOPIO",
+   "st": 0,
+   "pr": 11153.03
+  },
+  {
+   "code": "0865",
+   "nom": "ACEITE MULTIUSO NECHI 250CC",
+   "st": -1,
+   "pr": 2375.06
+  },
+  {
+   "code": "0866",
+   "nom": "PILA BOTON AG01 LR621 1,5VT 364 164 X 10PCS",
+   "st": 0,
+   "pr": 916
+  },
+  {
+   "code": "0873",
+   "nom": "MECHA PORCELANATO PATROLL 12MM",
+   "st": -2,
+   "pr": 1562.06
+  },
+  {
+   "code": "0874",
+   "nom": "PALA ENLOZADA MEDIA LUNA",
+   "st": -17,
+   "pr": 6236.03
+  },
+  {
+   "code": "0877",
+   "nom": "CANDADO BRONCEADO 63MM ARO LARGO",
+   "st": 0,
+   "pr": 2460
+  },
+  {
+   "code": "0878",
+   "nom": "BICHO RED PISO 08 X 08 CM",
+   "st": 0,
+   "pr": 1504.06
+  },
+  {
+   "code": "0881",
+   "nom": "MANGUERA 5 M LUZ LED MULTICOLOR RGB Y 8 EFECTOS TIRA",
+   "st": 0,
+   "pr": 7200.1
+  },
+  {
+   "code": "0883",
+   "nom": "CABO EXTENSIBLE 1.5MT METAL ROJO",
+   "st": 0,
+   "pr": 2778.03
+  },
+  {
+   "code": "0889",
+   "nom": "LIMPIA BOTELLA",
+   "st": 69,
+   "pr": 1529.05
+  },
+  {
+   "code": "0890",
+   "nom": "LLAVE COMBINADA CON CRIKET 09MM",
+   "st": 0,
+   "pr": 1368
+  },
+  {
+   "code": "0891",
+   "nom": "LLAVE COMBINADA CON CRIKET 14MM",
+   "st": 0,
+   "pr": 1368
+  },
+  {
+   "code": "0892",
+   "nom": "LLAVE COMBINADA CON CRIKET 15MM",
+   "st": 0,
+   "pr": 1368
+  },
+  {
+   "code": "0896",
+   "nom": "GUARDACABOS 3/8 9MM GALVANIZADOS",
+   "st": 0,
+   "pr": 149.11
+  },
+  {
+   "code": "0908",
+   "nom": "CAÑO DUCHA 35CM 90§",
+   "st": 0,
+   "pr": 1440.06
+  },
+  {
+   "code": "0910",
+   "nom": "CEPILLOS PARA TALADRO X3 PZS BRONCEADOS",
+   "st": -10,
+   "pr": 1644.06
+  },
+  {
+   "code": "0912",
+   "nom": "CAÑO DUCHA 45CM 90º",
+   "st": 0,
+   "pr": 1944.06
+  },
+  {
+   "code": "0915",
+   "nom": "GUANTE LATEX X 100",
+   "st": 0,
+   "pr": 5000.07
+  },
+  {
+   "code": "0916",
+   "nom": "GUANTE NITRILO NEGRO X 100",
+   "st": -1,
+   "pr": 6460.07
+  },
+  {
+   "code": "0917",
+   "nom": "GUANTE NITRILO AZUL X 100",
+   "st": 0,
+   "pr": 6740.07
+  },
+  {
+   "code": "0918",
+   "nom": "GUANTE NITRILO LILA X 100",
+   "st": 0,
+   "pr": 7739.07
+  },
+  {
+   "code": "0919",
+   "nom": "GUARDACABOS 1/4 6MM GALVANIZADOS",
+   "st": 0,
+   "pr": 124.11
+  },
+  {
+   "code": "0922",
+   "nom": "PISA PAPAS FUNDICION",
+   "st": 6,
+   "pr": 1955.03
+  },
+  {
+   "code": "0924",
+   "nom": "MASCARA BUCEO 290526",
+   "st": 0,
+   "pr": 5184.1
+  },
+  {
+   "code": "0925",
+   "nom": "MASC Y SNORKEL 290546",
+   "st": 0,
+   "pr": 10320.1
+  },
+  {
+   "code": "0927",
+   "nom": "PELOTA 67205 100CM",
+   "st": 0,
+   "pr": 3888.1
+  },
+  {
+   "code": "0931",
+   "nom": "PISTOLA CALOR THUNDER",
+   "st": 0,
+   "pr": 16560.1
+  },
+  {
+   "code": "0932",
+   "nom": "BOMBA SUMERGIBLE 550W TUNDER",
+   "st": 0,
+   "pr": 43740.08
+  },
+  {
+   "code": "0933",
+   "nom": "BOMBA PERIFÉRICA 1/2 TUNDER",
+   "st": 0,
+   "pr": 27200.1
+  },
+  {
+   "code": "0934",
+   "nom": "VENTILADOR 3 EN 1 METAL",
+   "st": 0,
+   "pr": 28800.1
+  },
+  {
+   "code": "0936",
+   "nom": "ROTOMARTILLO THUNDER 1200W 26MM 6J",
+   "st": -1,
+   "pr": 68510.03
+  },
+  {
+   "code": "0938",
+   "nom": "SIERRA CIRCULAR THUNDER 1400 W TL00767",
+   "st": 0,
+   "pr": 42240.03
+  },
+  {
+   "code": "0939",
+   "nom": "AMOLADORA ANGULAR GRANDE 9 PULGADAS 230MM THUNDER TL00465",
+   "st": 0,
+   "pr": 81280.1
+  },
+  {
+   "code": "0940",
+   "nom": "AMOLADORA ANGULAR 180 MM 7 PULGADAS THUNDER PLUS TL00460",
+   "st": 0,
+   "pr": 52625.03
+  },
+  {
+   "code": "0941",
+   "nom": "LUSTRAPULIDORA LUSTRA LIJADORA PULIDORA 1650W 180MM",
+   "st": 0,
+   "pr": 52100.03
+  },
+  {
+   "code": "0942",
+   "nom": "MINI SIERRA 4 PULGADA BATERIA 12V + 2 BATERIAS THUNDER 6905",
+   "st": -1,
+   "pr": 45424.1
+  },
+  {
+   "code": "0945",
+   "nom": "BOMBA ELEVADORA PRESURIZA 1/8 HP TUNDER",
+   "st": -10,
+   "pr": 27401.03
+  },
+  {
+   "code": "0946",
+   "nom": "ASPIRADORA SECO HUMEDO 12 LTS THUNDER",
+   "st": 0,
+   "pr": 40150.03
+  },
+  {
+   "code": "0948",
+   "nom": "ROLLO ALAMBRE MIG 0,8X 1KG",
+   "st": 0,
+   "pr": 6490.03
+  },
+  {
+   "code": "0949",
+   "nom": "ROLLO ALAMBRE MIG 0,9X 1KG",
+   "st": 0,
+   "pr": 6325.03
+  },
+  {
+   "code": "0950",
+   "nom": "PLUMERO LANA",
+   "st": 8,
+   "pr": 4423.05
+  },
+  {
+   "code": "0953",
+   "nom": "ADAPTADOR METAL OTG MICRO USB A IPHONE CELULAR",
+   "st": 0,
+   "pr": 742.08
+  },
+  {
+   "code": "0958",
+   "nom": "ENCENDEDOR CHISPERO MAGIC CLICK PARTY",
+   "st": 5,
+   "pr": 1563.03
+  },
+  {
+   "code": "0960",
+   "nom": "ETIQUETEADORA DE PRECIOS AUTOADHESIVA 8 DIGITOS",
+   "st": 0,
+   "pr": 5340.06
+  },
+  {
+   "code": "0970",
+   "nom": "AGRIMENSOR 50MT DISCO",
+   "st": 0,
+   "pr": 5280.06
+  },
+  {
+   "code": "0971",
+   "nom": "JUEGO ALARGUE X3 1/2",
+   "st": 0,
+   "pr": 9920.06
+  },
+  {
+   "code": "0973",
+   "nom": "JUEGO DE LLAVES TUBO X 24 ENCASTRE DE 1/2 DE 10 A 32 MM",
+   "st": 0,
+   "pr": 17120.1
+  },
+  {
+   "code": "0982",
+   "nom": "LAMPARA VELADOR FLEXIBLE BROCHE",
+   "st": 0,
+   "pr": 5760.06
+  },
+  {
+   "code": "0989",
+   "nom": "LLAVE ALLEN EXTRAPOL 5MM",
+   "st": 0,
+   "pr": 1067.03
+  },
+  {
+   "code": "0993",
+   "nom": "CARGADOR DE PILA BATERIA TALADRO 18V TL0122CAR THUNDER",
+   "st": 0,
+   "pr": 3037.08
+  },
+  {
+   "code": "0999",
+   "nom": "MASILLA PARSECS 250GR",
+   "st": 0,
+   "pr": 5939.07
+  },
+  {
+   "code": "1000",
+   "nom": "MASILLA PARSECS 70GR",
+   "st": 0,
+   "pr": 2563.07
+  },
+  {
+   "code": "1014",
+   "nom": "PARAGUAS NEGRO LARGO",
+   "st": 0,
+   "pr": 3375.08
+  },
+  {
+   "code": "1017",
+   "nom": "PILA A23 X5PCS",
+   "st": -8,
+   "pr": 2400.03
+  },
+  {
+   "code": "1022",
+   "nom": "PINZA UNIVERSAL 8",
+   "st": 0,
+   "pr": 2280.06
+  },
+  {
+   "code": "1024",
+   "nom": "PORTA ESPIRAL X3",
+   "st": 0,
+   "pr": 1121.03
+  },
+  {
+   "code": "1029",
+   "nom": "CORTINA RED 120 LUZ CALIDA NAVIDAD",
+   "st": 0,
+   "pr": 4050.08
+  },
+  {
+   "code": "1030",
+   "nom": "CORTINA RED 200 LUZ CALIDA NAVIDAD",
+   "st": 0,
+   "pr": 6750.08
+  },
+  {
+   "code": "1033",
+   "nom": "SELLADOR ACRILICO PINTABLE BLANCO 426 GR",
+   "st": 0,
+   "pr": 5021.07
+  },
+  {
+   "code": "1035",
+   "nom": "FORMON 4 PIEZAS MANGO MADERA",
+   "st": 0,
+   "pr": 3960.06
+  },
+  {
+   "code": "1043",
+   "nom": "TESTER MULTIMETRO DIGITAL",
+   "st": 0,
+   "pr": 4000.06
+  },
+  {
+   "code": "1044",
+   "nom": "TESTER LAPIZ DE PRUEBA 3 EN 1",
+   "st": 0,
+   "pr": 2504.11
+  },
+  {
+   "code": "1045",
+   "nom": "TIJERA MULTIUSO",
+   "st": 165,
+   "pr": 5456.06
+  },
+  {
+   "code": "1047",
+   "nom": "BOMBA ELEVADORA PRESURIZA 1/2 HP TUNDER",
+   "st": 0,
+   "pr": 49815.08
+  },
+  {
+   "code": "1048",
+   "nom": "TRAZADOR DE LINEA CHOCLA SOLO",
+   "st": 0,
+   "pr": 1102.06
+  },
+  {
+   "code": "1054",
+   "nom": "CONECTOR C ROSCA RG59",
+   "st": 0,
+   "pr": 60
+  },
+  {
+   "code": "1055",
+   "nom": "DERIVADOR DIVISOR TV X2",
+   "st": 0,
+   "pr": 1100
+  },
+  {
+   "code": "1056",
+   "nom": "CONECTOR C ROSCA RG59",
+   "st": 0,
+   "pr": 60
+  },
+  {
+   "code": "1058",
+   "nom": "TRIPLE ADAPTADOR TOMA ENCENDEDOR + CARGADOR AUTO USB 12V",
+   "st": 0,
+   "pr": 1500
+  },
+  {
+   "code": "1059",
+   "nom": "CONECTOR SNAP RG59",
+   "st": 0,
+   "pr": 300
+  },
+  {
+   "code": "1062",
+   "nom": "AGUJA CANASTA",
+   "st": 69,
+   "pr": 180.06
+  },
+  {
+   "code": "1064",
+   "nom": "BARBIJO PLASTICA C FILTRO",
+   "st": 0,
+   "pr": 500.11
+  },
+  {
+   "code": "1072",
+   "nom": "TRABA DISCO MOTO LARGA",
+   "st": -1,
+   "pr": 5220.06
+  },
+  {
+   "code": "1074",
+   "nom": "DESTAPACANERIA LIQUIDO",
+   "st": -1,
+   "pr": 2646.07
+  },
+  {
+   "code": "1075",
+   "nom": "DISCO DIAMANTADO LISO 115MM",
+   "st": 0,
+   "pr": 1920.06
+  },
+  {
+   "code": "1076",
+   "nom": "PULVERIZADOR 5 LT FUMIGADOR BOMBA TUNDER",
+   "st": 0,
+   "pr": 12150.08
+  },
+  {
+   "code": "1077",
+   "nom": "DISCO DIAMANTADO SEGMENTADO 115MM",
+   "st": 0,
+   "pr": 2160.06
+  },
+  {
+   "code": "1083",
+   "nom": "GAS PIMIENTA 60ML GRANDE EN AEROSOL",
+   "st": -42,
+   "pr": 3080.06
+  },
+  {
+   "code": "1086",
+   "nom": "CAPOTA BEBE",
+   "st": -1,
+   "pr": 5714.07
+  },
+  {
+   "code": "1087",
+   "nom": "CARGADOR SAMSUNG SIMIL",
+   "st": -6,
+   "pr": 1470.09
+  },
+  {
+   "code": "1089",
+   "nom": "GUARDACABOS 1/2 12MM GALVANIZADOS",
+   "st": 0,
+   "pr": 339.11
+  },
+  {
+   "code": "1096",
+   "nom": "LAPIZ CARPINTERO 18 CM SOLA",
+   "st": 0,
+   "pr": 350
+  },
+  {
+   "code": "1098",
+   "nom": "LINGA PARA MOTO PITON",
+   "st": 0,
+   "pr": 8280.06
+  },
+  {
+   "code": "1104",
+   "nom": "BOTE C/TECHO 66X66CM - 37243",
+   "st": 0,
+   "pr": 8000.1
+  },
+  {
+   "code": "1107",
+   "nom": "PILETA LONA BALCON BEBE 80X80 NACIONAL",
+   "st": 0,
+   "pr": 52000.09
+  },
+  {
+   "code": "1111",
+   "nom": "BARRA SILICONA C BRILLO SUPRABOND",
+   "st": 0,
+   "pr": 2243.06
+  },
+  {
+   "code": "1118",
+   "nom": "TABLA LAVAR PLASTICA",
+   "st": 0,
+   "pr": 8503
+  },
+  {
+   "code": "1122",
+   "nom": "ROTOMARTILLO THUNDERPLUS 4J 850W MALETIN MANDRIL MECHAS SDS",
+   "st": 0,
+   "pr": 53280.1
+  },
+  {
+   "code": "1123",
+   "nom": "SECADOR ROJO 30CM",
+   "st": -1,
+   "pr": 1534.03
+  },
+  {
+   "code": "1131",
+   "nom": "DISCO ABRASIVO CORTE 115MM X 1,2 ESPESOR THUNDER",
+   "st": 0,
+   "pr": 218.03
+  },
+  {
+   "code": "1132",
+   "nom": "DISCO ABRASIVO CORTE 180MM X 1,8 ESPESOR THUNDER",
+   "st": 0,
+   "pr": 515.03
+  },
+  {
+   "code": "1133",
+   "nom": "DISCO ABRASIVO CORTE 350MM / 14 PLG X 3MM ESPESOR",
+   "st": 0,
+   "pr": 1800.03
+  },
+  {
+   "code": "1135",
+   "nom": "CADENA MINI MOTOSIERRA REPUESTO 4 PULGADAS",
+   "st": -3,
+   "pr": 1628.03
+  },
+  {
+   "code": "1136",
+   "nom": "MOTOSIERRA NAFTERA 52CC ESPADA 20 PLG SISTEMA ANTIVIBRATORIO",
+   "st": 0,
+   "pr": 60000.03
+  },
+  {
+   "code": "1138",
+   "nom": "NIVEL LÁSER AUTONIVELANTE LUZ VERDE 30 MTS BLOQUEO + SOPORTE",
+   "st": 0,
+   "pr": 27850.03
+  },
+  {
+   "code": "1139",
+   "nom": "CINTA DOBLE FAZ SILICONA TRANSPARENTE NANO 20MM",
+   "st": -230,
+   "pr": 502.03
+  },
+  {
+   "code": "1141",
+   "nom": "SOPORTE MAGNETICO IMANTADO - NIVEL LASER ROSCA 1/4 UNIVERSAL",
+   "st": 0,
+   "pr": 7200
+  },
+  {
+   "code": "1144",
+   "nom": "AMOLADORA BANCO THUNDER PLUS TL02315 220V 550W 200MM",
+   "st": 0,
+   "pr": 34320.03
+  },
+  {
+   "code": "1145",
+   "nom": "SOLDADORA TIG 250A MMA ALTA FRECUENCIA TR04925C THUNDER PRO",
+   "st": 0,
+   "pr": 209090.03
+  },
+  {
+   "code": "1146",
+   "nom": "ARRANQUE 15X20",
+   "st": 0,
+   "pr": 18000
+  },
+  {
+   "code": "1147",
+   "nom": "ARRANQUE 25X35",
+   "st": 0,
+   "pr": 38000
+  },
+  {
+   "code": "1149",
+   "nom": "PARAGUAS INFANTIL C SILBATO",
+   "st": 0,
+   "pr": 2266.11
+  },
+  {
+   "code": "1151",
+   "nom": "SOLDADORA THUNDER TL04857C INVERTER 100A",
+   "st": 0,
+   "pr": 48500.04
+  },
+  {
+   "code": "1152",
+   "nom": "OLDADORA INVERTER 200AMP THUNDER TL04860C",
+   "st": 0,
+   "pr": 83300.04
+  },
+  {
+   "code": "1153",
+   "nom": "DISCO DE CORTE MULTIUSOS / MULTIPROPOSITO MADERA",
+   "st": 0,
+   "pr": 2853.04
+  },
+  {
+   "code": "1155",
+   "nom": "AMOLADORA DE BANCO THUNDER 150MM 6'' 1/2HP",
+   "st": 0,
+   "pr": 26445.04
+  },
+  {
+   "code": "1156",
+   "nom": "SOLDADORA INVERTER MIG 130 AMP PARA ALAMBRE FLUX HASTA 1 KG",
+   "st": 0,
+   "pr": 125088.04
+  },
+  {
+   "code": "1158",
+   "nom": "CONECTOR ACOPLE RAPIDO UNIVERSAL 1/4",
+   "st": 0,
+   "pr": 1904.1
+  },
+  {
+   "code": "1159",
+   "nom": "ACOPLE AIRE COMPRESOR CONEXION TIPO ITALIANO HEMBRA 1/4",
+   "st": 0,
+   "pr": 300
+  },
+  {
+   "code": "1160",
+   "nom": "JUEGO MECHAS CINCEL PUNTA PLANA PALA ANCHA SDS PLUS 250MM",
+   "st": -50,
+   "pr": 7344.1
+  },
+  {
+   "code": "1163",
+   "nom": "BATERIA 12V ATORNILLADOR ION LITIO 1.3 AH THUNDER",
+   "st": 0,
+   "pr": 10080.1
+  },
+  {
+   "code": "1175",
+   "nom": "CADENA PARA MOTOSIERRA 16 PULGADAS DORADA",
+   "st": 0,
+   "pr": 4000.1
+  },
+  {
+   "code": "1176",
+   "nom": "ESPADA MOTOSIERRA 12 PULGADAS",
+   "st": 0,
+   "pr": 3545.06
+  },
+  {
+   "code": "1180",
+   "nom": "TORCHA TIG SOLDADORA COMPATIBLE CON THUNDER",
+   "st": 0,
+   "pr": 37400
+  },
+  {
+   "code": "1185",
+   "nom": "DISCO TURBO FINO PATROLL PTF 4.5 115MM",
+   "st": 0,
+   "pr": 6652.06
+  },
+  {
+   "code": "1202",
+   "nom": "HEBILLA DE ATRAQUE METAL PARA CORREA DE 25 MM",
+   "st": 0,
+   "pr": 960.1
+  },
+  {
+   "code": "1204",
+   "nom": "REPUESTO BISAGRAS HERRAJES METAL ASIENTO TAPA INODORO",
+   "st": 0,
+   "pr": 5760.06
+  },
+  {
+   "code": "1205",
+   "nom": "CONVERSION CARBURADOR DE NAFTA A GAS PARA GRUPO ELECTROGENO CHICO",
+   "st": 0,
+   "pr": 19320.06
+  },
+  {
+   "code": "1206",
+   "nom": "CORTADORA DE CESPED HELICOIDAL MANUAL",
+   "st": 0,
+   "pr": 88000.1
+  },
+  {
+   "code": "1207",
+   "nom": "CONVERSION CARBURADOR DE NAFTA A GAS PARA GRUPO ELECTROGENO GRANDE",
+   "st": 0,
+   "pr": 27960.06
+  },
+  {
+   "code": "1208",
+   "nom": "CARGADOR DE PILA BATERIA TALADRO 12V THUNDER",
+   "st": -3,
+   "pr": 3312.1
+  },
+  {
+   "code": "1217",
+   "nom": "CADENA 20 PULGADAS 50CM .325 X 1.5MM 76 ESLABONES",
+   "st": -2,
+   "pr": 7840.1
+  },
+  {
+   "code": "1219",
+   "nom": "HUMECTADOR STICKERS P/ BROCA DIAMANTADA",
+   "st": -1,
+   "pr": 4620
+  },
+  {
+   "code": "1224",
+   "nom": "SOPLETE ENCENDEDOR MAGICLICK TORCH",
+   "st": -28,
+   "pr": 4535
+  },
+  {
+   "code": "1226",
+   "nom": "MOSQUETON CARABINERO ESCALADA A ROSCA",
+   "st": 0,
+   "pr": 1829.03
+  },
+  {
+   "code": "1232",
+   "nom": "TUERCA DESMALEZADORA AUTOFRENTANTE ROSCA IZQUIERDA",
+   "st": 0,
+   "pr": 240.1
+  },
+  {
+   "code": "1238",
+   "nom": "JUEGO RETENES ACEITE PARA DESMALEZADORA",
+   "st": -82,
+   "pr": 496.1
+  },
+  {
+   "code": "1239",
+   "nom": "CADENA 18 PULGADAS 45CM .325 X 1.5MM 72 ESLABONES",
+   "st": 0,
+   "pr": 7360.1
+  },
+  {
+   "code": "1240",
+   "nom": "CADENA 16 PULGADAS 40CM 3/8 X 1.5MM 59 ESLABONES",
+   "st": 0,
+   "pr": 6880.1
+  },
+  {
+   "code": "1242",
+   "nom": "ROTOMARTILLO THUNDERPLUS 10J 1500W MALETIN MANDRIL MECHAS SDS",
+   "st": 0,
+   "pr": 69408.1
+  },
+  {
+   "code": "1244",
+   "nom": "AMOLADORA 115MM 650W A 220V HORSE POWER",
+   "st": 0,
+   "pr": 23328.1
+  },
+  {
+   "code": "1251",
+   "nom": "MONOPATÍN ELÉCTRICO SCOOTER HORSEPOWER PLEGABLE",
+   "st": 0,
+   "pr": 392000.1
+  },
+  {
+   "code": "1255",
+   "nom": "ACCESORIO CORTACERCO P/ DESMALEZADORA",
+   "st": 0,
+   "pr": 37440.1
+  },
+  {
+   "code": "1257",
+   "nom": "CORTACERCO A EXPLOSION NAFTA 22,5CC HORSE POWER",
+   "st": 0,
+   "pr": 138240.1
+  },
+  {
+   "code": "1259",
+   "nom": "EJE FLEXIBLE TRIPA PARA MINI TORNO ALARGUE MINITORNO",
+   "st": 0,
+   "pr": 9360.1
+  },
+  {
+   "code": "1262",
+   "nom": "PUNTA ATONILLADOR SUJETADOR MANDRIL 1/4 150MM ALARGUE",
+   "st": -4,
+   "pr": 3441.03
+  },
+  {
+   "code": "1265",
+   "nom": "PAD DE PULIDO COLOR AZUL 125MM",
+   "st": 0,
+   "pr": 4800.11
+  },
+  {
+   "code": "1273",
+   "nom": "EJE FLEXIBLE TRIPA PARA MINI TORNO ALARGUE MINITORNO",
+   "st": 0,
+   "pr": 7632.11
+  },
+  {
+   "code": "1275",
+   "nom": "GATO HIDRÁULICO CRIQUE CRICKET CARRITO 2 TONELADAS",
+   "st": 0,
+   "pr": 46500.11
+  },
+  {
+   "code": "1280",
+   "nom": "MOTOR PARA BOTE FUERA DE BORDA 2T REFRIGERADO X AIRE 52CC",
+   "st": 0,
+   "pr": 157500.03
+  },
+  {
+   "code": "1284",
+   "nom": "ADAPTADOR ENCHUFE DOBLE TOMA PROLONGADOR",
+   "st": 0,
+   "pr": 500
+  },
+  {
+   "code": "1300",
+   "nom": "CABO METAL PLASTICO",
+   "st": 566,
+   "pr": 815.03
+  },
+  {
+   "code": "1301",
+   "nom": "REJILLA BALLERINA COLORES VARIOS",
+   "st": 210,
+   "pr": 336.03
+  },
+  {
+   "code": "1304",
+   "nom": "BOMBILLA HEXAGONAL BRONCEADA",
+   "st": 0,
+   "pr": 1827.03
+  },
+  {
+   "code": "1305",
+   "nom": "ESENCIA FRZN FRUIT",
+   "st": 0,
+   "pr": 1722
+  },
+  {
+   "code": "1316",
+   "nom": "CALENTADOR DE AGUA 12VOLTS IDEAL AUTO VIAJE",
+   "st": 0,
+   "pr": 1657.09
+  },
+  {
+   "code": "1318",
+   "nom": "COLCHONETA 145X78X40CM - 33055",
+   "st": 0,
+   "pr": 16800.1
+  },
+  {
+   "code": "1321",
+   "nom": "ASIENTO C/TECHO 37275 103X96X80CM",
+   "st": 0,
+   "pr": 22837.09
+  },
+  {
+   "code": "1331",
+   "nom": "PALANGANA GRANDE 9LT",
+   "st": 0,
+   "pr": 5760.1
+  },
+  {
+   "code": "1334",
+   "nom": "BALDE 09LT CHICO",
+   "st": 0,
+   "pr": 1160.03
+  },
+  {
+   "code": "1338",
+   "nom": "DISCO PATROLL CONTINUO 4,5 NARANJA",
+   "st": 0,
+   "pr": 2721.06
+  },
+  {
+   "code": "1339",
+   "nom": "PISTOLA LANZA AGUA FLOTA FLOTA",
+   "st": 0,
+   "pr": 3990.09
+  },
+  {
+   "code": "1340",
+   "nom": "CINTA METRICA 10 MTS MILIMETROS + 3 FRENOS",
+   "st": -12,
+   "pr": 4000.06
+  },
+  {
+   "code": "1341",
+   "nom": "SILICONA BLANCA SUPRABOND CARTUCHO 280ML",
+   "st": -1,
+   "pr": 7009.06
+  },
+  {
+   "code": "1342",
+   "nom": "LLAVE COMBINADA 09MM.",
+   "st": 0,
+   "pr": 362
+  },
+  {
+   "code": "1346",
+   "nom": "GUANTE COCINA NARANJA",
+   "st": 0,
+   "pr": 845.03
+  },
+  {
+   "code": "1348",
+   "nom": "FRESA AVELLANADORA MECHA BISELADOR PARA MADERA 3 X 16",
+   "st": 0,
+   "pr": 2000.11
+  },
+  {
+   "code": "1349",
+   "nom": "TAPON PARA TERMO MATE 1 L / 1,2 L MODELOS",
+   "st": 0,
+   "pr": 1800.06
+  },
+  {
+   "code": "1350",
+   "nom": "RESISTENCIA PARA DUCHADOR",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1351",
+   "nom": "LUZ TRASERA BICI",
+   "st": 0,
+   "pr": 774
+  },
+  {
+   "code": "1355",
+   "nom": "UNION COAXIL H - H FINO",
+   "st": 0,
+   "pr": 100
+  },
+  {
+   "code": "1358",
+   "nom": "CANCAMO M12 MACHO",
+   "st": 0,
+   "pr": 1248.02
+  },
+  {
+   "code": "1360",
+   "nom": "CINTA DOBLE FAZ SILICONA TRANSPARENTE NANO 30MM",
+   "st": 0,
+   "pr": 1063.03
+  },
+  {
+   "code": "1365",
+   "nom": "BROCA CONICA DIAMANTADA 9-50",
+   "st": 0,
+   "pr": 11680.06
+  },
+  {
+   "code": "1366",
+   "nom": "BROCA CONICA DIAMANTADA 9-38",
+   "st": 0,
+   "pr": 8800.06
+  },
+  {
+   "code": "1367",
+   "nom": "4X RUEDA RULEMANES",
+   "st": 0,
+   "pr": 1856.06
+  },
+  {
+   "code": "1378",
+   "nom": "FIJACION UNIVERSAL CON TORNILLO",
+   "st": 0,
+   "pr": 648.06
+  },
+  {
+   "code": "1393",
+   "nom": "CALENTADOR DE AGUA EXTRA LARGO TERMO",
+   "st": -40,
+   "pr": 3022.03
+  },
+  {
+   "code": "1394",
+   "nom": "TENAZA MEDIO CORTE 10",
+   "st": 0,
+   "pr": 3456.06
+  },
+  {
+   "code": "1397",
+   "nom": "CINTA REPARACION DE MOSQUIETERO",
+   "st": 40,
+   "pr": 1944.06
+  },
+  {
+   "code": "1406",
+   "nom": "VINILO REFLECTIVO",
+   "st": 0,
+   "pr": 8500.04
+  },
+  {
+   "code": "1412",
+   "nom": "MECHA ESCALONADA PARA TERMOFUSION 24-31MM",
+   "st": -5,
+   "pr": 2028.06
+  },
+  {
+   "code": "1419",
+   "nom": "CANILLA LAVARROPAS CROMADO 2 SALIDAS 3/4",
+   "st": -16,
+   "pr": 3700
+  },
+  {
+   "code": "1424",
+   "nom": "ADAPTADOR PUNTAS DESTORNILLADORAS 90°",
+   "st": 10,
+   "pr": 9605.06
+  },
+  {
+   "code": "1426",
+   "nom": "MEZCLADOR DE PINTURA 600 X10MM SDS",
+   "st": 0,
+   "pr": 3615.03
+  },
+  {
+   "code": "1434",
+   "nom": "SET TERMOSTATO X 2PZAS 2000W",
+   "st": -3,
+   "pr": 10000
+  },
+  {
+   "code": "1438",
+   "nom": "REPUESTO TERMOSTATO TERMOTANQUE SIMPLE",
+   "st": 0,
+   "pr": 3780.06
+  },
+  {
+   "code": "1444",
+   "nom": "SALVAVIDAS 76CM 35019",
+   "st": -23,
+   "pr": 2600
+  },
+  {
+   "code": "1448",
+   "nom": "CARBURADOR PARA GRUPO ELECTROGENO CHICO (2.0 KVA A 4.0 KVA)",
+   "st": -9,
+   "pr": 4860.06
+  },
+  {
+   "code": "1450",
+   "nom": "JUEGO DESTORNILLADORES AISLADOS 1000V DE 9 PIEZAS",
+   "st": 0,
+   "pr": 8000
+  },
+  {
+   "code": "1452",
+   "nom": "MECHA PORCELANATO PATROLL 10MM",
+   "st": 0,
+   "pr": 1291.06
+  },
+  {
+   "code": "1455",
+   "nom": "ÑOQUERA FABRICA",
+   "st": 0,
+   "pr": 40860.07
+  },
+  {
+   "code": "1458",
+   "nom": "DESTORNILLADOR 5 X 125 MM PHILLIPS GRANDE",
+   "st": 0,
+   "pr": 972.06
+  },
+  {
+   "code": "1459",
+   "nom": "DESTORNILLADOR 4 X 150 MM PHILLIPS MEDIANO",
+   "st": 0,
+   "pr": 816.06
+  },
+  {
+   "code": "1463",
+   "nom": "PINZA NIVELADORA CERAMICA",
+   "st": 60,
+   "pr": 3896.03
+  },
+  {
+   "code": "1465",
+   "nom": "FUMIXAN PASTILLA",
+   "st": -222,
+   "pr": 4529.03
+  },
+  {
+   "code": "1466",
+   "nom": "ADAPTADOR METAL OTG USB A V8 MICRO USB CELULAR",
+   "st": 0,
+   "pr": 378.08
+  },
+  {
+   "code": "1477",
+   "nom": "PISA PAPAS ACERO LOEK - 315",
+   "st": -39,
+   "pr": 0
+  },
+  {
+   "code": "1478",
+   "nom": "FUMIXAN FOG 120CC",
+   "st": 0,
+   "pr": 4267.06
+  },
+  {
+   "code": "1486",
+   "nom": "CHANGO 4 RUEDAS CANADIENSE CAÑO NACIONAL",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1490",
+   "nom": "RESORTE MINI TRAMP",
+   "st": 0,
+   "pr": 162
+  },
+  {
+   "code": "1511",
+   "nom": "DISCO PARA PULIR ACERO FIELTRO",
+   "st": -302,
+   "pr": 0
+  },
+  {
+   "code": "1521",
+   "nom": "DISCO MUELA",
+   "st": 30,
+   "pr": 12603.36
+  },
+  {
+   "code": "1536",
+   "nom": "ESPADA MOTOSIERRA 18 PULGADAS",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1537",
+   "nom": "BASTIDOR MULTIUSO 2 MODULOS",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1538",
+   "nom": "TECLA INTERRUPTOR NEGRO PLATINUM",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1539",
+   "nom": "PALA JARDINERIA METAL",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1540",
+   "nom": "TAPA MIGNON NEGRA JELUZ PLATINUM",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1541",
+   "nom": "TAPA BLANCA 5X10 JELUZ VERONA NBO",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1542",
+   "nom": "DISYUNTOR DIFERENCIAL 2P-40A JELUZ",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1543",
+   "nom": "TERMICA TERMOMAGNETICA 2P-16A",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1544",
+   "nom": "TAPA NEGRA 5X10 JELUZ PLATIMIUN",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1545",
+   "nom": "BASTIDOR SUPERFICIE JELUZ 1 MODULO",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1546",
+   "nom": "MODULO MEDIO PUNTO 1 TECLA PLATIMIUN",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1547",
+   "nom": "RULEMAN 608ZZ",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1548",
+   "nom": "ESTANTERIA 3 NIVELES",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1549",
+   "nom": "ESTANTERIA 4 NIVELES",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1552",
+   "nom": "PRECINTO 200X3.6MM X 100PCS",
+   "st": 0,
+   "pr": 1937.03
+  },
+  {
+   "code": "1554",
+   "nom": "PRECINTO 250X3.6MM X 100PCS",
+   "st": -10,
+   "pr": 2402.03
+  },
+  {
+   "code": "1555",
+   "nom": "PRECINTO 250X4.8MM X 100PCS",
+   "st": -32,
+   "pr": 2402.03
+  },
+  {
+   "code": "1561",
+   "nom": "CORTACERCO A EXPLOSION NAFTA 22,5CC CANFLY",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1562",
+   "nom": "MOTOSIERRA 16\" A BATERIA CANFLY",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1606",
+   "nom": "PRECINTO GRIS 380 X 4,7 X 100PCS",
+   "st": 0,
+   "pr": 4000.03
+  },
+  {
+   "code": "1612",
+   "nom": "PILETA LONA 300 X 200 NACIONAL",
+   "st": 0,
+   "pr": 160000.09
+  },
+  {
+   "code": "1656",
+   "nom": "TIRAS DE GOMA BAÑO 35CM X 8 UNID",
+   "st": 0,
+   "pr": 5627.06
+  },
+  {
+   "code": "1657",
+   "nom": "FIELTRO CUADRADO CHICO X 8 X12PACK",
+   "st": 50,
+   "pr": 8296.06
+  },
+  {
+   "code": "1659",
+   "nom": "FIELTRO REDONDO CHICO X 8 X12PACK",
+   "st": 60,
+   "pr": 1410.06
+  },
+  {
+   "code": "1660",
+   "nom": "PRECINTO 300X3.6MM X 100PCS",
+   "st": 0,
+   "pr": 2790.03
+  },
+  {
+   "code": "1670",
+   "nom": "NO VA MAS --FIELTRO REDONDO GRANDE X 6",
+   "st": 0,
+   "pr": 1419.06
+  },
+  {
+   "code": "1671",
+   "nom": "FIELTRO RECTANGULAR DE CORTE X12PACK",
+   "st": 100,
+   "pr": 1420.06
+  },
+  {
+   "code": "1681",
+   "nom": "PLANCHUELA 175MM SC",
+   "st": 0,
+   "pr": 217.03
+  },
+  {
+   "code": "1682",
+   "nom": "ESQUINERO REDONDO DOBLE",
+   "st": 0,
+   "pr": 761.03
+  },
+  {
+   "code": "1765",
+   "nom": "MALETIN X 3 ALUMINIO",
+   "st": 0,
+   "pr": 113483.03
+  },
+  {
+   "code": "1803",
+   "nom": "DISCO - SIERRA DE CORTE X6 MINI TORNO",
+   "st": -4,
+   "pr": 7672.03
+  },
+  {
+   "code": "1809",
+   "nom": "REGLA METALICA 40CM / 16PULGADAS",
+   "st": 0,
+   "pr": 864
+  },
+  {
+   "code": "1815",
+   "nom": "RODEL 10MM CORTA CERAMICA",
+   "st": 0,
+   "pr": 4000.1
+  },
+  {
+   "code": "1816",
+   "nom": "RODEL 06MM CORTACERAMICA",
+   "st": 0,
+   "pr": 4000.1
+  },
+  {
+   "code": "1847",
+   "nom": "CABLE INTERLOCK TIPO OCHO",
+   "st": 0,
+   "pr": 544.03
+  },
+  {
+   "code": "1860",
+   "nom": "ASIENTO BICICLETA ACOLCHADO",
+   "st": 0,
+   "pr": 1860.03
+  },
+  {
+   "code": "1869",
+   "nom": "LAMPARA VELADOR FLEXIBLE USB",
+   "st": 0,
+   "pr": 5400.08
+  },
+  {
+   "code": "1880",
+   "nom": "LAMPARA DICRO GU10 RGB WIFI",
+   "st": 0,
+   "pr": 8246.07
+  },
+  {
+   "code": "1881",
+   "nom": "LAMPARA RGB WIFI",
+   "st": 0,
+   "pr": 6045.07
+  },
+  {
+   "code": "1890",
+   "nom": "TANQUE DE NAFTA 4 TORNILLOS",
+   "st": 0,
+   "pr": 3200.1
+  },
+  {
+   "code": "1898",
+   "nom": "SOPLADORA A NAFTA CANFLY",
+   "st": 0,
+   "pr": 0
+  },
+  {
+   "code": "1900",
+   "nom": "MACHETE 12 / 30CM",
+   "st": 0,
+   "pr": 3882.03
+  },
+  {
+   "code": "1910",
+   "nom": "MOSQUETON GIRATORIO DOBLE D 5X50MM 1/2",
+   "st": -20,
+   "pr": 864.06
+  },
+  {
+   "code": "1911",
+   "nom": "MOSQUETON GIRATORIO DOBLE D 5X65MM 3/4",
+   "st": -22,
+   "pr": 960.06
+  },
+  {
+   "code": "1925",
+   "nom": "PINZA ALICATE 6 OBLICUO BULIT",
+   "st": 0,
+   "pr": 6745.06
+  },
+  {
+   "code": "1926",
+   "nom": "LUSTRE TIPO AUTO POLISH",
+   "st": 0,
+   "pr": 4875.03
+  },
+  {
+   "code": "1948",
+   "nom": "DESTORNILLADOR 5 X 150 MM PLANO MEDIANO",
+   "st": 0,
+   "pr": 1068.06
+  },
+  {
+   "code": "1950",
+   "nom": "ALGUICIDA PARA PILETINES  X 1/2 LTR",
+   "st": 0,
+   "pr": 1638.09
+  },
+  {
+   "code": "1963",
+   "nom": "TRANSPORTADOR PVC C NIVEL",
+   "st": 0,
+   "pr": 9695.03
+  },
+  {
+   "code": "1966",
+   "nom": "MINI SOPLETE ELECTRONICO SOLDADOR A BUTANO",
+   "st": 0,
+   "pr": 10753.03
+  },
+  {
+   "code": "1967",
+   "nom": "PINZA PATO VIDRIO CERAMICA VENECITAS",
+   "st": 0,
+   "pr": 9312.1
+  },
+  {
+   "code": "1992",
+   "nom": "JUEGO PULIR AUTO X5 TALADRO",
+   "st": 0,
+   "pr": 7170.11
+  },
+  {
+   "code": "2000",
+   "nom": "TARUGOS",
+   "st": 0,
+   "pr": 12
+  },
+  {
+   "code": "2002",
+   "nom": "GUARDACABOS 3/16 5MM GALVANIZADOS",
+   "st": 0,
+   "pr": 109.11
+  },
+  {
+   "code": "2010",
+   "nom": "CAMPANA CRUZ COMPLETA BRONCE",
+   "st": 0,
+   "pr": 3920.06
+  },
+  {
+   "code": "2015",
+   "nom": "MECHAS PALA X 10 PCS C ALARGUE PARA MADERA",
+   "st": -70,
+   "pr": 5360.06
+  },
+  {
+   "code": "2017",
+   "nom": "ADAPTADOR REBATIBLE 1/2 3/8 1/4",
+   "st": 0,
+   "pr": 8448.06
+  },
+  {
+   "code": "2018",
+   "nom": "ADAPTADOR REBATIBLE 1/2 3/8 1/4 BLISTER",
+   "st": 0,
+   "pr": 17820.06
+  },
+  {
+   "code": "2019",
+   "nom": "BALANZA ELECTRONICA VERDULERO C/BRAZO 40KG",
+   "st": 0,
+   "pr": 3360.06
+  },
+  {
+   "code": "2020",
+   "nom": "BALANZA ELECTRONICO VERDULERO  40KG",
+   "st": 0,
+   "pr": 3360.06
+  },
+  {
+   "code": "2027",
+   "nom": "COLCHONETA ANANA 190X87CM - 37348",
+   "st": 0,
+   "pr": 14400.1
+  },
+  {
+   "code": "2031",
+   "nom": "CEPILLO MATRICERO GRANDE DENTAL X 3",
+   "st": -20,
+   "pr": 1368.06
+  },
+  {
+   "code": "2034",
+   "nom": "CUCHILLO TRAMONTINA 10",
+   "st": 200,
+   "pr": 3136.1
+  },
+  {
+   "code": "2035",
+   "nom": "CUCHILLO TRAMONTINA CARNICERO 7°",
+   "st": 0,
+   "pr": 1920.06
+  },
+  {
+   "code": "2036",
+   "nom": "CUCHILLO TRAMONTINA CARNICERO 8°",
+   "st": 0,
+   "pr": 2048.06
+  },
+  {
+   "code": "2042",
+   "nom": "JUEGO DE LETRAS 10MM X 65MM X27PC",
+   "st": 0,
+   "pr": 20800.06
+  },
+  {
+   "code": "2044",
+   "nom": "JUEGO DE LETRAS 4MM X 60MM X27PC",
+   "st": 0,
+   "pr": 6640.06
+  },
+  {
+   "code": "2045",
+   "nom": "JUEGO DE LETRAS 6MM X60MM  X27PC",
+   "st": 0,
+   "pr": 8800.06
+  },
+  {
+   "code": "2046",
+   "nom": "JUEGO DE NUMEROS 10MM X65MM X X9PC",
+   "st": 0,
+   "pr": 6432.06
+  },
+  {
+   "code": "2048",
+   "nom": "JUEGO DE NUMEROS 4MM X 60MM  X9 PC",
+   "st": 0,
+   "pr": 2400.06
+  },
+  {
+   "code": "2049",
+   "nom": "JUEGO DE NUMEROS 6MM X 60MM X9PC",
+   "st": 0,
+   "pr": 3520.06
+  },
+  {
+   "code": "2052",
+   "nom": "KIT JUNTA MOTOR DESMALEZADORA",
+   "st": 0,
+   "pr": 1216.06
+  },
+  {
+   "code": "2057",
+   "nom": "MARTILLO CARPINTERO 22MM",
+   "st": -5,
+   "pr": 2880.06
+  },
+  {
+   "code": "2058",
+   "nom": "MARTILLO CARPINTERO 25MM",
+   "st": 0,
+   "pr": 3200.06
+  },
+  {
+   "code": "2063",
+   "nom": "ALFOMBRA DESLIZ.  -- 51027",
+   "st": 0,
+   "pr": 31440.1
+  },
+  {
+   "code": "2071",
+   "nom": "PRENSA G REFORZADA 6",
+   "st": -2,
+   "pr": 7452.06
+  },
+  {
+   "code": "2078",
+   "nom": "TUBO ENCASTRE 1/210MM",
+   "st": 0,
+   "pr": 608.06
+  },
+  {
+   "code": "2079",
+   "nom": "TUBO ENCASTRE 1/211MM",
+   "st": 0,
+   "pr": 608.06
+  },
+  {
+   "code": "2080",
+   "nom": "TUBO ENCASTRE 1/212MM",
+   "st": 0,
+   "pr": 608.06
+  },
+  {
+   "code": "2081",
+   "nom": "TUBO ENCASTRE 1/213MM",
+   "st": 0,
+   "pr": 608.06
+  },
+  {
+   "code": "2087",
+   "nom": "TUBO ENCASTRE 1/28MM",
+   "st": 0,
+   "pr": 608.06
+  },
+  {
+   "code": "2088",
+   "nom": "TUBO ENCASTRE 1/29MM",
+   "st": 0,
+   "pr": 800.06
+  },
+  {
+   "code": "2100",
+   "nom": "ENCENDEDOR CHISPERO MAGIC CLICK VOLVANO",
+   "st": -33,
+   "pr": 2926.03
+  },
+  {
+   "code": "2111",
+   "nom": "LLAVE COMBINADA CON CRIKET 10MM",
+   "st": 0,
+   "pr": 1368
+  },
+  {
+   "code": "2112",
+   "nom": "LLAVE COMBINADA CON CRIKET 13MM",
+   "st": 0,
+   "pr": 1368
+  },
+  {
+   "code": "2115",
+   "nom": "ASIENTO INODORO DURO",
+   "st": 0,
+   "pr": 10000.06
+  },
+  {
+   "code": "2135",
+   "nom": "DISCO - SIERRA DE CORTE METAL X10 MINI TORNO",
+   "st": 0,
+   "pr": 1600.1
+  },
+  {
+   "code": "2140",
+   "nom": "TOPE INYEC. PVC CHICO X16 RED",
+   "st": 0,
+   "pr": 1657.06
+  },
+  {
+   "code": "2141",
+   "nom": "TOPE INYEC. PVC CHICO X16 CUADR",
+   "st": 0,
+   "pr": 1657.06
+  },
+  {
+   "code": "2142",
+   "nom": "TOPE INYEC. PVC GRANDE X16 RED",
+   "st": 0,
+   "pr": 2125.06
+  },
+  {
+   "code": "2143",
+   "nom": "TOPE INYEC. PVC GRANDE X16 CUADR",
+   "st": 0,
+   "pr": 2125.06
+  },
+  {
+   "code": "2144",
+   "nom": "LINGA BICI LLAVE COMUN",
+   "st": 0,
+   "pr": 2790.03
+  },
+  {
+   "code": "2210",
+   "nom": "LLAVE AJUSTABLE FRANCESA 6 BULIT",
+   "st": 0,
+   "pr": 8402.06
+  },
+  {
+   "code": "2211",
+   "nom": "LLAVE AJUSTABLE FRANCESA 8 BULIT",
+   "st": 0,
+   "pr": 12234.06
+  },
+  {
+   "code": "2212",
+   "nom": "LLAVE AJUSTABLE FRANCESA 10 BULIT",
+   "st": 0,
+   "pr": 15488.06
+  },
+  {
+   "code": "2500",
+   "nom": "MASILLA ERPOX  100G - 10 MIN SUPRABOND",
+   "st": -16,
+   "pr": 3595.06
+  },
+  {
+   "code": "3000",
+   "nom": "TIRAFONDO 1/4X2",
+   "st": 0,
+   "pr": 50.03
+  },
+  {
+   "code": "6218",
+   "nom": "TENAZA MOSAIQUISMO",
+   "st": 0,
+   "pr": 8032.1
+  },
+  {
+   "code": "1450748321",
+   "nom": "SOPLETE FLAMBEADOR ELECTRONICO SOLDADOR BUTANO CHEF",
+   "st": 0,
+   "pr": 6750.03
+  }
+ ],
+ "excluidos": [
+  {
+   "code": "0523",
+   "nom": "ALGODON VAPER",
+   "st": 0,
+   "pr": 2025.08
+  },
+  {
+   "code": "1306",
+   "nom": "VAPER STICK V8",
+   "st": 0,
+   "pr": 21750.09
+  },
+  {
+   "code": "1307",
+   "nom": "VIDRIO VAPER V8 / PEN 22",
+   "st": 0,
+   "pr": 607.08
+  },
+  {
+   "code": "IJUST3",
+   "nom": "VAPER IJSUT3 BY ELEAF",
+   "st": 0,
+   "pr": 21750.09
+  },
+  {
+   "code": "JUUL",
+   "nom": "LIQUIDO JUUL",
+   "st": 0,
+   "pr": 6364
+  },
+  {
+   "code": "JUULKIT",
+   "nom": "CIGARRILLO JUUL KIT COMPLETO",
+   "st": 0,
+   "pr": 6822
+  },
+  {
+   "code": "MILKMAN",
+   "nom": "LIQUIDO MILKMAN",
+   "st": 0,
+   "pr": 5940.08
+  },
+  {
+   "code": "NAKED",
+   "nom": "LIQUIDO NAKED",
+   "st": 0,
+   "pr": 5940.08
+  },
+  {
+   "code": "NASTYBALLIN",
+   "nom": "LIQUIDO NASTY BALLIN 3MG",
+   "st": 24,
+   "pr": 5940.08
+  },
+  {
+   "code": "NASTYLATA",
+   "nom": "LIQUIDO NASTY LATA 3MG",
+   "st": 0,
+   "pr": 5940.08
+  },
+  {
+   "code": "PEN22",
+   "nom": "CIGARRILLO VAPER SMOK PEN 22",
+   "st": 0,
+   "pr": 21750.09
+  },
+  {
+   "code": "PEN22L",
+   "nom": "CIGARRILLO VAPER SMOK PEN 22 LIGHT",
+   "st": 0,
+   "pr": 21750.09
+  },
+  {
+   "code": "PRINCE",
+   "nom": "VAPER STICK PRINCE",
+   "st": 0,
+   "pr": 21750.09
+  },
+  {
+   "code": "SMOKMAG",
+   "nom": "CIGARRILLO VAPER SMOK MAG",
+   "st": 0,
+   "pr": 24000.1
+  }
+ ]
+}
