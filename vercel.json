@@ -8,7 +8,8 @@
     "api/ml/exchange.js": { "maxDuration": 300 },
     "api/ml/envios.js": { "maxDuration": 300 },
     "api/ml/saldos.js": { "maxDuration": 300 },
-    "api/contabilium.js": { "maxDuration": 60 }
+    "api/contabilium.js": { "maxDuration": 60 },
+    "api/arca.js": { "maxDuration": 120 }
   },
   "crons": [
     { "path": "/api/ml/cron", "schedule": "0 16 * * *" },
