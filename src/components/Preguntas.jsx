@@ -280,7 +280,7 @@ export default function Preguntas({ mlAccounts, ensureToken }) {
                     {q.historial.length > 3 && !verTodo[q.id] && (
                       <button className="preg-hilo-mas"
                         onClick={() => setVerTodo(p => ({ ...p, [q.id]: true }))}>
-                        Ver las {q.historial.length} anteriores
+                        Ver {q.historial.length - 3} más
                       </button>
                     )}
                   </>
