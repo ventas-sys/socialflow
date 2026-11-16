@@ -198,6 +198,7 @@ export default function App() {
   const [usdRate, setUsdRate] = useState(1000)
   // Lo que se le paga al motoquero por zona, por vigencia (settings/zonasFlex)
   const [tarifas, setTarifas] = useState(null)
+  const [preguntasConfig, setPreguntasConfig] = useState(null)
   const [installEvt, setInstallEvt] = useState(null) // beforeinstallprompt para "📲 Instalar app"
 
   // Instalación como app (ícono en pantalla principal): Chrome dispara
@@ -507,6 +508,10 @@ export default function App() {
           ]), 60000, 'el inventario')).map(anotarOrigen)
           setDepositMap(settingsSnap.exists() ? settingsSnap.data().depositMapPhoto || null : null)
           setTarifas(settingsSnap.exists() ? settingsSnap.data().zonasFlex || null : null)
+          // Saludo, cierre y respuestas rápidas de la solapa Preguntas: van
+          // acá para que sean las mismas en todos los aparatos y para todos
+          // los que contesten, no de cada navegador.
+          setPreguntasConfig(settingsSnap.exists() ? settingsSnap.data().preguntasConfig || null : null)
           // La cotización vive en el mismo documento: se lee acá, que es donde
           // está `settingsSnap`. Fuera de esta función no existe.
           const rate = settingsSnap.exists() ? settingsSnap.data().usdRate : null
@@ -1351,6 +1356,12 @@ export default function App() {
     setTarifas(lista)
   }
 
+  // Saludo, cierre y respuestas rápidas de la solapa Preguntas
+  const savePreguntasConfig = async (cfg) => {
+    await setDoc(doc(db, 'settings', ORG_ID), { preguntasConfig: cfg, userId: ORG_ID }, { merge: true })
+    setPreguntasConfig(cfg)
+  }
+
   // La cotización va en settings (la escribe solo el admin)
   const saveUsdRate = async (rate) => {
     await setDoc(doc(db, 'settings', ORG_ID), { usdRate: rate, userId: ORG_ID }, { merge: true })
@@ -1660,6 +1671,9 @@ export default function App() {
               <Preguntas
                 mlAccounts={mlAccounts}
                 ensureToken={(key) => ensureMlToken(mlAccounts, key, saveMlAccount)}
+                config={preguntasConfig}
+                onSaveConfig={savePreguntasConfig}
+                canEdit={canEdit}
               />
             )}
             {currentTab === 'packing' && canSee('packing') && (

@@ -1,4 +1,35 @@
-.preg-container { padding: 1.5rem; max-width: 900px; margin: 0 auto; }
+.preg-container { padding: 1.5rem; max-width: 1180px; margin: 0 auto; }
+
+/* Lista a la izquierda, respuestas rápidas a la derecha */
+.preg-cuerpo { display: grid; grid-template-columns: 1fr 210px; gap: 1.2rem; align-items: start; }
+.preg-cuerpo .preg-lista { min-width: 0; }
+
+.preg-panel { position: sticky; top: 1rem; }
+.preg-panel h3 { margin: 0 0 0.6rem; font-size: 0.95rem; color: #374151; font-weight: 600; }
+.preg-admin {
+  width: 100%; background: #fff; border: 1px solid #d1d5db; border-radius: 0.5rem;
+  padding: 0.5rem; font-size: 0.82rem; cursor: pointer; color: #374151;
+  font-family: inherit; margin-bottom: 0.7rem;
+}
+.preg-admin:hover { background: #f9fafb; }
+.preg-rapidas { display: flex; flex-direction: column; gap: 0.5rem; }
+.preg-rapida {
+  border: none; border-radius: 0.4rem; padding: 0.6rem 0.5rem; cursor: pointer;
+  color: #fff; font-weight: 700; font-size: 0.76rem; letter-spacing: 0.3px;
+  font-family: inherit; text-shadow: 0 1px 1px rgba(0,0,0,0.12);
+  text-align: center; line-height: 1.2;
+}
+.preg-rapida:hover { filter: brightness(1.06); }
+.preg-rapida:disabled { opacity: 0.45; cursor: default; }
+.preg-panel-tip { font-size: 0.72rem; color: #9ca3af; margin: 0.6rem 0 0; line-height: 1.4; }
+
+/* El saludo y el cierre que se enganchan a cada respuesta */
+.preg-fijo {
+  display: flex; gap: 0.45rem; align-items: flex-start;
+  font-size: 0.8rem; color: #374151; line-height: 1.4;
+  margin: 0.45rem 0; cursor: pointer;
+}
+.preg-fijo input { margin-top: 0.15rem; flex-shrink: 0; cursor: pointer; }
 
 .preg-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
 .preg-header h1 { margin: 0 0 0.3rem; font-size: 1.6rem; }
@@ -100,11 +131,82 @@
 }
 .preg-item-pie { display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; }
 .preg-largo { font-size: 0.72rem; color: #9ca3af; }
+.preg-largo.pasado { color: #b91c1c; font-weight: 700; }
 .preg-btn-enviar {
   background: #059669; color: #fff; border: none; border-radius: 0.5rem;
   padding: 0.55rem 1rem; font-weight: 600; cursor: pointer; font-size: 0.88rem;
 }
 .preg-btn-enviar:disabled { opacity: 0.5; cursor: default; }
+
+/* --- Administrar respuestas rápidas --- */
+.preg-modal-fondo {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 2rem 1rem; z-index: 1000; overflow-y: auto;
+}
+.preg-modal {
+  background: #fff; border-radius: 0.7rem; padding: 1.2rem;
+  width: 100%; max-width: 860px;
+}
+.preg-modal-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+.preg-modal-top h2 { margin: 0; font-size: 1.2rem; }
+.preg-cerrar { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #6b7280; }
+
+.preg-campo { display: block; font-size: 0.72rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 0.8rem; }
+.preg-campo input, .preg-campo textarea {
+  width: 100%; margin-top: 0.25rem; padding: 0.55rem 0.7rem; border: 1px solid #d1d5db;
+  border-radius: 0.5rem; font-size: 0.88rem; font-family: inherit; color: #111827;
+  background: #f9fafb; text-transform: none; letter-spacing: normal; font-weight: 400;
+  resize: vertical;
+}
+
+.preg-nueva, .preg-admin-fila {
+  display: grid; grid-template-columns: 160px 1fr auto; gap: 0.8rem;
+  align-items: start; padding: 0.8rem 0; border-top: 1px solid #f3f4f6;
+}
+.preg-nombre {
+  width: 100%; border: none; border-radius: 0.4rem; padding: 0.55rem 0.4rem;
+  color: #fff; font-weight: 700; font-size: 0.76rem; text-align: center;
+  font-family: inherit; letter-spacing: 0.3px; text-shadow: 0 1px 1px rgba(0,0,0,0.12);
+}
+.preg-nombre::placeholder { color: rgba(255,255,255,0.85); }
+.preg-colores { display: flex; gap: 0.25rem; margin-top: 0.4rem; flex-wrap: wrap; }
+.preg-color {
+  width: 17px; height: 17px; border-radius: 0.25rem; border: 2px solid transparent;
+  cursor: pointer; padding: 0;
+}
+.preg-color.elegido { border-color: #111827; }
+.preg-nueva-texto, .preg-admin-texto {
+  width: 100%; padding: 0.55rem 0.7rem; border: 1px solid #d1d5db; border-radius: 0.5rem;
+  font-size: 0.85rem; font-family: inherit; color: #111827; background: #f9fafb; resize: vertical;
+}
+.preg-agregar {
+  background: #34d399; color: #fff; border: none; border-radius: 0.5rem;
+  padding: 0.6rem 1.1rem; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.preg-agregar:disabled { opacity: 0.5; cursor: default; }
+.preg-admin-acciones { display: flex; flex-direction: column; gap: 0.25rem; }
+.preg-admin-acciones button {
+  background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 0.35rem;
+  width: 30px; height: 28px; cursor: pointer; font-size: 0.8rem;
+}
+.preg-admin-acciones button:disabled { opacity: 0.4; cursor: default; }
+.preg-admin-lista { max-height: 48vh; overflow-y: auto; }
+
+.preg-modal-pie { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1rem; padding-top: 0.9rem; border-top: 1px solid #f3f4f6; }
+.preg-cancelar { background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 0.6rem 1.1rem; cursor: pointer; font-family: inherit; }
+.preg-guardar { background: #2563eb; color: #fff; border: none; border-radius: 0.5rem; padding: 0.6rem 1.3rem; font-weight: 600; cursor: pointer; font-family: inherit; }
+.preg-guardar:disabled { opacity: 0.6; cursor: default; }
+
+@media (max-width: 860px) {
+  /* En celular el panel va arriba, en fila, para no comerse la pantalla */
+  .preg-cuerpo { grid-template-columns: 1fr; }
+  .preg-panel { position: static; order: -1; }
+  .preg-rapidas { flex-direction: row; flex-wrap: wrap; }
+  .preg-rapida { flex: 1 1 calc(50% - 0.25rem); }
+  .preg-nueva, .preg-admin-fila { grid-template-columns: 1fr; }
+  .preg-admin-acciones { flex-direction: row; }
+}
 
 @media (max-width: 640px) {
   .preg-container { padding: 1rem 0.8rem; }
@@ -128,4 +230,13 @@
   .preg-hilo-q { color: #d1d5db; }
   .preg-hilo-r { color: #6ee7b7; }
   .preg-hilo-r.sin { color: #fca5a5; }
+  .preg-panel h3, .preg-fijo { color: #d1d5db; }
+  .preg-admin { background: #1f2937; border-color: #374151; color: #d1d5db; }
+  .preg-modal { background: #1f2937; color: #e5e7eb; }
+  .preg-campo input, .preg-campo textarea,
+  .preg-nueva-texto, .preg-admin-texto { background: #111827; border-color: #374151; color: #e5e7eb; }
+  .preg-nueva, .preg-admin-fila, .preg-modal-pie { border-color: #374151; }
+  .preg-admin-acciones button { background: #111827; border-color: #374151; color: #d1d5db; }
+  .preg-cancelar { background: #111827; border-color: #374151; color: #d1d5db; }
+  .preg-color.elegido { border-color: #fff; }
 }

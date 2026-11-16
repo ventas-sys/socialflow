@@ -41,7 +41,66 @@ const urgencia = (iso) => {
 
 const pesos = (n) => (n == null ? '' : '$' + Number(n).toLocaleString('es-AR'))
 
-export default function Preguntas({ mlAccounts, ensureToken }) {
+// Colores para los botones de respuesta rápida
+const COLORES = [
+  { key: 'azul', hex: '#6cb3ec' },
+  { key: 'rosa', hex: '#f78fb3' },
+  { key: 'verde', hex: '#a8d98b' },
+  { key: 'lila', hex: '#a78bfa' },
+  { key: 'amarillo', hex: '#f5c518' },
+  { key: 'violeta', hex: '#b39ddb' },
+  { key: 'fucsia', hex: '#f48fb1' },
+  { key: 'verdeagua', hex: '#80b9b4' },
+]
+const hexDe = (c) => (COLORES.find(x => x.key === c) || COLORES[0]).hex
+
+// Lo que se usa mientras no haya nada guardado. Los textos los carga el
+// usuario desde "Administrar"; acá sólo quedan los botones armados para que
+// la pantalla no arranque vacía.
+// Lo que se usa mientras no haya nada guardado: el saludo, el cierre y las
+// respuestas rápidas tal como se venían usando. Se editan desde "Administrar"
+// y quedan guardadas para todos los que contesten, en cualquier aparato.
+const RETIRO = 'Retiro en Floresta: Estamos ubicados cerca de la estación de Floresta, ' +
+  'lo cual facilita tu visita. Horario para Retiro: Lunes a Viernes: 14 a 17.30 hs. Sábados: 10 a 13 hs.'
+const CONFIG_VACIA = {
+  saludo: '¡Hola! ¿Cómo andás? 👋',
+  cierre: 'Cualquier cosa que necesites, escribinos sin problema. ¡Gracias por elegirnos!',
+  rapidas: [
+    { id: 'r1', titulo: 'HAY STOCK', color: 'azul',
+      texto: 'Tenemos suficiente stock disponible, así que puedes ofertar sin preocupaciones. ' + RETIRO },
+    { id: 'r2', titulo: 'MEDIDAS Y +', color: 'rosa',
+      texto: 'En la tercera foto muestra las medidas y detalles adicionales que pueden ser útiles ' +
+        'para comparar o evaluar el producto, confirmando si es lo que estás buscando' },
+    { id: 'r3', titulo: 'PASATE!', color: 'verde',
+      texto: 'Sera un error de MercadoLibre. Tenemos suficiente stock disponible, así que puedes ' +
+        'ofertar sin preocupaciones. ' + RETIRO },
+    { id: 'r4', titulo: 'A CARRITO', color: 'lila',
+      texto: 'Te recomendaría agregar todos los artículos al carrito de compras antes de finalizar ' +
+        'tu pedido. De esta manera, aseguras que todos los productos, se enviarán juntos. Por esta ' +
+        'semana Recorda que podes poner CUALQUIER articulo FULL y llegar al envio GRATIS aunque no ' +
+        'sea de nosotros...Aprovechalo!!' },
+    { id: 'r5', titulo: 'ENVIOS', color: 'amarillo',
+      texto: 'Revisa las opciones de envío ya que ofrecemos diferentes opciones de envío, como correo ' +
+        'estándar o entrega urgente en el día mediante servicio de moto. Selecciona la opción que ' +
+        'mejor se adapta a tus necesidades y plazos.' },
+    { id: 'r6', titulo: 'X MAYOR', color: 'violeta',
+      texto: 'Tenemos cantidad y te podemos hacer un buen descuento q se pasa x mail. Mira nuestro ' +
+        'perfil de vendedor, desde "Ver más datos de este vendedor"' },
+    { id: 'r7', titulo: 'CUBRE PILETA', color: 'fucsia',
+      texto: 'Es tela plastica Nacional Reforzada c Todo Elastico en 100mc' },
+    { id: 'r8', titulo: 'FACTURA', color: 'verdeagua',
+      texto: 'Generamos facturas tipo A o B según sea necesario, si es para otro CUIT despues de ' +
+        'recibir la compra podes pedir el cambio.' },
+  ],
+}
+
+// Arma la respuesta final: saludo + lo escrito + cierre, sólo lo tildado.
+const armar = ({ saludo, cuerpo, cierre, conSaludo, conCierre }) =>
+  [conSaludo && saludo?.trim(), cuerpo?.trim(), conCierre && cierre?.trim()]
+    .filter(Boolean).join('\n\n')
+
+export default function Preguntas({ mlAccounts, ensureToken, config, onSaveConfig, canEdit = true }) {
+  const cfg = useMemo(() => ({ ...CONFIG_VACIA, ...(config || {}) }), [config])
   const [items, setItems] = useState([])          // preguntas de las dos cuentas
   const [cargando, setCargando] = useState(false)
   const [primeraVez, setPrimeraVez] = useState(true)
@@ -53,7 +112,22 @@ export default function Preguntas({ mlAccounts, ensureToken }) {
   const [buscar, setBuscar] = useState('')
   const [abiertos, setAbiertos] = useState({})    // preguntaId -> false si se cerró el hilo
   const [verTodo, setVerTodo] = useState({})      // preguntaId -> mostrar todo el historial
+  const [sinSaludo, setSinSaludo] = useState({})  // preguntaId -> true si se destildó el saludo
+  const [sinCierre, setSinCierre] = useState({})  // preguntaId -> true si se destildó el cierre
+  const [foco, setFoco] = useState(null)          // pregunta en la que se está escribiendo
+  const [admin, setAdmin] = useState(false)       // modal de respuestas rápidas
   const cargandoRef = useRef(false)
+
+  // Pega el texto de una respuesta rápida donde se está escribiendo. Suma,
+  // no pisa: muchas veces se arma la respuesta con dos o tres.
+  const pegar = (texto) => {
+    const id = foco
+    if (!id) { setMsg('⚠️ Tocá primero el cuadro de respuesta de la pregunta que querés contestar.'); return }
+    setBorrador(p => {
+      const hay = (p[id] || '').trim()
+      return { ...p, [id]: hay ? `${hay}\n\n${texto}` : texto }
+    })
+  }
 
   const alternarHilo = (id) =>
     setAbiertos(p => ({ ...p, [id]: p[id] === false }))
@@ -121,13 +195,22 @@ export default function Preguntas({ mlAccounts, ensureToken }) {
     return () => clearTimeout(t)
   }, [traer])
 
+  // Lo que realmente se va a publicar: saludo + lo escrito + cierre, con lo
+  // que esté tildado en esa pregunta.
+  const textoFinal = (q) => armar({
+    saludo: cfg.saludo, cierre: cfg.cierre, cuerpo: borrador[q.id] || '',
+    conSaludo: sinSaludo[q.id] !== true,
+    conCierre: sinCierre[q.id] !== true,
+  })
+
   const responder = async (q) => {
-    const texto = (borrador[q.id] || '').trim()
-    if (!texto) { setMsg('⚠️ Escribí la respuesta antes de enviarla.'); return }
-    // ML NO deja editar ni borrar una respuesta publicada. Por eso se confirma.
+    const texto = textoFinal(q)
+    if (!(borrador[q.id] || '').trim()) { setMsg('⚠️ Escribí la respuesta antes de enviarla.'); return }
+    // ML NO deja editar ni borrar una respuesta publicada. Por eso se confirma
+    // mostrando EXACTAMENTE lo que se va a publicar, saludo y cierre incluidos.
     const ok = window.confirm(
       `Se publica en ${q.cuentaLabel} y NO se puede editar ni borrar después.\n\n` +
-      `Pregunta: ${q.texto}\n\nTu respuesta: ${texto}\n\n¿Enviar?`)
+      `Pregunta: ${q.texto}\n\n--- Se publica esto ---\n${texto}\n\n¿Enviar?`)
     if (!ok) return
     setEnviando(q.id)
     setMsg('')
@@ -210,6 +293,7 @@ export default function Preguntas({ mlAccounts, ensureToken }) {
         </div>
       )}
 
+      <div className="preg-cuerpo">
       <div className="preg-lista">
         {visibles.map(q => (
           <div key={q.id} className={`preg-item ${urgencia(q.fecha)}`}>
@@ -288,25 +372,192 @@ export default function Preguntas({ mlAccounts, ensureToken }) {
               </div>
             )}
 
+            {/* Saludo de arriba: va tildado, se destilda por pregunta */}
+            <label className="preg-fijo">
+              <input type="checkbox"
+                checked={sinSaludo[q.id] !== true}
+                onChange={e => setSinSaludo(p => ({ ...p, [q.id]: !e.target.checked }))} />
+              <span>{cfg.saludo}</span>
+            </label>
+
             <textarea
               className="preg-respuesta"
               placeholder="Escribí la respuesta..."
               rows={3}
               maxLength={2000}
               value={borrador[q.id] || ''}
-              onChange={e => setBorrador(prev => ({ ...prev, [q.id]: e.target.value }))}
+              onFocus={() => setFoco(q.id)}
+              onChange={e => { setFoco(q.id); setBorrador(prev => ({ ...prev, [q.id]: e.target.value })) }}
             />
+
+            {/* Cierre de abajo */}
+            <label className="preg-fijo">
+              <input type="checkbox"
+                checked={sinCierre[q.id] !== true}
+                onChange={e => setSinCierre(p => ({ ...p, [q.id]: !e.target.checked }))} />
+              <span>{cfg.cierre}</span>
+            </label>
+
             <div className="preg-item-pie">
-              <span className="preg-largo">{(borrador[q.id] || '').length}/2000</span>
+              {/* ML corta en 2000: se cuenta TODO lo que se va a publicar */}
+              <span className={`preg-largo ${textoFinal(q).length > 2000 ? 'pasado' : ''}`}>
+                {textoFinal(q).length}/2000 con saludo y cierre
+              </span>
               <button
                 className="preg-btn-enviar"
                 onClick={() => responder(q)}
-                disabled={enviando === q.id || !(borrador[q.id] || '').trim()}>
+                disabled={enviando === q.id || !(borrador[q.id] || '').trim() || textoFinal(q).length > 2000}>
                 {enviando === q.id ? '⏳ Enviando...' : '📨 Responder'}
               </button>
             </div>
           </div>
         ))}
+      </div>
+
+        {/* Panel de respuestas rápidas. Se toca el cuadro de una pregunta y
+            después el botón: el texto se suma a lo que ya haya escrito. */}
+        <aside className="preg-panel">
+          <h3>Respuestas rápidas</h3>
+          {canEdit && (
+            <button className="preg-admin" onClick={() => setAdmin(true)}>✏️ Administrar</button>
+          )}
+          <div className="preg-rapidas">
+            {cfg.rapidas.map(r => (
+              <button key={r.id} className="preg-rapida"
+                style={{ background: hexDe(r.color) }}
+                title={r.texto || '(sin texto — cargalo en Administrar)'}
+                onClick={() => pegar(r.texto)}
+                disabled={!r.texto}>
+                {r.titulo}
+              </button>
+            ))}
+          </div>
+          {!foco && <p className="preg-panel-tip">Tocá el cuadro de respuesta de una pregunta y después el botón.</p>}
+        </aside>
+      </div>
+
+      {admin && (
+        <AdminRapidas
+          cfg={cfg}
+          onCerrar={() => setAdmin(false)}
+          onGuardar={async (nuevo) => { await onSaveConfig?.(nuevo); setAdmin(false); setMsg('✅ Respuestas rápidas guardadas.') }}
+        />
+      )}
+    </div>
+  )
+}
+
+// --- Administrar: saludo, cierre y las respuestas rápidas ---
+// Se guarda en el sistema, así que vale para todos los que contesten y en
+// cualquier aparato. Sólo entra quien tenga permiso para editar.
+function AdminRapidas({ cfg, onCerrar, onGuardar }) {
+  const [saludo, setSaludo] = useState(cfg.saludo || '')
+  const [cierre, setCierre] = useState(cfg.cierre || '')
+  const [lista, setLista] = useState(cfg.rapidas || [])
+  const [nTitulo, setNTitulo] = useState('')
+  const [nColor, setNColor] = useState('azul')
+  const [nTexto, setNTexto] = useState('')
+  const [guardando, setGuardando] = useState(false)
+
+  const cambiar = (id, campo, valor) =>
+    setLista(p => p.map(r => (r.id === id ? { ...r, [campo]: valor } : r)))
+  const borrar = (id) => {
+    const r = lista.find(x => x.id === id)
+    if (window.confirm(`¿Borrar la respuesta rápida "${r?.titulo}"?`)) {
+      setLista(p => p.filter(x => x.id !== id))
+    }
+  }
+  const mover = (i, delta) => setLista(p => {
+    const n = [...p]
+    const j = i + delta
+    if (j < 0 || j >= n.length) return p
+    ;[n[i], n[j]] = [n[j], n[i]]
+    return n
+  })
+  const agregar = () => {
+    if (!nTitulo.trim() || !nTexto.trim()) return
+    setLista(p => [...p, {
+      id: 'r' + Date.now(), titulo: nTitulo.trim().toUpperCase(), color: nColor, texto: nTexto.trim(),
+    }])
+    setNTitulo(''); setNTexto(''); setNColor('azul')
+  }
+
+  const guardar = async () => {
+    setGuardando(true)
+    try { await onGuardar({ saludo: saludo.trim(), cierre: cierre.trim(), rapidas: lista }) }
+    finally { setGuardando(false) }
+  }
+
+  return (
+    <div className="preg-modal-fondo" onClick={onCerrar}>
+      <div className="preg-modal" onClick={e => e.stopPropagation()}>
+        <div className="preg-modal-top">
+          <h2>Respuestas rápidas</h2>
+          <button className="preg-cerrar" onClick={onCerrar}>✕</button>
+        </div>
+
+        <label className="preg-campo">Saludo (va arriba de cada respuesta)
+          <input value={saludo} onChange={e => setSaludo(e.target.value)} />
+        </label>
+        <label className="preg-campo">Cierre (va abajo de cada respuesta)
+          <textarea rows={2} value={cierre} onChange={e => setCierre(e.target.value)} />
+        </label>
+
+        <div className="preg-nueva">
+          <div className="preg-nueva-izq">
+            <input className="preg-nombre" placeholder="NOMBRE" value={nTitulo}
+              onChange={e => setNTitulo(e.target.value)}
+              style={{ background: hexDe(nColor) }} />
+            <div className="preg-colores">
+              {COLORES.map(c => (
+                <button key={c.key}
+                  className={`preg-color ${nColor === c.key ? 'elegido' : ''}`}
+                  style={{ background: c.hex }}
+                  title={c.key}
+                  onClick={() => setNColor(c.key)} />
+              ))}
+            </div>
+          </div>
+          <textarea className="preg-nueva-texto" rows={3}
+            placeholder="Ingresá una nueva respuesta rápida"
+            value={nTexto} onChange={e => setNTexto(e.target.value)} />
+          <button className="preg-agregar" onClick={agregar}
+            disabled={!nTitulo.trim() || !nTexto.trim()}>Agregar</button>
+        </div>
+
+        <div className="preg-admin-lista">
+          {lista.map((r, i) => (
+            <div key={r.id} className="preg-admin-fila">
+              <div className="preg-admin-izq">
+                <input className="preg-nombre" value={r.titulo}
+                  onChange={e => cambiar(r.id, 'titulo', e.target.value)}
+                  style={{ background: hexDe(r.color) }} />
+                <div className="preg-colores">
+                  {COLORES.map(c => (
+                    <button key={c.key}
+                      className={`preg-color ${r.color === c.key ? 'elegido' : ''}`}
+                      style={{ background: c.hex }}
+                      onClick={() => cambiar(r.id, 'color', c.key)} />
+                  ))}
+                </div>
+              </div>
+              <textarea className="preg-admin-texto" rows={3} value={r.texto}
+                onChange={e => cambiar(r.id, 'texto', e.target.value)} />
+              <div className="preg-admin-acciones">
+                <button onClick={() => mover(i, -1)} disabled={i === 0} title="Subir">↑</button>
+                <button onClick={() => mover(i, 1)} disabled={i === lista.length - 1} title="Bajar">↓</button>
+                <button onClick={() => borrar(r.id)} title="Borrar">🗑️</button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="preg-modal-pie">
+          <button className="preg-cancelar" onClick={onCerrar}>Cancelar</button>
+          <button className="preg-guardar" onClick={guardar} disabled={guardando}>
+            {guardando ? 'Guardando...' : 'Guardar'}
+          </button>
+        </div>
       </div>
     </div>
   )
