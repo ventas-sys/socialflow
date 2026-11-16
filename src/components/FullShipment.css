@@ -221,6 +221,10 @@
 }
 .full-chip:hover { border-color: #94a3b8; }
 .full-chip.active { background: #16a34a; border-color: #16a34a; color: #fff; }
+/* Aclara que los atajos suman: en el depósito se cuenta de a cajas */
+.full-modal-chips-tip {
+  text-align: center; font-size: 0.72rem; color: #64748b; margin-top: 0.3rem;
+}
 .full-modal-cant { margin-top: 0.45rem; }
 
 /* Cuánto pidió ML de este artículo, y el aviso si nos pasamos */

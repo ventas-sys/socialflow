@@ -49,7 +49,11 @@ const COLS_NAME = ['titulo', 'nombre', 'producto', 'descripcion', 'titulo de la 
 // suma), que es como se piensa al armar: "de este van 10". Cualquier otro
 // número sale con el − / + de abajo; son pocas para que todo entre en la
 // pantalla del celular sin tener que scrollear.
-const CANTIDADES = [1, 3, 6, 10, 50]
+// Atajos de cantidad. No están el 1 ni el 3 a propósito: al escanear la
+// cantidad ya arranca en 1, y para 2 o 3 está el +. Tocar un atajo cuando la
+// cantidad todavía es la de arranque la FIJA; tocarlo de nuevo (o tocar otro)
+// SUMA, así se cuenta de a cajas: 6 + 6 = 12.
+const CANTIDADES = [6, 10, 30, 50]
 
 const hoyAR = () => new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10)
 const fmtFecha = (t) => {
@@ -75,6 +79,9 @@ export default function FullShipment({
   }, [pendiente])
 
   const [cantidad, setCantidad] = useState(1)
+  // Si todavía está en la cantidad de arranque (1) o ya la tocaron. Define si
+  // un atajo fija o suma.
+  const [cantidadTocada, setCantidadTocada] = useState(false)
   const [volverACamara, setVolverACamara] = useState(false)
   const [soloFaltan, setSoloFaltan] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -221,6 +228,7 @@ export default function FullShipment({
     setVolverACamara(desdeCamara)
     setShowScanner(false)
     setCantidad(1)
+    setCantidadTocada(false)
     setMsg('')
     if (!info) { setPendiente({ noEncontrado: true, code: limpio }); return }
     // Cuánto pidió ML de este artículo y cuánto va armado, para avisar si se
@@ -1170,24 +1178,39 @@ export default function FullShipment({
                     {CANTIDADES.map(n => (
                       <button
                         key={n}
-                        className={`full-chip ${cantidad === n ? 'active' : ''}`}
-                        onClick={() => setCantidad(n)}
+                        className={`full-chip ${cantidadTocada && cantidad === n ? 'active' : ''}`}
+                        onClick={() => {
+                          // Primer toque: fija. Después: suma.
+                          setCantidad(c => (cantidadTocada ? c + n : n))
+                          setCantidadTocada(true)
+                        }}
                         disabled={busy}
                       >
-                        {n}
+                        {cantidadTocada ? `+${n}` : n}
                       </button>
                     ))}
                   </div>
+                  <div className="full-modal-chips-tip">
+                    {cantidadTocada
+                      ? 'Tocá otro para seguir sumando'
+                      : 'Tocá uno para fijar la cantidad; después suman'}
+                  </div>
                   <div className="full-modal-cant">
                     <button
-                      onClick={() => setCantidad(c => Math.max(-(pendiente.yaLleva || 0), c - 1))}
+                      onClick={() => {
+                        setCantidad(c => Math.max(-(pendiente.yaLleva || 0), c - 1))
+                        setCantidadTocada(true)
+                      }}
                       disabled={busy}
                     >−</button>
                     <input
                       type="number" min={-(pendiente.yaLleva || 0)} value={cantidad}
-                      onChange={e => setCantidad(Math.round(Number(e.target.value) || 0))}
+                      onChange={e => { setCantidad(Math.round(Number(e.target.value) || 0)); setCantidadTocada(true) }}
                     />
-                    <button onClick={() => setCantidad(c => c + 1)} disabled={busy}>+</button>
+                    <button
+                      onClick={() => { setCantidad(c => c + 1); setCantidadTocada(true) }}
+                      disabled={busy}
+                    >+</button>
                     <span>unidades</span>
                   </div>
 
