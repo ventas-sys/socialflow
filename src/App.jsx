@@ -37,6 +37,7 @@ import Finance from './components/Finance'
 import FullShipment from './components/FullShipment'
 import Preguntas from './components/Preguntas'
 import Users, { PERM_TABS } from './components/Users'
+import Facturacion from './components/Facturacion'
 import Auth from './components/Auth'
 import './App.css'
 
@@ -1517,6 +1518,14 @@ export default function App() {
         )}
         {isAdmin && (
           <button
+            className={`nav-btn pc-only ${currentTab === 'facturacion' ? 'active' : ''}`}
+            onClick={() => setCurrentTab('facturacion')}
+          >
+            🧾 Facturación
+          </button>
+        )}
+        {isAdmin && (
+          <button
             className={`nav-btn pc-only ${currentTab === 'users' ? 'active' : ''}`}
             onClick={() => setCurrentTab('users')}
           >
@@ -1716,6 +1725,7 @@ export default function App() {
                 onGuardarFotos={guardarFotosDeProductos}
               />
             )}
+            {currentTab === 'facturacion' && isAdmin && <Facturacion />}
             {currentTab === 'users' && isAdmin && (
               <Users
                 members={members}

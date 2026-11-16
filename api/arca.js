@@ -7,7 +7,7 @@
 //   CRON_EMAIL / CRON_PASSWORD     (ya existen) para guardar el ticket de ARCA en Firestore
 //
 // Seguridad: solo el admin (ventas@) puede usarlo: el cliente manda su idToken de Firebase
-// y acá se valida contra Google antes de hacer nada.
+// (header X-Firebase-Token) y acá se valida contra Google antes de hacer nada.
 //
 // Acciones:
 //   POST /api/arca?action=estado   → prueba sin emitir: servidores ARCA + último comprobante de cada tipo en el PV
@@ -89,10 +89,11 @@ async function estado(cfg) {
 
 export default async function handler(req, res) {
   cors(res);
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Firebase-Token');
   if (req.method === 'OPTIONS') return res.status(200).end();
   try {
-    const idToken = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    // OJO: Authorization lo usa la contraseña del sitio (middleware.js, Basic). El token va aparte.
+    const idToken = req.headers['x-firebase-token'] || '';
     const email = await emailDelToken(idToken);
     if (email !== ADMIN_EMAIL) return res.status(401).json({ ok: false, error: 'Solo el administrador puede usar la facturación.' });
 
