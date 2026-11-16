@@ -92,6 +92,11 @@ export default function Preguntas({ mlAccounts, ensureToken }) {
           body: JSON.stringify({ token }),
         }).then(x => x.json())
         if (!r.ok) throw new Error(r.error || 'no contestó')
+        // Si no se pudo leer el listado de la cuenta, los hilos van a venir
+        // vacíos: mejor decirlo que dejar pensando que no hay nada anterior.
+        if (r.diag && !r.diag.escaneadas) {
+          malas.push(`${label}: no se pudo leer el historial de preguntas (las preguntas nuevas sí se ven)`)
+        }
         juntas.push(...(r.preguntas || []).map(q => ({ ...q, cuenta: key, cuentaLabel: label })))
       } catch (e) {
         // Que una cuenta falle NO deja sin ver la otra: se avisa cuál falló.

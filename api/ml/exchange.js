@@ -929,30 +929,39 @@ async function enTandas(lista, n, fn) {
   return out;
 }
 
-// Todo lo que ese comprador le preguntó a ESTA cuenta, con la respuesta que se
-// le dio. Muchas preguntas no se entienden solas ("lo hice de las 2 formas y
-// no me lleva"): sin el hilo anterior no hay con qué contestar.
-async function historialComprador(sellerId, compradorId, auth) {
-  const url = 'https://api.mercadolibre.com/questions/search?api_version=4' +
-    `&seller_id=${sellerId}&from=${compradorId}` +
-    '&sort_fields=date_created&sort_types=DESC&limit=15';
-  const r = await httpRequest('GET', url, auth).catch(() => null);
-  if (!r || r.status !== 200) return [];
-  return (r.body?.questions || [])
-    // Red de seguridad: se vuelve a comprobar que la pregunta sea de ESE
-    // comprador. Si ML algún día ignorara el filtro, mostrar preguntas de
-    // otra gente como si fueran de él sería peor que no mostrar nada.
-    .filter(q => String(q.from?.id || '') === String(compradorId))
-    .map(q => ({
-      id: q.id,
-      texto: q.text || '',
-      fecha: q.date_created || null,
-      mla: q.item_id || null,
-      estado: q.status || '',
-      respuesta: q.answer?.text || null,
-      respuestaFecha: q.answer?.date_created || null,
-    }));
+// Las últimas preguntas de la cuenta, CONTESTADAS Y SIN CONTESTAR, para poder
+// armar el hilo de cada comprador.
+//
+// El primer intento fue pedirle a ML las de cada comprador con el filtro
+// `from=<id>`: no devuelve nada, así que no sirve. Esto en cambio trae el
+// listado de la cuenta y agrupa por comprador acá, que es seguro porque el
+// `from.id` de cada pregunta ya lo venimos usando (es con lo que se busca el
+// nombre del comprador, y ese sí aparece). Son 4 pedidos por cuenta en vez de
+// dos por comprador: también es más rápido.
+async function preguntasRecientes(sellerId, auth, paginas = 4) {
+  const todas = [];
+  for (let p = 0; p < paginas; p++) {
+    const url = 'https://api.mercadolibre.com/questions/search?api_version=4' +
+      `&seller_id=${sellerId}&sort_fields=date_created&sort_types=DESC` +
+      `&limit=50&offset=${p * 50}`;
+    const r = await httpRequest('GET', url, auth).catch(() => null);
+    if (!r || r.status !== 200) break;
+    const qs = r.body?.questions || [];
+    todas.push(...qs);
+    if (qs.length < 50) break; // no hay más
+  }
+  return todas;
 }
+
+const comoHistorial = (q) => ({
+  id: q.id,
+  texto: q.text || '',
+  fecha: q.date_created || null,
+  mla: q.item_id || null,
+  estado: q.status || '',
+  respuesta: q.answer?.text || null,
+  respuestaFecha: q.answer?.date_created || null,
+});
 
 // El nombre con el que figura el comprador. Si ML no lo da, se sigue sin él.
 async function nickDe(compradorId, auth) {
@@ -1015,33 +1024,40 @@ async function preguntas(req, res) {
     }
   }
 
-  // Historial y nombre de cada comprador, de a 5 en paralelo. Se pide una vez
-  // por comprador aunque haya preguntado varias veces. Si falla, la pregunta
-  // se muestra igual: mejor sin historial que no poder contestar.
+  // El hilo de cada comprador: se trae el listado reciente de la cuenta una
+  // sola vez y se agrupa acá por comprador.
+  const recientes = await preguntasRecientes(sellerId, auth);
+  const hilos = {};
+  for (const q of recientes) {
+    const cid = q.from?.id;
+    if (!cid) continue;
+    (hilos[cid] = hilos[cid] || []).push(comoHistorial(q));
+  }
+
+  // El nombre del comprador sí se puede pedir de a uno (ese anda), pero sólo
+  // para los que tienen una pregunta sin responder.
   const compradores = [...new Set(lista.map(q => q.compradorId).filter(Boolean))].slice(0, 40);
-  const porComprador = {};
+  const nicks = {};
   await enTandas(compradores, 5, async (id) => {
-    const [hist, nick] = await Promise.all([
-      historialComprador(sellerId, id, auth),
-      nickDe(id, auth),
-    ]);
-    porComprador[id] = { nick, hist };
+    nicks[id] = await nickDe(id, auth);
     return null;
   });
 
   return res.status(200).json({
     ok: true, sellerId, nickname: me.body.nickname || '',
     total: r.body?.total ?? lista.length,
-    preguntas: lista.map(q => {
-      const c = porComprador[q.compradorId] || {};
-      return {
-        ...q,
-        pub: pub[q.mla] || null,
-        comprador: c.nick || '',
-        // Sin la pregunta actual: lo de antes, de lo más nuevo a lo más viejo
-        historial: (c.hist || []).filter(h => h.id !== q.id),
-      };
-    }),
+    // Para poder ver desde la app si el hilo vino vacío porque no hay nada o
+    // porque no se pudo leer el listado
+    diag: { escaneadas: recientes.length, compradoresConHilo: Object.keys(hilos).length },
+    preguntas: lista.map(q => ({
+      ...q,
+      pub: pub[q.mla] || null,
+      comprador: nicks[q.compradorId] || '',
+      // Sin la pregunta actual: lo de antes, de lo más nuevo a lo más viejo
+      historial: (hilos[q.compradorId] || [])
+        .filter(h => String(h.id) !== String(q.id))
+        .sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0)),
+    })),
   });
 }
 
