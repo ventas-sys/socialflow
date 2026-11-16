@@ -65,6 +65,34 @@
   font-size: 0.95rem; color: #111827; line-height: 1.45; margin-bottom: 0.6rem;
 }
 
+.preg-comprador { font-size: 0.76rem; color: #374151; font-weight: 600; }
+
+/* El hilo anterior con ese comprador */
+.preg-hilo {
+  border-left: 2px solid #e5e7eb; padding-left: 0.7rem;
+  margin: 0 0 0.7rem 0.2rem;
+}
+.preg-hilo-tit {
+  background: none; border: none; padding: 0 0 0.35rem; cursor: pointer;
+  font-size: 0.76rem; font-weight: 600; color: #6b7280; font-family: inherit;
+}
+.preg-hilo-tit:hover { color: #374151; }
+.preg-hilo-item { margin-bottom: 0.5rem; }
+.preg-hilo-q, .preg-hilo-r {
+  display: flex; gap: 0.35rem; align-items: baseline;
+  font-size: 0.8rem; line-height: 1.4; flex-wrap: wrap;
+}
+.preg-hilo-q { color: #374151; }
+.preg-hilo-r { color: #15803d; padding-left: 0.7rem; margin-top: 0.1rem; }
+.preg-hilo-r.sin { color: #b91c1c; font-style: italic; }
+.preg-hilo-ico { flex-shrink: 0; opacity: 0.6; }
+.preg-hilo-fecha { font-size: 0.7rem; color: #9ca3af; white-space: nowrap; }
+.preg-hilo-otra { font-size: 0.7rem; color: #9ca3af; padding-left: 0.7rem; font-family: ui-monospace, monospace; }
+.preg-hilo-mas {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-size: 0.74rem; color: #2563eb; font-weight: 600; font-family: inherit;
+}
+
 .preg-respuesta {
   width: 100%; padding: 0.55rem 0.7rem; border: 1px solid #d1d5db;
   border-radius: 0.5rem; font-size: 0.9rem; font-family: inherit;
@@ -95,4 +123,9 @@
   .preg-msg.ok { background: rgba(16,185,129,0.15); color: #6ee7b7; }
   .preg-msg.warn { background: rgba(251,191,36,0.12); color: #fcd34d; }
   .preg-foto { background: #111827; }
+  .preg-comprador { color: #d1d5db; }
+  .preg-hilo { border-left-color: #374151; }
+  .preg-hilo-q { color: #d1d5db; }
+  .preg-hilo-r { color: #6ee7b7; }
+  .preg-hilo-r.sin { color: #fca5a5; }
 }

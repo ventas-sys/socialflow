@@ -51,7 +51,12 @@ export default function Preguntas({ mlAccounts, ensureToken }) {
   const [enviando, setEnviando] = useState(null)  // preguntaId que se está contestando
   const [filtro, setFiltro] = useState('todas')   // todas | full | ferre
   const [buscar, setBuscar] = useState('')
+  const [abiertos, setAbiertos] = useState({})    // preguntaId -> false si se cerró el hilo
+  const [verTodo, setVerTodo] = useState({})      // preguntaId -> mostrar todo el historial
   const cargandoRef = useRef(false)
+
+  const alternarHilo = (id) =>
+    setAbiertos(p => ({ ...p, [id]: p[id] === false }))
 
   const conectadas = useMemo(
     () => CUENTAS.filter(c => mlAccounts?.[c.key]?.accessToken),
@@ -144,7 +149,7 @@ export default function Preguntas({ mlAccounts, ensureToken }) {
     return items.filter(q => {
       if (filtro !== 'todas' && q.cuenta !== filtro) return false
       if (!t) return true
-      return [q.texto, q.pub?.titulo, q.mla].join(' ').toLowerCase().includes(t)
+      return [q.texto, q.pub?.titulo, q.mla, q.comprador].join(' ').toLowerCase().includes(t)
     })
   }, [items, filtro, buscar])
 
@@ -157,8 +162,8 @@ export default function Preguntas({ mlAccounts, ensureToken }) {
           <h1>💬 Preguntas</h1>
           <p>
             Las preguntas sin responder de las dos cuentas, juntas y de la más nueva a la
-            más vieja. Lo que contestás acá se publica en Mercado Libre y <strong>no se
-            puede editar ni borrar</strong>.
+            más vieja, con lo que ese comprador ya había preguntado antes. Lo que contestás
+            acá se publica en Mercado Libre y <strong>no se puede editar ni borrar</strong>.
           </p>
         </div>
         <div className="preg-acciones">
@@ -205,6 +210,7 @@ export default function Preguntas({ mlAccounts, ensureToken }) {
           <div key={q.id} className={`preg-item ${urgencia(q.fecha)}`}>
             <div className="preg-item-top">
               <span className={`preg-cuenta ${q.cuenta}`}>{q.cuentaLabel}</span>
+              {q.comprador && <span className="preg-comprador">👤 {q.comprador}</span>}
               <span className="preg-fecha">{hace(q.fecha)}</span>
               {urgencia(q.fecha) === 'vieja' && <span className="preg-alerta">⚠️ más de un día sin contestar</span>}
             </div>
@@ -234,6 +240,48 @@ export default function Preguntas({ mlAccounts, ensureToken }) {
             </div>
 
             <div className="preg-texto">{q.texto}</div>
+
+            {/* El hilo anterior con ESTE comprador. Va abierto porque muchas
+                preguntas no se entienden solas, y es justo cuando hace falta. */}
+            {!!q.historial?.length && (
+              <div className="preg-hilo">
+                <button className="preg-hilo-tit" onClick={() => alternarHilo(q.id)}>
+                  {abiertos[q.id] === false ? '▸' : '▾'} Preguntas anteriores
+                  {q.comprador ? ` de ${q.comprador}` : ' de este comprador'} ({q.historial.length})
+                </button>
+                {abiertos[q.id] !== false && (
+                  <>
+                    {(verTodo[q.id] ? q.historial : q.historial.slice(0, 3)).map(h => (
+                      <div key={h.id} className="preg-hilo-item">
+                        <div className="preg-hilo-q">
+                          <span className="preg-hilo-ico">💬</span>
+                          <span>{h.texto}</span>
+                          <span className="preg-hilo-fecha">{hace(h.fecha)}</span>
+                        </div>
+                        {h.respuesta
+                          ? (
+                            <div className="preg-hilo-r">
+                              <span className="preg-hilo-ico">↳</span>
+                              <span>{h.respuesta}</span>
+                              <span className="preg-hilo-fecha">{hace(h.respuestaFecha)}</span>
+                            </div>
+                          )
+                          : <div className="preg-hilo-r sin">↳ sin responder</div>}
+                        {h.mla && h.mla !== q.mla && (
+                          <div className="preg-hilo-otra">sobre otra publicación: {h.mla}</div>
+                        )}
+                      </div>
+                    ))}
+                    {q.historial.length > 3 && !verTodo[q.id] && (
+                      <button className="preg-hilo-mas"
+                        onClick={() => setVerTodo(p => ({ ...p, [q.id]: true }))}>
+                        Ver las {q.historial.length} anteriores
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
 
             <textarea
               className="preg-respuesta"

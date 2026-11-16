@@ -919,10 +919,54 @@ async function multiget(url, auth) {
   return { lista: [], problema: 'sin respuesta' };
 }
 
+// Corre `fn` sobre la lista de a `n` en paralelo. Para pedirle varias cosas a
+// ML sin hacerlo de a una (tardaría demasiado) ni todas juntas (nos frena).
+async function enTandas(lista, n, fn) {
+  const out = [];
+  for (let i = 0; i < lista.length; i += n) {
+    out.push(...await Promise.all(lista.slice(i, i + n).map(fn)));
+  }
+  return out;
+}
+
+// Todo lo que ese comprador le preguntó a ESTA cuenta, con la respuesta que se
+// le dio. Muchas preguntas no se entienden solas ("lo hice de las 2 formas y
+// no me lleva"): sin el hilo anterior no hay con qué contestar.
+async function historialComprador(sellerId, compradorId, auth) {
+  const url = 'https://api.mercadolibre.com/questions/search?api_version=4' +
+    `&seller_id=${sellerId}&from=${compradorId}` +
+    '&sort_fields=date_created&sort_types=DESC&limit=15';
+  const r = await httpRequest('GET', url, auth).catch(() => null);
+  if (!r || r.status !== 200) return [];
+  return (r.body?.questions || [])
+    // Red de seguridad: se vuelve a comprobar que la pregunta sea de ESE
+    // comprador. Si ML algún día ignorara el filtro, mostrar preguntas de
+    // otra gente como si fueran de él sería peor que no mostrar nada.
+    .filter(q => String(q.from?.id || '') === String(compradorId))
+    .map(q => ({
+      id: q.id,
+      texto: q.text || '',
+      fecha: q.date_created || null,
+      mla: q.item_id || null,
+      estado: q.status || '',
+      respuesta: q.answer?.text || null,
+      respuestaFecha: q.answer?.date_created || null,
+    }));
+}
+
+// El nombre con el que figura el comprador. Si ML no lo da, se sigue sin él.
+async function nickDe(compradorId, auth) {
+  const r = await httpRequest('GET',
+    `https://api.mercadolibre.com/users/${compradorId}`, auth).catch(() => null);
+  if (!r || r.status !== 200) return '';
+  return r.body?.nickname || '';
+}
+
 // --- Preguntas de compradores ---
 // Las que están SIN RESPONDER de una cuenta, de la más nueva a la más vieja,
 // con los datos de la publicación por la que preguntan (título, link, precio
-// y stock en ML). Sin eso el que contesta no sabe de qué le están hablando.
+// y stock en ML) y el historial de ese comprador. Sin eso el que contesta no
+// sabe de qué le están hablando.
 //
 // Van las dos cuentas: la app llama una vez por cuenta y junta.
 async function preguntas(req, res) {
@@ -971,10 +1015,33 @@ async function preguntas(req, res) {
     }
   }
 
+  // Historial y nombre de cada comprador, de a 5 en paralelo. Se pide una vez
+  // por comprador aunque haya preguntado varias veces. Si falla, la pregunta
+  // se muestra igual: mejor sin historial que no poder contestar.
+  const compradores = [...new Set(lista.map(q => q.compradorId).filter(Boolean))].slice(0, 40);
+  const porComprador = {};
+  await enTandas(compradores, 5, async (id) => {
+    const [hist, nick] = await Promise.all([
+      historialComprador(sellerId, id, auth),
+      nickDe(id, auth),
+    ]);
+    porComprador[id] = { nick, hist };
+    return null;
+  });
+
   return res.status(200).json({
     ok: true, sellerId, nickname: me.body.nickname || '',
     total: r.body?.total ?? lista.length,
-    preguntas: lista.map(q => ({ ...q, pub: pub[q.mla] || null })),
+    preguntas: lista.map(q => {
+      const c = porComprador[q.compradorId] || {};
+      return {
+        ...q,
+        pub: pub[q.mla] || null,
+        comprador: c.nick || '',
+        // Sin la pregunta actual: lo de antes, de lo más nuevo a lo más viejo
+        historial: (c.hist || []).filter(h => h.id !== q.id),
+      };
+    }),
   });
 }
 
