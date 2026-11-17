@@ -18,7 +18,7 @@ const COND_IVA = [
 ]
 const condTxt = (id) => COND_IVA.find(c => c.id === Number(id))?.txt || ''
 const letra = (cond) => ([1, 6, 13].includes(Number(cond)) ? 'A' : 'B')
-const TIPO_TXT = { 0: 'Presupuesto', 1: 'Factura A', 6: 'Factura B', 3: 'NC A', 8: 'NC B' }
+const TIPO_TXT = { 0: 'Presupuesto', 1: 'Factura A', 6: 'Factura B', 3: 'NC A', 8: 'NC B', 91: 'Remito' }
 const CONDICIONES_VENTA = ['Contado', 'Transferencia', 'Mercado Pago', 'Tarjeta', 'Cuenta corriente']
 const $ = (n) => '$ ' + Number(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100
@@ -311,12 +311,12 @@ function Comprobantes({ version }) {
           {vis.map(c => (
             <tr key={c.id}>
               <td style={S.td}>{fechaTxt(c.fecha)}</td>
-              <td style={S.td}>{TIPO_TXT[c.cbteTipo]} {c.cbteTipo ? String(c.ptoVta).padStart(5, '0') + '-' : ''}{String(c.nro).padStart(8, '0')}{c.anuladoPor ? <span style={{ color: '#c00' }}> · anulada</span> : ''}</td>
+              <td style={S.td}>{TIPO_TXT[c.cbteTipo]} {c.cbteTipo && c.cbteTipo !== 91 ? String(c.ptoVta).padStart(5, '0') + '-' : ''}{String(c.nro).padStart(8, '0')}{c.anuladoPor ? <span style={{ color: '#c00' }}> · anulada</span> : ''}</td>
               <td style={S.td}>{c.receptor?.nombre}<div style={{ fontSize: 11, color: '#777' }}>{c.receptor?.DocNro || ''}</div></td>
               <td style={S.td}>{$(c.total)}</td>
               <td style={S.td}>{c.cae || '—'}</td>
               <td style={S.td}>
-                <button style={{ ...S.btn, padding: '4px 8px' }} onClick={() => descargarPdf(c.id)}>📄 PDF</button>{' '}
+                <button style={{ ...S.btn, padding: '4px 8px' }} onClick={() => c.cbteTipo === 91 ? llamarArca('remitoPdf', { remitoId: c.id }).then(r => r.ok ? abrirPdfs(r) : alert(r.error)) : descargarPdf(c.id)}>📄 PDF</button>{' '}
                 {[1, 6].includes(c.cbteTipo) && !c.anuladoPor && <button style={{ ...S.btn, padding: '4px 8px' }} onClick={() => anular(c)}>Nota de crédito</button>}
               </td>
             </tr>
@@ -432,6 +432,205 @@ function Clientes({ clientes, recargar, error }) {
   )
 }
 
+// ───────────────────────── Remitos ─────────────────────────
+async function abrirPdfs(r) {
+  const abrir = (b64) => { const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0)); window.open(URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })), '_blank') }
+  if (r.pdf) abrir(r.pdf)
+  if (r.etiquetas) abrir(r.etiquetas)
+}
+
+function Remitos({ products, combos, clientes, recargarClientes }) {
+  const vacioDest = { nombre: '', docNro: '', domicilio: '', localidad: '', provincia: '', cp: '', telefono: '', contacto: '' }
+  const [tipo, setTipo] = useState('expreso')
+  const [dest, setDest] = useState(vacioDest)
+  const [buscaCli, setBuscaCli] = useState('')
+  const [transportes, setTransportes] = useState([])
+  const [transp, setTransp] = useState({ nombre: '', cuit: '', domicilio: '', destino: '' })
+  const [items, setItems] = useState([])
+  const [buscaArt, setBuscaArt] = useState('')
+  const [bultos, setBultos] = useState(1)
+  const [peso, setPeso] = useState('')
+  const [valor, setValor] = useState('')
+  const [fragil, setFragil] = useState(false)
+  const [obs, setObs] = useState('')
+  const [comprobante, setComprobante] = useState('')
+  const [facturas, setFacturas] = useState([])
+  const [remitos, setRemitos] = useState([])
+  const [enviando, setEnviando] = useState(false)
+
+  const cargar = useCallback(async () => {
+    try {
+      const t = await getDocs(collection(db, 'arca_control'))
+      const tr = t.docs.find(d => d.id === 'transportes')
+      setTransportes(tr ? tr.data().lista || [] : [])
+      const s = await getDocs(query(collection(db, 'comprobantes'), orderBy('creado', 'desc'), limit(200)))
+      const todos = s.docs.map(d => d.data())
+      setFacturas(todos.filter(c => [1, 6, 0].includes(c.cbteTipo)))
+      setRemitos(todos.filter(c => c.cbteTipo === 91))
+    } catch (e) { console.warn('remitos', e) }
+  }, [])
+  useEffect(() => { cargar() }, [cargar])
+
+  const cliFiltrados = useMemo(() => {
+    const q = buscaCli.trim().toLowerCase()
+    if (q.length < 2) return []
+    return clientes.filter(c => (c.nombre || '').toLowerCase().includes(q) || String(c.docNro || '').includes(q.replace(/\D/g, '') || '@@')).slice(0, 8)
+  }, [clientes, buscaCli])
+
+  const catalogo = useMemo(() => [
+    ...products.map(p => ({ id: p.id, sku: p.code || '', descripcion: p.name || '' })),
+    ...combos.map(c => ({ id: c.id, sku: c.code || '', descripcion: c.name || '' })),
+  ], [products, combos])
+  const artFiltrados = useMemo(() => {
+    const q = buscaArt.trim().toLowerCase()
+    if (q.length < 2) return []
+    return catalogo.filter(x => x.sku.toLowerCase().includes(q) || x.descripcion.toLowerCase().includes(q)).slice(0, 10)
+  }, [catalogo, buscaArt])
+
+  const desdeComprobante = (id) => {
+    setComprobante(id)
+    const c = facturas.find(f => f.id === id)
+    if (!c) return
+    setItems(c.items.map(it => ({ sku: it.sku || '', descripcion: it.descripcion, cantidad: it.cantidad })))
+    const cli = clientes.find(x => String(x.docNro) === String(c.receptor?.DocNro))
+    setDest({ ...vacioDest, ...(cli || {}), nombre: c.receptor?.nombre || '', docNro: String(c.receptor?.DocNro || '') || '', domicilio: cli?.domicilio || c.receptor?.domicilio || '' })
+  }
+
+  const generar = async () => {
+    if (!dest.nombre) { alert('Falta el destinatario.'); return }
+    if (!items.length) { alert('Agregá al menos un artículo.'); return }
+    setEnviando(true)
+    const cf = facturas.find(f => f.id === comprobante)
+    const r = await llamarArca('remito', {
+      tipo, destinatario: dest, transporte: transp, items, bultos, peso, valorDeclarado: valor, fragil, observaciones: obs,
+      comprobante: cf ? `${TIPO_TXT[cf.cbteTipo]} ${cf.cbteTipo ? String(cf.ptoVta).padStart(5, '0') + '-' : ''}${String(cf.nro).padStart(8, '0')}` : '',
+    }).catch(e => ({ ok: false, error: e.message }))
+    setEnviando(false)
+    if (!r.ok) { alert('No se generó: ' + r.error); return }
+    // Guardar transporte y datos de entrega del cliente para la próxima
+    if (transp.nombre && !transportes.some(t => t.nombre.toLowerCase() === transp.nombre.toLowerCase())) {
+      const lista = [...transportes, transp]
+      await setDoc(doc(db, 'arca_control', 'transportes'), { lista }).catch(() => {})
+      setTransportes(lista)
+    }
+    const n = String(dest.docNro || '').replace(/\D/g, '')
+    if (n) await setDoc(doc(db, 'clientes', n), { nombre: dest.nombre, docNro: n, domicilio: dest.domicilio, localidad: dest.localidad, provincia: dest.provincia, cp: dest.cp, telefono: dest.telefono, contacto: dest.contacto }, { merge: true }).then(recargarClientes).catch(() => {})
+    abrirPdfs(r)
+    cargar()
+  }
+
+  const reimprimir = async (id) => {
+    const r = await llamarArca('remitoPdf', { remitoId: id })
+    if (!r.ok) { alert(r.error); return }
+    abrirPdfs(r)
+  }
+
+  const campo = (k, ph, w) => <input style={{ ...S.input, ...(w ? { gridColumn: w } : {}) }} placeholder={ph} value={dest[k] || ''} onChange={e => setDest({ ...dest, [k]: e.target.value })} />
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.3fr) minmax(320px,1fr)', gap: 14, alignItems: 'start' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={S.card}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {[['expreso', '🚚 Remito para expreso (A4 + etiquetas por bulto)'], ['micro', '🚌 Remito chico 15×10 (micro)']].map(([k, txt]) => (
+              <button key={k} onClick={() => setTipo(k)} style={{ ...S.btn, flex: 1, background: tipo === k ? '#1f6feb' : '#f7f7f7', color: tipo === k ? '#fff' : '#222' }}>{txt}</button>
+            ))}
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <b>Cargar desde una factura o presupuesto</b> <span style={{ fontSize: 12, color: '#777' }}>(opcional: trae cliente y artículos)</span>
+            <select style={{ ...S.input, marginTop: 4 }} value={comprobante} onChange={e => desdeComprobante(e.target.value)}>
+              <option value="">— Ninguno —</option>
+              {facturas.map(f => <option key={f.id} value={f.id}>{fechaTxt(f.fecha)} · {TIPO_TXT[f.cbteTipo]} {String(f.nro).padStart(8, '0')} · {f.receptor?.nombre} · {$(f.total)}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div style={S.card}>
+          <b>Destinatario</b>
+          <input style={{ ...S.input, marginTop: 4 }} placeholder="Buscar cliente guardado por nombre o CUIT…" value={buscaCli} onChange={e => setBuscaCli(e.target.value)} />
+          {cliFiltrados.length > 0 && (
+            <div style={{ border: '1px solid #ddd', borderRadius: 6, marginTop: 2 }}>
+              {cliFiltrados.map(c => <div key={c.id} onClick={() => { setDest({ ...vacioDest, ...c }); setBuscaCli('') }} style={{ padding: 6, cursor: 'pointer', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}><b>{c.nombre}</b> · {c.docNro}</div>)}
+            </div>
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6, marginTop: 6 }}>
+            {campo('nombre', 'Razón social / nombre', 'span 2')}{campo('docNro', 'CUIT / DNI')}
+            {campo('domicilio', 'Domicilio de entrega', 'span 2')}{campo('cp', 'Código postal')}
+            {campo('localidad', 'Localidad')}{campo('provincia', 'Provincia')}{campo('telefono', 'Teléfono')}
+            {campo('contacto', 'Contacto / quién recibe', 'span 3')}
+          </div>
+        </div>
+
+        <div style={S.card}>
+          <b>Artículos</b>
+          <input style={{ ...S.input, marginTop: 4 }} placeholder="Buscar SKU o nombre para agregar…" value={buscaArt} onChange={e => setBuscaArt(e.target.value)} />
+          {artFiltrados.length > 0 && (
+            <div style={{ border: '1px solid #ddd', borderRadius: 6, marginTop: 2 }}>
+              {artFiltrados.map(a => <div key={a.id} onClick={() => { setItems(l => [...l, { sku: a.sku, descripcion: a.descripcion, cantidad: 1 }]); setBuscaArt('') }} style={{ padding: 6, cursor: 'pointer', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>{a.sku} · {a.descripcion}</div>)}
+            </div>
+          )}
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 6 }}>
+            <tbody>
+              {items.map((it, i) => (
+                <tr key={i}>
+                  <td style={S.td}><input type="number" min="1" style={{ ...S.input, width: 60 }} value={it.cantidad} onChange={e => setItems(l => l.map((x, j) => j === i ? { ...x, cantidad: e.target.value } : x))} /></td>
+                  <td style={S.td}><span style={{ fontSize: 11, color: '#666' }}>{it.sku}</span> {it.descripcion}</td>
+                  <td style={S.td}><button style={{ ...S.btn, padding: '4px 8px' }} onClick={() => setItems(l => l.filter((_, j) => j !== i))}>✕</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <button style={{ ...S.btn, marginTop: 6, fontSize: 12 }} onClick={() => setItems(l => [...l, { sku: '', descripcion: 'Mercadería varia', cantidad: 1 }])}>+ Línea libre</button>
+          {items.some(x => x.sku === '' ) && <div style={{ fontSize: 12, color: '#777', marginTop: 4 }}>Las líneas libres se editan acá:</div>}
+          {items.map((it, i) => it.sku === '' && (
+            <input key={'d' + i} style={{ ...S.input, marginTop: 4 }} value={it.descripcion} onChange={e => setItems(l => l.map((x, j) => j === i ? { ...x, descripcion: e.target.value } : x))} />
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, position: 'sticky', top: 8 }}>
+        <div style={S.card}>
+          <b>{tipo === 'micro' ? 'Empresa de micro' : 'Expreso'}</b>
+          <select style={{ ...S.input, marginTop: 4 }} value="" onChange={e => { const t = transportes[Number(e.target.value)]; if (t) setTransp(t) }}>
+            <option value="">Elegir uno guardado…</option>
+            {transportes.map((t, i) => <option key={i} value={i}>{t.nombre}{t.destino ? ' → ' + t.destino : ''}</option>)}
+          </select>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 6 }}>
+            <input style={S.input} placeholder="Nombre" value={transp.nombre} onChange={e => setTransp({ ...transp, nombre: e.target.value })} />
+            <input style={S.input} placeholder="CUIT (opcional)" value={transp.cuit} onChange={e => setTransp({ ...transp, cuit: e.target.value })} />
+            <input style={S.input} placeholder="Domicilio / depósito" value={transp.domicilio} onChange={e => setTransp({ ...transp, domicilio: e.target.value })} />
+            <input style={S.input} placeholder={tipo === 'micro' ? 'Terminal destino' : 'Destino'} value={transp.destino} onChange={e => setTransp({ ...transp, destino: e.target.value })} />
+          </div>
+        </div>
+        <div style={S.card}>
+          <b>Bultos</b>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginTop: 6 }}>
+            <label style={{ fontSize: 12 }}>Cantidad<input type="number" min="1" style={S.input} value={bultos} onChange={e => setBultos(e.target.value)} /></label>
+            <label style={{ fontSize: 12 }}>Peso total kg<input style={S.input} value={peso} onChange={e => setPeso(e.target.value)} /></label>
+            <label style={{ fontSize: 12 }}>Valor declarado $<input style={S.input} value={valor} onChange={e => setValor(e.target.value)} /></label>
+          </div>
+          <label style={{ fontSize: 13, display: 'block', marginTop: 6 }}><input type="checkbox" checked={fragil} onChange={e => setFragil(e.target.checked)} /> Marcar FRÁGIL en las etiquetas</label>
+          <input style={{ ...S.input, marginTop: 6 }} placeholder="Observaciones (horario, etc.)" value={obs} onChange={e => setObs(e.target.value)} />
+          <button style={{ ...S.btnP, width: '100%', marginTop: 10, opacity: enviando ? 0.5 : 1 }} disabled={enviando} onClick={generar}>
+            {enviando ? 'Generando…' : tipo === 'micro' ? 'Generar remito 15×10' : `Generar remito + ${Math.max(1, Number(bultos) || 1)} etiqueta(s)`}
+          </button>
+          <div style={{ fontSize: 11, color: '#777', marginTop: 6 }}>Se abren los PDF: el remito (A4, original y duplicado) y las etiquetas 15×10 en otro archivo, para imprimirlas en la térmica.</div>
+        </div>
+        <div style={S.card}>
+          <b>Últimos remitos</b>
+          {remitos.slice(0, 15).map(r => (
+            <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', borderBottom: '1px solid #f0f0f0' }}>
+              <span>{r.id} · {r.destinatario?.nombre} · {r.tipo === 'micro' ? '🚌' : '🚚'} {r.bultos}b</span>
+              <button style={{ ...S.btn, padding: '2px 8px' }} onClick={() => reimprimir(r.id)}>Reimprimir</button>
+            </div>
+          ))}
+          {!remitos.length && <div style={{ fontSize: 13, color: '#888' }}>Todavía no hay remitos.</div>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ───────────────────────── Conexión ARCA ─────────────────────────
 function Conexion() {
   const [cargando, setCargando] = useState(false)
@@ -481,12 +680,13 @@ export default function Facturacion({ products = [], combos = [], loadPhotos }) 
     <div style={{ padding: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         <h2 style={{ margin: '0 12px 0 0' }}>🧾 Facturación</h2>
-        {[['vender', '🛒 Vender'], ['comprobantes', '📑 Comprobantes'], ['clientes', '👤 Clientes'], ['conexion', '🔌 Conexión ARCA']].map(([k, txt]) => (
+        {[['vender', '🛒 Vender'], ['remitos', '🚚 Remitos'], ['comprobantes', '📑 Comprobantes'], ['clientes', '👤 Clientes'], ['conexion', '🔌 Conexión ARCA']].map(([k, txt]) => (
           <button key={k} onClick={() => setSub(k)} style={{ ...S.btn, background: sub === k ? '#1f6feb' : '#f7f7f7', color: sub === k ? '#fff' : '#222' }}>{txt}</button>
         ))}
         <span style={{ marginLeft: 'auto', fontSize: 12, color: '#777' }}>BP IMPORT S.R.L. · PV 12 STOCK ML</span>
       </div>
       {sub === 'vender' && <Vender products={products} combos={combos} loadPhotos={loadPhotos} clientes={clientes} recargarClientes={cargarClientes} onEmitido={() => setVersion(v => v + 1)} />}
+      {sub === 'remitos' && <Remitos products={products} combos={combos} clientes={clientes} recargarClientes={cargarClientes} />}
       {sub === 'comprobantes' && <Comprobantes version={version} />}
       {sub === 'clientes' && <Clientes clientes={clientes} recargar={cargarClientes} error={errCli} />}
       {sub === 'conexion' && <Conexion />}

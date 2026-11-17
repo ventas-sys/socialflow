@@ -15,11 +15,15 @@
 //   POST /api/arca?action=nc            → nota de crédito total { comprobanteId }
 //   POST /api/arca?action=presupuesto   → guarda presupuesto (no va a ARCA)
 //   POST /api/arca?action=pdf           → { comprobanteId } → PDF en base64
+//   POST /api/arca?action=remito        → nuevo remito (expreso A4 + etiquetas, o micro 15x10) → PDFs
+//   POST /api/arca?action=remitoPdf     → { remitoId } → vuelve a generar los PDFs
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 import { emitirComprobante, guardarPresupuesto } from '../lib/arca/emitir.js';
 import { generarPDF } from '../lib/arca/pdf.js';
+import { generarRemito } from '../lib/arca/remito.js';
+import { runTransaction } from 'firebase/firestore';
 import { cors } from './_http.js';
 import { firebaseConfig } from './ml/cron.js';
 import { credenciales } from '../lib/arca/wsaa.js';
@@ -154,6 +158,37 @@ export default async function handler(req, res) {
       const pres = await guardarPresupuesto(db, cfg, { ...body, usuario: email });
       await guardarCliente(db, body.receptor).catch(() => {});
       return res.status(200).json({ ok: true, comprobante: pres });
+    }
+    if (action === 'remito') {
+      if (!body.destinatario?.nombre) throw new Error('Falta el destinatario.');
+      if (!Array.isArray(body.items) || !body.items.length) throw new Error('El remito no tiene artículos.');
+      const cRef = doc(db, 'arca_control', 'remitos');
+      const nro = await runTransaction(db, async (tx) => {
+        const s1 = await tx.get(cRef);
+        const n = (s1.exists() ? s1.data().ultimo || 0 : 0) + 1;
+        tx.set(cRef, { ultimo: n }, { merge: true });
+        return n;
+      });
+      const r = {
+        id: 'R-' + String(nro).padStart(8, '0'), cbteTipo: 91, estado: 'remito', nro,
+        tipo: body.tipo === 'micro' ? 'micro' : 'expreso',
+        destinatario: body.destinatario, transporte: body.transporte || {},
+        bultos: Math.max(1, Number(body.bultos) || 1), peso: body.peso || '', valorDeclarado: body.valorDeclarado || '',
+        fragil: !!body.fragil, comprobante: body.comprobante || '', observaciones: body.observaciones || '',
+        items: body.items.map(({ sku, descripcion, cantidad }) => ({ sku: sku || '', descripcion: String(descripcion || ''), cantidad: Number(cantidad) || 1 })),
+        receptor: { nombre: body.destinatario.nombre, DocNro: body.destinatario.docNro || '' },
+        total: 0, fecha: new Date().toISOString().slice(0, 10).replace(/-/g, ''),
+        usuario: email, creado: new Date().toISOString(),
+      };
+      await setDoc(doc(db, 'comprobantes', r.id), r);
+      const out = await generarRemito(r, EMPRESA);
+      return res.status(200).json({ ok: true, remito: r, pdf: out.remito.toString('base64'), etiquetas: out.etiquetas?.toString('base64') || null });
+    }
+    if (action === 'remitoPdf') {
+      const s0 = await getDoc(doc(db, 'comprobantes', String(body.remitoId || '')));
+      if (!s0.exists()) throw new Error('No encontré ese remito.');
+      const out = await generarRemito(s0.data(), EMPRESA);
+      return res.status(200).json({ ok: true, remito: s0.data(), pdf: out.remito.toString('base64'), etiquetas: out.etiquetas?.toString('base64') || null });
     }
     if (action === 'pdf') {
       const s0 = await getDoc(doc(db, 'comprobantes', String(body.comprobanteId || '')));
