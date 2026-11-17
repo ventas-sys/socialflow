@@ -1725,7 +1725,7 @@ export default function App() {
                 onGuardarFotos={guardarFotosDeProductos}
               />
             )}
-            {currentTab === 'facturacion' && isAdmin && <Facturacion />}
+            {currentTab === 'facturacion' && isAdmin && <Facturacion products={products} combos={combos} loadPhotos={loadPhotos} />}
             {currentTab === 'users' && isAdmin && (
               <Users
                 members={members}

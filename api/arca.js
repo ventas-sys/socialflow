@@ -10,10 +10,16 @@
 // (header X-Firebase-Token) y acá se valida contra Google antes de hacer nada.
 //
 // Acciones:
-//   POST /api/arca?action=estado   → prueba sin emitir: servidores ARCA + último comprobante de cada tipo en el PV
+//   POST /api/arca?action=estado        → prueba sin emitir: servidores ARCA + último comprobante de cada tipo en el PV
+//   POST /api/arca?action=emitir        → factura A/B con CAE { origenId, receptor, items, condicionVenta, observaciones }
+//   POST /api/arca?action=nc            → nota de crédito total { comprobanteId }
+//   POST /api/arca?action=presupuesto   → guarda presupuesto (no va a ARCA)
+//   POST /api/arca?action=pdf           → { comprobanteId } → PDF en base64
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
+import { emitirComprobante, guardarPresupuesto } from '../lib/arca/emitir.js';
+import { generarPDF } from '../lib/arca/pdf.js';
 import { cors } from './_http.js';
 import { firebaseConfig } from './ml/cron.js';
 import { credenciales } from '../lib/arca/wsaa.js';
@@ -21,6 +27,23 @@ import { WSFE } from '../lib/arca/wsfe.js';
 import { CBTE } from '../lib/arca/fiscal.js';
 
 const ADMIN_EMAIL = 'ventas@distribuidorauniverso.com';
+const EMPRESA = {
+  razonSocial: 'BP IMPORT S.R.L.',
+  cuit: '30-71532771-2',
+  domicilio: 'Bacacay 4726 - CABA',
+  iibb: '30-71532771-2',
+  inicioActividades: '',
+};
+
+async function guardarCliente(db, r) {
+  const n = String(r?.docNro || '').replace(/\D/g, '');
+  if (!n || n === '0') return;
+  await setDoc(doc(db, 'clientes', n), {
+    nombre: r.nombre || '', docTipo: n.length === 11 ? 'CUIT' : (r.docTipo || 'DNI'), docNro: n,
+    condicionIva: Number(r.condicionIva ?? 5), domicilio: r.domicilio || '', email: r.email || '',
+    telefono: r.telefono || '', ultimoUso: new Date().toISOString(),
+  }, { merge: true });
+}
 
 function config() {
   const dec = (v) => Buffer.from(String(v || ''), 'base64').toString('utf8');
@@ -100,6 +123,44 @@ export default async function handler(req, res) {
     const cfg = config();
     const action = req.query.action;
     if (action === 'estado') return res.status(200).json(await estado(cfg));
+    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+    const db = await baseDeDatos();
+    if (action === 'emitir') {
+      if (!body.origenId || !Array.isArray(body.items) || !body.items.length) throw new Error('Faltan datos de la venta.');
+      const ws = await cliente(cfg);
+      const c = await emitirComprobante(db, ws, cfg, { ...body, usuario: email });
+      if (c.estado === 'autorizado') await guardarCliente(db, body.receptor).catch(() => {});
+      return res.status(200).json({ ok: c.estado === 'autorizado', comprobante: c, error: c.errores?.join(' | ') });
+    }
+    if (action === 'nc') {
+      const s0 = await getDoc(doc(db, 'comprobantes', String(body.comprobanteId || '')));
+      if (!s0.exists()) throw new Error('No encontré ese comprobante.');
+      const o = s0.data();
+      if (![1, 6].includes(o.cbteTipo)) throw new Error('Solo se puede anular una factura A o B.');
+      if (o.anuladoPor) throw new Error('Esa factura ya tiene nota de crédito: ' + o.anuladoPor);
+      const ws = await cliente(cfg);
+      const c = await emitirComprobante(db, ws, cfg, {
+        origenId: 'nc_' + o.id,
+        receptor: { nombre: o.receptor.nombre, docTipo: o.receptor.DocTipo === 80 ? 'CUIT' : o.receptor.DocTipo === 86 ? 'CUIL' : 'DNI', docNro: o.receptor.DocNro, condicionIva: o.receptor.condicionIva, domicilio: o.receptor.domicilio },
+        items: o.items.map(({ sku, descripcion, cantidad, precioFinal, iva }) => ({ sku, descripcion, cantidad, precioFinal, iva })),
+        condicionVenta: o.condicionVenta, observaciones: body.motivo || '',
+        anula: { id: o.id, cbteTipo: o.cbteTipo, ptoVta: o.ptoVta, nro: o.nro, fecha: o.fecha },
+        usuario: email,
+      });
+      return res.status(200).json({ ok: c.estado === 'autorizado', comprobante: c, error: c.errores?.join(' | ') });
+    }
+    if (action === 'presupuesto') {
+      if (!Array.isArray(body.items) || !body.items.length) throw new Error('El presupuesto no tiene artículos.');
+      const pres = await guardarPresupuesto(db, cfg, { ...body, usuario: email });
+      await guardarCliente(db, body.receptor).catch(() => {});
+      return res.status(200).json({ ok: true, comprobante: pres });
+    }
+    if (action === 'pdf') {
+      const s0 = await getDoc(doc(db, 'comprobantes', String(body.comprobanteId || '')));
+      if (!s0.exists()) throw new Error('No encontré ese comprobante.');
+      const pdf = await generarPDF(s0.data(), EMPRESA);
+      return res.status(200).json({ ok: true, nombre: s0.id + '.pdf', base64: pdf.toString('base64') });
+    }
     return res.status(400).json({ ok: false, error: 'Acción desconocida' });
   } catch (e) {
     return res.status(200).json({ ok: false, error: String(e.message || e) });

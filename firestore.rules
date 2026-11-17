@@ -53,6 +53,12 @@ service cloud.firestore {
     // de proveedores. Es información sensible: la lee y escribe SOLO el master.
     match /finanzas/{id} { allow read, write: if isAdmin(); }
 
+    // 🧾 Facturación ARCA (16/11): todo solo admin. Los comprobantes y el control
+    // de numeración los escribe el servidor (cron@, que es admin).
+    match /clientes/{id} { allow read, write: if isAdmin(); }
+    match /comprobantes/{id} { allow read, write: if isAdmin(); }
+    match /arca_control/{id} { allow read, write: if isAdmin(); }
+
     // Solo el administrador agrega o quita miembros y cambia permisos
     match /members/{email} {
       allow read: if isMember();
