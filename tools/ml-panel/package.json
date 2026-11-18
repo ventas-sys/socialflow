@@ -1,0 +1,10 @@
+{
+  "name": "socialflow-ml-panel",
+  "version": "1.0.0",
+  "description": "Carga el Precio de lista en publicaciones de Mercado Libre desde el panel de vendedor (ML no lo permite por API).",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "playwright-core": "^1.48.0"
+  }
+}

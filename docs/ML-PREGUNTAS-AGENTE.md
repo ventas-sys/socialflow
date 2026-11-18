@@ -4,6 +4,69 @@
 > multi-cuenta, orientado a **cerrar la venta**. Hermano del bot de WhatsApp (mismo patrón).
 > Estado: **EN VIVO — "Tatiana" 100% automática** (webhook activo, probado con pregunta real).
 
+## 📌 Estado al 28-oct-2026 (última sesión — MCP + Precio de lista)
+
+**Hecho**
+- **Conector MCP propio de Mercado Libre** en `mcp-ml/`: 10 herramientas de SOLO LECTURA
+  (items, fotos, descripción, reseñas, preguntas, ventas/órdenes, visitas, envíos). PR #102
+  mergeado. Reutiliza `ML_ACCOUNTS` y el store de tokens compartido, no crea nada nuevo del
+  lado de ML.
+- **Hook de arranque de sesión** (`.claude/hooks/session-start.sh` + `.claude/settings.json`):
+  corre `npm install` en `mcp-ml/` solo, porque `node_modules` no se commitea y cada sesión
+  nueva arrancaba con el conector roto (`CONNECTION_CLOSED`). PR #178 mergeado.
+- **MCP oficial de Mercado Libre** agregado como alternativa, al lado del propio:
+  `mercadolibre-oficial` en `.mcp.json`, apunta a `https://mcp.mercadolibre.com/mcp`. Usa un
+  `access_token` que vence cada ~6hs (a diferencia del propio, que se renueva solo);
+  `scripts/ml-get-access-token.mjs` lo saca de forma segura (mismo store compartido). PR #179
+  mergeado.
+- **Nueva función: "Precio de lista" automático** (el precio tachado + %OFF que se ve en las
+  publicaciones). Pedido por Rodo: calcularlo a partir del precio de venta, apuntando a dejar
+  entre 25% y 31% OFF, con un número redondo (al millar, con pasos más chicos — 500/100/50/10 —
+  si el precio es bajo). Fórmula: **precio ÷ 0,70, redondeado**.
+  - `lib/ml/pricing.js` → `computeListPrice(price)` (cálculo puro, sin tocar nada; devuelve
+    `null` si ningún redondeo entra en el rango)
+  - **IMPORTANTE, descubierto el 28-oct-2026 en otra sesión (con las credenciales reales):**
+    Mercado Libre **NO deja escribir el precio de lista por API** (`PUT /items` con
+    `original_price` da "not modifiable" en publicaciones con ventas, y en variaciones se
+    descarta sin avisar). `lib/ml/ml-api.js` → `getListPrice()` quedó de SOLO LECTURA (lee
+    `/items/{id}/sale_price`). `scripts/ml-preview-list-price.mjs` ya no tiene `--apply`.
+  - **La carga real se hace por `tools/ml-panel/precio-de-lista.mjs`**: automatiza el panel de
+    vendedor con un navegador de verdad (Playwright/Edge), porque no hay otra forma. **Se
+    corre en una PC con pantalla** (necesita loguearse a mano la primera vez) — no sirve desde
+    una sesión en la nube. Modo por default es "explorar" (no guarda nada); hace falta
+    `--aplicar` para cargarlo de verdad, publicación por publicación o desde un archivo
+    (`--archivo=lista.txt`).
+  - **PR #180 — sigue en DRAFT**, con los commits de las dos sesiones (cálculo + API de
+    solo-lectura + el script de navegador). Falta probarlo de punta a punta.
+
+**Pendiente (retomar acá)**
+1. Correr `tools/ml-panel/precio-de-lista.mjs` en modo "explorar" (sin `--aplicar`) contra
+   `MLA1108642079` **desde una PC con pantalla**, para confirmar que encuentra bien los campos
+   del panel antes de cargar nada de verdad.
+2. Sin confirmar: si `MLA837056082` (el segundo item que pasó Rodo) reemplaza al anterior como
+   prueba, o se agrega.
+3. Recién con el OK de Rodo sobre el número calculado: correr con `--aplicar` en ESA
+   publicación puntual, y confirmar a ojo en Mercado Libre que el precio tachado se ve bien.
+4. Definir alcance antes de aplicarlo en bloque: ¿todas las publicaciones activas (FULL +
+   LOCAL) o un subconjunto? ¿Es carga única o también para publicaciones nuevas de acá en más?
+   (`--archivo=lista.txt` ya soporta cargar muchas de una).
+5. Mergear el PR #180 una vez confirmado que funciona en la prueba puntual.
+6. `ML_ACCOUNTS` quedó cargado en **"Secretos de red"** del entorno (no en "Variables de
+   entorno", que es pública — ojo con esa distinción en la UI de Claude Code), para que las
+   sesiones en la nube puedan LEER precios/calcular. El script del panel (`tools/ml-panel/`)
+   necesita además correr en una PC, eso no lo resuelve el secreto del entorno.
+
+**Importante para no romper nada**
+- El `refresh_token` de ML es de un solo uso — **nunca** pedir un `access_token` nuevo "por
+  fuera" del store compartido (`lib/ml/token-store.js`, función `getAccessToken()` en
+  `lib/ml/ml-api.js`). Pedirlo de otra forma rota el token que usa el Agente de Preguntas en
+  producción (ya pasó el 22-ago-2026, ver más abajo).
+- Esta sesión mergeó los PR #102/#178/#179 a mano (uno por uno, con confirmación de Rodo en el
+  chat) en vez de usar el flujo de auto-merge que ya existe en este repo (ver sección
+  "🚀 Merge automático de los PR" más abajo, decisión del 14-oct-2026). Para la próxima, evaluar
+  si conviene activarlo también para los PR de MCP/precio de lista, o si Rodo prefiere seguir
+  aprobando estos a mano por ser cambios más sensibles (tocan precios/escritura en ML).
+
 ## 📌 Estado al 14-oct-2026 (retomar acá)
 
 **Funcionando y confirmado**
