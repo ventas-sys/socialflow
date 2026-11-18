@@ -55,6 +55,7 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
   const [showScanner, setShowScanner] = useState(false)
   const [shipmentId, setShipmentId] = useState(null)
   const [checks, setChecks] = useState({})
+  const [combosAbiertos, setCombosAbiertos] = useState({}) // comboKey -> desplegado
   const [okQty, setOkQty] = useState(false)
   const [okSlips, setOkSlips] = useState(false)
   const [msg, setMsg] = useState('')
@@ -90,6 +91,10 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
           photoId: m.p.id, photoKind: 'product', photoHas: !!m.p.hasPhotos,
         })
       } else {
+        // Los artículos del combo van sueltos (uno por renglón, con su tilde),
+        // pero marcados con la misma `comboKey` para poder mostrarlos juntos
+        // abajo de un solo encabezado verde que dice COMBO.
+        const comboKey = `c${idx}`
         m.c.items?.forEach((ci, j) => {
           const bp = products.find(pp => pp.id === ci.productId)
           // Foto: la del producto base; si no tiene, la del combo (la publicación)
@@ -98,6 +103,12 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
             qty: (ci.quantity || 1) * (it.quantity || 1),
             fragile: !!bp.fragile, primerEmpaque: !!bp.primerEmpaque, location: bp.location,
             comboName: m.c.name, dims: bp.dims,
+            // Datos del combo, para el encabezado y para lo que se despliega
+            comboKey,
+            comboQty: it.quantity || 1,
+            mlSku: it.sku || '',
+            mlMla: it.mla || '',
+            mlTitle: it.title || '',
             photoId: bp.hasPhotos ? bp.id : (m.c.hasPhotos ? m.c.id : bp.id),
             photoKind: bp.hasPhotos ? 'product' : 'combo',
             photoHas: !!(bp.hasPhotos || m.c.hasPhotos),
@@ -270,8 +281,37 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
           </div>
 
           <div className="pk-lines">
-            {lines.map(l => (
-              <label key={l.key} className={`pk-line ${checks[l.key] ? 'done' : ''} ${l.missing ? 'missing' : ''}`}>
+            {lines.map((l, i) => {
+              // El encabezado del combo se dibuja una sola vez, cuando
+              // empieza el grupo. No va adentro del <label> a propósito:
+              // si no, tocarlo tildaría el artículo.
+              const abreCombo = l.comboKey && (i === 0 || lines[i - 1].comboKey !== l.comboKey)
+              const cuantos = abreCombo ? lines.filter(x => x.comboKey === l.comboKey).length : 0
+              const abierto = !!combosAbiertos[l.comboKey]
+              return (
+            <React.Fragment key={l.key}>
+              {abreCombo && (
+                <div className={`pk-combo-cab ${abierto ? 'abierto' : ''}`}>
+                  <button
+                    type="button"
+                    className="pk-combo-chip"
+                    onClick={() => setCombosAbiertos(p => ({ ...p, [l.comboKey]: !p[l.comboKey] }))}
+                  >
+                    <span className="pk-combo-ico">🧩</span>
+                    <span className="pk-combo-txt">COMBO</span>
+                    {l.comboQty > 1 && <span className="pk-combo-x">×{l.comboQty}</span>}
+                    <span className="pk-combo-de">{cuantos} {cuantos === 1 ? 'artículo' : 'artículos'}</span>
+                    <span className="pk-combo-flecha">{abierto ? '▴' : '▾'}</span>
+                  </button>
+                  {abierto && (
+                    <div className="pk-combo-datos">
+                      <div><span>SKU ML</span>{l.mlSku || l.mlMla || '—'}</div>
+                      {l.mlTitle && <div><span>Título ML</span>{l.mlTitle}</div>}
+                    </div>
+                  )}
+                </div>
+              )}
+              <label className={`pk-line ${checks[l.key] ? 'done' : ''} ${l.missing ? 'missing' : ''} ${l.comboKey ? 'en-combo' : ''}`}>
                 <input
                   type="checkbox"
                   checked={!!checks[l.key]}
@@ -287,12 +327,15 @@ export default function Packing({ products, combos, shipments, loadPhotos, onUpd
                 <div className="pk-line-info">
                   <div className="pk-line-name">{l.name}</div>
                   {l.location && <div className="pk-line-loc">📍 {l.location}</div>}
-                  {l.comboName && <div className="pk-line-combo">🧩 {l.comboName}</div>}
+                  {/* La descripción del combo ya no se repite en cada renglón:
+                      está arriba, adentro del encabezado verde. */}
                   {l.missing && <div className="pk-line-warn">No está en el sistema — verificá con la etiqueta</div>}
                 </div>
                 <div className="pk-line-qty">×{l.qty}</div>
               </label>
-            ))}
+            </React.Fragment>
+              )
+            })}
           </div>
 
           <div className="pk-actions">

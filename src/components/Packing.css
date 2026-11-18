@@ -63,6 +63,44 @@
 .pk-line-name { font-weight: 800; color: #1f2937; font-size: 1.05rem; line-height: 1.25; }
 .pk-line-loc { color: #b45309; font-size: 0.85rem; font-weight: 600; margin-top: 0.15rem; }
 .pk-line-combo { color: #6d28d9; font-size: 0.8rem; }
+
+/* --- Combo: un encabezado verde y abajo los artículos que lo forman --- */
+.pk-combo-cab { margin-top: 0.2rem; }
+.pk-combo-chip {
+  display: flex; align-items: center; gap: 0.5rem; width: 100%;
+  background: #ecfdf5; border: 2px solid #10b981; border-radius: 0.7rem;
+  padding: 0.5rem 0.7rem; cursor: pointer; font-family: inherit;
+  color: #065f46; font-weight: 800; font-size: 0.95rem;
+}
+.pk-combo-chip:hover { background: #d1fae5; }
+.pk-combo-ico { font-size: 1.15rem; }
+.pk-combo-txt { letter-spacing: 0.6px; }
+.pk-combo-x {
+  background: #10b981; color: #fff; border-radius: 0.4rem;
+  padding: 0.05rem 0.45rem; font-size: 0.95rem; font-weight: 900;
+}
+.pk-combo-de { margin-left: auto; font-weight: 600; font-size: 0.8rem; color: #047857; }
+.pk-combo-flecha { font-size: 0.9rem; color: #047857; }
+/* Lo que aparece al tocar: lo de Mercado Libre, que no se necesita para armar */
+/* Pegado abajo del botón: el borde superior lo pone el botón */
+.pk-combo-cab.abierto .pk-combo-chip { border-radius: 0.7rem 0.7rem 0 0; }
+.pk-combo-datos {
+  border: 2px solid #10b981; border-top: none;
+  border-radius: 0 0 0.7rem 0.7rem;
+  padding: 0.55rem 0.75rem; background: #f0fdf4;
+  font-size: 0.82rem; color: #334155; line-height: 1.45;
+  word-break: break-word;
+}
+.pk-combo-datos div { display: flex; gap: 0.5rem; }
+.pk-combo-datos div + div { margin-top: 0.3rem; }
+.pk-combo-datos span {
+  flex-shrink: 0; font-weight: 700; color: #047857;
+  font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.4px;
+  padding-top: 0.12rem; min-width: 62px;
+}
+/* Los artículos del combo van corridos a la derecha, para que se vea que
+   pertenecen al encabezado de arriba */
+.pk-line.en-combo { margin-left: 0.9rem; border-left: 4px solid #10b981; }
 .pk-line-warn { color: #92400e; font-size: 0.8rem; font-weight: 600; }
 .pk-line-qty { font-size: 2.2rem; font-weight: 900; color: #1f2937; flex-shrink: 0; line-height: 1; }
 @media (max-width: 420px) {
@@ -122,5 +160,10 @@
   .pk-bigcheck:has(input:checked) { background: rgba(16,185,129,0.12); border-color: #10b981; }
   .pk-cancel { background: #334155; color: #f1f5f9; }
   .pk-photo-none { background: #334155; }
+  .pk-combo-chip { background: rgba(16,185,129,0.12); color: #6ee7b7; }
+  .pk-combo-chip:hover { background: rgba(16,185,129,0.2); }
+  .pk-combo-de, .pk-combo-flecha { color: #34d399; }
+  .pk-combo-datos { background: #0f172a; color: #cbd5e1; }
+  .pk-combo-datos span { color: #34d399; }
   .pk-msg { background: rgba(251,191,36,0.12); color: #fcd34d; }
 }
