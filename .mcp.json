@@ -3,6 +3,13 @@
     "mercadolibre": {
       "command": "node",
       "args": ["mcp-ml/server.mjs"]
+    },
+    "mercadolibre-oficial": {
+      "type": "http",
+      "url": "https://mcp.mercadolibre.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${ML_ACCESS_TOKEN}"
+      }
     }
   }
 }
