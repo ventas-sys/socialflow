@@ -239,6 +239,12 @@
   font-size: 1rem; margin-bottom: 0.5rem;
 }
 .full-modal-exceso.suave { background: #fef3c7; color: #92400e; border: 2px solid #fbbf24; }
+/* Cuando la grabación tarda: qué pasó y qué hacer, sin encerrar a nadie */
+.full-modal-lento {
+  background: #fef3c7; color: #92400e; border: 2px solid #fbbf24;
+  border-radius: 0.7rem; padding: 0.7rem 0.85rem; margin: 0.5rem 0;
+  font-size: 0.88rem; line-height: 1.45; text-align: left;
+}
 
 /* Cuando ML pide la misma publicación en varias variantes */
 .full-modal-variantes {

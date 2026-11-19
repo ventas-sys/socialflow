@@ -85,6 +85,12 @@ export default function FullShipment({
   const [volverACamara, setVolverACamara] = useState(false)
   const [soloFaltan, setSoloFaltan] = useState(false)
   const [busy, setBusy] = useState(false)
+  // En qué paso de la grabación va, y si está tardando demasiado. Firestore
+  // NO resuelve la escritura hasta que el servidor la confirma: con la señal
+  // del depósito floja esto se puede quedar esperando para siempre, y antes
+  // la pantalla decía sólo "Guardando..." sin poder salir.
+  const [paso, setPaso] = useState('')
+  const [tardando, setTardando] = useState(false)
   const [manual, setManual] = useState('')
   // Marcar de un clic sólo en la PC: en el celular se escanea, y un toque de
   // más con el dedo descontaría stock sin querer.
@@ -254,6 +260,7 @@ export default function FullShipment({
       const sacar = Math.min(-n, pendiente.yaLleva || 0)
       if (!sacar) { setMsg('❌ Ese artículo no tiene unidades cargadas en este envío'); return }
       setBusy(true)
+      const avisoLentoCorr = setTimeout(() => setTardando(true), 10000)
       try {
         await onDescontar(
           pendiente.bases.map(b => ({
@@ -276,7 +283,8 @@ export default function FullShipment({
       } catch (err) {
         setMsg('❌ No se pudo corregir: ' + err.message)
       } finally {
-        setBusy(false)
+        clearTimeout(avisoLentoCorr)
+        setBusy(false); setPaso(''); setTardando(false)
       }
       return
     }
@@ -294,6 +302,7 @@ export default function FullShipment({
       )) return
     }
     setBusy(true)
+    const avisoLento = setTimeout(() => setTardando(true), 10000)
     try {
       const renglones = pendiente.bases.map(b => ({
         productId: b.productId,
@@ -301,10 +310,12 @@ export default function FullShipment({
         quantity: -Math.abs(b.quantity * n),
         reason: `Envío a Full N° ${envio.numero}`,
       }))
+      setPaso('descontando')
       await onDescontar(renglones, {
         reference: `Envío Full N° ${envio.numero}`,
         reason: `Envío a Full N° ${envio.numero}`,
       })
+      setPaso('anotando')
       const nuevos = [...escaneos]
       const i = nuevos.findIndex(s => normalize(s.ref) === normalize(pendiente.code))
       if (i >= 0) nuevos[i] = {
@@ -320,13 +331,15 @@ export default function FullShipment({
     } catch (err) {
       setMsg('❌ No se pudo descontar: ' + err.message)
     } finally {
-      setBusy(false)
+      clearTimeout(avisoLento)
+      setBusy(false); setPaso(''); setTardando(false)
     }
   }
 
   const cancelarPendiente = () => {
     setPendiente(null)
     setBuscoParaAsociar('')
+    setTardando(false)
     if (volverACamara) setShowScanner(true)
   }
 
@@ -1219,14 +1232,34 @@ export default function FullShipment({
                     onClick={confirmar}
                     disabled={busy || cantidad === 0}
                   >
-                    {busy ? '⏳ Guardando...'
+                    {busy ? (paso === 'anotando' ? '⏳ Anotando en el envío...' : '⏳ Descontando del stock...')
                       : cantidad === 0 ? 'Poné una cantidad'
                       : cantidad < 0
                         ? `↩️ Sacar ${-cantidad} ${cantidad === -1 ? 'unidad' : 'unidades'} del envío y devolverlas al stock`
                         : `✅ Descontar ${cantidad} ${cantidad === 1 ? 'unidad' : 'unidades'} y anotar en envío N° ${envio.numero}`}
                   </button>
-                  <button className="full-modal-btn sec" onClick={cancelarPendiente} disabled={busy}>
-                    ✕ Cancelar
+                  {/* Si la grabación no vuelve, antes no se podía ni salir de
+                      esta pantalla. Ahora se avisa qué pasa y se puede cerrar:
+                      lo escrito queda guardado en el aparato y se manda solo. */}
+                  {tardando && busy && (
+                    <div className="full-modal-lento">
+                      ⏳ Está tardando — suele ser la señal.{' '}
+                      {paso === 'anotando'
+                        ? 'El stock YA se descontó; falta anotarlo en el envío.'
+                        : 'Todavía no se descontó nada.'}
+                      <br />
+                      <strong>No lo cargues de nuevo</strong>: cerrá, fijate si el renglón
+                      ya aparece abajo en la lista del envío, y si no aparece recién ahí volvé a cargarlo.
+                    </div>
+                  )}
+                  <button
+                    className="full-modal-btn sec"
+                    onClick={cancelarPendiente}
+                    /* Nunca se bloquea: encerrar al del depósito en esta
+                       pantalla es peor que dejarlo salir. La grabación sigue
+                       por atrás y avisa cuando termina. */
+                  >
+                    {busy ? '✕ Cerrar (sigue guardando por atrás)' : '✕ Cancelar'}
                   </button>
                 </div>
               )}
