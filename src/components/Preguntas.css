@@ -129,6 +129,28 @@
   border-radius: 0.5rem; font-size: 0.9rem; font-family: inherit;
   color: #111827; background: #fff; resize: vertical;
 }
+/* Lista de publicaciones propias al escribir #palabra */
+.preg-pubs {
+  border: 1px solid #d1d5db; border-top: none; border-radius: 0 0 0.5rem 0.5rem;
+  background: #fff; max-height: 260px; overflow-y: auto;
+}
+.preg-pubs-vacio { padding: 0.65rem 0.8rem; font-size: 0.8rem; color: #6b7280; }
+.preg-pub-op {
+  display: flex; gap: 0.6rem; align-items: center; width: 100%;
+  background: none; border: none; border-bottom: 1px solid #f3f4f6;
+  padding: 0.5rem 0.7rem; cursor: pointer; text-align: left; font-family: inherit;
+}
+.preg-pub-op:hover { background: #f3f4f6; }
+.preg-pub-op:last-child { border-bottom: none; }
+.preg-pub-op img { width: 42px; height: 42px; object-fit: contain; flex-shrink: 0; background: #f9fafb; border-radius: 0.3rem; }
+.preg-pub-info { min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.preg-pub-tit { font-size: 0.82rem; color: #111827; line-height: 1.3; }
+.preg-pub-meta { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; font-size: 0.74rem; color: #15803d; font-weight: 600; }
+.preg-pub-meta .cero { color: #b91c1c; }
+.preg-tag { font-size: 0.66rem; font-weight: 700; padding: 0.05rem 0.35rem; border-radius: 0.25rem; }
+.preg-tag.full { background: #dbeafe; color: #1e40af; }
+.preg-tag.gratis { background: #dcfce7; color: #166534; }
+
 .preg-item-pie { display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem; }
 .preg-largo { font-size: 0.72rem; color: #9ca3af; }
 .preg-largo.pasado { color: #b91c1c; font-weight: 700; }
@@ -230,6 +252,12 @@
   .preg-hilo-q { color: #d1d5db; }
   .preg-hilo-r { color: #6ee7b7; }
   .preg-hilo-r.sin { color: #fca5a5; }
+  .preg-pubs { background: #1f2937; border-color: #374151; }
+  .preg-pub-op { border-bottom-color: #374151; }
+  .preg-pub-op:hover { background: #111827; }
+  .preg-pub-tit { color: #e5e7eb; }
+  .preg-pub-op img { background: #111827; }
+  .preg-pubs-vacio { color: #9ca3af; }
   .preg-panel h3, .preg-fijo { color: #d1d5db; }
   .preg-admin { background: #1f2937; border-color: #374151; color: #d1d5db; }
   .preg-modal { background: #1f2937; color: #e5e7eb; }

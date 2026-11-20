@@ -94,6 +94,44 @@ const CONFIG_VACIA = {
   ],
 }
 
+// --- Buscar una publicación propia escribiendo #palabra ---
+// El catálogo de cada cuenta se trae UNA vez y se guarda en el aparato por
+// 12 horas, así la lista sale al instante y no se le pregunta a ML en cada
+// tecla. (ML no tiene búsqueda por texto en las publicaciones propias.)
+const CAT_HORAS = 12
+const catKey = (cuenta) => `pubs_${cuenta}`
+const catGuardado = (cuenta) => {
+  try {
+    const raw = localStorage.getItem(catKey(cuenta))
+    if (!raw) return null
+    const { ts, items } = JSON.parse(raw)
+    if (!items?.length || Date.now() - ts > CAT_HORAS * 3600 * 1000) return null
+    return items
+  } catch { return null }
+}
+const catGuardar = (cuenta, items) => {
+  // Si no entra (navegador lleno o en privado) no pasa nada: queda en memoria.
+  try { localStorage.setItem(catKey(cuenta), JSON.stringify({ ts: Date.now(), items })) } catch { /* sin espacio */ }
+}
+
+// El #palabra que se está escribiendo justo antes del cursor
+const tokenEn = (texto, pos) => {
+  const antes = String(texto).slice(0, pos)
+  const m = antes.match(/#([\p{L}\p{N}.\-/]*)$/u)
+  if (!m) return null
+  return { term: m[1], desde: pos - m[0].length, hasta: pos }
+}
+
+// Filtra por todas las palabras escritas, en cualquier orden
+const buscarEn = (items, term) => {
+  const palabras = term.toLowerCase().split(/\s+/).filter(Boolean)
+  if (!palabras.length) return []
+  return items.filter(it => {
+    const t = (it.t || '').toLowerCase()
+    return palabras.every(p => t.includes(p))
+  }).slice(0, 8)
+}
+
 // Arma la respuesta final: saludo + lo escrito + cierre, sólo lo tildado.
 const armar = ({ saludo, cuerpo, cierre, conSaludo, conCierre }) =>
   [conSaludo && saludo?.trim(), cuerpo?.trim(), conCierre && cierre?.trim()]
@@ -116,7 +154,81 @@ export default function Preguntas({ mlAccounts, ensureToken, config, onSaveConfi
   const [sinCierre, setSinCierre] = useState({})  // preguntaId -> true si se destildó el cierre
   const [foco, setFoco] = useState(null)          // pregunta en la que se está escribiendo
   const [admin, setAdmin] = useState(false)       // modal de respuestas rápidas
+  const [cat, setCat] = useState({})              // cuenta -> publicaciones activas
+  const [catCargando, setCatCargando] = useState({})
+  const [sugerencias, setSugerencias] = useState(null) // { id, term, desde, hasta, lista }
   const cargandoRef = useRef(false)
+  const catRef = useRef(cat); catRef.current = cat
+  // Pedidos del catálogo en curso, por cuenta. Sin esto, escribir rápido
+  // dispara varias bajadas del catálogo entero a la vez.
+  const catPedido = useRef({})
+
+  // Trae el catálogo de una cuenta (del aparato si está fresco, si no de ML)
+  const traerCatalogo = async (cuenta) => {
+    if (catRef.current[cuenta]) return catRef.current[cuenta]
+    if (catPedido.current[cuenta]) return catPedido.current[cuenta]
+    const guardado = catGuardado(cuenta)
+    if (guardado) {
+      catRef.current = { ...catRef.current, [cuenta]: guardado }
+      setCat(p => ({ ...p, [cuenta]: guardado }))
+      return guardado
+    }
+    setCatCargando(p => ({ ...p, [cuenta]: true }))
+    const pedido = (async () => {
+      try {
+        const token = await ensureToken(cuenta)
+        const r = await fetch('/api/ml/exchange?action=catalogo', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        }).then(x => x.json())
+        if (!r.ok) throw new Error(r.error || 'no contestó')
+        const items = r.items || []
+        catRef.current = { ...catRef.current, [cuenta]: items }
+        setCat(p => ({ ...p, [cuenta]: items }))
+        catGuardar(cuenta, items)
+        return items
+      } catch (e) {
+        setMsg(`⚠️ No se pudieron traer las publicaciones de ${cuenta.toUpperCase()}: ${e.message}`)
+        return null
+      } finally {
+        setCatCargando(p => ({ ...p, [cuenta]: false }))
+        delete catPedido.current[cuenta]
+      }
+    })()
+    catPedido.current[cuenta] = pedido
+    return pedido
+  }
+
+  // Al escribir: si hay un #palabra antes del cursor, mostrar las que coinciden
+  const alEscribir = async (q, valor, pos) => {
+    setBorrador(prev => ({ ...prev, [q.id]: valor }))
+    const tok = tokenEn(valor, pos)
+    if (!tok || tok.term.length < 2) { setSugerencias(null); return }
+    let items = catRef.current[q.cuenta]
+    if (!items) {
+      setSugerencias({ id: q.id, term: tok.term, desde: tok.desde, hasta: tok.hasta, lista: [], cargando: true })
+      items = await traerCatalogo(q.cuenta)
+      if (!items) { setSugerencias(null); return }
+    }
+    setSugerencias({ id: q.id, term: tok.term, desde: tok.desde, hasta: tok.hasta, lista: buscarEn(items, tok.term) })
+  }
+
+  // Elegir una publicación: el #palabra se reemplaza por el link.
+  // Se vuelve a buscar el #palabra en el texto de AHORA y no se usan las
+  // posiciones viejas: mientras se traía el catálogo pueden haber seguido
+  // escribiendo, y el link terminaría metido en cualquier lado.
+  const ponerLink = (q, pub) => {
+    const s = sugerencias
+    if (!s) return
+    setBorrador(prev => {
+      const texto = prev[q.id] || ''
+      const marca = '#' + s.term
+      const i = texto.lastIndexOf(marca)
+      if (i < 0) return { ...prev, [q.id]: (texto ? texto + ' ' : '') + pub.l + ' ' }
+      return { ...prev, [q.id]: texto.slice(0, i) + pub.l + ' ' + texto.slice(i + marca.length) }
+    })
+    setSugerencias(null)
+  }
 
   // Pega el texto de una respuesta rápida donde se está escribiendo. Suma,
   // no pisa: muchas veces se arma la respuesta con dos o tres.
@@ -382,13 +494,37 @@ export default function Preguntas({ mlAccounts, ensureToken, config, onSaveConfi
 
             <textarea
               className="preg-respuesta"
-              placeholder="Escribí la respuesta..."
+              placeholder="Escribí la respuesta... (poné #palabra para pegar el link de una publicación)"
               rows={3}
               maxLength={2000}
               value={borrador[q.id] || ''}
               onFocus={() => setFoco(q.id)}
-              onChange={e => { setFoco(q.id); setBorrador(prev => ({ ...prev, [q.id]: e.target.value })) }}
+              onChange={e => { setFoco(q.id); alEscribir(q, e.target.value, e.target.selectionStart) }}
             />
+
+            {/* Las publicaciones de ESA cuenta que coinciden con el #palabra */}
+            {sugerencias?.id === q.id && (
+              <div className="preg-pubs">
+                {sugerencias.cargando || catCargando[q.cuenta] ? (
+                  <div className="preg-pubs-vacio">⏳ Trayendo las publicaciones de {q.cuentaLabel}… (la primera vez tarda, después es al toque)</div>
+                ) : !sugerencias.lista.length ? (
+                  <div className="preg-pubs-vacio">Ninguna publicación de {q.cuentaLabel} con “{sugerencias.term}”.</div>
+                ) : sugerencias.lista.map(pub => (
+                  <button key={pub.id} type="button" className="preg-pub-op" onClick={() => ponerLink(q, pub)}>
+                    {pub.th && <img src={pub.th} alt="" loading="lazy" />}
+                    <span className="preg-pub-info">
+                      <span className="preg-pub-tit">{pub.t}</span>
+                      <span className="preg-pub-meta">
+                        {pesos(pub.p)}
+                        <span className={pub.s > 0 ? '' : 'cero'}>{pub.s} disponibles</span>
+                        {pub.full && <span className="preg-tag full">Full</span>}
+                        {pub.gratis && <span className="preg-tag gratis">Gratis</span>}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Cierre de abajo */}
             <label className="preg-fijo">

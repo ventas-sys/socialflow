@@ -19,6 +19,7 @@ export default async function handler(req, res) {
     if (action === 'itempics' || action === 'itemdetail') return await itemDetail(req, res);
     if (action === 'mlsearch') return await mlSearch(req, res);
     if (action === 'preguntas') return await preguntas(req, res);
+    if (action === 'catalogo') return await catalogo(req, res);
     if (action === 'responder') return await responder(req, res);
     if (action === 'shipstatus') return await shipStatus(req, res);
     if (action === 'topsold') return await topSold(req, res);
@@ -969,6 +970,70 @@ async function nickDe(compradorId, auth) {
     `https://api.mercadolibre.com/users/${compradorId}`, auth).catch(() => null);
   if (!r || r.status !== 200) return '';
   return r.body?.nickname || '';
+}
+
+// Todas las publicaciones ACTIVAS de la cuenta, con lo justo para elegirlas de
+// una lista: título, link, precio, stock y foto chica.
+//
+// Es para el "#palabra" de la solapa Preguntas. Se trae ENTERO una vez y se
+// filtra en el navegador, en vez de preguntarle a ML en cada tecla. Motivo:
+// el endpoint de publicaciones propias NO tiene búsqueda por texto
+// documentada, y /sites/MLA/search nos devuelve `forbidden` aunque se use el
+// token del vendedor (ya probado). Además así la lista sale al instante.
+async function catalogo(req, res) {
+  const { token } = req.body || {};
+  if (!token) return res.status(400).json({ ok: false, error: 'Falta access_token' });
+  const auth = { 'Authorization': 'Bearer ' + token };
+
+  const me = await httpRequest('GET', 'https://api.mercadolibre.com/users/me', auth);
+  if (me.status !== 200) {
+    return res.status(200).json({ ok: false, error: me.body?.message || ('HTTP ' + me.status) });
+  }
+  const sellerId = me.body.id;
+
+  // IDs de las activas, con scroll (aguanta más de 1000)
+  const ids = [];
+  let scrollId = null;
+  for (let p = 0; p < 60; p++) {
+    const url = `https://api.mercadolibre.com/users/${sellerId}/items/search?search_type=scan&status=active&limit=100` +
+      (scrollId ? `&scroll_id=${encodeURIComponent(scrollId)}` : '');
+    const r = await httpRequest('GET', url, auth);
+    if (r.status !== 200) break;
+    const results = r.body?.results || [];
+    ids.push(...results);
+    scrollId = r.body?.scroll_id;
+    if (!results.length || !scrollId) break;
+  }
+
+  // Detalle de a 20. Un lote que falla no mata la corrida (ver multiget).
+  const out = [];
+  let faltaron = 0;
+  for (let i = 0; i < ids.length; i += 20) {
+    const batch = ids.slice(i, i + 20).join(',');
+    const { lista, problema } = await multiget(
+      `https://api.mercadolibre.com/items?ids=${batch}` +
+      '&attributes=id,title,permalink,price,available_quantity,thumbnail,shipping,status', auth);
+    if (problema) { faltaron += Math.min(20, ids.length - i); continue; }
+    for (const entry of lista) {
+      const b = entry?.body;
+      if (!b?.id || b.status !== 'active') continue;
+      out.push({
+        id: b.id,
+        t: b.title || '',
+        l: b.permalink || '',
+        p: b.price ?? null,
+        s: b.available_quantity ?? null,
+        th: b.thumbnail || '',
+        full: b.shipping?.logistic_type === 'fulfillment',
+        gratis: !!b.shipping?.free_shipping,
+      });
+    }
+  }
+
+  if (!out.length && faltaron) {
+    return res.status(200).json({ ok: false, error: 'No se pudo leer ninguna publicación' });
+  }
+  return res.status(200).json({ ok: true, sellerId, total: out.length, faltaron, items: out });
 }
 
 // --- Preguntas de compradores ---
