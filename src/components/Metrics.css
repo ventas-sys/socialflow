@@ -265,3 +265,21 @@
 }
 .mt-vistas button:hover { background: #f1f5f9; }
 .mt-vistas button.on { background: #2563eb; border-color: #2563eb; color: #fff; }
+
+/* --- Envíos por tipo: barra proporcional + punto de color en la tabla --- */
+.mt-barra {
+  display: flex; height: 14px; border-radius: 999px; overflow: hidden;
+  margin: 0.2rem 0 0.9rem; background: #f3f4f6;
+}
+.mt-barra span { display: block; height: 100%; }
+.mt-punto {
+  display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+  margin-right: 0.45rem; vertical-align: middle;
+}
+/* Aclaración chica abajo del número de una tarjeta */
+.mt-card-sub { font-size: 0.68rem; color: #9ca3af; margin-top: 0.15rem; }
+
+@media (prefers-color-scheme: dark) {
+  .mt-barra { background: #334155; }
+  .mt-card-sub { color: #94a3b8; }
+}

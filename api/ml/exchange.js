@@ -695,6 +695,10 @@ async function metrics(req, res) {
   const shipIds = [];         // para el desglose por tipo de envío
   const shipMonto = new Map();
   let ventas = 0, unidades = 0, dinero = 0, canceladas = 0;
+  // Ventas SIN envío de ML: son las que el comprador retira o se acuerdan
+  // aparte. Antes no entraban en ningún lado del desglose porque no tienen
+  // shipping id, así que la suma por tipo no cerraba con el total de ventas.
+  let retiroEnvios = 0, retiroDinero = 0;
 
   const sumar = (orders) => {
     for (const o of orders) {
@@ -708,6 +712,7 @@ async function metrics(req, res) {
       ventas++; unidades += u; dinero += monto;
       const sid = o.shipping?.id;
       if (sid) { shipIds.push(sid); shipMonto.set(sid, monto); }
+      else { retiroEnvios++; retiroDinero += monto; }
     }
   };
 
@@ -729,17 +734,29 @@ async function metrics(req, res) {
   // Tipo de envío: hay que preguntar envío por envío, así que solo se calcula
   // si lo piden y con un tope, para no pasarse del tiempo de la función
   let tipoEnvio = null;
-  if (conEnvios && shipIds.length) {
+  if (conEnvios && (shipIds.length || retiroEnvios)) {
     const unicos = [...new Set(shipIds)].slice(0, 4000);
-    const acc = { flex: { envios: 0, dinero: 0 }, correo: { envios: 0, dinero: 0 }, full: { envios: 0, dinero: 0 }, otro: { envios: 0, dinero: 0 } };
+    const acc = {
+      flex: { envios: 0, dinero: 0 }, correo: { envios: 0, dinero: 0 },
+      full: { envios: 0, dinero: 0 },
+      // Retiro por el local / acordar con el comprador
+      retiro: { envios: retiroEnvios, dinero: retiroDinero },
+      otro: { envios: 0, dinero: 0 },
+    };
     let costoNuestro = 0;
     for (let i = 0; i < unicos.length; i += 12) {
       await Promise.all(unicos.slice(i, i + 12).map(async (sid) => {
         try {
           const r = await httpRequest('GET', `https://api.mercadolibre.com/shipments/${sid}`, auth);
           const t = r.body?.logistic_type || r.body?.logistic?.type;
-          const k = t === 'self_service' ? 'flex' : t === 'fulfillment' ? 'full'
-            : (t ? 'correo' : 'otro');
+          const modo = r.body?.mode;
+          // "custom" y "not_specified" son los que no van por el correo de ML:
+          // los retira el comprador o se acuerda la entrega aparte.
+          const k = t === 'self_service' ? 'flex'
+            : t === 'fulfillment' ? 'full'
+            : t ? 'correo'
+            : (modo === 'custom' || modo === 'not_specified') ? 'retiro'
+            : 'otro';
           acc[k].envios++;
           acc[k].dinero += shipMonto.get(sid) || 0;
           costoNuestro += r.body?.shipping_option?.cost || 0;
@@ -748,6 +765,32 @@ async function metrics(req, res) {
     }
     tipoEnvio = { ...acc, costoNuestro, consultados: unicos.length, total: [...new Set(shipIds)].length };
   }
+
+  // Preguntas del período. No hay filtro por fecha en el buscador de ML, así
+  // que se va de la más nueva a la más vieja y se corta al salir del período.
+  // Con tope, para no comerse el tiempo de la función en un período largo.
+  let preguntas = null;
+  try {
+    let cuenta = 0, corto = false;
+    for (let p = 0; p < 24; p++) {
+      const r = await httpRequest('GET',
+        'https://api.mercadolibre.com/questions/search?api_version=4' +
+        `&seller_id=${sellerId}&sort_fields=date_created&sort_types=DESC&limit=50&offset=${p * 50}`, auth);
+      if (r.status !== 200) { corto = true; break; }
+      const qs = r.body?.questions || [];
+      if (!qs.length) break;
+      let salio = false;
+      for (const q of qs) {
+        const t = new Date(q.date_created || 0).getTime();
+        if (t > hastaMs) continue;
+        if (t < desdeMs) { salio = true; break; }
+        cuenta++;
+      }
+      if (salio || qs.length < 50) break;
+      if (p === 23) corto = true; // llegó al tope: el número queda corto
+    }
+    preguntas = { total: cuenta, incompleto: corto };
+  } catch { /* si no se pueden leer, la pantalla sigue andando */ }
 
   // Saldo de Mercado Pago: la cuenta es la misma que la de ML, así que se
   // intenta con el mismo token. "A liquidar" es lo que todavía no se puede
@@ -784,6 +827,8 @@ async function metrics(req, res) {
     cuenta: me.body.nickname,
     resumen: {
       ventas, unidades, dinero, canceladas, visitas,
+      preguntas: preguntas?.total ?? null,
+      preguntasIncompleto: !!preguntas?.incompleto,
       ticket: ventas ? dinero / ventas : 0,
       promedioDia: dias.length ? ventas / dias.length : 0,
     },

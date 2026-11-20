@@ -263,7 +263,7 @@ export default function Metrics({
       // Juntar las cuentas elegidas en un solo resultado
       const resumen = { ventas: 0, unidades: 0, dinero: 0, canceladas: 0, visitas: null }
       const dias = new Map()
-      const envios = { flex: { envios: 0, dinero: 0 }, correo: { envios: 0, dinero: 0 }, full: { envios: 0, dinero: 0 }, otro: { envios: 0, dinero: 0 }, costoNuestro: 0 }
+      const envios = { flex: { envios: 0, dinero: 0 }, correo: { envios: 0, dinero: 0 }, full: { envios: 0, dinero: 0 }, retiro: { envios: 0, dinero: 0 }, otro: { envios: 0, dinero: 0 }, costoNuestro: 0 }
       let hayEnvios = false
       partes.forEach(p => {
         resumen.ventas += p.resumen.ventas
@@ -271,6 +271,8 @@ export default function Metrics({
         resumen.dinero += p.resumen.dinero
         resumen.canceladas += p.resumen.canceladas
         if (p.resumen.visitas != null) resumen.visitas = (resumen.visitas || 0) + p.resumen.visitas
+        if (p.resumen.preguntas != null) resumen.preguntas = (resumen.preguntas || 0) + p.resumen.preguntas
+        if (p.resumen.preguntasIncompleto) resumen.preguntasIncompleto = true
         p.porDia.forEach(d => {
           const a = dias.get(d.dia) || { dia: d.dia, ventas: 0, unidades: 0, dinero: 0 }
           a.ventas += d.ventas; a.unidades += d.unidades; a.dinero += d.dinero
@@ -278,7 +280,8 @@ export default function Metrics({
         })
         if (p.tipoEnvio) {
           hayEnvios = true
-          ;['flex', 'correo', 'full', 'otro'].forEach(k => {
+          ;['flex', 'correo', 'full', 'retiro', 'otro'].forEach(k => {
+            if (!p.tipoEnvio[k]) return
             envios[k].envios += p.tipoEnvio[k].envios
             envios[k].dinero += p.tipoEnvio[k].dinero
           })
@@ -437,25 +440,101 @@ export default function Metrics({
             )}
           </div>
 
-          {datos.envios && (
-            <div className="mt-panel">
-              <h2>Tipo de envío</h2>
-              <div className="mt-table-wrap">
-              <table className="mt-table">
-                <thead>
-                  <tr><th>Tipo</th><th>Envíos</th><th>Dinero</th></tr>
-                </thead>
-                <tbody>
-                  <tr><td>🛵 Flex (motos)</td><td>{num(datos.envios.flex.envios)}</td><td>{plata(datos.envios.flex.dinero)}</td></tr>
-                  <tr><td>📮 Correo / Colecta</td><td>{num(datos.envios.correo.envios)}</td><td>{plata(datos.envios.correo.dinero)}</td></tr>
-                  <tr><td>🏬 Full (bodega ML)</td><td>{num(datos.envios.full.envios)}</td><td>{plata(datos.envios.full.dinero)}</td></tr>
-                  {datos.envios.otro.envios > 0 && (
-                    <tr><td>Sin envío / otro</td><td>{num(datos.envios.otro.envios)}</td><td>{plata(datos.envios.otro.dinero)}</td></tr>
-                  )}
-                </tbody>
-              </table>
+          {/* Cuánto sale por cada camino: moto, bodega de ML, correo y
+              retiro. La barra deja ver de un vistazo cuál pesa más. */}
+          {datos.envios && (() => {
+            const tipos = [
+              { k: 'flex', lbl: '🛵 Flex (motos)', color: '#10b981' },
+              { k: 'full', lbl: '🏬 Full (bodega ML)', color: '#f5c518' },
+              { k: 'correo', lbl: '📮 Correo / Colecta', color: '#6cb3ec' },
+              { k: 'retiro', lbl: '🏪 Retiro por el local / acordar', color: '#a78bfa' },
+              { k: 'otro', lbl: '❔ Sin determinar', color: '#9ca3af' },
+            ].filter(t => datos.envios[t.k]?.envios > 0)
+            const totEnv = tipos.reduce((s, t) => s + datos.envios[t.k].envios, 0) || 1
+            const totDin = tipos.reduce((s, t) => s + datos.envios[t.k].dinero, 0) || 1
+            return (
+              <div className="mt-panel">
+                <h2>Envíos por tipo</h2>
+                <div className="mt-barra">
+                  {tipos.map(t => (
+                    <span key={t.k}
+                      style={{ width: `${(datos.envios[t.k].envios / totEnv) * 100}%`, background: t.color }}
+                      title={`${t.lbl}: ${num(datos.envios[t.k].envios)}`} />
+                  ))}
+                </div>
+                <div className="mt-table-wrap">
+                <table className="mt-table">
+                  <thead>
+                    <tr><th>Tipo</th><th>Envíos</th><th>%</th><th>Dinero</th><th>% del dinero</th></tr>
+                  </thead>
+                  <tbody>
+                    {tipos.map(t => (
+                      <tr key={t.k}>
+                        <td><span className="mt-punto" style={{ background: t.color }} />{t.lbl}</td>
+                        <td>{num(datos.envios[t.k].envios)}</td>
+                        <td>{((datos.envios[t.k].envios / totEnv) * 100).toFixed(1).replace('.', ',')}%</td>
+                        <td>{plata(datos.envios[t.k].dinero)}</td>
+                        <td>{((datos.envios[t.k].dinero / totDin) * 100).toFixed(1).replace('.', ',')}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                </div>
+                <p className="mt-hint">Costo de envíos a cargo nuestro: <strong>{plata(datos.envios.costoNuestro)}</strong></p>
               </div>
-              <p className="mt-hint">Costo de envíos a cargo nuestro: <strong>{plata(datos.envios.costoNuestro)}</strong></p>
+            )
+          })()}
+
+          {/* Visitas → preguntas → ventas: cuánto de lo que mira la gente
+              termina en pregunta y cuánto en venta. */}
+          {(datos.resumen.visitas != null || datos.resumen.preguntas != null) && (
+            <div className="mt-panel">
+              <h2>Conversión</h2>
+              <div className="mt-cards">
+                {datos.resumen.visitas != null && (
+                  <div className="mt-card">
+                    <div className="mt-card-lbl">Visitas</div>
+                    <div className="mt-card-val">{num(datos.resumen.visitas)}</div>
+                  </div>
+                )}
+                {datos.resumen.preguntas != null && (
+                  <div className="mt-card">
+                    <div className="mt-card-lbl">Preguntas</div>
+                    <div className="mt-card-val">{num(datos.resumen.preguntas)}</div>
+                  </div>
+                )}
+                <div className="mt-card">
+                  <div className="mt-card-lbl">Ventas</div>
+                  <div className="mt-card-val">{num(datos.resumen.ventas)}</div>
+                </div>
+                {datos.resumen.visitas > 0 && datos.resumen.preguntas != null && (
+                  <div className="mt-card">
+                    <div className="mt-card-lbl">Preguntas / Visitas</div>
+                    <div className="mt-card-val">{((datos.resumen.preguntas / datos.resumen.visitas) * 100).toFixed(2).replace('.', ',')}%</div>
+                  </div>
+                )}
+                {datos.resumen.visitas > 0 && (
+                  <div className="mt-card">
+                    <div className="mt-card-lbl">Ventas / Visitas</div>
+                    <div className="mt-card-val">{((datos.resumen.ventas / datos.resumen.visitas) * 100).toFixed(2).replace('.', ',')}%</div>
+                  </div>
+                )}
+                {datos.resumen.preguntas > 0 && (
+                  <div className="mt-card">
+                    <div className="mt-card-lbl">Ventas por pregunta</div>
+                    <div className="mt-card-val">{(datos.resumen.ventas / datos.resumen.preguntas).toFixed(1).replace('.', ',')}</div>
+                    <div className="mt-card-sub">
+                      {((datos.resumen.ventas / datos.resumen.preguntas) * 100).toFixed(0)}% como lo muestra ML
+                    </div>
+                  </div>
+                )}
+              </div>
+              {datos.resumen.preguntasIncompleto && (
+                <p className="mt-hint">
+                  ⚠️ Las preguntas se cuentan de la más nueva para atrás y se llegó al tope:
+                  en un período largo el número puede quedar corto.
+                </p>
+              )}
             </div>
           )}
 
