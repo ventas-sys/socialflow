@@ -4,6 +4,7 @@ import { findByRef } from '../utils/refMatch'
 import { compressImage, MAX_PHOTOS, MAX_PHOTOS_BYTES, photosSize } from '../utils/images'
 import { extractImagesByRow } from '../utils/excelImages'
 import LazyThumb from './LazyThumb'
+import BuscadorProducto from './BuscadorProducto'
 import { fotoDeCombo, porQueSinFoto } from '../utils/fotoCombo'
 import './Combos.css'
 import { marcarTrabajo, liberarTrabajo } from '../utils/trabajoEnCurso'
@@ -781,18 +782,12 @@ export default function Combos({
                 <div className="items-editor">
                   {formData.items.map((item, i) => (
                     <div key={i} className="item-row">
-                      <select
+                      <BuscadorProducto
+                        products={products}
                         value={item.productId}
-                        onChange={e => setItem(i, 'productId', e.target.value)}
+                        onChange={(id) => setItem(i, 'productId', id)}
                         disabled={loading}
-                      >
-                        <option value="">-- Elegí un producto --</option>
-                        {products.map(p => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} (Stock: {p.quantity || 0})
-                          </option>
-                        ))}
-                      </select>
+                      />
                       <input
                         type="number"
                         min="1"
