@@ -18,8 +18,13 @@
 //   POST /api/ml/questions   (webhook de ML)    -> ML manda { resource, user_id, topic }
 //                                                 => responde la pregunta automáticamente
 //
+// ACCESO (21-nov-2026): toda acción pide la contraseña del sitio (Basic Auth, la
+// manda sola el navegador ya logueado) o &key=<ML_SWEEP_KEY> (los crons). Solo
+// quedan abiertos el aviso de ML y el health-check. Ver lib/acceso.js.
+//
 // Config: variable de entorno ML_ACCOUNTS (JSON). Ver lib/ml/qa-config.js.
 import { cors } from '../_http.js';
+import { accesoPermitido, rechazar } from '../../lib/acceso.js';
 
 // El reporte de medidas recorre TODO el catálogo (2000+ publicaciones); con los
 // 10s por defecto del plan Hobby se cortaba en la mitad. Igual que api/image.js.
@@ -605,6 +610,16 @@ export default async function handler(req, res) {
   // Health-check: ML (o el navegador) puede pegarle con GET para validar la URL.
   if (req.method === 'GET' && !action) {
     return res.status(200).json({ ok: true, service: 'ml-questions', accounts: accounts.length });
+  }
+
+  // CANDADO: este endpoint está fuera del middleware (ML tiene que poder
+  // avisarnos sin contraseña), así que el control se hace acá. Toda acción
+  // con nombre pide credencial; lo único que pasa libre es el aviso de ML
+  // (POST sin `action`, o `action=webhook`) y el ping sin acción.
+  // Antes de esto, diag/conversion/log se leían sin clave y answer/sweep/
+  // postventa se podían disparar por POST desde cualquier lado.
+  if (action && action !== 'webhook' && !accesoPermitido(req)) {
+    return rechazar(res);
   }
 
   try {

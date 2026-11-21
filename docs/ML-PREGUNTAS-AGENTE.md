@@ -1739,3 +1739,35 @@ regatones y packs con **cantidades incompletas** ("8 en vez de 10", "1 de 12").
 demorados o reprogramados y abrir mensaje al comprador (ML solo habilita al vendedor a
 escribir primero con un reclamo o un problema de envío); redactar respuestas a reclamos para
 que Rodo las apruebe. Los reclamos con plata (devolución, reembolso) quedan siempre en manos de Rodo.
+
+## `/api/ml/questions` ahora pide credencial — 21-nov-2026
+
+**Qué pasaba:** el endpoint está fuera del `middleware.js` (ML tiene que poder mandar el
+webhook sin contraseña), y con eso quedaban abiertas TODAS las acciones para cualquiera que
+tuviera la dirección. Sin clave se podía leer `diag`, `conversion`, `faltantes`, `medidas`,
+`ads`, `test`, `unanswered` y `log` (preguntas de clientes, ventas por publicación, catálogo),
+y por POST se podía disparar `answer` con `autopost` (publica una respuesta real), `sweep` y
+`postventa` (mandan mensajes a compradores). La key `ML_SWEEP_KEY` solo se pedía por GET y
+solo en algunas acciones.
+
+**Qué cambió:** toda acción con nombre pide una de dos credenciales (`lib/acceso.js`):
+- la **contraseña del sitio** (`SITE_PASSWORD`, Basic Auth, mismos usuarios que el middleware).
+  El navegador que ya entró al sitio la manda solo: el panel de `conexiones.html` y los links
+  de `faltantes` / `medidas` siguen andando sin tocar nada;
+- la **key de los crons** (`&key=<ML_SWEEP_KEY>`): `bridge/ml-sweep.sh` y `bridge/wa-bridge.mjs`
+  ya la mandaban.
+
+**Qué sigue abierto, a propósito:** el aviso de ML (POST sin `action`, o `action=webhook`), el
+ping sin acción (GET y POST) y `OPTIONS`. Si se cierra eso, ML da de baja la callback.
+
+**Qué cambia para quien lo usa:**
+- Abrir `…?action=diag` desde un navegador que nunca entró al sitio ahora muestra el cartel de
+  contraseña (la misma del sitio). Con la sesión abierta no se nota.
+- Un script o una sesión de Claude que lea `diag` o `conversion` tiene que mandar la key
+  (`&key=…`) o el encabezado `Authorization: Basic …`.
+- Las acciones que ya pedían key por GET (`reclamos`, `postventa`, `atrasadas`, `pausadas`,
+  `probar-chat`, `sweep`) la siguen pidiendo igual que antes.
+- Si no hay NI `SITE_PASSWORD` NI `ML_SWEEP_KEY` cargadas, no se bloquea nada (mismo criterio
+  que el middleware: sin clave configurada el sitio es público).
+
+Pruebas (sin red): `node scripts/test-acceso.mjs`.
