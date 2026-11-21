@@ -45,12 +45,20 @@ async function llamarArca(action, body) {
   try { return JSON.parse(txt) } catch { return { ok: false, error: 'Respuesta inesperada (HTTP ' + r.status + '): ' + txt.slice(0, 200) } }
 }
 
+// Baja el PDF directo a la carpeta Descargas (con nombre de archivo), sin abrir pestañas.
+function bajarArchivo(base64, nombre) {
+  const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
+  const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
+  const a = document.createElement('a')
+  a.href = url; a.download = nombre
+  document.body.appendChild(a); a.click(); a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 10000)
+}
+
 async function descargarPdf(comprobanteId) {
   const r = await llamarArca('pdf', { comprobanteId })
   if (!r.ok) { alert('No se pudo generar el PDF: ' + r.error); return }
-  const bytes = Uint8Array.from(atob(r.base64), c => c.charCodeAt(0))
-  const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
-  window.open(url, '_blank')
+  bajarArchivo(r.base64, r.nombre || comprobanteId + '.pdf')
 }
 
 // Mismo cálculo que el servidor: precio final con IVA → neto + IVA por línea.
@@ -145,6 +153,7 @@ function Vender({ products, combos, loadPhotos, clientes, recargarClientes, onEm
     setEnviando(false)
     setResultado(r)
     if (r.ok) {
+      descargarPdf(r.comprobante.id) // queda en Descargas automáticamente
       setCarrito([]); setObs(''); setOrigenId(nuevoOrigen())
       recargarClientes(); onEmitido()
     }
@@ -260,7 +269,7 @@ function Vender({ products, combos, loadPhotos, clientes, recargarClientes, onEm
                 ✅ <b>{TIPO_TXT[resultado.comprobante.cbteTipo]} {resultado.comprobante.cbteTipo ? `${String(resultado.comprobante.ptoVta).padStart(5, '0')}-` : ''}{String(resultado.comprobante.nro).padStart(8, '0')}</b> por {$(resultado.comprobante.total)}
                 {resultado.comprobante.cae && <div style={{ fontSize: 13 }}>CAE {resultado.comprobante.cae} · vence {fechaTxt(resultado.comprobante.caeVto)}</div>}
                 {resultado.comprobante.yaExistia && <div style={{ fontSize: 12 }}>(Ya estaba emitida: no se duplicó.)</div>}
-                <button style={{ ...S.btn, marginTop: 8 }} onClick={() => descargarPdf(resultado.comprobante.id)}>📄 Ver / descargar PDF</button>
+                <button style={{ ...S.btn, marginTop: 8 }} onClick={() => descargarPdf(resultado.comprobante.id)}>📄 Descargar PDF de nuevo</button>
               </>
             ) : <>❌ <b>No se emitió:</b> {resultado.error}</>}
           </div>
@@ -434,9 +443,9 @@ function Clientes({ clientes, recargar, error }) {
 
 // ───────────────────────── Remitos ─────────────────────────
 async function abrirPdfs(r) {
-  const abrir = (b64) => { const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0)); window.open(URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })), '_blank') }
-  if (r.pdf) abrir(r.pdf)
-  if (r.etiquetas) abrir(r.etiquetas)
+  const id = r.remito?.id || 'remito'
+  if (r.pdf) bajarArchivo(r.pdf, `${id}${r.remito?.tipo === 'micro' ? '-micro' : ''}.pdf`)
+  if (r.etiquetas) setTimeout(() => bajarArchivo(r.etiquetas, `${id}-etiquetas.pdf`), 600)
 }
 
 function Remitos({ products, combos, clientes, recargarClientes }) {

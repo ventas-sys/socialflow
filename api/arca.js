@@ -194,7 +194,11 @@ export default async function handler(req, res) {
       const s0 = await getDoc(doc(db, 'comprobantes', String(body.comprobanteId || '')));
       if (!s0.exists()) throw new Error('No encontré ese comprobante.');
       const pdf = await generarPDF(s0.data(), EMPRESA);
-      return res.status(200).json({ ok: true, nombre: s0.id + '.pdf', base64: pdf.toString('base64') });
+      const c0 = s0.data();
+      const TIPOS = { 0: 'Presupuesto', 1: 'Factura A', 6: 'Factura B', 3: 'NC A', 8: 'NC B' };
+      const num = c0.cbteTipo ? `${String(c0.ptoVta).padStart(5, '0')}-${String(c0.nro).padStart(8, '0')}` : String(c0.nro).padStart(8, '0');
+      const cli = String(c0.receptor?.nombre || '').replace(/[^\w áéíóúñÁÉÍÓÚÑ.-]/g, '').trim().slice(0, 40);
+      return res.status(200).json({ ok: true, nombre: `${TIPOS[c0.cbteTipo] || 'Comprobante'} ${num}${cli ? ' - ' + cli : ''}.pdf`, base64: pdf.toString('base64') });
     }
     return res.status(400).json({ ok: false, error: 'Acción desconocida' });
   } catch (e) {
